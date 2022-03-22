@@ -1,0 +1,5 @@
+[workspace]
+members = [
+"crates/marpii",
+"examples/hello_triangle"
+]
