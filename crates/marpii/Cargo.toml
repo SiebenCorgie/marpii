@@ -4,5 +4,34 @@ version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+
+default = ["default_allocator", "logging", "shader_reflection", "shader_reflection_verbose"]
+# if enabled, includes the default allocator implementation based
+# on TraverseResearche's gpu-allocator crate
+default_allocator = ["gpu-allocator"]
+
+# if enabled, marpii uses the log crate for messages.
+logging = ["log"]
+
+# if enabled, uses puffin to create a runtime profile
+profiling = ["puffin"]
+
+#if enabled includes rspirv, which allows for runtime analysis of shaders an construction of descriptorset
+#layouts for those
+shader_reflection = ["rspirv-reflect"]
+#if enabled, will log the exact layout of reflected shaders.
+shader_reflection_verbose = ["logging"]
 
 [dependencies]
+ash = {version = "0.36.0", features = ["loaded", "linked"]}
+ash-window = "0.9"
+raw-window-handle = "0.3.4"
+anyhow = "1.0.56"
+const-cstr = "0.1"
+smallvec = "1.8.0"
+
+gpu-allocator = {version = "0.17", optional = true}
+log = {version = "0.4.15", optional = true}
+puffin = {version = "0.13.1", optional = true}
+rspirv-reflect = {version = "0.7.0", optional = true}

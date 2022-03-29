@@ -1,12 +1,9 @@
 [package]
-name = "hello_triangle"
+name = "shader_builder"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-simple_logger = "2.1.0"
-anyhow = "1.0.56"
-marpii = {path = "../../crates/marpii"}
-winit = "0.26.1"
+spirv-builder = { git = "https://github.com/EmbarkStudios/rust-gpu", rev="4932a44658724d46be3d4c8ef81bf096ab1de9eb"}

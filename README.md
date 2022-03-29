@@ -17,12 +17,16 @@ More sophisticated applications sometimes need to create more complex systems th
 
 Have a look at the [minder](https://flathub.org/apps/details/com.github.phase1geo.minder) mind map for the initial ideas.
 
+## Defaults and opinionated design
+
+MarpII has some design decisions that are opinionated. For instance, where ever it matters the target vulkan version will be the latest stable major release. As of writing (march 2022) this is 1.3 
+
 ## Getting started
 
 ### Library usage
 
 Usage of the library is as usual by including the crate in your `Cargo.toml`.
-Examples can be found in the examples directory, marpii is also documented. A simple `cargo doc --open` should provide you with the necessary documentation.
+Examples can be found in the `examples` directory, marpii is also documented. A simple `cargo doc --open` should provide you with the necessary documentation.
 
 ### Examples
 
