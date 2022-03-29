@@ -1,5 +1,7 @@
 [workspace]
 members = [
 "crates/marpii",
-"examples/hello_triangle"
+"examples/hello_triangle",
+"examples/rust_shader",
+"examples/shader_builder"
 ]
