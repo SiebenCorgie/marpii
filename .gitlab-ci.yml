@@ -23,7 +23,7 @@ image: "rust:latest"
 #   - apt-get install -yqq --no-install-recommends build-essential
 
 before_script:
-  - wget -qO - http://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo apt-key add -
+  - wget -qO - http://packages.lunarg.com/lunarg-signing-key-pub.asc | apt-key add -
   - wget -qO /etc/apt/sources.list.d/lunarg-vulkan-focal.list http://packages.lunarg.com/vulkan/lunarg-vulkan-focal.list
   - apt update
   - apt install vulkan-sdk
