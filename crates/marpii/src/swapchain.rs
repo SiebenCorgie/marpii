@@ -35,26 +35,14 @@ pub struct SwapchainBuilder {
 }
 
 impl SwapchainBuilder {
-    pub fn build(
-        self,
-        extend: Option<
-            Box<
-                dyn FnMut(
-                    ash::vk::SwapchainCreateInfoKHRBuilder,
-                ) -> ash::vk::SwapchainCreateInfoKHRBuilder,
-            >,
-        >,
-    ) -> Result<Swapchain, anyhow::Error> {
+    pub fn build(self) -> Result<Swapchain, anyhow::Error> {
         if self.extent.width == 0 || self.extent.height == 0 {
             anyhow::bail!("Could not create swapchain, choosen extent had a zero-axis");
         }
 
         let sharing_mode = self.sharing_mode.clone();
 
-        let mut create_info = self.as_swapchain_create_info();
-        if let Some(mut ext) = extend {
-            create_info = ext(create_info);
-        }
+        let create_info = self.as_swapchain_create_info();
         let swapchain_loader =
             ash::extensions::khr::Swapchain::new(&self.device.instance.inner, &self.device.inner);
         let swapchain = unsafe { swapchain_loader.create_swapchain(&create_info, None)? };

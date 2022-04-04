@@ -3,18 +3,20 @@
 
 use anyhow::Result;
 use marpii::gpu_allocator::vulkan::Allocator;
+use marpii::resources::{
+    CommandBuffer, CommandBufferAllocator, CommandPool, ComputePipeline, DescriptorAllocator,
+    DescriptorPool, DescriptorSet,
+};
 use marpii::{
     ash::{
         self,
-        vk::{DescriptorPoolCreateInfo, Extent2D, Offset3D},
+        vk::{Extent2D, Offset3D},
     },
     context::Ctx,
     resources::{
         Image, ImageView, ImgDesc, PipelineLayout, PushConstant, SafeImageView, ShaderModule,
     },
-    surface::Surface,
     swapchain::{Swapchain, SwapchainImage},
-    sync::AbstractFence,
 };
 use std::sync::Arc;
 use winit::{
@@ -31,16 +33,14 @@ pub struct PushConst {
 struct PassData {
     //image that is rendered to
     image: Arc<Image<Allocator>>,
+    #[allow(dead_code)]
     image_view: ImageView<Allocator>,
 
-    command_buffer: ash::vk::CommandBuffer,
-    command_pool: ash::vk::CommandPool,
+    command_buffer: CommandBuffer<CommandPool>,
 
-    descriptor_pool: ash::vk::DescriptorPool,
-    descriptor_set: ash::vk::DescriptorSet,
+    descriptor_set: DescriptorSet<Arc<DescriptorPool>>,
 
-    pipeline_layout: marpii::resources::PipelineLayout,
-    pipeline: ash::vk::Pipeline,
+    pipeline: ComputePipeline,
     push_constant: PushConstant<PushConst>,
 
     is_first_time: bool,
@@ -61,9 +61,8 @@ impl PassData {
             marpii::allocator::MemoryUsage::GpuOnly,
             Some("RenderTarget"),
             None,
-            None,
         )?);
-        let image_view = image.view(ctx.device.clone(), image.view_all(), None)?;
+        let image_view = image.view(ctx.device.clone(), image.view_all())?;
 
         let push_constant = PushConstant::new(
             PushConst {
@@ -77,113 +76,75 @@ impl PassData {
         let shader_module = ShaderModule::new_from_file(&ctx.device, "resources/test_shader.spv")?;
 
         let descriptor_set_layouts = shader_module.create_descriptor_set_layouts()?;
-        let local_sets = descriptor_set_layouts
-            .iter()
-            .map(|(_idx, ly)| ly.inner)
-            .collect::<Vec<_>>();
 
-        let (descriptor_set, descriptor_pool) = {
+        let descriptor_set = {
             //NOTE bad practise, should be done per app.
-            let create_info = DescriptorPoolCreateInfo::builder()
-                .max_sets(1)
-                .pool_sizes(&[
-                    //One storage image
-                    ash::vk::DescriptorPoolSize {
-                        descriptor_count: 1,
-                        ty: ash::vk::DescriptorType::STORAGE_IMAGE,
-                    },
-                ]);
-            let pool = unsafe {
-                ctx.device
-                    .inner
-                    .create_descriptor_pool(&create_info, None)?
-            };
+            let pool = DescriptorPool::new_for_module(
+                &ctx.device,
+                ash::vk::DescriptorPoolCreateFlags::FREE_DESCRIPTOR_SET,
+                &shader_module,
+                1,
+            )?;
+            let pool = Arc::new(pool); //wrap since the trait allocation depends on it
 
-            //Allocate the set
-            let create_info = ash::vk::DescriptorSetAllocateInfo::builder()
-                .descriptor_pool(pool)
-                .set_layouts(&local_sets);
-            let set = unsafe { ctx.device.inner.allocate_descriptor_sets(&create_info)? }.remove(0);
+            let mut set = pool.allocate(&descriptor_set_layouts[0].1.inner)?;
 
-            //Write image descriptor to descriptorset
-            unsafe {
-                ctx.device.inner.update_descriptor_sets(
-                    &[*ash::vk::WriteDescriptorSet::builder()
-                        .dst_set(set)
-                        .dst_binding(0)
-                        .dst_array_element(0)
-                        .descriptor_type(ash::vk::DescriptorType::STORAGE_IMAGE)
-                        .image_info(&[ash::vk::DescriptorImageInfo {
-                            sampler: ash::vk::Sampler::null(),
-                            image_view: image_view.view,
-                            image_layout: ash::vk::ImageLayout::GENERAL,
-                        }])],
-                    &[],
-                )
-            }
+            set.write(
+                ash::vk::WriteDescriptorSet::builder()
+                    .dst_set(set.inner)
+                    .dst_binding(0)
+                    .dst_array_element(0)
+                    .descriptor_type(ash::vk::DescriptorType::STORAGE_IMAGE)
+                    .image_info(&[ash::vk::DescriptorImageInfo {
+                        sampler: ash::vk::Sampler::null(),
+                        image_view: image_view.view,
+                        image_layout: ash::vk::ImageLayout::GENERAL,
+                    }]),
+            );
 
-            (set, pool)
+            set
         };
 
-        let (pipeline, pipeline_layout) = {
-            let pipeline_layout =
-                PipelineLayout::new(&ctx.device, &local_sets, &[*push_constant.range()]).unwrap();
+        let pipeline = {
+            let pipeline_layout = PipelineLayout::from_layout_push(
+                &ctx.device,
+                &descriptor_set_layouts,
+                &push_constant,
+            )
+            .unwrap();
 
-            let name = std::ffi::CString::new(b"main".to_vec()).unwrap();
-            let create_info = ash::vk::ComputePipelineCreateInfo::builder()
-                .stage(
-                    *ash::vk::PipelineShaderStageCreateInfo::builder()
-                        .stage(ash::vk::ShaderStageFlags::COMPUTE)
-                        .module(shader_module.module)
-                        .name(&name),
-                )
-                .layout(pipeline_layout.layout);
+            let pipeline = ComputePipeline::new(
+                &ctx.device,
+                shader_module
+                    .into_shader_stage(ash::vk::ShaderStageFlags::COMPUTE, "main".to_owned()),
+                None,
+                pipeline_layout,
+            )?;
 
-            let pipeline = unsafe {
-                let mut pipelines = ctx
-                    .device
-                    .inner
-                    .create_compute_pipelines(ash::vk::PipelineCache::null(), &[*create_info], None)
-                    .unwrap();
-                pipelines.remove(0)
-            };
-
-            (pipeline, pipeline_layout)
+            pipeline
         };
 
         //Time to create the command buffer and descriptor set
-        let (cb, cbpool) = unsafe {
-            let command_pool = ctx.device.inner.create_command_pool(
-                &ash::vk::CommandPoolCreateInfo::builder()
-                    .queue_family_index(ctx.device.queues[0].family_index)
-                    .flags(ash::vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER),
-                None,
+        let cb = {
+            let command_pool = CommandPool::new(
+                &ctx.device,
+                ctx.device.queues[0].family_index,
+                ash::vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER,
             )?;
 
-            let command_buffer = ctx
-                .device
-                .inner
-                .allocate_command_buffers(
-                    &ash::vk::CommandBufferAllocateInfo::builder()
-                        .command_pool(command_pool)
-                        .command_buffer_count(1)
-                        .level(ash::vk::CommandBufferLevel::PRIMARY),
-                )?
-                .remove(0);
+            let command_buffer =
+                command_pool.allocate_buffer(ash::vk::CommandBufferLevel::PRIMARY)?;
 
-            (command_buffer, command_pool)
+            command_buffer
         };
 
         Ok(PassData {
             command_buffer: cb,
-            command_pool: cbpool,
             image,
             image_view,
-            pipeline_layout,
             pipeline,
             push_constant,
 
-            descriptor_pool,
             descriptor_set,
 
             is_first_time: true,
@@ -203,34 +164,34 @@ impl PassData {
         //first of all, reset our command buffer. Should be save since recording occures after waiting for the
         //acquire operation.
         ctx.device.inner.reset_command_buffer(
-            self.command_buffer,
+            self.command_buffer.inner,
             ash::vk::CommandBufferResetFlags::empty(),
         )?;
 
         //record the command buffer to execute our pipeline, then blit the image to the swapchain image
         ctx.device.inner.begin_command_buffer(
-            self.command_buffer,
+            self.command_buffer.inner,
             &ash::vk::CommandBufferBeginInfo::builder(),
         )?;
 
         //Bind descriptor set and pipeline
         ctx.device.inner.cmd_bind_pipeline(
-            self.command_buffer,
+            self.command_buffer.inner,
             ash::vk::PipelineBindPoint::COMPUTE,
-            self.pipeline,
+            self.pipeline.pipeline,
         );
         ctx.device.inner.cmd_bind_descriptor_sets(
-            self.command_buffer,
+            self.command_buffer.inner,
             ash::vk::PipelineBindPoint::COMPUTE,
-            self.pipeline_layout.layout,
+            self.pipeline.layout.layout,
             0,
-            &[self.descriptor_set],
+            &[self.descriptor_set.inner],
             &[],
         );
 
         ctx.device.inner.cmd_push_constants(
-            self.command_buffer,
-            self.pipeline_layout.layout,
+            self.command_buffer.inner,
+            self.pipeline.layout.layout,
             ash::vk::ShaderStageFlags::COMPUTE,
             0,
             self.push_constant.content_as_bytes(),
@@ -244,13 +205,11 @@ impl PassData {
             1,
         ];
 
-        println!("dispatch for {:?}", submit_size);
-
         if self.is_first_time {
             //Since this is the record for first time submit:
             //Move the attachment image and the swapchain image from undefined to shader_write / transfer_dst
             ctx.device.inner.cmd_pipeline_barrier(
-                self.command_buffer,
+                self.command_buffer.inner,
                 ash::vk::PipelineStageFlags::TOP_OF_PIPE,
                 ash::vk::PipelineStageFlags::COMPUTE_SHADER,
                 ash::vk::DependencyFlags::empty(),
@@ -290,7 +249,7 @@ impl PassData {
 
         //Dispatch cs
         ctx.device.inner.cmd_dispatch(
-            self.command_buffer,
+            self.command_buffer.inner,
             submit_size[0],
             submit_size[1],
             submit_size[2],
@@ -298,7 +257,7 @@ impl PassData {
 
         //Issue a barrier to wait for the compute shader and move the images to transfer src/dst
         ctx.device.inner.cmd_pipeline_barrier(
-            self.command_buffer,
+            self.command_buffer.inner,
             ash::vk::PipelineStageFlags::COMPUTE_SHADER,
             ash::vk::PipelineStageFlags::TRANSFER,
             ash::vk::DependencyFlags::empty(),
@@ -333,7 +292,7 @@ impl PassData {
 
         //now blit to the swapchain image
         ctx.device.inner.cmd_blit_image(
-            self.command_buffer,
+            self.command_buffer.inner,
             self.image.inner,
             ash::vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
             swapchain_image.image.inner,
@@ -365,7 +324,7 @@ impl PassData {
 
         //finally move swapchain image back to present and compute image back to general
         ctx.device.inner.cmd_pipeline_barrier(
-            self.command_buffer,
+            self.command_buffer.inner,
             ash::vk::PipelineStageFlags::COMPUTE_SHADER,
             ash::vk::PipelineStageFlags::TRANSFER,
             ash::vk::DependencyFlags::empty(),
@@ -399,32 +358,17 @@ impl PassData {
             ],
         );
         //End recording.
-        ctx.device.inner.end_command_buffer(self.command_buffer)?;
+        ctx.device
+            .inner
+            .end_command_buffer(self.command_buffer.inner)?;
 
         Ok(())
-    }
-}
-
-impl Drop for PassData {
-    fn drop(&mut self) {
-        let device = self.image.device.clone();
-        unsafe {
-            device.inner.destroy_pipeline(self.pipeline, None);
-            device
-                .inner
-                .destroy_descriptor_pool(self.descriptor_pool, None);
-            device
-                .inner
-                .free_command_buffers(self.command_pool, &[self.command_buffer]);
-            device.inner.destroy_command_pool(self.command_pool, None);
-        }
     }
 }
 
 ///Collects all runtime state for the application. Basically the context, swapchain and pipeline used for drawing.
 struct App {
     ctx: Ctx<Allocator>, //NOTE: This is the default allocator.
-    surface: Arc<Surface>,
     swapchain: Swapchain,
 
     pass_data: Vec<PassData>,
@@ -446,7 +390,7 @@ impl App {
                     println!("  {:#?}", f);
                 }
             })
-            .build(None)?;
+            .build()?;
 
         let width = 512;
         let height = 512;
@@ -457,7 +401,6 @@ impl App {
 
         Ok(App {
             ctx,
-            surface,
             swapchain,
             pass_data,
         })
@@ -533,15 +476,17 @@ impl App {
         };
 
         //execute recorded command buffer, signaling the present semaphore of the swapchain
-        unsafe {
+        if let Err(e) = unsafe {
             self.ctx.device.inner.queue_submit(
                 self.ctx.device.queues[0].inner,
                 &[*ash::vk::SubmitInfo::builder()
-                    .command_buffers(&[self.pass_data[swimage.index as usize].command_buffer])
+                    .command_buffers(&[self.pass_data[swimage.index as usize].command_buffer.inner])
                     .signal_semaphores(&[swimage.sem_present.inner])],
                 fence.inner,
             )
-        };
+        } {
+            println!("Error queue submit: {}", e);
+        }
 
         //set fence so we can wait in the next frame
         self.pass_data[swimage.index as usize].last_draw_fence = Some(fence);
@@ -576,6 +521,14 @@ fn main() -> Result<()> {
                 WindowEvent::CloseRequested => {
                     *ctrl = ControlFlow::Exit;
                     println!("============\nBye Bye============");
+
+                    unsafe {
+                        app.ctx
+                            .device
+                            .inner
+                            .device_wait_idle()
+                            .expect("Failed to wait")
+                    };
                 }
                 _ => {}
             },

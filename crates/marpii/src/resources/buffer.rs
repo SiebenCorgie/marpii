@@ -50,9 +50,6 @@ impl<A: Allocator + Send + Sync + 'static> Buffer<A> {
         usage: MemoryUsage,
         name: Option<&str>,
         create_flags: Option<ash::vk::BufferCreateFlags>,
-        extend: Option<
-            Box<dyn FnMut(ash::vk::BufferCreateInfoBuilder) -> ash::vk::BufferCreateInfoBuilder>,
-        >,
     ) -> Result<Self, anyhow::Error> {
         let mut builder = ash::vk::BufferCreateInfo::builder();
         if let Some(flags) = create_flags {
@@ -60,9 +57,6 @@ impl<A: Allocator + Send + Sync + 'static> Buffer<A> {
         }
 
         builder = description.set_on_builder(builder);
-        if let Some(mut ext) = extend {
-            builder = ext(builder);
-        }
 
         //create buffer handle
         let buffer = unsafe { device.inner.create_buffer(&builder, None)? };

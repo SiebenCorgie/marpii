@@ -1,12 +1,31 @@
 use crate::context::Device;
 use std::sync::Arc;
 
+use super::{DescriptorSetLayout, PushConstant};
+
+pub(crate) mod compute;
+pub(crate) mod graphics;
+
 pub struct PipelineLayout {
     pub device: Arc<Device>,
     pub layout: ash::vk::PipelineLayout,
 }
 
 impl PipelineLayout {
+    ///Highlevel wrapper around `new` that takes the descriptorset layouts and push constants directly.
+    pub fn from_layout_push<T: 'static>(
+        device: &Arc<Device>,
+        descriptor_set_layouts: &[(u32, DescriptorSetLayout)],
+        push_constant: &PushConstant<T>,
+    ) -> Result<Self, ash::vk::Result> {
+        let inner_layouts = descriptor_set_layouts
+            .iter()
+            .map(|(_idx, ly)| ly.inner)
+            .collect::<Vec<_>>();
+
+        Self::new(device, &inner_layouts, &[*push_constant.range()])
+    }
+
     pub fn new(
         device: &Arc<Device>,
         descriptor_set_layouts: &[ash::vk::DescriptorSetLayout],

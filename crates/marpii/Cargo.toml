@@ -30,6 +30,7 @@ raw-window-handle = "0.3.4"
 anyhow = "1.0.56"
 const-cstr = "0.1"
 smallvec = "1.8.0"
+fxhash = "0.2.1"
 
 gpu-allocator = {version = "0.17", optional = true}
 log = {version = "0.4.15", optional = true}
