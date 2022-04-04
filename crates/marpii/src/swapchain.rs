@@ -225,7 +225,7 @@ impl SwapchainBuilder {
 
     ///enables you to chain multiple assignments to a constructed builder. For instance
     ///
-    ///```
+    ///```ignore
     /// builder.with(|b| b.usage = ash::vk::ImageUsageFlags::COLOR_ATTACHMENT)
     ///    .with(|b| b.format = ...)
     ///    .build(..)

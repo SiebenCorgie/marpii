@@ -111,7 +111,7 @@ impl DeviceBuilder {
     }
 
     ///Pushes the new extension. The name is usually optained from the extensions definition like this:
-    ///```
+    ///```irgnore
     ///  builder.push_extension(ash::vk::KhrPipelineLibraryFn::name());
     ///```
     ///
