@@ -186,15 +186,46 @@ impl DeviceBuilder {
             create_info.p_next = chain.as_ref() as *const _ as *const core::ffi::c_void;
         }
 
+        unsafe { Device::new_from_info(instance, physical_device, &create_info, &queues) }
+    }
+}
+
+///Thin device abstraction that keeps the underlying instance (and therfore entrypoint) alive.
+/// and takes care of device destruction once its dropped.
+///
+/// # Safety and self creation
+/// Since the struct is compleatly public it is possible to create a device "on your own". In that case you'll have to make sure
+/// that the instance is assosiated with the device and the queues actually exist.
+pub struct Device {
+    ///The raw ash device
+    pub inner: ash::Device,
+    pub instance: Arc<crate::context::Instance>,
+    pub physical_device: ash::vk::PhysicalDevice,
+    pub queues: Vec<Queue>,
+}
+
+impl Device {
+    ///Mini helper function that creates the device from an already created instance and physical device, using
+    /// the supplied device and creation infos.
+    /// The function assumes that device and queues can be created from the device. No additional checking is done.
+    ///
+    /// # Safety
+    /// The biggest concern when using this function should be that the queue_families of the `queue_builder` actully exist in that way,
+    /// and that possibly enabled extensions in the `deviec_create_info` exist. Otherwise this either panics or fails, depending on the
+    /// configured validation.
+    pub unsafe fn new_from_info(
+        instance: Arc<crate::context::Instance>,
+        physical_device: ash::vk::PhysicalDevice,
+        device_create_info: &ash::vk::DeviceCreateInfo,
+        queue_builder: &[QueueBuilder],
+    ) -> Result<Arc<Self>, anyhow::Error> {
         //finally create the queues and devic
-        let device = unsafe {
-            instance
-                .inner
-                .create_device(physical_device, &create_info, None)?
-        };
+        let device = instance
+            .inner
+            .create_device(physical_device, &device_create_info, None)?;
 
         //now setup the queues for the infos we prepared before
-        let queues = queues
+        let queues = queue_builder
             .into_iter()
             .map(|queue_family| {
                 (0..queue_family.priorities.len())
@@ -217,20 +248,6 @@ impl DeviceBuilder {
             queues,
         }))
     }
-}
-
-///Thin device abstraction that keeps the underlying instance (and therfore entrypoint) alive.
-/// and takes care of device destruction once its dropped.
-///
-/// # Safety and self creation
-/// Since the struct is compleatly public it is possible to create a device "on your own". In that case you'll have to make sure
-/// that the instance is assosiated with the device and the queues actually exist.
-pub struct Device {
-    ///The raw ash device
-    pub inner: ash::Device,
-    pub instance: Arc<crate::context::Instance>,
-    pub physical_device: ash::vk::PhysicalDevice,
-    pub queues: Vec<Queue>,
 }
 
 impl Drop for Device {

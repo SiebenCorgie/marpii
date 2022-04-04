@@ -1,5 +1,5 @@
 mod image;
-pub use image::{Image, ImageType, ImageView, ImgDesc, ImgViewDesc, SafeImageView};
+pub use image::{Image, ImageType, ImageView, ImgDesc, ImgViewDesc, SafeImageView, Sampler};
 
 mod buffer;
 pub use buffer::{BufDesc, Buffer};
@@ -10,13 +10,16 @@ pub use push_constant::PushConstant;
 mod descriptor;
 #[cfg(feature = "shader_reflection")]
 pub use descriptor::shader_interface::Reflection;
-pub use descriptor::DescriptorSetLayout;
+pub use descriptor::{DescriptorAllocator, DescriptorPool, DescriptorSet, DescriptorSetLayout};
 
 mod pipeline;
-pub use pipeline::PipelineLayout;
+pub use pipeline::{compute::ComputePipeline, graphics::GraphicsPipeline, PipelineLayout};
+
+mod command_buffer;
+pub use command_buffer::{CommandBuffer, CommandBufferAllocator, CommandPool};
 
 mod shader_module;
-pub use shader_module::ShaderModule;
+pub use shader_module::{ShaderModule, ShaderStage};
 
 use smallvec::SmallVec;
 

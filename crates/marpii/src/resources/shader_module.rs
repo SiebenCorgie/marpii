@@ -1,5 +1,5 @@
 use crate::context::Device;
-use std::{mem::size_of, path::Path, sync::Arc};
+use std::{ffi::CString, mem::size_of, path::Path, sync::Arc};
 
 use super::Reflection;
 
@@ -54,45 +54,6 @@ impl ShaderModule {
         })
     }
 
-    ///Creates a shade stage from this module. Basically a speciallized version of this shader module that knows
-    ///when (shader stage) and with what [specializations](https://www.khronos.org/registry/vulkan/specs/1.3-extensions/man/html/VkSpecializationInfo.html).
-    pub fn as_stage<'a>(
-        &'a self,
-        stage: ash::vk::ShaderStageFlags,
-        specialization_info: Option<&'a ash::vk::SpecializationInfo>,
-        name: Option<&'a str>,
-        extend: Option<
-            impl FnMut(
-                ash::vk::PipelineShaderStageCreateInfoBuilder,
-            ) -> ash::vk::PipelineShaderStageCreateInfoBuilder,
-        >,
-    ) -> ash::vk::PipelineShaderStageCreateInfoBuilder<'a> {
-        let mut info = ash::vk::PipelineShaderStageCreateInfo::builder()
-            .module(self.module)
-            .stage(stage);
-
-        if let Some(n) = name {
-            //Gotta check that it really is ASCII
-            //TODO: Do we have to add a \0?
-            if n.is_ascii() {
-                let cstr = unsafe { std::ffi::CStr::from_ptr(n.as_ptr() as *const i8) };
-                info = info.name(cstr);
-            } else {
-                #[cfg(feature = "logging")]
-                log::error!("Could not name ShaderStage, name was not ASCII");
-            }
-        }
-
-        if let Some(si) = specialization_info {
-            info = info.specialization_info(si);
-        }
-
-        if let Some(mut ext) = extend {
-            info = ext(info);
-        }
-        info
-    }
-
     ///Creates a descriptorset layout for each descriptor set reflection information. The `u32` in the returned list is the set-id of each descriptor set as found in the
     ///reflection information.
     ///
@@ -105,16 +66,55 @@ impl ShaderModule {
 
         let mut layouts = Vec::with_capacity(self.descriptor_interface.len());
         for (setid, bindings) in &self.descriptor_interface {
-            let layout = DescriptorSetLayout::new(self.device.clone(), &bindings, None)?;
+            let layout = DescriptorSetLayout::new(self.device.clone(), &bindings)?;
             layouts.push((*setid, layout));
         }
 
         Ok(layouts)
+    }
+
+    ///Creates shader stage from module. Panics if the entry_name is not utf8
+    pub fn into_shader_stage(
+        self,
+        stage: ash::vk::ShaderStageFlags,
+        entry_name: String,
+    ) -> ShaderStage {
+        ShaderStage {
+            module: self,
+            stage,
+            entry_name: CString::new(entry_name).unwrap(),
+        }
     }
 }
 
 impl Drop for ShaderModule {
     fn drop(&mut self) {
         unsafe { self.device.inner.destroy_shader_module(self.module, None) }
+    }
+}
+
+///Build from a [ShaderModule] this type knows its entry point name as well as the shader stage at which it is executed.
+pub struct ShaderStage {
+    ///Keeps the referenced shader module alive until the stage is dropped.
+    pub module: ShaderModule,
+    pub stage: ash::vk::ShaderStageFlags,
+    pub entry_name: CString,
+}
+
+impl ShaderStage {
+    pub fn as_create_info<'a>(
+        &'a self,
+        specialization_info: Option<&'a ash::vk::SpecializationInfo>,
+    ) -> ash::vk::PipelineShaderStageCreateInfoBuilder<'a> {
+        let mut builder = ash::vk::PipelineShaderStageCreateInfo::builder()
+            .stage(self.stage)
+            .module(self.module.module)
+            .name(self.entry_name.as_c_str());
+
+        if let Some(special) = specialization_info {
+            builder = builder.specialization_info(special)
+        }
+
+        builder
     }
 }

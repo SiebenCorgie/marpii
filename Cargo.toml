@@ -1,6 +1,10 @@
 [workspace]
 members = [
 "crates/marpii",
+"crates/marpii-command-graph",
+"crates/marpii-commands",
+"crates/marpii-descriptor",
+
 "examples/hello_triangle",
 "examples/rust_shader",
 "examples/shader_builder"

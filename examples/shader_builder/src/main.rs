@@ -1,10 +1,6 @@
 //!simple shader building utility. Usually hooked into the build script of the examples.
 
-use std::{
-    fs::create_dir_all,
-    io::{Read, Write},
-    path::{Path, PathBuf},
-};
+use std::{fs::create_dir_all, path::Path};
 
 use spirv_builder::{
     Capability, MetadataPrintout, ModuleResult, SpirvBuilder, SpirvBuilderError, SpirvMetadata,

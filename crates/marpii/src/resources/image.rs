@@ -1,3 +1,5 @@
+use ash::vk::SamplerCreateInfoBuilder;
+
 use crate::{
     allocator::{Allocation, Allocator, ManagedAllocation, MemoryUsage},
     context::Device,
@@ -304,9 +306,6 @@ impl<A: Allocator + Send + Sync + 'static> Image<A> {
         memory_usage: MemoryUsage,
         name: Option<&str>,
         create_flags: Option<ash::vk::ImageCreateFlags>,
-        extend: Option<
-            Box<dyn FnMut(ash::vk::ImageCreateInfoBuilder) -> ash::vk::ImageCreateInfoBuilder>,
-        >,
     ) -> Result<Self, anyhow::Error> {
         //per definition the image layout is undefined when creating an image.
         let initial_layout = ash::vk::ImageLayout::UNDEFINED;
@@ -318,11 +317,6 @@ impl<A: Allocator + Send + Sync + 'static> Image<A> {
 
         //now apply the description
         builder = description.set_on_builder(builder);
-
-        //now execute post function if there is any
-        if let Some(mut ext) = extend {
-            builder = ext(builder);
-        }
 
         //Time to create the image handle
         let image = unsafe { device.inner.create_image(&builder, None)? };
@@ -440,13 +434,6 @@ pub trait SafeImageView {
         &self,
         device: Arc<crate::context::Device>,
         desc: ImgViewDesc,
-        extend: Option<
-            Box<
-                dyn FnMut(
-                    ash::vk::ImageViewCreateInfoBuilder,
-                ) -> ash::vk::ImageViewCreateInfoBuilder,
-            >,
-        >,
     ) -> Result<ImageView<Self::Allocator>, anyhow::Error>;
 }
 
@@ -457,20 +444,9 @@ impl<A: Allocator + Send + Sync + 'static> SafeImageView for Arc<Image<A>> {
         &self,
         device: Arc<crate::context::Device>,
         desc: ImgViewDesc,
-        extend: Option<
-            Box<
-                dyn FnMut(
-                    ash::vk::ImageViewCreateInfoBuilder,
-                ) -> ash::vk::ImageViewCreateInfoBuilder,
-            >,
-        >,
     ) -> Result<ImageView<Self::Allocator>, anyhow::Error> {
         let mut builder = ash::vk::ImageViewCreateInfo::builder().image(self.inner);
         builder = desc.set_on_builder(builder);
-
-        if let Some(mut ext) = extend {
-            builder = ext(builder);
-        }
 
         let view = unsafe { device.inner.create_image_view(&builder, None)? };
 
@@ -480,5 +456,30 @@ impl<A: Allocator + Send + Sync + 'static> SafeImageView for Arc<Image<A>> {
             view,
             src_img: self.clone(),
         })
+    }
+}
+
+pub struct Sampler {
+    pub inner: ash::vk::Sampler,
+    pub device: Arc<Device>,
+}
+
+impl Sampler {
+    pub fn new(
+        device: &Arc<Device>,
+        create_info: &SamplerCreateInfoBuilder,
+    ) -> Result<Self, anyhow::Error> {
+        let sampler = unsafe { device.inner.create_sampler(create_info, None)? };
+
+        Ok(Sampler {
+            device: device.clone(),
+            inner: sampler,
+        })
+    }
+}
+
+impl Drop for Sampler {
+    fn drop(&mut self) {
+        unsafe { self.device.inner.destroy_sampler(self.inner, None) }
     }
 }

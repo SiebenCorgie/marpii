@@ -15,6 +15,16 @@ This works for simple applications, like [algae's test application](https://gitl
 
 More sophisticated applications sometimes need to create more complex systems that need access to Vulkan's low level primitives. This is where MarpII shines. It provides helpful helpers that can, but must not be used.
 
+The main [marpii](crates/marpii) crate provides helper function for the most common vulkan objects like pipelines, images, buffers etc. If manages lifetimes of objects that are created through the device. This usually happens "on drop" of those ressources. Additionaly some implicit lifetime tracking (for instance command-pools must outlive the command buffer created from those pools) are implemented by keeping a reference to the pool until the command buffer is dropped.
+
+On top of those low-level-ish helpers higher level helpers are implemented. Most notably:
+
+
+- marpii-descriptor: Self growing descriptor pool with descriptor sets that keep their bound resources alive until they are dropped.
+- marpii-command: Command-buffer helper that keeps resources alive until the command buffer is not in use anymore. 
+- marpii-command-graph: Provides highlevel "pass" abstraction and resource state tracking. Allows easy combination of graphics/renderpasses for rapid rendering prototyping.
+
+
 Have a look at the [minder](https://flathub.org/apps/details/com.github.phase1geo.minder) mind map for the initial ideas.
 
 ## Defaults and opinionated design
@@ -34,10 +44,10 @@ Examples are executed via `cargo run --bin example_name`. Have a look at `exampl
 
 
 ## Roadmap
-- [ ] Simple device and resource creation
+- [x] Simple device and resource creation
 - [ ] RAII style resource (Image / Buffer) creation
 - [ ] Bindless setup helpers
-- [ ] Pipeline layout <-> Shader descriptor verfication
+- [x] Pipeline layout <-> Shader descriptor verfication
 - [ ] Resource state negotiation (allows declaring "needed" state and "current" state and the needed transition between them), for single queue environment
 - [ ] high level "pass" concept with automatic inter-state transitions
 - [ ] command-buffer resource attachments (for better tracking of resource lifetimes)
