@@ -66,7 +66,7 @@ impl ShaderModule {
 
         let mut layouts = Vec::with_capacity(self.descriptor_interface.len());
         for (setid, bindings) in &self.descriptor_interface {
-            let layout = DescriptorSetLayout::new(self.device.clone(), &bindings)?;
+            let layout = DescriptorSetLayout::new(&self.device, &bindings)?;
             layouts.push((*setid, layout));
         }
 

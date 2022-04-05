@@ -49,3 +49,18 @@ impl Drop for PipelineLayout {
         unsafe { self.device.inner.destroy_pipeline_layout(self.layout, None) }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use compute::ComputePipeline;
+    use graphics::GraphicsPipeline;
+    use static_assertions::assert_impl_all;
+
+    #[test]
+    fn impl_send_sync() {
+        assert_impl_all!(PipelineLayout: Send, Sync);
+        assert_impl_all!(ComputePipeline: Send, Sync);
+        assert_impl_all!(GraphicsPipeline: Send, Sync);
+    }
+}

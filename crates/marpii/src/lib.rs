@@ -30,7 +30,7 @@ pub mod resources;
 ///Window surface related stuctures. Includes a self managed [Surface](surface::Surface) type.
 pub mod surface;
 
-/// [Swapchain](surface::Swapchain) type that can be created from a [Surface](surface::Surface). Includes some helper function.
+/// [Swapchain](swapchain::Swapchain) type that can be created from a [Surface](surface::Surface). Includes some helper function.
 ///To search for suitable formats, image layout transition of swapchain images etc.
 pub mod swapchain;
 

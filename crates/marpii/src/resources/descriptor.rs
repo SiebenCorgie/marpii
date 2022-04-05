@@ -18,7 +18,7 @@ impl DescriptorSetLayout {
     ///Generates a descriptor set layout from a set of bindings. The easiest way to optain those is to use
     /// [reflection](shader_interface::Reflection). Or by hand creating them.
     pub fn new(
-        device: Arc<Device>,
+        device: &Arc<Device>,
         bindings: &[ash::vk::DescriptorSetLayoutBinding],
     ) -> Result<Self, ash::vk::Result> {
         let info = ash::vk::DescriptorSetLayoutCreateInfo::builder().bindings(bindings);
@@ -26,7 +26,7 @@ impl DescriptorSetLayout {
         let layout = unsafe { device.inner.create_descriptor_set_layout(&info, None)? };
 
         Ok(DescriptorSetLayout {
-            device,
+            device: device.clone(),
             inner: layout,
         })
     }
@@ -143,7 +143,7 @@ pub trait DescriptorAllocator {
     fn device(&self) -> &ash::Device;
 }
 
-impl DescriptorAllocator for Arc<DescriptorPool> {
+impl DescriptorAllocator for DescriptorPool {
     fn allocate(
         self,
         layout: &ash::vk::DescriptorSetLayout,

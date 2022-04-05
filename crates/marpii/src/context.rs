@@ -12,7 +12,7 @@
 //! When working with buffers (and images) another structure, the allocator is relevant.
 //! It takes care of tracking where and which memory is in-use on the GPU etc.
 //!
-//! Since those four structures closely work together we define an abstraction called [Ctx](Ctx), or "Context".
+//! Since those four structures closely work together we define an abstraction called [Ctx](context::Ctx), or "Context".
 //!
 //! The `Instance` and `Device` are always created by ash, the allocator however can be defined by the
 //! application. Have a look at the [allocator](crate::allocator) module for its definition and default implementation.

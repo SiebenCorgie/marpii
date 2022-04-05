@@ -119,8 +119,30 @@ impl<T> Fence<T> {
     }
 
     ///Returns the cpu local payload which is embedded.
-    pub fn get_payload(&self) -> &Option<T> {
-        &self.payload
+    pub fn get_payload(&self) -> Option<&T> {
+        self.payload.as_ref()
+    }
+
+    ///Allows taking the payload type out of fence.
+    ///Fails if fence is not signaled.
+    pub fn take_payload(&mut self) -> Option<T> {
+        if let Ok(true) = self.get_status() {
+            self.payload.take()
+        } else {
+            None
+        }
+    }
+
+    ///Allows setting the fences payload. Fails if the fence is not signaled. In case of failing the supplied `payload` is returned.
+    ///On success, if a payload is already set the old payload is returned.
+    pub fn set_payload(&mut self, payload: T) -> Result<Option<T>, T> {
+        if let Ok(true) = self.get_status() {
+            let old = self.payload.take();
+            self.payload = Some(payload);
+            Ok(old)
+        } else {
+            Err(payload)
+        }
     }
 }
 

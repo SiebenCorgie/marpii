@@ -50,7 +50,7 @@ Examples are executed via `cargo run --bin example_name`. Have a look at `exampl
 - [x] Pipeline layout <-> Shader descriptor verfication
 - [ ] Resource state negotiation (allows declaring "needed" state and "current" state and the needed transition between them), for single queue environment
 - [ ] high level "pass" concept with automatic inter-state transitions
-- [ ] command-buffer resource attachments (for better tracking of resource lifetimes)
+- [x] command-buffer resource attachments (for better tracking of resource lifetimes)
 
 ![Initial mind map](resources/initialMindMap.svg)
 

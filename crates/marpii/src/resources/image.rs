@@ -483,3 +483,16 @@ impl Drop for Sampler {
         unsafe { self.device.inner.destroy_sampler(self.inner, None) }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use static_assertions::assert_impl_all;
+
+    #[test]
+    fn impl_send_sync() {
+        assert_impl_all!(Image<gpu_allocator::vulkan::Allocator>: Send, Sync);
+        assert_impl_all!(ImageView<gpu_allocator::vulkan::Allocator>: Send, Sync);
+        assert_impl_all!(Sampler: Send, Sync);
+    }
+}

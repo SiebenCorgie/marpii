@@ -13,7 +13,6 @@ pub struct ComputePipeline {
     pub device: Arc<Device>,
     pub pipeline: ash::vk::Pipeline,
     pub layout: PipelineLayout,
-    pub shader_stage: ShaderStage,
 }
 
 impl ComputePipeline {
@@ -50,7 +49,6 @@ impl ComputePipeline {
             device: device.clone(),
             pipeline,
             layout,
-            shader_stage: stage,
         })
     }
 }

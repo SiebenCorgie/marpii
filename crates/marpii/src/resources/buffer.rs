@@ -83,3 +83,14 @@ impl<A: Allocator + Send + Sync + 'static> Buffer<A> {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use static_assertions::assert_impl_all;
+
+    #[test]
+    fn impl_send_sync() {
+        assert_impl_all!(Buffer<gpu_allocator::vulkan::Allocator>: Send, Sync);
+    }
+}
