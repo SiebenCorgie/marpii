@@ -8,5 +8,8 @@ edition = "2021"
 [dependencies]
 simple_logger = "2.1.0"
 anyhow = "1.0.56"
+
 marpii = {path = "../../crates/marpii"}
+marpii-commands = {path = "../../crates/marpii-commands"}
+marpii-descriptor = {path = "../../crates/marpii-descriptor"}
 winit = "0.26.1"

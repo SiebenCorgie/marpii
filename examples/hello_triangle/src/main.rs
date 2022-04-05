@@ -3,22 +3,20 @@
 
 use anyhow::Result;
 use marpii::gpu_allocator::vulkan::Allocator;
-use marpii::resources::{
-    CommandBuffer, CommandBufferAllocator, CommandPool, ComputePipeline, DescriptorAllocator,
-    DescriptorPool, DescriptorSet,
-};
+use marpii::resources::{CommandBufferAllocator, CommandPool, ComputePipeline, DescriptorPool};
 use marpii::{
     ash::{
         self,
         vk::{Extent2D, Offset3D},
     },
     context::Ctx,
-    resources::{
-        Image, ImageView, ImgDesc, PipelineLayout, PushConstant, SafeImageView, ShaderModule,
-    },
+    resources::{Image, ImgDesc, PipelineLayout, PushConstant, SafeImageView, ShaderModule},
     swapchain::{Swapchain, SwapchainImage},
 };
-use std::sync::Arc;
+use marpii_commands::ManagedCommands;
+use marpii_descriptor::managed_descriptor::{Binding, ManagedDescriptorSet};
+use std::sync::{Arc, Mutex};
+use winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
 use winit::{
     event::{Event, WindowEvent},
     event_loop::ControlFlow,
@@ -26,26 +24,23 @@ use winit::{
 
 #[repr(C)]
 pub struct PushConst {
-    floatconst: f32,
-    color: [f32; 3],
+    radius: f32,
+    opening: f32,
+    offset: [f32; 2],
 }
 
 struct PassData {
     //image that is rendered to
     image: Arc<Image<Allocator>>,
-    #[allow(dead_code)]
-    image_view: ImageView<Allocator>,
 
-    command_buffer: CommandBuffer<CommandPool>,
+    command_buffer: ManagedCommands<CommandPool>,
 
-    descriptor_set: DescriptorSet<Arc<DescriptorPool>>,
+    descriptor_set: Arc<ManagedDescriptorSet<Allocator, DescriptorPool>>,
 
-    pipeline: ComputePipeline,
-    push_constant: PushConstant<PushConst>,
+    pipeline: Arc<ComputePipeline>,
+    push_constant: Arc<Mutex<PushConstant<PushConst>>>,
 
     is_first_time: bool,
-
-    last_draw_fence: Option<Arc<marpii::sync::Fence<()>>>,
 }
 
 impl PassData {
@@ -62,15 +57,16 @@ impl PassData {
             Some("RenderTarget"),
             None,
         )?);
-        let image_view = image.view(ctx.device.clone(), image.view_all())?;
+        let image_view = Arc::new(image.view(ctx.device.clone(), image.view_all())?);
 
-        let push_constant = PushConstant::new(
+        let push_constant = Arc::new(Mutex::new(PushConstant::new(
             PushConst {
-                color: [0.1, 0.75, 0.0],
-                floatconst: 1.0,
+                offset: [500.0, 500.0],
+                opening: (10.0f32).to_radians(),
+                radius: 450.0,
             },
             ash::vk::ShaderStageFlags::COMPUTE,
-        );
+        )));
 
         //load shader from file
         let shader_module = ShaderModule::new_from_file(&ctx.device, "resources/test_shader.spv")?;
@@ -85,31 +81,25 @@ impl PassData {
                 &shader_module,
                 1,
             )?;
-            let pool = Arc::new(pool); //wrap since the trait allocation depends on it
 
-            let mut set = pool.allocate(&descriptor_set_layouts[0].1.inner)?;
+            let set = ManagedDescriptorSet::new(
+                &ctx.device,
+                pool,
+                [Binding::new_image(
+                    image_view,
+                    ash::vk::ImageLayout::GENERAL,
+                )],
+                ash::vk::ShaderStageFlags::ALL,
+            )?;
 
-            set.write(
-                ash::vk::WriteDescriptorSet::builder()
-                    .dst_set(set.inner)
-                    .dst_binding(0)
-                    .dst_array_element(0)
-                    .descriptor_type(ash::vk::DescriptorType::STORAGE_IMAGE)
-                    .image_info(&[ash::vk::DescriptorImageInfo {
-                        sampler: ash::vk::Sampler::null(),
-                        image_view: image_view.view,
-                        image_layout: ash::vk::ImageLayout::GENERAL,
-                    }]),
-            );
-
-            set
+            Arc::new(set)
         };
 
         let pipeline = {
             let pipeline_layout = PipelineLayout::from_layout_push(
                 &ctx.device,
                 &descriptor_set_layouts,
-                &push_constant,
+                &push_constant.lock().unwrap(),
             )
             .unwrap();
 
@@ -121,7 +111,7 @@ impl PassData {
                 pipeline_layout,
             )?;
 
-            pipeline
+            Arc::new(pipeline)
         };
 
         //Time to create the command buffer and descriptor set
@@ -135,25 +125,23 @@ impl PassData {
             let command_buffer =
                 command_pool.allocate_buffer(ash::vk::CommandBufferLevel::PRIMARY)?;
 
-            command_buffer
+            ManagedCommands::new(&ctx.device, command_buffer)?
         };
 
         Ok(PassData {
             command_buffer: cb,
             image,
-            image_view,
             pipeline,
             push_constant,
 
             descriptor_set,
 
             is_first_time: true,
-            last_draw_fence: None,
         })
     }
 
     ///Records a new command buffer that renders to `image` and blits it to the swapchain's `image_idx` image.
-    pub unsafe fn record(
+    pub fn record(
         &mut self,
         ctx: &Ctx<Allocator>,
         swapchain_image: &SwapchainImage,
@@ -161,41 +149,44 @@ impl PassData {
         //For now define what queue family we are on. This should usually be checked.
         let queue_graphics_family = ctx.device.queues[0].family_index;
 
-        //first of all, reset our command buffer. Should be save since recording occures after waiting for the
-        //acquire operation.
-        ctx.device.inner.reset_command_buffer(
-            self.command_buffer.inner,
-            ash::vk::CommandBufferResetFlags::empty(),
-        )?;
+        //resets and starts command buffer
+        let mut recorder = self.command_buffer.start_recording()?;
 
-        //record the command buffer to execute our pipeline, then blit the image to the swapchain image
-        ctx.device.inner.begin_command_buffer(
-            self.command_buffer.inner,
-            &ash::vk::CommandBufferBeginInfo::builder(),
-        )?;
+        recorder.record({
+            let pipe = self.pipeline.clone();
+            move |dev, cmd| unsafe {
+                dev.cmd_bind_pipeline(*cmd, ash::vk::PipelineBindPoint::COMPUTE, pipe.pipeline)
+            }
+        });
 
-        //Bind descriptor set and pipeline
-        ctx.device.inner.cmd_bind_pipeline(
-            self.command_buffer.inner,
-            ash::vk::PipelineBindPoint::COMPUTE,
-            self.pipeline.pipeline,
-        );
-        ctx.device.inner.cmd_bind_descriptor_sets(
-            self.command_buffer.inner,
-            ash::vk::PipelineBindPoint::COMPUTE,
-            self.pipeline.layout.layout,
-            0,
-            &[self.descriptor_set.inner],
-            &[],
-        );
+        recorder.record({
+            let pipe = self.pipeline.clone();
+            let descset = self.descriptor_set.clone();
+            move |dev, cmd| unsafe {
+                dev.cmd_bind_descriptor_sets(
+                    *cmd,
+                    ash::vk::PipelineBindPoint::COMPUTE,
+                    pipe.layout.layout,
+                    0,
+                    &[*descset.raw()],
+                    &[],
+                );
+            }
+        });
 
-        ctx.device.inner.cmd_push_constants(
-            self.command_buffer.inner,
-            self.pipeline.layout.layout,
-            ash::vk::ShaderStageFlags::COMPUTE,
-            0,
-            self.push_constant.content_as_bytes(),
-        );
+        recorder.record({
+            let pipe = self.pipeline.clone();
+            let push = self.push_constant.clone();
+            move |dev, cmd| unsafe {
+                dev.cmd_push_constants(
+                    *cmd,
+                    pipe.layout.layout,
+                    ash::vk::ShaderStageFlags::COMPUTE,
+                    0,
+                    push.lock().unwrap().content_as_bytes(),
+                )
+            }
+        });
 
         let ext = swapchain_image.image.extent_2d();
         //now submit for the extend. We know that the shader is executing in 8x8x1, therefore conservatifly use the dispatch size.
@@ -208,161 +199,189 @@ impl PassData {
         if self.is_first_time {
             //Since this is the record for first time submit:
             //Move the attachment image and the swapchain image from undefined to shader_write / transfer_dst
-            ctx.device.inner.cmd_pipeline_barrier(
-                self.command_buffer.inner,
-                ash::vk::PipelineStageFlags::TOP_OF_PIPE,
-                ash::vk::PipelineStageFlags::COMPUTE_SHADER,
-                ash::vk::DependencyFlags::empty(),
-                &[], //mem
-                &[], //buffer
-                &[
-                    //Transfer attachment image from UNDEFINED to SHADER_WRITE
-                    ash::vk::ImageMemoryBarrier {
-                        image: self.image.inner,
-                        src_access_mask: ash::vk::AccessFlags::NONE,
-                        dst_access_mask: ash::vk::AccessFlags::NONE,
-                        old_layout: ash::vk::ImageLayout::UNDEFINED,
-                        new_layout: ash::vk::ImageLayout::GENERAL,
-                        subresource_range: self.image.subresource_all(),
-                        src_queue_family_index: queue_graphics_family,
-                        dst_queue_family_index: queue_graphics_family,
-                        ..Default::default()
-                    },
-                    //Move swapchain image to presetn src, since the later barrier will move it into transfer
-                    //dst assuming it was on present src khr.
-                    ash::vk::ImageMemoryBarrier {
-                        image: swapchain_image.image.inner,
-                        src_access_mask: ash::vk::AccessFlags::NONE,
-                        dst_access_mask: ash::vk::AccessFlags::NONE,
-                        old_layout: ash::vk::ImageLayout::UNDEFINED,
-                        new_layout: ash::vk::ImageLayout::PRESENT_SRC_KHR,
-                        subresource_range: self.image.subresource_all(),
-                        src_queue_family_index: queue_graphics_family,
-                        dst_queue_family_index: queue_graphics_family,
-                        ..Default::default()
-                    },
-                ],
-            );
+            recorder.record({
+                let image = self.image.clone();
+                let swimg = swapchain_image.image.clone();
+
+                move |dev, cmd| unsafe {
+                    dev.cmd_pipeline_barrier(
+                        *cmd,
+                        ash::vk::PipelineStageFlags::TOP_OF_PIPE,
+                        ash::vk::PipelineStageFlags::COMPUTE_SHADER,
+                        ash::vk::DependencyFlags::empty(),
+                        &[], //mem
+                        &[], //buffer
+                        &[
+                            //Transfer attachment image from UNDEFINED to SHADER_WRITE
+                            ash::vk::ImageMemoryBarrier {
+                                image: image.inner,
+                                src_access_mask: ash::vk::AccessFlags::NONE,
+                                dst_access_mask: ash::vk::AccessFlags::NONE,
+                                old_layout: ash::vk::ImageLayout::UNDEFINED,
+                                new_layout: ash::vk::ImageLayout::GENERAL,
+                                subresource_range: image.subresource_all(),
+                                src_queue_family_index: queue_graphics_family,
+                                dst_queue_family_index: queue_graphics_family,
+                                ..Default::default()
+                            },
+                            //Move swapchain image to presetn src, since the later barrier will move it into transfer
+                            //dst assuming it was on present src khr.
+                            ash::vk::ImageMemoryBarrier {
+                                image: swimg.inner,
+                                src_access_mask: ash::vk::AccessFlags::NONE,
+                                dst_access_mask: ash::vk::AccessFlags::NONE,
+                                old_layout: ash::vk::ImageLayout::UNDEFINED,
+                                new_layout: ash::vk::ImageLayout::PRESENT_SRC_KHR,
+                                subresource_range: swimg.subresource_all(),
+                                src_queue_family_index: queue_graphics_family,
+                                dst_queue_family_index: queue_graphics_family,
+                                ..Default::default()
+                            },
+                        ],
+                    )
+                }
+            });
+
             //null flag to not do this again.
             self.is_first_time = false;
         }
 
-        //Dispatch cs
-        ctx.device.inner.cmd_dispatch(
-            self.command_buffer.inner,
-            submit_size[0],
-            submit_size[1],
-            submit_size[2],
-        );
+        //actual dispatch.
+        recorder.record({
+            move |dev, cmd| unsafe {
+                dev.cmd_dispatch(*cmd, submit_size[0], submit_size[1], submit_size[2]);
+            }
+        });
 
         //Issue a barrier to wait for the compute shader and move the images to transfer src/dst
-        ctx.device.inner.cmd_pipeline_barrier(
-            self.command_buffer.inner,
-            ash::vk::PipelineStageFlags::COMPUTE_SHADER,
-            ash::vk::PipelineStageFlags::TRANSFER,
-            ash::vk::DependencyFlags::empty(),
-            &[],
-            &[],
-            &[
-                ash::vk::ImageMemoryBarrier {
-                    image: self.image.inner,
-                    src_access_mask: ash::vk::AccessFlags::NONE,
-                    dst_access_mask: ash::vk::AccessFlags::NONE,
-                    old_layout: ash::vk::ImageLayout::GENERAL,
-                    new_layout: ash::vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
-                    subresource_range: self.image.subresource_all(),
-                    src_queue_family_index: queue_graphics_family,
-                    dst_queue_family_index: queue_graphics_family,
-                    ..Default::default()
-                },
-                //Move swapchain image to transfer dst from present layout
-                ash::vk::ImageMemoryBarrier {
-                    image: swapchain_image.image.inner,
-                    src_access_mask: ash::vk::AccessFlags::NONE,
-                    dst_access_mask: ash::vk::AccessFlags::NONE,
-                    old_layout: ash::vk::ImageLayout::PRESENT_SRC_KHR,
-                    new_layout: ash::vk::ImageLayout::TRANSFER_DST_OPTIMAL,
-                    subresource_range: self.image.subresource_all(),
-                    src_queue_family_index: queue_graphics_family,
-                    dst_queue_family_index: queue_graphics_family,
-                    ..Default::default()
-                },
-            ],
-        );
+        recorder.record({
+            let img = self.image.clone();
+            let swimg = swapchain_image.image.clone();
+            move |dev, cmd| unsafe {
+                dev.cmd_pipeline_barrier(
+                    *cmd,
+                    ash::vk::PipelineStageFlags::COMPUTE_SHADER,
+                    ash::vk::PipelineStageFlags::TRANSFER,
+                    ash::vk::DependencyFlags::empty(),
+                    &[],
+                    &[],
+                    &[
+                        ash::vk::ImageMemoryBarrier {
+                            image: img.inner,
+                            src_access_mask: ash::vk::AccessFlags::NONE,
+                            dst_access_mask: ash::vk::AccessFlags::NONE,
+                            old_layout: ash::vk::ImageLayout::GENERAL,
+                            new_layout: ash::vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
+                            subresource_range: img.subresource_all(),
+                            src_queue_family_index: queue_graphics_family,
+                            dst_queue_family_index: queue_graphics_family,
+                            ..Default::default()
+                        },
+                        //Move swapchain image to transfer dst from present layout
+                        ash::vk::ImageMemoryBarrier {
+                            image: swimg.inner,
+                            src_access_mask: ash::vk::AccessFlags::NONE,
+                            dst_access_mask: ash::vk::AccessFlags::NONE,
+                            old_layout: ash::vk::ImageLayout::PRESENT_SRC_KHR,
+                            new_layout: ash::vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+                            subresource_range: swimg.subresource_all(),
+                            src_queue_family_index: queue_graphics_family,
+                            dst_queue_family_index: queue_graphics_family,
+                            ..Default::default()
+                        },
+                    ],
+                )
+            }
+        });
 
         //now blit to the swapchain image
-        ctx.device.inner.cmd_blit_image(
-            self.command_buffer.inner,
-            self.image.inner,
-            ash::vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
-            swapchain_image.image.inner,
-            ash::vk::ImageLayout::TRANSFER_DST_OPTIMAL,
-            &[ash::vk::ImageBlit {
-                //Note we are using blit mainly for format transfer
-                src_offsets: [
-                    Offset3D { x: 0, y: 0, z: 0 },
-                    Offset3D {
-                        x: ext.width as i32,
-                        y: ext.height as i32,
-                        z: 1,
-                    },
-                ],
-                dst_offsets: [
-                    Offset3D { x: 0, y: 0, z: 0 },
-                    Offset3D {
-                        x: ext.width as i32,
-                        y: ext.height as i32,
-                        z: 1,
-                    },
-                ],
-                src_subresource: self.image.subresource_layers_all(),
-                dst_subresource: swapchain_image.image.subresource_layers_all(),
-                ..Default::default()
-            }],
-            ash::vk::Filter::LINEAR,
-        );
+        recorder.record({
+            let img = self.image.clone();
+            let swimg = swapchain_image.image.clone();
+            move |dev, cmd| unsafe {
+                dev.cmd_blit_image(
+                    *cmd,
+                    img.inner,
+                    ash::vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
+                    swimg.inner,
+                    ash::vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+                    &[ash::vk::ImageBlit {
+                        //Note we are using blit mainly for format transfer
+                        src_offsets: [
+                            Offset3D { x: 0, y: 0, z: 0 },
+                            Offset3D {
+                                x: ext.width as i32,
+                                y: ext.height as i32,
+                                z: 1,
+                            },
+                        ],
+                        dst_offsets: [
+                            Offset3D { x: 0, y: 0, z: 0 },
+                            Offset3D {
+                                x: ext.width as i32,
+                                y: ext.height as i32,
+                                z: 1,
+                            },
+                        ],
+                        src_subresource: img.subresource_layers_all(),
+                        dst_subresource: swimg.subresource_layers_all(),
+                        ..Default::default()
+                    }],
+                    ash::vk::Filter::LINEAR,
+                );
+            }
+        });
 
         //finally move swapchain image back to present and compute image back to general
-        ctx.device.inner.cmd_pipeline_barrier(
-            self.command_buffer.inner,
-            ash::vk::PipelineStageFlags::COMPUTE_SHADER,
-            ash::vk::PipelineStageFlags::TRANSFER,
-            ash::vk::DependencyFlags::empty(),
-            &[],
-            &[],
-            &[
-                //Transfer attachment image from COMPUTE to SHADER_WRITE
-                ash::vk::ImageMemoryBarrier {
-                    image: self.image.inner,
-                    src_access_mask: ash::vk::AccessFlags::NONE,
-                    dst_access_mask: ash::vk::AccessFlags::NONE,
-                    old_layout: ash::vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
-                    new_layout: ash::vk::ImageLayout::GENERAL,
-                    subresource_range: self.image.subresource_all(),
-                    src_queue_family_index: queue_graphics_family,
-                    dst_queue_family_index: queue_graphics_family,
-                    ..Default::default()
-                },
-                //Move swapchain image to transfer dst from present layout
-                ash::vk::ImageMemoryBarrier {
-                    image: swapchain_image.image.inner,
-                    src_access_mask: ash::vk::AccessFlags::NONE,
-                    dst_access_mask: ash::vk::AccessFlags::NONE,
-                    old_layout: ash::vk::ImageLayout::TRANSFER_DST_OPTIMAL,
-                    new_layout: ash::vk::ImageLayout::PRESENT_SRC_KHR,
-                    subresource_range: self.image.subresource_all(),
-                    src_queue_family_index: queue_graphics_family,
-                    dst_queue_family_index: queue_graphics_family,
-                    ..Default::default()
-                },
-            ],
-        );
+        recorder.record({
+            let img = self.image.clone();
+            let swimg = swapchain_image.image.clone();
+            move |dev, cmd| unsafe {
+                dev.cmd_pipeline_barrier(
+                    *cmd,
+                    ash::vk::PipelineStageFlags::COMPUTE_SHADER,
+                    ash::vk::PipelineStageFlags::TRANSFER,
+                    ash::vk::DependencyFlags::empty(),
+                    &[],
+                    &[],
+                    &[
+                        //Transfer attachment image from COMPUTE to SHADER_WRITE
+                        ash::vk::ImageMemoryBarrier {
+                            image: img.inner,
+                            src_access_mask: ash::vk::AccessFlags::NONE,
+                            dst_access_mask: ash::vk::AccessFlags::NONE,
+                            old_layout: ash::vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
+                            new_layout: ash::vk::ImageLayout::GENERAL,
+                            subresource_range: img.subresource_all(),
+                            src_queue_family_index: queue_graphics_family,
+                            dst_queue_family_index: queue_graphics_family,
+                            ..Default::default()
+                        },
+                        //Move swapchain image to transfer dst from present layout
+                        ash::vk::ImageMemoryBarrier {
+                            image: swimg.inner,
+                            src_access_mask: ash::vk::AccessFlags::NONE,
+                            dst_access_mask: ash::vk::AccessFlags::NONE,
+                            old_layout: ash::vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+                            new_layout: ash::vk::ImageLayout::PRESENT_SRC_KHR,
+                            subresource_range: img.subresource_all(),
+                            src_queue_family_index: queue_graphics_family,
+                            dst_queue_family_index: queue_graphics_family,
+                            ..Default::default()
+                        },
+                    ],
+                );
+            }
+        });
+
         //End recording.
-        ctx.device
-            .inner
-            .end_command_buffer(self.command_buffer.inner)?;
+        recorder.finish_recording().unwrap();
 
         Ok(())
+    }
+
+    fn push(&mut self, new: PushConst) {
+        *self.push_constant.lock().unwrap().get_content_mut() = new;
     }
 }
 
@@ -415,7 +434,6 @@ impl App {
                 .device_wait_idle()
                 .expect("Could not wait for idle")
         };
-        println!("Resizeing swapchain and pass data to: {:?}", extent);
 
         //Resize swapchain. Initial transition of the images will be handled by the
         // pass data.
@@ -426,7 +444,7 @@ impl App {
             .collect();
     }
     //Enques a new draw event.
-    pub fn draw(&mut self, window: &winit::window::Window) {
+    pub fn draw(&mut self, window: &winit::window::Window, push: PushConst) {
         let extent = self
             .swapchain
             .surface
@@ -454,42 +472,32 @@ impl App {
         if swext != extent || self.pass_data[0].image.extent_2d() != swext {
             self.resize(extent);
         }
+
         //Get next image. Note that acquiring is handled by the swapchain itself
         let swimage = self.swapchain.acquire_next_image().unwrap();
 
-        let fence = if let Some(f) = self.pass_data[swimage.index as usize]
-            .last_draw_fence
-            .take()
-        {
-            f.wait(u64::MAX).unwrap();
-            f.reset().unwrap();
-            f
-        } else {
-            marpii::sync::Fence::new(self.ctx.device.clone(), false, None).unwrap()
-        };
+        self.pass_data[swimage.index as usize]
+            .command_buffer
+            .wait()
+            .unwrap();
+
+        self.pass_data[swimage.index as usize].push(push);
 
         //record new frame based on this image
-        unsafe {
-            self.pass_data[swimage.index as usize]
-                .record(&self.ctx, &swimage)
-                .unwrap()
-        };
+        self.pass_data[swimage.index as usize]
+            .record(&self.ctx, &swimage)
+            .unwrap();
 
-        //execute recorded command buffer, signaling the present semaphore of the swapchain
-        if let Err(e) = unsafe {
-            self.ctx.device.inner.queue_submit(
-                self.ctx.device.queues[0].inner,
-                &[*ash::vk::SubmitInfo::builder()
-                    .command_buffers(&[self.pass_data[swimage.index as usize].command_buffer.inner])
-                    .signal_semaphores(&[swimage.sem_present.inner])],
-                fence.inner,
+        if let Err(e) = self.pass_data[swimage.index as usize]
+            .command_buffer
+            .submit(
+                &self.ctx.device,
+                &self.ctx.device.queues[0],
+                &[swimage.sem_present.clone()],
             )
-        } {
+        {
             println!("Error queue submit: {}", e);
         }
-
-        //set fence so we can wait in the next frame
-        self.pass_data[swimage.index as usize].last_draw_fence = Some(fence);
 
         //now enqueue for present
         if let Err(e) = self
@@ -509,19 +517,31 @@ fn main() -> Result<()> {
 
     let mut app = App::new(&window)?;
 
+    let mut rad = 45.0f32;
+    let mut offset = [500.0, 500.0];
+
+    let start = std::time::Instant::now();
+
     ev.run(move |event, _, ctrl| {
         *ctrl = ControlFlow::Poll;
 
         match event {
             Event::MainEventsCleared => window.request_redraw(),
             Event::RedrawRequested(_) => {
-                app.draw(&window);
+                rad = start.elapsed().as_secs_f32().sin() + 1.0;
+
+                app.draw(
+                    &window,
+                    PushConst {
+                        radius: 450.0,
+                        opening: rad,
+                        offset,
+                    },
+                );
             }
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::CloseRequested => {
                     *ctrl = ControlFlow::Exit;
-                    println!("============\nBye Bye============");
-
                     unsafe {
                         app.ctx
                             .device
@@ -530,9 +550,27 @@ fn main() -> Result<()> {
                             .expect("Failed to wait")
                     };
                 }
+                WindowEvent::KeyboardInput {
+                    input:
+                        KeyboardInput {
+                            state,
+                            virtual_keycode: Some(kc),
+                            ..
+                        },
+                    ..
+                } => match (state, kc) {
+                    (ElementState::Pressed, VirtualKeyCode::A) => offset[0] += 10.0,
+                    (ElementState::Pressed, VirtualKeyCode::D) => offset[0] -= 10.0,
+                    (ElementState::Pressed, VirtualKeyCode::W) => offset[1] += 10.0,
+                    (ElementState::Pressed, VirtualKeyCode::S) => offset[1] -= 10.0,
+                    (ElementState::Pressed, VirtualKeyCode::Escape) => *ctrl = ControlFlow::Exit,
+                    _ => {}
+                },
                 _ => {}
             },
             _ => {}
         }
+
+        rad = rad.clamp(1.0, 179.0);
     });
 }

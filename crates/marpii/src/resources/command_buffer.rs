@@ -167,6 +167,12 @@ pub struct CommandBuffer<P: CommandBufferAllocator> {
     pub inner: ash::vk::CommandBuffer,
 }
 
+impl<P: CommandBufferAllocator> CommandBuffer<P> {
+    pub fn reset(&mut self, release_resources: bool) -> Result<(), anyhow::Error> {
+        self.pool.reset(&self.inner, release_resources)
+    }
+}
+
 impl<P: CommandBufferAllocator> Drop for CommandBuffer<P> {
     fn drop(&mut self) {
         unsafe {
