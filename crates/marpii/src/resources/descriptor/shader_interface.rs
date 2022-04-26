@@ -63,3 +63,14 @@ impl Reflection {
             .collect())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use static_assertions::assert_impl_all;
+
+    #[test]
+    fn impl_send_sync() {
+        assert_impl_all!(Reflection: Send, Sync);
+    }
+}

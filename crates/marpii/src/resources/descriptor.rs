@@ -103,7 +103,9 @@ impl DescriptorPool {
         //first step is to sort out our sizes.
         let mut map = FxHashMap::default();
 
-        for (_set, set_bindings) in module.descriptor_interface.iter() {
+        //FIXME: currently the reflection error can't be cast to anyhow's error. Should be fixed when
+        //       https://github.com/Traverse-Research/rspirv-reflect/pull/24 is merged.
+        for (_set, set_bindings) in module.get_bindings(ash::vk::ShaderStageFlags::ALL).unwrap() {
             for binding in set_bindings.iter() {
                 if let Some(count) = map.get_mut(&binding.descriptor_type) {
                     *count += binding.descriptor_count;

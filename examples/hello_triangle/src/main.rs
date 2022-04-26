@@ -31,11 +31,11 @@ pub struct PushConst {
 
 struct PassData {
     //image that is rendered to
-    image: Arc<Image<Allocator>>,
+    image: Arc<Image>,
 
-    command_buffer: ManagedCommands<CommandPool>,
+    command_buffer: ManagedCommands,
 
-    descriptor_set: Arc<ManagedDescriptorSet<Allocator, DescriptorPool>>,
+    descriptor_set: Arc<ManagedDescriptorSet<DescriptorPool>>,
 
     pipeline: Arc<ComputePipeline>,
     push_constant: Arc<Mutex<PushConstant<PushConst>>>,
@@ -105,7 +105,7 @@ impl PassData {
 
             let pipeline = ComputePipeline::new(
                 &ctx.device,
-                shader_module
+                &shader_module
                     .into_shader_stage(ash::vk::ShaderStageFlags::COMPUTE, "main".to_owned()),
                 None,
                 pipeline_layout,
@@ -123,7 +123,7 @@ impl PassData {
             )?;
 
             let command_buffer =
-                command_pool.allocate_buffer(ash::vk::CommandBufferLevel::PRIMARY)?;
+                Arc::new(command_pool).allocate_buffer(ash::vk::CommandBufferLevel::PRIMARY)?;
 
             ManagedCommands::new(&ctx.device, command_buffer)?
         };
@@ -273,8 +273,6 @@ impl PassData {
                             old_layout: ash::vk::ImageLayout::GENERAL,
                             new_layout: ash::vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
                             subresource_range: img.subresource_all(),
-                            src_queue_family_index: queue_graphics_family,
-                            dst_queue_family_index: queue_graphics_family,
                             ..Default::default()
                         },
                         //Move swapchain image to transfer dst from present layout
@@ -285,8 +283,6 @@ impl PassData {
                             old_layout: ash::vk::ImageLayout::PRESENT_SRC_KHR,
                             new_layout: ash::vk::ImageLayout::TRANSFER_DST_OPTIMAL,
                             subresource_range: swimg.subresource_all(),
-                            src_queue_family_index: queue_graphics_family,
-                            dst_queue_family_index: queue_graphics_family,
                             ..Default::default()
                         },
                     ],
@@ -353,8 +349,6 @@ impl PassData {
                             old_layout: ash::vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
                             new_layout: ash::vk::ImageLayout::GENERAL,
                             subresource_range: img.subresource_all(),
-                            src_queue_family_index: queue_graphics_family,
-                            dst_queue_family_index: queue_graphics_family,
                             ..Default::default()
                         },
                         //Move swapchain image to transfer dst from present layout
@@ -365,8 +359,6 @@ impl PassData {
                             old_layout: ash::vk::ImageLayout::TRANSFER_DST_OPTIMAL,
                             new_layout: ash::vk::ImageLayout::PRESENT_SRC_KHR,
                             subresource_range: img.subresource_all(),
-                            src_queue_family_index: queue_graphics_family,
-                            dst_queue_family_index: queue_graphics_family,
                             ..Default::default()
                         },
                     ],
@@ -494,6 +486,7 @@ impl App {
                 &self.ctx.device,
                 &self.ctx.device.queues[0],
                 &[swimage.sem_present.clone()],
+                &[],
             )
         {
             println!("Error queue submit: {}", e);

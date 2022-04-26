@@ -1,6 +1,9 @@
-use std::sync::{Arc, Mutex};
+use std::{
+    hash::{Hash, Hasher},
+    sync::{Arc, Mutex},
+};
 
-use crate::allocator::{Allocation, Allocator, ManagedAllocation, MemoryUsage};
+use crate::allocator::{Allocation, Allocator, AnonymAllocation, ManagedAllocation, MemoryUsage};
 
 pub struct BufDesc {
     size: ash::vk::DeviceSize,
@@ -34,16 +37,27 @@ impl BufDesc {
 
 ///Self managing buffer that uses the allocator `A` to create the buffer, and free it when dropped.
 //Note Freeing happens in `ManagedAllocation`'s implementation.
-pub struct Buffer<A: Allocator + Send + Sync + 'static> {
+pub struct Buffer {
     pub desc: BufDesc,
     pub inner: ash::vk::Buffer,
-    pub allocaton: ManagedAllocation<A>,
+    //NOTE: The allocator was a generic once. However this clocks up the type system over time, as specially when
+    //      Mixing different allocator types etc. Since the allocation field is only used once (on drop) to free the
+    //      Memory I find it okay to use dynamic disaptch here. The benefit is a much cleaner API, and the ability to
+    //      collect buffers from different allocators in one Vec<Buffer> for instance.
+    pub allocaton: Box<dyn AnonymAllocation + Send + Sync + 'static>,
 }
 
-impl<A: Allocator + Send + Sync + 'static> Buffer<A> {
+///The hash implementation is based on [Buffer](ash::vk::Buffer)'s hash.
+impl Hash for Buffer {
+    fn hash<H: Hasher>(&self, hasher: &mut H) {
+        self.inner.hash(hasher)
+    }
+}
+
+impl Buffer {
     ///Creates a buffer for `description` and the supplied creation-time information. Note that the actual resulting
     ///allocation can be bigger than specified. use `extend` to change the creation info before the buffer is created.
-    pub fn new(
+    pub fn new<A: Allocator + Send + Sync + 'static>(
         device: &Arc<crate::context::Device>,
         allocator: &Arc<Mutex<A>>,
         description: BufDesc,
@@ -74,10 +88,10 @@ impl<A: Allocator + Send + Sync + 'static> Buffer<A> {
         };
 
         Ok(Buffer {
-            allocaton: ManagedAllocation {
+            allocaton: Box::new(ManagedAllocation {
                 allocator: allocator.clone(),
                 allocation: Some(allocation),
-            },
+            }),
             desc: description,
             inner: buffer,
         })
@@ -91,6 +105,6 @@ mod tests {
 
     #[test]
     fn impl_send_sync() {
-        assert_impl_all!(Buffer<gpu_allocator::vulkan::Allocator>: Send, Sync);
+        assert_impl_all!(Buffer: Send, Sync);
     }
 }

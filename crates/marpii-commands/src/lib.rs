@@ -12,7 +12,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use marpii::ash;
+use marpii::{ash, resources::CommandPool};
 use marpii::{
     context::{Device, Queue},
     resources::{CommandBuffer, CommandBufferAllocator},
@@ -48,21 +48,23 @@ impl Signal {
 
 ///Wrapper around the [CommandBuffer](marpii::resources::CommandBuffer)
 /// that tracks used resources lifetimes.
-pub struct ManagedCommands<P: CommandBufferAllocator> {
+///
+/// Note that this opinionated on the command buffer pool type.
+pub struct ManagedCommands {
     ///Assosiated command buffer
-    pub inner: CommandBuffer<P>,
+    pub inner: CommandBuffer<Arc<CommandPool>>,
     ///All resources needed for the current `inner` command buffer to be valid.
     pub resources: Vec<Caputured>,
     ///Assioated fence that represents the `in use` state on the gpu.
     pub fence: Arc<Fence<()>>,
 }
 
-impl<P: CommandBufferAllocator> ManagedCommands<P> {
+impl ManagedCommands {
     ///Creates a new ManagedCommands instance from a command buffer. Assumes that the commandbuffer is resetable. Otherwise
     /// [Recorder] creation fails.
     pub fn new(
         device: &Arc<Device>,
-        command_buffer: CommandBuffer<P>,
+        command_buffer: CommandBuffer<Arc<CommandPool>>,
     ) -> Result<Self, anyhow::Error> {
         Ok(ManagedCommands {
             inner: command_buffer,
@@ -79,7 +81,7 @@ impl<P: CommandBufferAllocator> ManagedCommands<P> {
     ///Starts recording a new command buffer. Might block until any execution of this command buffer has finished.
     ///
     /// If you want prevent blocking, use `wait`.
-    pub fn start_recording<'a>(&'a mut self) -> Result<Recorder<'a, P>, anyhow::Error> {
+    pub fn start_recording<'a>(&'a mut self) -> Result<Recorder<'a>, anyhow::Error> {
         //wait until all execution has finished.
         self.fence.wait(u64::MAX)?;
         //now drop all bound resources
@@ -106,22 +108,37 @@ impl<P: CommandBufferAllocator> ManagedCommands<P> {
     ///Submits commands to a queue.
     ///
     ///`signal_semaphores` will be signaled when the execution has finished.
+    /// `wait_semaphores` is a list of semaphores that need to be signaled before starting execution. Each semaphore
+    /// must supply the pipeline stage on which is waited.
     pub fn submit(
         &mut self,
         device: &Arc<Device>,
         queue: &Queue,
         signal_semaphores: &[Arc<Semaphore>],
+        wait_semaphores: &[(Arc<Semaphore>, ash::vk::PipelineStageFlags)],
     ) -> Result<(), anyhow::Error> {
         //first of all, make a copy from each semaphore and include them in our captured variables
-        for sem in signal_semaphores.iter() {
+        for sem in signal_semaphores
+            .iter()
+            .chain(wait_semaphores.iter().map(|(s, _stage)| s))
+        {
             self.resources
                 .push(Caputured::Unsignaled(Box::new(sem.clone())));
         }
 
-        let local_semaphores = signal_semaphores
+        let local_signal_semaphores = signal_semaphores
             .into_iter()
             .map(|s| s.inner)
             .collect::<Vec<_>>();
+
+        let (local_wait_semaphores, local_wait_stages) = wait_semaphores.into_iter().fold(
+            (Vec::new(), Vec::new()),
+            |(mut vec_sem, mut vec_stage), (sem, stage)| {
+                vec_sem.push(sem.inner);
+                vec_stage.push(*stage);
+                (vec_sem, vec_stage)
+            },
+        );
 
         //reset fence for resubmission
         self.fence.reset()?;
@@ -132,7 +149,9 @@ impl<P: CommandBufferAllocator> ManagedCommands<P> {
                 queue.inner,
                 &[*ash::vk::SubmitInfo::builder()
                     .command_buffers(&[self.inner.inner])
-                    .signal_semaphores(&local_semaphores)],
+                    .wait_semaphores(&local_wait_semaphores)
+                    .wait_dst_stage_mask(&local_wait_stages)
+                    .signal_semaphores(&local_signal_semaphores)],
                 self.fence.inner,
             )
         } {
@@ -149,7 +168,7 @@ impl<P: CommandBufferAllocator> ManagedCommands<P> {
     }
 }
 
-impl<P: CommandBufferAllocator> Drop for ManagedCommands<P> {
+impl Drop for ManagedCommands {
     fn drop(&mut self) {
         //if not signaled, wait for the fence to end
         if let Ok(false) = self.fence.get_status() {
@@ -173,13 +192,13 @@ pub enum Caputured {
     Unsignaled(Box<dyn Any + Send + 'static>),
 }
 
-pub struct Recorder<'a, P: CommandBufferAllocator> {
+pub struct Recorder<'a> {
     //hosting command buffer,
-    buffer: &'a mut ManagedCommands<P>,
+    buffer: &'a mut ManagedCommands,
     has_finished_recording: bool,
 }
 
-impl<'a, P: CommandBufferAllocator> Recorder<'a, P> {
+impl<'a> Recorder<'a> {
     ///Records a command `cmd`. All resources used on `cmd` have to have a static lifetime, since they will be tracked by
     /// this recorder, and after finishing recording by the parents [ManagedCommands].
     ///
@@ -255,7 +274,7 @@ impl<'a, P: CommandBufferAllocator> Recorder<'a, P> {
 
 ///Custom implementation of drop. Prevents leafing the command buffer in a recording state.
 ///This is however most likely creating UB, therefore a log error is issued
-impl<'a, P: CommandBufferAllocator> Drop for Recorder<'a, P> {
+impl<'a> Drop for Recorder<'a> {
     fn drop(&mut self) {
         if !self.has_finished_recording {
             #[cfg(feature = "logging")]

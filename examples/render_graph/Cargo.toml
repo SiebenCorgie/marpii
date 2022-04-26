@@ -1,0 +1,17 @@
+[package]
+name = "render_graph"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+
+simple_logger = "2.1.0"
+anyhow = "1.0.56"
+
+marpii = {path = "../../crates/marpii"}
+marpii-commands = {path = "../../crates/marpii-commands"}
+marpii-descriptor = {path = "../../crates/marpii-descriptor"}
+marpii-command-graph = {path = "../../crates/marpii-command-graph", features = ["logging"]}
+winit = "0.26.1"

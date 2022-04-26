@@ -18,7 +18,7 @@ pub struct ComputePipeline {
 impl ComputePipeline {
     pub fn new<'a>(
         device: &Arc<Device>,
-        stage: ShaderStage,
+        stage: &'a ShaderStage,
         specialization_info: Option<&'a ash::vk::SpecializationInfo>,
         layout: PipelineLayout,
     ) -> Result<Self, anyhow::Error> {

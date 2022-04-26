@@ -1,7 +1,9 @@
-use std::sync::Arc;
+use std::{
+    fmt::{Debug, Display},
+    sync::Arc,
+};
 
 use marpii::{
-    allocator::Allocator,
     ash,
     context::Device,
     resources::{
@@ -9,46 +11,78 @@ use marpii::{
     },
 };
 
-pub enum BindingError<A: Allocator + Send + Sync + 'static> {
+pub enum BindingError {
     ///If the binding type did not match
-    DescriptorTypeDoesNotMatch(Binding<A>),
+    DescriptorTypeDoesNotMatch(Binding),
     ///If binding failed while calling vulkan
     BindFailed {
         error: ash::vk::Result,
-        binding: Binding<A>,
+        binding: Binding,
     },
     ///If the DescriptorType matched, but the image's layout dit not
-    ImageLayoutMissmatch(Binding<A>),
+    ImageLayoutMissmatch(Binding),
     ///If the binding_id was not found
-    NoSuchId(Binding<A>),
+    NoSuchId(Binding),
 }
 
+impl Debug for BindingError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BindingError::DescriptorTypeDoesNotMatch(_) => {
+                f.write_str("Descriptor type does not match")
+            }
+            BindingError::BindFailed { error, binding: _ } => {
+                f.write_str(&format!("Binding failed with: {}", error))
+            }
+            BindingError::ImageLayoutMissmatch(_) => f.write_str("Image layout missmatch"),
+            BindingError::NoSuchId(_) => f.write_str("No such id"),
+        }
+    }
+}
+
+impl Display for BindingError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BindingError::DescriptorTypeDoesNotMatch(_) => {
+                f.write_str("Descriptor type does not match")
+            }
+            BindingError::BindFailed { error, binding: _ } => {
+                f.write_str(&format!("Binding failed with: {}", error))
+            }
+            BindingError::ImageLayoutMissmatch(_) => f.write_str("Image layout missmatch"),
+            BindingError::NoSuchId(_) => f.write_str("No such id"),
+        }
+    }
+}
+
+impl std::error::Error for BindingError {}
+
 ///Represent a single binding in the descriptor set.
-pub enum Binding<A: Allocator + Send + Sync + 'static> {
+pub enum Binding {
     Image {
         ///Descriptor type. By default STORAGE_IMAGE
         ty: ash::vk::DescriptorType,
         layout: ash::vk::ImageLayout,
-        image: Arc<ImageView<A>>,
+        image: Arc<ImageView>,
     },
     SampledImage {
         ///Descriptor type. By default SAMPLED_IMAGE
         ty: ash::vk::DescriptorType,
         layout: ash::vk::ImageLayout,
-        image: Arc<ImageView<A>>,
+        image: Arc<ImageView>,
         sampler: Arc<Sampler>,
     },
     //TODO: expose offset and range?
     Buffer {
         ///Descriptor type. By default STORAGE_BUFFER
         ty: ash::vk::DescriptorType,
-        buffer: Arc<Buffer<A>>,
+        buffer: Arc<Buffer>,
     },
     //TODO implement array versions as well
 }
 
-impl<A: Allocator + Send + Sync + 'static> Binding<A> {
-    pub fn new_image(image: Arc<ImageView<A>>, layout: ash::vk::ImageLayout) -> Self {
+impl Binding {
+    pub fn new_image(image: Arc<ImageView>, layout: ash::vk::ImageLayout) -> Self {
         Binding::Image {
             layout,
             image,
@@ -56,7 +90,7 @@ impl<A: Allocator + Send + Sync + 'static> Binding<A> {
         }
     }
     pub fn new_sampled_image(
-        image: Arc<ImageView<A>>,
+        image: Arc<ImageView>,
         layout: ash::vk::ImageLayout,
         sampler: Arc<Sampler>,
     ) -> Self {
@@ -67,7 +101,7 @@ impl<A: Allocator + Send + Sync + 'static> Binding<A> {
             ty: ash::vk::DescriptorType::SAMPLED_IMAGE,
         }
     }
-    pub fn new_buffer(buffer: Arc<Buffer<A>>) -> Self {
+    pub fn new_buffer(buffer: Arc<Buffer>) -> Self {
         Binding::Buffer {
             buffer,
             ty: ash::vk::DescriptorType::STORAGE_BUFFER,
@@ -101,15 +135,18 @@ impl<A: Allocator + Send + Sync + 'static> Binding<A> {
 
 ///Wrapps the standard [DescriptorSet](marpii::resources::DescriptorSet) and keeps all resources that have
 /// been written to the set alive.
-pub struct ManagedDescriptorSet<A: Allocator + Send + Sync + 'static, P: DescriptorAllocator> {
+pub struct ManagedDescriptorSet<P: DescriptorAllocator> {
     #[allow(dead_code)]
     inner: DescriptorSet<P>,
     ///bound resources
     #[allow(dead_code)]
-    bindings: Vec<Binding<A>>,
+    bindings: Vec<Binding>,
+    ///needs to be kept alive for valid updates later on
+    #[allow(dead_code)]
+    layout: DescriptorSetLayout,
 }
 
-impl<A: Allocator + Send + Sync + 'static, P: DescriptorAllocator> ManagedDescriptorSet<A, P> {
+impl<P: DescriptorAllocator> ManagedDescriptorSet<P> {
     ///creates a descriptorset that binds each item to the descriptor set.
     ///
     /// The binding id is derived from the location of each binding in the iterator.
@@ -121,7 +158,7 @@ impl<A: Allocator + Send + Sync + 'static, P: DescriptorAllocator> ManagedDescri
     pub fn new(
         device: &Arc<Device>,
         pool: P,
-        layout: impl IntoIterator<Item = Binding<A>>,
+        layout: impl IntoIterator<Item = Binding>,
         stages: ash::vk::ShaderStageFlags,
     ) -> Result<Self, anyhow::Error> {
         let bindings = layout.into_iter().collect::<Vec<_>>();
@@ -139,6 +176,7 @@ impl<A: Allocator + Send + Sync + 'static, P: DescriptorAllocator> ManagedDescri
         let mut s = Self {
             inner: set,
             bindings,
+            layout,
         };
 
         s.write_all();
@@ -151,9 +189,9 @@ impl<A: Allocator + Send + Sync + 'static, P: DescriptorAllocator> ManagedDescri
     /// Otherwise the old resource bound at that id is returned
     pub fn update_binding(
         &mut self,
-        mut binding: Binding<A>,
+        mut binding: Binding,
         binding_id: u32,
-    ) -> Result<Binding<A>, BindingError<A>> {
+    ) -> Result<Binding, BindingError> {
         let binding_id = binding_id as usize;
         if binding_id > self.bindings.len() {
             return Err(BindingError::NoSuchId(binding));

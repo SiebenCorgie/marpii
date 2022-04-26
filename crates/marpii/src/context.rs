@@ -26,7 +26,10 @@ mod instance;
 pub use instance::{GetDeviceFilter, Instance, InstanceBuilder};
 
 mod device;
-pub use device::{Device, DeviceBuilder, Queue, QueueBuilder};
+pub use device::{Device, DeviceBuilder};
+
+mod queue;
+pub use queue::{Queue, QueueBuilder};
 
 mod physical_device;
 pub use physical_device::{PhyDeviceProperties, PhysicalDeviceFilter};
@@ -66,6 +69,56 @@ impl<A: Allocator> Ctx<A> {
 
 #[cfg(feature = "default_allocator")]
 impl Ctx<gpu_allocator::vulkan::Allocator> {
+    ///Creates a new context that does not check for any surface availability.
+    pub fn new_headless(use_validation: bool) -> Result<Self, anyhow::Error> {
+        let mut instance_builder = Instance::linked()?;
+        if use_validation {
+            instance_builder = instance_builder.enable_validation();
+        }
+        let instance = instance_builder.build()?;
+
+        let mut device_candidates = instance
+            .create_physical_device_filter()?
+            .filter_queue_flags(ash::vk::QueueFlags::GRAPHICS)
+            .release();
+
+        if device_candidates.len() == 0 {
+            anyhow::bail!("Could not find suitable physical device!");
+        }
+
+        //NOTE: By default we setup extensions in a way that we can load rust shaders.
+        let vulkan_memory_model = ash::vk::PhysicalDeviceVulkan12Features::builder()
+            .shader_int8(true)
+            .vulkan_memory_model(true);
+
+        let device = device_candidates
+            .remove(0)
+            .into_device_builder(instance.clone())?
+            .push_extensions(ash::vk::KhrVulkanMemoryModelFn::name())
+            .with(|b| b.features.shader_int16 = 1)
+            .with_additional_feature(vulkan_memory_model)
+            .build()?;
+
+        //create allocator for device
+        let allocator =
+            gpu_allocator::vulkan::Allocator::new(&gpu_allocator::vulkan::AllocatorCreateDesc {
+                buffer_device_address: false,
+                debug_settings: gpu_allocator::AllocatorDebugSettings {
+                    log_leaks_on_shutdown: true,
+                    ..Default::default()
+                },
+                device: device.inner.clone(),
+                instance: instance.inner.clone(),
+                physical_device: device.physical_device,
+            })?;
+
+        Ok(Ctx {
+            allocator: Arc::new(Mutex::new(allocator)),
+            device,
+            instance,
+        })
+    }
+
     ///Creates simple context that has only one graphics queue. If provided creates the instance in a way that
     ///a surface for the provided window handle could be created.
     pub fn default_with_surface(
@@ -77,7 +130,6 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
 
         //when creating the default context we do not enable anything else, therfore
         //instance creation should be fine and we can "create"
-        let mut instance_builder = instance_builder;
         if use_validation {
             instance_builder = instance_builder.enable_validation();
         }

@@ -46,6 +46,7 @@
 //use crate::context::SubmitInfo;
 use crate::context::Device;
 use ash;
+use std::fmt::Debug;
 use std::sync::Arc;
 
 use std::u64;
@@ -56,7 +57,11 @@ pub struct Fence<T> {
     pub payload: Option<T>,
 }
 
-//pub type QueueFence = Arc<Fence<Vec<SubmitInfo>>>;
+impl<T> Debug for Fence<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.inner.fmt(f)
+    }
+}
 
 impl<T> Fence<T> {
     pub fn new(
@@ -234,6 +239,12 @@ impl Drop for Semaphore {
     }
 }
 
+impl Debug for Semaphore {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.inner.fmt(f)
+    }
+}
+
 #[derive(Debug)]
 pub enum EventError {
     SetEventStatusError(ash::vk::Result),
@@ -245,6 +256,12 @@ pub enum EventError {
 pub struct Event {
     pub device: Arc<Device>,
     pub event: ash::vk::Event,
+}
+
+impl Debug for Event {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.event.fmt(f)
+    }
 }
 
 impl Event {

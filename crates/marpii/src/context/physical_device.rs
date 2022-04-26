@@ -132,11 +132,9 @@ impl PhysicalDeviceFilter {
 		}else{
 		    #[cfg(feature="logging")]
 		    log::warn!("Failed to query surface capability on queue family {} of physical device: {:?}", qidx, pdev.properties.device_name);
-		    
 		    false
 		}
 	    }).collect();
-	    
 	    //Check if any family is left, otherwise remove device compleatly
 	    if pdev.queue_properties.len() > 0{
 		Some(pdev)
