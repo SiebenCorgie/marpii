@@ -55,18 +55,6 @@ fn fabs(f: f32) -> f32 {
 // .z = ∂f(p)/∂y
 // .yz = ∇f(p) with ‖∇f(p)‖ = 1
 // c is the sin/cos of the angle. r is the radius
-vec3 sdgPie( in vec2 p, in vec2 c, in float r )
-{
-    float s = sign(p.x); p.x = abs(p.x);
-
-    float l = length(p);
-    float n = l - r;
-    vec2  q = p - c*clamp(dot(p,c),0.0,r);
-    float m = length(q)* sign(c.y*p.x-c.x*p.y);
-
-    vec3  res = (n>m) ? vec3(n,p/l) : vec3(m,q/m);
-    return vec3(res.x,s*res.y,res.z);
-}
 */
 fn sdg_pie(mut p: Vec2, c: Vec2, r: f32) -> GradientResult {
     let s = sign(p.x);

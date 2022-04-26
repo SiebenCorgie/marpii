@@ -23,6 +23,11 @@ pub enum MemoryUsage {
     GpuToCpu,
 }
 
+///Implemented for all managed allocations. Allows the [Image](marpii::resources::Image) and [Buffer](marpii::resources::Buffer) implementations to hide their allocator type.
+pub trait AnonymAllocation {}
+
+impl<A: Allocator + Send + Sync + 'static> AnonymAllocation for ManagedAllocation<A> {}
+
 ///An allocation that frees itself when dropped.
 pub struct ManagedAllocation<A: Allocator + Send + Sync + 'static> {
     pub allocator: std::sync::Arc<std::sync::Mutex<A>>,
@@ -63,7 +68,7 @@ pub trait Allocation {
 
 ///Trait that can be implemented by anything that can handle allocation for a initialized [ash::Device](ash::Device).
 pub trait Allocator {
-    type Allocation: Allocation;
+    type Allocation: Allocation + Send + Sync + 'static;
     type AllocationError: std::error::Error + Send + Sync + 'static;
     ///creates a single allocation (possibly tagged via `name` for debugging).
     fn allocate(

@@ -1,11 +1,14 @@
 use ash::vk::SamplerCreateInfoBuilder;
 
 use crate::{
-    allocator::{Allocation, Allocator, ManagedAllocation, MemoryUsage},
+    allocator::{Allocation, Allocator, AnonymAllocation, ManagedAllocation, MemoryUsage},
     context::Device,
     resources::SharingMode,
 };
-use std::sync::{Arc, Mutex};
+use std::{
+    hash::{Hash, Hasher},
+    sync::{Arc, Mutex},
+};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ImageType {
@@ -118,14 +121,14 @@ impl ImgViewDesc {
 }
 
 ///[ash::vk::ImageView](ash::vk::ImageView) wrapper that safes its description data, source image and destroys itself when not in use anymore.
-pub struct ImageView<A: Allocator + Send + Sync + 'static> {
+pub struct ImageView {
     pub desc: ImgViewDesc,
     pub device: Arc<crate::context::Device>,
     pub view: ash::vk::ImageView,
-    pub src_img: Arc<Image<A>>,
+    pub src_img: Arc<Image>,
 }
 
-impl<A: Allocator + Send + Sync + 'static> Drop for ImageView<A> {
+impl Drop for ImageView {
     fn drop(&mut self) {
         unsafe { self.device.inner.destroy_image_view(self.view, None) };
     }
@@ -273,11 +276,11 @@ impl ImgDesc {
 
 ///Self managing image that uses the allocator `A` to allocate and free its bound memory.
 //Note Freeing happens in `ManagedAllocation`'s implementation.
-pub struct Image<A: Allocator + Send + Sync + 'static> {
+pub struct Image {
     ///vulkan image handle
     pub inner: ash::vk::Image,
     ///assosiated allocation that is freed when the image is dropped
-    pub allocation: ManagedAllocation<A>,
+    pub allocation: Box<dyn AnonymAllocation + Send + Sync + 'static>,
     pub desc: ImgDesc,
     pub device: Arc<Device>,
     ///True if the image should not be destroyed on [Drop](Drop) of `Self`.
@@ -285,7 +288,14 @@ pub struct Image<A: Allocator + Send + Sync + 'static> {
     pub do_not_destroy: bool,
 }
 
-impl<A: Allocator + Send + Sync + 'static> Drop for Image<A> {
+///The hash implementation is based on [Image](ash::vk::Image)'s hash.
+impl Hash for Image {
+    fn hash<H: Hasher>(&self, hasher: &mut H) {
+        self.inner.hash(hasher)
+    }
+}
+
+impl Drop for Image {
     fn drop(&mut self) {
         if !self.do_not_destroy {
             unsafe { self.device.inner.destroy_image(self.inner, None) }
@@ -293,13 +303,13 @@ impl<A: Allocator + Send + Sync + 'static> Drop for Image<A> {
     }
 }
 
-impl<A: Allocator + Send + Sync + 'static> Image<A> {
+impl Image {
     ///creates the image based on the description and the provided flags. `extend` can be used to modifiy the image create info
     /// before it is used. For instance for pushing feature specific creation info.
     ///
     ///
     /// Note that the image is just created with an initial "Undefined" layout.
-    pub fn new(
+    pub fn new<A: Allocator + Send + Sync + 'static>(
         device: &Arc<Device>,
         allocator: &Arc<Mutex<A>>,
         description: ImgDesc,
@@ -338,10 +348,10 @@ impl<A: Allocator + Send + Sync + 'static> Image<A> {
         };
 
         Ok(Image {
-            allocation: ManagedAllocation {
+            allocation: Box::new(ManagedAllocation {
                 allocation: Some(allocation),
                 allocator: allocator.clone(),
-            },
+            }),
             desc: description,
             inner: image,
             device: device.clone(),
@@ -429,22 +439,20 @@ impl<A: Allocator + Send + Sync + 'static> Image<A> {
 ///If implemented, creates a self managing image view that keeps its source image and device alive long enough
 /// to destroy the inner view when dropped.
 pub trait SafeImageView {
-    type Allocator: Allocator + Send + Sync + 'static;
     fn view(
         &self,
         device: Arc<crate::context::Device>,
         desc: ImgViewDesc,
-    ) -> Result<ImageView<Self::Allocator>, anyhow::Error>;
+    ) -> Result<ImageView, anyhow::Error>;
 }
 
-impl<A: Allocator + Send + Sync + 'static> SafeImageView for Arc<Image<A>> {
-    type Allocator = A;
+impl SafeImageView for Arc<Image> {
     ///Creates an image view for this image based on the based `desc`.
     fn view(
         &self,
         device: Arc<crate::context::Device>,
         desc: ImgViewDesc,
-    ) -> Result<ImageView<Self::Allocator>, anyhow::Error> {
+    ) -> Result<ImageView, anyhow::Error> {
         let mut builder = ash::vk::ImageViewCreateInfo::builder().image(self.inner);
         builder = desc.set_on_builder(builder);
 
@@ -491,8 +499,8 @@ mod tests {
 
     #[test]
     fn impl_send_sync() {
-        assert_impl_all!(Image<gpu_allocator::vulkan::Allocator>: Send, Sync);
-        assert_impl_all!(ImageView<gpu_allocator::vulkan::Allocator>: Send, Sync);
+        assert_impl_all!(Image: Send, Sync);
+        assert_impl_all!(ImageView: Send, Sync);
         assert_impl_all!(Sampler: Send, Sync);
     }
 }

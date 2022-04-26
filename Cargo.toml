@@ -6,6 +6,7 @@ members = [
 "crates/marpii-descriptor",
 
 "examples/hello_triangle",
+"examples/render_graph",
 "examples/rust_shader",
 "examples/shader_builder"
 ]

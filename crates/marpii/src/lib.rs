@@ -36,3 +36,6 @@ pub mod swapchain;
 
 ///Vulkan synchronisation primitives
 pub mod sync;
+
+///The infamous "utility" module contains all sorts of "nice" to have function. Stuff like type converters etc.
+pub mod util;

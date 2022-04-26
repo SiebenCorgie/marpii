@@ -108,6 +108,59 @@ impl CommandBufferAllocator for CommandPool {
     }
 }
 
+impl CommandBufferAllocator for Arc<CommandPool> {
+    fn reset(
+        &self,
+        command_buffer: &ash::vk::CommandBuffer,
+        release_resources: bool,
+    ) -> Result<(), anyhow::Error> {
+        self.as_ref().reset(command_buffer, release_resources)
+    }
+    fn allocate_buffer(
+        self,
+        level: ash::vk::CommandBufferLevel,
+    ) -> Result<CommandBuffer<Self>, anyhow::Error>
+    where
+        Self: Sized,
+    {
+        //Custom implementation that moves self into the command buffer
+        let mut buffer = unsafe {
+            self.device.inner.allocate_command_buffers(
+                &ash::vk::CommandBufferAllocateInfo::builder()
+                    .command_pool(self.inner)
+                    .command_buffer_count(1)
+                    .level(level),
+            )?
+        };
+
+        if buffer.len() == 0 {
+            anyhow::bail!("Failed to allocate buffer!");
+        }
+
+        #[cfg(feature = "logging")]
+        if buffer.len() > 1 {
+            log::warn!(
+                "Allocated too many command buffer, expected 1, got {}",
+                buffer.len()
+            )
+        }
+
+        let buffer = buffer.remove(0);
+
+        Ok(CommandBuffer {
+            pool: self,
+            inner: buffer,
+        })
+    }
+
+    fn device(&self) -> &ash::Device {
+        &self.device.inner
+    }
+    fn raw(&self) -> &ash::vk::CommandPool {
+        &self.inner
+    }
+}
+
 ///Command buffer allocation implementation.
 pub trait CommandBufferAllocator {
     ///Tries to reset the command buffer. Might fail, for instance if a validation layer fails, or if the pool was not created

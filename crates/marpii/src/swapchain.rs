@@ -52,12 +52,12 @@ impl SwapchainBuilder {
             .into_iter()
             .map(|swimage| {
                 Arc::new(Image {
-                    allocation: ManagedAllocation {
+                    allocation: Box::new(ManagedAllocation {
                         allocation: Some(UnmanagedAllocation {
                             hidden: PhantomData,
                         }),
                         allocator: Arc::new(Mutex::new(UnmanagedAllocator)),
-                    },
+                    }),
                     desc: ImgDesc {
                         extent: ash::vk::Extent3D {
                             width: create_info.image_extent.width,
@@ -242,7 +242,7 @@ impl SwapchainBuilder {
 ///Wrapper around the swapchains `image` that keeps track of needed primitives.
 pub struct SwapchainImage {
     ///The actual image, managed by the swapchain implementation (the reason for the "UnmanagedAllocator").
-    pub image: Arc<crate::resources::Image<UnmanagedAllocator>>,
+    pub image: Arc<crate::resources::Image>,
     ///Index identfying the image when presenting
     pub index: u32,
     ///Semaphore used for image acquire operatons. Will usually be used as a dependency for swapchain accessing
@@ -265,7 +265,7 @@ pub struct Swapchain {
     ///
     /// Don't reorder those fields if you are using the [acquire_next_image](Swapchain::acquire_next_image) function.
     /// It depends on the correct ordering (and size) of this field.
-    pub images: Vec<Arc<crate::resources::Image<UnmanagedAllocator>>>,
+    pub images: Vec<Arc<crate::resources::Image>>,
     ///acquire semaphores
     //NOTE: They are hidden, since those are fully managed by this struct. Chaning anything would break assumptions.
     acquire_semaphore: Vec<Arc<crate::sync::Semaphore>>,
@@ -374,12 +374,12 @@ impl Swapchain {
             .into_iter()
             .map(|img| {
                 Arc::new(Image {
-                    allocation: ManagedAllocation {
+                    allocation: Box::new(ManagedAllocation {
                         allocation: Some(UnmanagedAllocation {
                             hidden: PhantomData,
                         }),
                         allocator: Arc::new(Mutex::new(UnmanagedAllocator)),
-                    },
+                    }),
                     desc: ImgDesc {
                         extent: ash::vk::Extent3D {
                             width: self.recreate_info.image_extent.width,

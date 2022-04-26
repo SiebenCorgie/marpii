@@ -10,7 +10,7 @@ pub struct ShaderModule {
     ///saves the descriptor interface of this module where each bindings `shader_stage` is marked as `ALL`.
     /// for best performance those might be optimitzed by the user.
     #[cfg(feature = "shader_reflection")]
-    pub descriptor_interface: Vec<(u32, Vec<ash::vk::DescriptorSetLayoutBinding>)>,
+    pub reflection: Reflection,
 }
 
 impl ShaderModule {
@@ -32,7 +32,7 @@ impl ShaderModule {
         let module = unsafe { device.inner.create_shader_module(&create_info, None)? };
 
         #[cfg(feature = "shader_reflection")]
-        let descriptor_interface = {
+        let reflection = {
             //cast the code to an u8. Should be save since the create_shader_module would have paniced
             // if the shader code was not /correct/
             let len = code.len() * size_of::<u32>();
@@ -41,16 +41,13 @@ impl ShaderModule {
             //       https://github.com/Traverse-Research/rspirv-reflect/pull/24 is merged.
             let reflection = Reflection::new_from_code(code)
                 .map_err(|e| anyhow::format_err!("Reflection error: {:?}", e))?;
-
             reflection
-                .get_bindings(ash::vk::ShaderStageFlags::ALL)
-                .map_err(|e| anyhow::format_err!("Reflection error: {:?}", e))?
         };
         Ok(ShaderModule {
             device: device.clone(),
             module,
             #[cfg(feature = "shader_reflection")]
-            descriptor_interface,
+            reflection,
         })
     }
 
@@ -64,13 +61,28 @@ impl ShaderModule {
     ) -> Result<Vec<(u32, super::DescriptorSetLayout)>, anyhow::Error> {
         use super::DescriptorSetLayout;
 
-        let mut layouts = Vec::with_capacity(self.descriptor_interface.len());
-        for (setid, bindings) in &self.descriptor_interface {
+        let bindings = self
+            .reflection
+            .get_bindings(ash::vk::ShaderStageFlags::ALL)
+            .map_err(|e| anyhow::format_err!("Reflection error: {:?}", e))?;
+
+        let mut layouts = Vec::with_capacity(bindings.len());
+        for (setid, bindings) in &bindings {
             let layout = DescriptorSetLayout::new(&self.device, &bindings)?;
             layouts.push((*setid, layout));
         }
 
         Ok(layouts)
+    }
+
+    #[cfg(feature = "shader_reflection")]
+
+    pub fn get_bindings(
+        &self,
+        stage_flags: ash::vk::ShaderStageFlags,
+    ) -> Result<Vec<(u32, Vec<ash::vk::DescriptorSetLayoutBinding>)>, rspirv_reflect::ReflectError>
+    {
+        self.reflection.get_bindings(stage_flags)
     }
 
     ///Creates shader stage from module. Panics if the entry_name is not utf8
@@ -116,5 +128,16 @@ impl ShaderStage {
         }
 
         builder
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use static_assertions::assert_impl_all;
+
+    #[test]
+    fn impl_send_sync() {
+        assert_impl_all!(ShaderModule: Send, Sync);
     }
 }

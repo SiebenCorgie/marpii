@@ -16,7 +16,7 @@ pub struct PushConstant<T: Sized> {
 }
 
 impl<T: Sized + 'static> PushConstant<T> {
-    ///Creates a new Push constant from type `T`. Derives all needed date from `T`. However, data should not be borrowed,
+    ///Creates a new Push constant from type `T`. Derives all needed data from `T`. However, data should not be borrowed,
     /// since the derived size will always have a value of 8. Instead pass the data to the function and manipulate it via `get_content_mut()`
     pub fn new(content: T, stages: vk::ShaderStageFlags) -> Self {
         let inner_range = vk::PushConstantRange::builder()
