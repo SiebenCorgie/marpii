@@ -196,9 +196,8 @@ impl Device {
                     .map(|queue_index| Queue {
                         family_index: queue_family.family_index,
                         properties: queue_family.properties,
-                        inner: unsafe {
-                            device.get_device_queue(queue_family.family_index, queue_index as u32)
-                        },
+                        inner: device.get_device_queue(queue_family.family_index, queue_index as u32)
+                        ,
                     })
                     .collect::<Vec<Queue>>()
             })
