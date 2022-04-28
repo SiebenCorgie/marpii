@@ -4,7 +4,7 @@
 
 Second iteration of [marp](gitlab.com/tendsinmende/marp). Vulkan wrapper around the [ash](crates.io/crates/ash) crate. Focuses on stable resource creation and usability. Tries to minimized duplication between ash and itself.
 
-[![pipeline status](https://gitlab.com/tendsinmende/algae/badges/main/pipeline.svg)](https://gitlab.com/tendsinmende/marpii/-/commits/main)
+[![pipeline status](https://gitlab.com/tendsinmende/marpii/badges/main/pipeline.svg)](https://gitlab.com/tendsinmende/marpii/-/commits/main)
 
 </div>
 

@@ -44,6 +44,24 @@ impl AssumedState {
             AssumedState::Image { image, state } => *image.state.write().unwrap() = state,
         }
     }
+
+    ///Unwraps assuming an image, panics if not.
+    pub fn unwrap_image(&self) -> &StImage{
+	if let AssumedState::Image { image, .. } = self{
+	    &image
+	}else{
+	    panic!("Was not an image!")
+	}
+    }
+
+    ///Unwraps assuming a buff, panics if not.
+    pub fn unwrap_buffer(&self) -> &StBuffer{
+	if let AssumedState::Buffer { buffer, .. } = self{
+	    &buffer
+	}else{
+	    panic!("Was not a buffer!")
+	}
+    }
 }
 
 ///Generic pass definition. If non local resources, like input attachments etc. are used, expose their assumed state on `record` via the `assumed_states` function.

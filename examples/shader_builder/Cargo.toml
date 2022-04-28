@@ -6,4 +6,4 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-spirv-builder = { git = "https://github.com/EmbarkStudios/rust-gpu", rev="4932a44658724d46be3d4c8ef81bf096ab1de9eb"}
+spirv-builder = { git = "https://github.com/EmbarkStudios/rust-gpu", rev="685c79a9725f9fb68ce17dd00e742b98a03f3870"}
