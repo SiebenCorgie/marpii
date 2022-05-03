@@ -23,7 +23,7 @@ pub enum MemoryUsage {
     GpuToCpu,
 }
 
-///Implemented for all managed allocations. Allows the [Image](marpii::resources::Image) and [Buffer](marpii::resources::Buffer) implementations to hide their allocator type.
+///Implemented for all managed allocations. Allows the [Image](crate::resources::Image) and [Buffer](crate::resources::Buffer) implementations to hide their allocator type.
 pub trait AnonymAllocation {}
 
 impl<A: Allocator + Send + Sync + 'static> AnonymAllocation for ManagedAllocation<A> {}

@@ -1,3 +1,4 @@
+use std::fmt::{Debug, Pointer};
 use std::sync::Arc;
 
 use crate::state::{StBuffer, StImage};
@@ -36,6 +37,24 @@ pub enum AssumedState {
     },
 }
 
+impl Debug for AssumedState{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+	match self{
+	    AssumedState::Buffer { buffer, state } => {
+		f.write_str("AssumedState::Buffer: ")?;
+		buffer.buffer.fmt(f)?;
+		state.fmt(f)
+	    },
+	    AssumedState::Image { image, state } => {
+		f.write_str("AssumedState::Image: ")?;
+		image.image.fmt(f)?;
+		state.fmt(f)
+	    }
+	}
+	
+    }
+}
+
 impl AssumedState {
     ///Makes the inner buffer/images state the assumed state
     pub(crate) fn apply_state(self) {
@@ -61,6 +80,14 @@ impl AssumedState {
 	}else{
 	    panic!("Was not a buffer!")
 	}
+    }
+    
+    ///Returns the queue family the resource of `Self` is currently in.
+    pub(crate) fn current_queue(&self) -> u32{
+	match self {
+            AssumedState::Buffer { buffer, .. } => buffer.queue.read().unwrap().queue_family(),
+            AssumedState::Image { image, .. } => image.queue.read().unwrap().queue_family(),
+        }
     }
 }
 

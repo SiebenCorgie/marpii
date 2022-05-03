@@ -17,7 +17,10 @@
 mod graph;
 pub use graph::Graph;
 
-pub mod graph_builder;
+mod graph_builder;
+pub use graph_builder::{GraphBuilder, Resource};
+mod graph_optimizer;
+pub use graph_optimizer::{OptGraph, Submit};
 
 ///Subpass definition, as well as a collection of already implemented subpasses
 pub mod pass;
