@@ -15,7 +15,7 @@
 //! A pass is a node within a [Graph]. It is characterized by a command buffer that might be recorded and executed on a queue.
 //!
 mod graph;
-pub use graph::Graph;
+pub use graph::{ExecutionFence, Graph};
 
 mod graph_builder;
 pub use graph_builder::{GraphBuilder, Resource};

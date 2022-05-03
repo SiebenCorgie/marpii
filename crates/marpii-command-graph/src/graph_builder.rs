@@ -1,13 +1,11 @@
-use std::{fmt::Debug, sync::Arc};
+use std::fmt::Debug;
 
 use fxhash::{FxHashMap, FxHashSet};
-use marpii::context::Device;
 
 use crate::{
+    graph_optimizer::{OptGraph, Submit},
     pass::{AssumedState, Pass},
-    Graph, StBuffer, StImage,
-    graph_optimizer::{Submit, OptGraph},
-    
+    ExecutionFence, Graph, StBuffer, StImage,
 };
 
 ///Key to a segments in the [GraphBuilder]'s streams. Queue is the `streams` HashMap's queue family key, `index`
@@ -83,11 +81,14 @@ pub(crate) struct Dependee {
 
 ///A single pass on a queue's stream. Collects all dependencies it has it self, as well as
 /// who depends on it.
-pub(crate) struct Segment {
+///Executing a pass that is borrowed while building the pass for `'pass`.
+pub(crate) struct Segment<'pass> {
     ///Self's key in teh GraphBuilder. (just for convenience stored here.)
     pub(crate) key_self: SegmentKey,
     ///The user defined pass that is executed.
-    pub(crate) pass: Box<dyn Pass + Send>,
+    ///Note that we only need this pass until OptPass took its record. For submission the pass is released. All needed resources
+    /// and their liftimes will be taken care of by the command buffer.
+    pub(crate) pass: &'pass mut (dyn Pass + Send),
     ///Some readable name for debugging.
     pub(crate) name: String,
     ///Dependencies that need to be met before sheduling.
@@ -96,7 +97,7 @@ pub(crate) struct Segment {
     pub(crate) dependees: Vec<Dependee>,
 }
 
-impl Segment {
+impl<'pass> Segment<'pass> {
     ///Returns all segmens that need to be signaled before this segment can be started.
     pub(crate) fn get_segment_dependencies(&self) -> Vec<SegmentKey> {
         let mut segs = Vec::new();
@@ -116,21 +117,23 @@ impl Segment {
     }
 }
 
-///Stream of [Segment]s. Also tracks ownership of resources while building the dependency graph.
-struct Stream {
+///Stream of [Segment]s. Also tracks ownership of resources while building the dependency graph. Borrows all inner passes
+/// for `'pass` This will usually be `'pass` <= `'graph` in the GraphBuilder, which in turn allows you to create temporary passes
+/// while building a graph.
+struct Stream<'pass> {
     owning: FxHashSet<Resource>,
-    segments: Vec<Segment>,
+    segments: Vec<Segment<'pass>>,
 }
 
 ///Builder-Type that allows for sequencial pass insertions. Resolves inter-pass and inter-queue dependencies of all
 ///declared resources.
-pub struct GraphBuilder {
-    device: Arc<Device>,
+pub struct GraphBuilder<'graph, 'passes> {
+    graph: &'graph mut Graph,
     ///sequencial streams of segments on a per-queue-family basis.
-    streams: FxHashMap<u32, Stream>,
+    streams: FxHashMap<u32, Stream<'passes>>,
 }
 
-impl Debug for GraphBuilder {
+impl<'graph, 'passes> Debug for GraphBuilder<'graph, 'passes> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "GraphBuilder:\n")?;
         for (k, streams) in &self.streams {
@@ -153,25 +156,12 @@ impl Debug for GraphBuilder {
     }
 }
 
-impl GraphBuilder {
-    pub fn new(device: &Arc<Device>) -> Self {
+impl<'graph, 'passes> GraphBuilder<'graph, 'passes> {
+    pub fn new(graph: &'graph mut Graph) -> Self {
         GraphBuilder {
-            device: device.clone(),
+            graph,
             streams: FxHashMap::default(),
         }
-    }
-
-    ///Returns true if no segment on no queue has been submitted yet.
-    pub fn is_empty(&self) -> bool {
-        if !self.streams.is_empty() {
-            for (_, s) in &self.streams {
-                if s.segments.len() > 0 {
-                    return false;
-                }
-            }
-        }
-
-        true
     }
 
     ///Calculates the dependency for `resource` if it was to be used on `target`.
@@ -253,7 +243,7 @@ impl GraphBuilder {
     pub fn insert_pass<P: Pass + Send + 'static>(
         mut self,
         name: impl Into<String>,
-        pass: P,
+        pass: &'passes mut P,
         queue_family: u32,
     ) -> Self {
         //Make sure the stream exists
@@ -276,7 +266,7 @@ impl GraphBuilder {
                     |res| self.dependency_for(res, segment_key),
                 )
                 .collect(),
-            pass: Box::new(pass),
+            pass,
         };
 
         self.streams
@@ -288,9 +278,23 @@ impl GraphBuilder {
         self
     }
 
+    fn stream_is_empty(streams: &FxHashMap<u32, Stream>) -> bool {
+        if !streams.is_empty() {
+            for (_, s) in streams {
+                if s.segments.len() > 0 {
+                    return false;
+                }
+            }
+        }
+
+        true
+    }
+
     ///Builds the final graph structure for this builder. Returns a [OptGraph] that can be optimized. Use [build](GraphBuilder::build) to skip the optimization use use the graph directly.
-    pub fn finish(mut self) -> OptGraph {
-        let mut tmp_graph = OptGraph::new(&self.device);
+    pub fn finish(self) -> OptGraph<'graph, 'passes> {
+        let GraphBuilder { graph, mut streams } = self;
+
+        let mut opt_graph = OptGraph::new(graph);
 
         //Collects already submitted segements
         let mut submitted_segments: FxHashSet<SegmentKey> = FxHashSet::default();
@@ -300,13 +304,13 @@ impl GraphBuilder {
         //
         // If a segment is found we record all segments on that queue until we find a segment that is beeing depended on, but where the dependy has not been submitted yet.
 
-        while !self.is_empty() {
+        while !Self::stream_is_empty(&streams) {
             //Collects all segments that are submitted in this search-loop iteration.
             //We don't do it before, since otherwise weakly parallized submissions will wait on potentually parallizable work.
             let mut new_segments = Vec::new();
 
             //On each queue, build a submit list of as many segments as possible until we find a segment that depends on something that has not been submitted yet.
-            for (queue, stream) in self.streams.iter_mut() {
+            for (queue, stream) in streams.iter_mut() {
                 //check for the streams first if it is submittable
 
                 let mut submission = Submit {
@@ -352,7 +356,7 @@ impl GraphBuilder {
                         //resolve inter-queue segment dependencies to actual
                         //semaphores
                         for seg_dep in segment.get_segment_dependencies() {
-                            let sem = tmp_graph.signal_for_segment(seg_dep).unwrap();
+                            let sem = opt_graph.signal_for_segment(seg_dep).unwrap();
                             submission.wait_for.push(sem);
                         }
 
@@ -389,11 +393,11 @@ impl GraphBuilder {
 
                 if submission.order.len() > 0 {
                     //add all segment keys to the tracker, then push the segment into the graph
-                    tmp_graph.submits.push(submission);
+                    opt_graph.submits.push(submission);
                 }
             }
 
-            if new_segments.is_empty() && !self.is_empty() {
+            if new_segments.is_empty() && !Self::stream_is_empty(&streams) {
                 panic!("Could not submit any, but was not empty!");
             }
 
@@ -403,12 +407,11 @@ impl GraphBuilder {
             }
         }
 
-        tmp_graph
+        opt_graph
     }
 
-    ///Builds the graph without optimizing submits for anything. Note that all data written within the graph
-    /// might become undefined after the graph is executed. If you want to keep data between frames, use [finish][GraphBuilder::finish] instead and optimitze for [resubmitable][OptGraph::make_resubmitable].
-    pub fn build(self) -> Result<Graph, anyhow::Error> {
-        self.finish().finish()
+    ///Executes the graph without optimizing submits for anything.
+    pub fn build(self) -> Result<ExecutionFence, anyhow::Error> {
+        self.finish().execute()
     }
 }

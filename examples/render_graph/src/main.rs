@@ -5,14 +5,13 @@
 ///Collects all runtime state for the application. Basically the context, swapchain and pipeline used for drawing.
 use anyhow::Result;
 use marpii::gpu_allocator::vulkan::Allocator;
-use marpii::resources::{Image, ImgDesc};
 use marpii::{
     ash::{self, vk, vk::Extent2D},
     context::Ctx,
     swapchain::Swapchain,
 };
 use marpii_command_graph::pass::{ImageBlit, SwapchainPrepare, WaitExternal};
-use marpii_command_graph::{Graph, StImage};
+use marpii_command_graph::{ExecutionFence, Graph, StImage};
 use winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
 use winit::{
     event::{Event, WindowEvent},
@@ -22,14 +21,19 @@ use winit::{
 mod compute_pass;
 use compute_pass::{ComputeDispatch, PushConst};
 
+struct FrameData {
+    compute_pass: ComputeDispatch,
+    wait_fence: Option<ExecutionFence>,
+}
+
 struct App {
     ctx: Ctx<Allocator>,
     swapchain: Swapchain,
     current_extent: vk::Extent2D,
 
-    target_images: Vec<StImage>,
+    frame_data: Vec<FrameData>,
 
-    compute_pass: ComputeDispatch,
+    graph: Graph,
 }
 
 impl App {
@@ -55,38 +59,27 @@ impl App {
         let extent = swimg.extent_2d();
 
         //Rebuild passes.
-        let compute_pass = ComputeDispatch::new(&ctx, &swapchain);
-
-        let target_images = swapchain
+        let frame_data = swapchain
             .images
             .iter()
             .map(|_i| {
-                StImage::unitialized(
-                    Image::new(
-                        &ctx.device,
-                        &ctx.allocator,
-                        ImgDesc::color_attachment_2d(
-                            extent.width,
-                            extent.height,
-                            ash::vk::Format::R8G8B8A8_UNORM,
-                        )
-                        .add_usage(ash::vk::ImageUsageFlags::TRANSFER_SRC)
-                        .add_usage(ash::vk::ImageUsageFlags::STORAGE),
-                        marpii::allocator::MemoryUsage::GpuOnly,
-                        Some("TargetImage"),
-                        None,
-                    )
-                    .unwrap(),
-                )
+                let compute_pass = ComputeDispatch::new(&ctx, &swapchain);
+
+                FrameData {
+                    compute_pass,
+                    wait_fence: None,
+                }
             })
             .collect();
+
+        let graph = Graph::new(&ctx.device);
 
         let app = App {
             ctx,
             swapchain,
+            graph,
             current_extent: extent,
-            target_images,
-            compute_pass,
+            frame_data,
         };
 
         Ok(app)
@@ -107,28 +100,16 @@ impl App {
         self.swapchain.recreate(extent).unwrap();
 
         //Rebuild images
-        self.target_images = self
+        self.frame_data = self
             .swapchain
             .images
             .iter()
             .map(|_i| {
-                StImage::unitialized(
-                    Image::new(
-                        &self.ctx.device,
-                        &self.ctx.allocator,
-                        ImgDesc::color_attachment_2d(
-                            extent.width,
-                            extent.height,
-                            ash::vk::Format::R8G8B8A8_UNORM,
-                        )
-                        .add_usage(ash::vk::ImageUsageFlags::TRANSFER_SRC)
-                        .add_usage(ash::vk::ImageUsageFlags::STORAGE),
-                        marpii::allocator::MemoryUsage::GpuOnly,
-                        Some("TargetImage"),
-                        None,
-                    )
-                    .unwrap(),
-                )
+                let compute_pass = ComputeDispatch::new(&self.ctx, &self.swapchain);
+                FrameData {
+                    compute_pass,
+                    wait_fence: None,
+                }
             })
             .collect();
 
@@ -176,36 +157,56 @@ impl App {
             vk::ImageLayout::UNDEFINED,
         );
 
+        //wait for the frame data to become valid again
+        if let Some(fence) = self.frame_data[swimage.index as usize].wait_fence.take() {
+            fence.wait();
+        }
+
         //Build new frame graph and submit
 
         //setup wait pass
-        let wait_image = WaitExternal::new(swimage.sem_acquire.clone());
+        let mut wait_image = WaitExternal::new(swimage.sem_acquire.clone());
         //Setup compute pass
-        let compute_submit = self.compute_pass.for_image(
-            &self.ctx.device,
-            self.target_images[swimage.index as usize].clone(),
-        );
-        compute_submit.push_const(push);
+        self.frame_data[swimage.index as usize]
+            .compute_pass
+            .push_const(push);
 
         //setup image blit and prepare pass
-        let blit = ImageBlit::new(compute_submit.target_image.clone(), st_swimage.clone());
+        let mut blit = ImageBlit::new(
+            self.frame_data[swimage.index as usize]
+                .compute_pass
+                .target_image
+                .clone(),
+            st_swimage.clone(),
+        );
         //setup prepare including the seamphore that is signaled once the pass has finished.
-        let present_prepare = SwapchainPrepare::new(st_swimage, swimage.sem_present.clone());
+        let mut present_prepare = SwapchainPrepare::new(st_swimage, swimage.sem_present.clone());
 
-        //Rebuild graph
-        let mut graph = Graph::new(&self.ctx.device)
-            .insert_pass("ImageAcquireWait", wait_image, graphics_queue.family_index)
-            .insert_pass("ComputePass", compute_submit, graphics_queue.family_index)
-            .insert_pass("SwapchainBlit", blit, graphics_queue.family_index)
+        //Build graph and execute
+        let execute_fence = self
+            .graph
+            .record()
             .insert_pass(
-                "SwapchainPrepare",
-                present_prepare,
+                "ImageAcquireWait",
+                &mut wait_image,
                 graphics_queue.family_index,
             )
-            .build()
+            .insert_pass(
+                "ComputePass",
+                &mut self.frame_data[swimage.index as usize].compute_pass,
+                graphics_queue.family_index,
+            )
+            .insert_pass("SwapchainBlit", &mut blit, graphics_queue.family_index)
+            .insert_pass(
+                "SwapchainPrepare",
+                &mut present_prepare,
+                graphics_queue.family_index,
+            )
+            .finish()
+            .execute()
             .unwrap();
-
-        graph.submit().unwrap();
+        //Update fence for new submit
+        self.frame_data[swimage.index as usize].wait_fence = Some(execute_fence);
 
         //now enqueue for present
         if let Err(e) = self

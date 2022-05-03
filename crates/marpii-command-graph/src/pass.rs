@@ -37,21 +37,20 @@ pub enum AssumedState {
     },
 }
 
-impl Debug for AssumedState{
+impl Debug for AssumedState {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-	match self{
-	    AssumedState::Buffer { buffer, state } => {
-		f.write_str("AssumedState::Buffer: ")?;
-		buffer.buffer.fmt(f)?;
-		state.fmt(f)
-	    },
-	    AssumedState::Image { image, state } => {
-		f.write_str("AssumedState::Image: ")?;
-		image.image.fmt(f)?;
-		state.fmt(f)
-	    }
-	}
-	
+        match self {
+            AssumedState::Buffer { buffer, state } => {
+                f.write_str("AssumedState::Buffer: ")?;
+                buffer.buffer.fmt(f)?;
+                state.fmt(f)
+            }
+            AssumedState::Image { image, state } => {
+                f.write_str("AssumedState::Image: ")?;
+                image.image.fmt(f)?;
+                state.fmt(f)
+            }
+        }
     }
 }
 
@@ -65,26 +64,26 @@ impl AssumedState {
     }
 
     ///Unwraps assuming an image, panics if not.
-    pub fn unwrap_image(&self) -> &StImage{
-	if let AssumedState::Image { image, .. } = self{
-	    &image
-	}else{
-	    panic!("Was not an image!")
-	}
+    pub fn unwrap_image(&self) -> &StImage {
+        if let AssumedState::Image { image, .. } = self {
+            &image
+        } else {
+            panic!("Was not an image!")
+        }
     }
 
     ///Unwraps assuming a buff, panics if not.
-    pub fn unwrap_buffer(&self) -> &StBuffer{
-	if let AssumedState::Buffer { buffer, .. } = self{
-	    &buffer
-	}else{
-	    panic!("Was not a buffer!")
-	}
+    pub fn unwrap_buffer(&self) -> &StBuffer {
+        if let AssumedState::Buffer { buffer, .. } = self {
+            &buffer
+        } else {
+            panic!("Was not a buffer!")
+        }
     }
-    
+
     ///Returns the queue family the resource of `Self` is currently in.
-    pub(crate) fn current_queue(&self) -> u32{
-	match self {
+    pub(crate) fn current_queue(&self) -> u32 {
+        match self {
             AssumedState::Buffer { buffer, .. } => buffer.queue.read().unwrap().queue_family(),
             AssumedState::Image { image, .. } => image.queue.read().unwrap().queue_family(),
         }

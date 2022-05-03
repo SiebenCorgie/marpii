@@ -6,7 +6,7 @@ use marpii::resources::{
 use marpii::{
     ash,
     ash::vk,
-    context::{Ctx, Device},
+    context::Ctx,
     resources::{Image, ImgDesc},
     swapchain::Swapchain,
 };
@@ -133,44 +133,6 @@ impl ComputeDispatch {
 
     pub fn push_const(&self, c: PushConst) {
         *self.push_constant.lock().unwrap().get_content_mut() = c;
-    }
-
-    ///Creates a new version of Self for the given image
-    pub fn for_image(&self, device: &Arc<Device>, target: StImage) -> Self {
-        //we inherit the push constant, pipeline and descriptor set, but write a new image to the set.
-        let assumed_state = AssumedState::Image {
-            image: target.clone(),
-            state: ImageState {
-                access_mask: vk::AccessFlags::SHADER_WRITE,
-                layout: vk::ImageLayout::GENERAL,
-            },
-        };
-
-        let descriptor_set = self.descriptor_set.clone();
-        descriptor_set
-            .write()
-            .unwrap()
-            .update_binding(
-                Binding::new_image(
-                    Arc::new(
-                        target
-                            .image()
-                            .view(device.clone(), target.image().view_all())
-                            .unwrap(),
-                    ),
-                    vk::ImageLayout::GENERAL,
-                ),
-                0,
-            )
-            .unwrap();
-
-        ComputeDispatch {
-            target_image: target,
-            assumed_state,
-            descriptor_set,
-            pipeline: self.pipeline.clone(),
-            push_constant: self.push_constant.clone(),
-        }
     }
 }
 

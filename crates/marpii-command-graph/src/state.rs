@@ -16,77 +16,75 @@ pub struct ImageState {
 }
 
 ///Different states of queue ownership of resources.
-pub enum QueueState{
+pub enum QueueState {
     ///No queue has taken ownership yet
     Uninitialized,
     ///Owned by the given queue family.
     Owned(u32),
     ///Queue has been released `from` queue `to` queu
-    Released{
-	from: u32,
-	to: u32,
-    }
+    Released { from: u32, to: u32 },
 }
 
-impl QueueState{
+impl QueueState {
     ///Returns the currently owning queue family. Returns [UNDEFINED_QUEUE](crate::UNDEFINED_QUEUE) if no family
     /// is currently owning the resource
-    pub fn queue_family(&self) -> u32{
-	match self{
-	    QueueState::Owned(i) => *i,
-	    _ => UNDEFINED_QUEUE
-	}
+    pub fn queue_family(&self) -> u32 {
+        match self {
+            QueueState::Owned(i) => *i,
+            _ => UNDEFINED_QUEUE,
+        }
     }
 
-    pub fn acquire_to(&mut self, src: u32, dst: u32){
-	#[cfg(feature="logging")]
-	match &self{
-	    QueueState::Released { from, to } => {
-		log::trace!("Acquiring image from {} to {}!", from, to);
-		if src != *from || dst != *to{
-		    log::error!("Release information does not match acquire information: Release[from={}, to={}], Acquire[from={}, to={}]", from, to, src, dst);
-		}
-	    },
-	    QueueState::Owned(i) => log::warn!("Cannot Acquire owned image"),
-	    QueueState::Uninitialized => log::trace!("Initializing to queue {}", dst),
-	}
+    pub fn acquire_to(&mut self, src: u32, dst: u32) {
+        #[cfg(feature = "logging")]
+        match &self {
+            QueueState::Released { from, to } => {
+                log::trace!("Acquiring image from {} to {}!", from, to);
+                if src != *from || dst != *to {
+                    log::error!("Release information does not match acquire information: Release[from={}, to={}], Acquire[from={}, to={}]", from, to, src, dst);
+                }
+            }
+            QueueState::Owned(_i) => log::warn!("Cannot Acquire owned image"),
+            QueueState::Uninitialized => log::trace!("Initializing to queue {}", dst),
+        }
 
-	*self = QueueState::Owned(dst);
+        *self = QueueState::Owned(dst);
     }
-    
-    pub fn release_to(&mut self, src: u32, dst: u32){
-	#[cfg(feature="logging")]
-	match &self{
-	    QueueState::Uninitialized => log::warn!("Cannot release uninitialized image!"),
-	    QueueState::Released { .. } => log::warn!("Cannot release already released image!"),
-	    QueueState::Owned(i) => log::trace!("Releasing image from {} to {}", src, dst),
-	}
 
-	*self = QueueState::Released { from: src, to: dst };
+    pub fn release_to(&mut self, src: u32, dst: u32) {
+        #[cfg(feature = "logging")]
+        match &self {
+            QueueState::Uninitialized => log::warn!("Cannot release uninitialized image!"),
+            QueueState::Released { .. } => log::warn!("Cannot release already released image!"),
+            QueueState::Owned(_i) => log::trace!("Releasing image from {} to {}", src, dst),
+        }
+
+        *self = QueueState::Released { from: src, to: dst };
     }
-    
+
     ///Returns true if the resource is currently owned by this `family`
-    pub fn is_owned(&self, family: u32) -> bool{
-	if let QueueState::Owned(f) = &self{
-	    *f == family
-	}else{
-	    false
-	}
+    pub fn is_owned(&self, family: u32) -> bool {
+        if let QueueState::Owned(f) = &self {
+            *f == family
+        } else {
+            false
+        }
     }
 
-    pub fn is_released(&self, from_queue: u32, to_queue: u32) -> bool{
-	match self{
-	    QueueState::Released { from, to } => *from == from_queue && *to == to_queue,
-	    _ => false
-	}
+    pub fn is_released(&self, from_queue: u32, to_queue: u32) -> bool {
+        match self {
+            QueueState::Released { from, to } => *from == from_queue && *to == to_queue,
+            _ => false,
+        }
     }
 
-    pub fn is_uninitialized(&self) -> bool{
-	if let QueueState::Uninitialized = self{
-	    true
-	}else{
-	    false
-	}
+    #[allow(dead_code)]
+    pub fn is_uninitialized(&self) -> bool {
+        if let QueueState::Uninitialized = self {
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -147,7 +145,11 @@ impl StImage {
                 access_mask,
                 layout,
             })),
-            queue: Arc::new(RwLock::new(if queue == UNDEFINED_QUEUE{QueueState::Uninitialized}else{QueueState::Owned(queue)})),
+            queue: Arc::new(RwLock::new(if queue == UNDEFINED_QUEUE {
+                QueueState::Uninitialized
+            } else {
+                QueueState::Owned(queue)
+            })),
             image,
         }
     }
@@ -224,20 +226,18 @@ impl StBuffer {
     /// # Note
     ///
     /// You can use [UNDEFINED_QUEUE](crate::UNDEFINED_QUEUE) if the buffer has not been acquired yet.
-    pub fn shared(
-        buffer: Arc<Buffer>,
-        queue: u32,
-        access_mask: vk::AccessFlags,
-    ) -> Self {
+    pub fn shared(buffer: Arc<Buffer>, queue: u32, access_mask: vk::AccessFlags) -> Self {
         StBuffer {
-            state: Arc::new(RwLock::new(BufferState {
-                access_mask,
+            state: Arc::new(RwLock::new(BufferState { access_mask })),
+            queue: Arc::new(RwLock::new(if queue == UNDEFINED_QUEUE {
+                QueueState::Uninitialized
+            } else {
+                QueueState::Owned(queue)
             })),
-            queue: Arc::new(RwLock::new(if queue == UNDEFINED_QUEUE{QueueState::Uninitialized}else{QueueState::Owned(queue)})),
             buffer,
         }
     }
-    
+
     ///Returns currently owning queue family
     pub fn queue_family(&self) -> u32 {
         self.queue.read().unwrap().queue_family()
@@ -274,14 +274,14 @@ enum Trans {
     },
 
     ///Inits the buffer to the given mask and queue ownership.
-    BufInit{
-	buf: Arc<Buffer>,
+    BufInit {
+        buf: Arc<Buffer>,
         mask: vk::AccessFlags,
         queue: u32,
     },
 
     ///Moves the access mask of a buffer.
-    BufFmt{
+    BufFmt {
         buf: Arc<Buffer>,
         src_mask: vk::AccessFlags,
         dst_mask: vk::AccessFlags,
@@ -294,11 +294,7 @@ enum Trans {
         dst_mask: vk::AccessFlags,
         src_queue: u32,
         dst_queue: u32,
-    }, //TODO add other events.
-       //     - Image data-preserving queue acquire/release
-       //     - Buffer init
-       //     - Buffer format trans
-       //     - buffer Queue acquire/release
+    },
 }
 
 impl Trans {
@@ -339,119 +335,136 @@ impl Transitions {
             src_layout: current_state.layout,
             dst_layout: current_state.layout,
         });
-	
-	debug_assert!(image.queue.read().unwrap().is_owned(src_queue), "Released image = {:?} on queue = {}, but was not owned by this queue!", image.image().inner, src_queue);
-        image.queue.write().unwrap().release_to(src_queue, dst_queue);
+
+        debug_assert!(
+            image.queue.read().unwrap().is_owned(src_queue),
+            "Released image = {:?} on queue = {}, but was not owned by this queue!",
+            image.image().inner,
+            src_queue
+        );
+        image
+            .queue
+            .write()
+            .unwrap()
+            .release_to(src_queue, dst_queue);
     }
 
     ///Initializes image ignoring data that might be written to it.
-    pub fn init_image(&mut self, image: &StImage, queue: u32, state: &ImageState){
-	//While just initing to another queue works, the validation layers don't like this.
-	//we throw a warning so the user could change the graph.
+    pub fn init_image(&mut self, image: &StImage, queue: u32, state: &ImageState) {
+        //While just initing to another queue works, the validation layers don't like this.
+        //we throw a warning so the user could change the graph.
 
+        match *image.queue.read().unwrap() {
+            QueueState::Uninitialized => {
+                #[cfg(feature = "log_reasoning")]
+                log::trace!(
+                    "Init image {:?} from uninit to queue {}",
+                    image.image().inner,
+                    queue
+                );
 
-	match *image.queue.read().unwrap(){
-	    QueueState::Uninitialized => {
-		//Emmit simple init
-		self.transitions.push(Trans::ImgInit {
-		    img: image.image().clone(),
-		    mask: state.access_mask,
-		    layout: state.layout,
-		    queue
-		});
-	    },
-	    QueueState::Released { from, to } => {
-		let before_state = image.state();
-		//was releaed, can acquire
-		self.acquire_image(image, from, to);
-		//then transition to state
-		self.transitions.push(Trans::ImgFmt {
-		    img: image.image().clone(),
-		    src_mask: before_state.access_mask,
-		    dst_mask: state.access_mask,
-		    src_layout: before_state.layout,
-		    dst_layout: state.layout
-		});
-	    },
-	    QueueState::Owned(q) => {
-		//This is the case where the image was not released elsewhere. So we have to discrad. Warn, then ignore and
-		//trans anyways
-		#[cfg(feature="logging")]
-		if q != queue{
-		    log::warn!("Image {:?} is owned by a different queue, but graph is initializing. Consider adding an explicit release pass for this image to the graph that was executed before, to allow the pass on queue_family={} to schedule a acquire operation instead.", image.image().inner, queue);
+                //Emmit simple init
+                self.transitions.push(Trans::ImgInit {
+                    img: image.image().clone(),
+                    mask: state.access_mask,
+                    layout: state.layout,
+                    queue,
+                });
+            }
+            QueueState::Released { from, to } => {
+                #[cfg(feature = "log_reasoning")]
+                log::trace!(
+                    "Init image {:?} from released from: {} to: {}",
+                    image.image().inner,
+                    from,
+                    to
+                );
 
-		    
-		}else{
-		    //Is already owned. Therefore we can transition.
-		    self.transitions.push(Trans::ImgInit {
-			img: image.image().clone(),
-			mask: state.access_mask,
-			layout: state.layout,
-			queue
-		    });
-		}
-	    }
-	}
-	
-	
-	//and move image to this state
-	*image.state.write().unwrap() = state.clone();
-	*image.queue.write().unwrap() = QueueState::Owned(queue);
+                let before_state = image.state();
+                //was releaed, can acquire
+                self.acquire_image(image, from, to);
+                //then transition to state
+                self.transitions.push(Trans::ImgFmt {
+                    img: image.image().clone(),
+                    src_mask: before_state.access_mask,
+                    dst_mask: state.access_mask,
+                    src_layout: before_state.layout,
+                    dst_layout: state.layout,
+                });
+            }
+            QueueState::Owned(q) => {
+                //This is the case where the image was not released elsewhere. So we have to discrad. Warn, then ignore and
+                //trans anyways
+                #[cfg(feature = "logging")]
+                if q != queue {
+                    log::warn!("Image {:?} is owned by a different queue, but graph is initializing. Consider adding an explicit release pass for this image to the graph that was executed before, to allow the pass on queue_family={} to schedule a acquire operation instead.", image.image().inner, queue);
+                } else {
+                    #[cfg(feature = "log_reasoning")]
+                    log::trace!("Init image {:?} from owned via init", image.image().inner);
+
+                    //Is already owned. Therefore we can transition.
+                    self.transitions.push(Trans::ImgInit {
+                        img: image.image().clone(),
+                        mask: state.access_mask,
+                        layout: state.layout,
+                        queue,
+                    });
+                }
+            }
+        }
+
+        //and move image to this state
+        *image.state.write().unwrap() = state.clone();
+        *image.queue.write().unwrap() = QueueState::Owned(queue);
     }
-
 
     ///Initializes buffer ignoring data that might be written to it.
-    pub fn init_buffer(&mut self, buffer: &StBuffer, queue: u32, state: &BufferState){
-	//While just initing to another queue works, the validation layers don't like this.
-	//we throw a warning so the user could change the graph.
+    pub fn init_buffer(&mut self, buffer: &StBuffer, queue: u32, state: &BufferState) {
+        //While just initing to another queue works, the validation layers don't like this.
+        //we throw a warning so the user could change the graph.
 
+        match *buffer.queue.read().unwrap() {
+            QueueState::Uninitialized => {
+                //Emmit simple init
+                self.transitions.push(Trans::BufInit {
+                    buf: buffer.buffer().clone(),
+                    mask: state.access_mask,
+                    queue,
+                });
+            }
+            QueueState::Released { from, to } => {
+                let before_state = buffer.state();
+                //was releaed, can acquire
+                self.acquire_buffer(buffer, from, to);
+                //then transition to state
+                self.transitions.push(Trans::BufFmt {
+                    buf: buffer.buffer().clone(),
+                    src_mask: before_state.access_mask,
+                    dst_mask: state.access_mask,
+                });
+            }
+            QueueState::Owned(q) => {
+                //This is the case where the image was not released elsewhere. So we have to discrad. Warn, then ignore and
+                //trans anyways
+                #[cfg(feature = "logging")]
+                if q != queue {
+                    log::warn!("Buffer {:?} is owned by a different queue, but graph is initializing. Consider adding an explicit release pass for this Buffer to the graph that was executed before, to allow the pass on queue_family={} to schedule a acquire operation instead.", buffer.buffer().inner, queue);
+                } else {
+                    //Is already owned. Therefore we can transition.
+                    self.transitions.push(Trans::BufInit {
+                        buf: buffer.buffer().clone(),
+                        mask: state.access_mask,
+                        queue,
+                    });
+                }
+            }
+        }
 
-	match *buffer.queue.read().unwrap(){
-	    QueueState::Uninitialized => {
-		//Emmit simple init
-		self.transitions.push(Trans::BufInit {
-		    buf: buffer.buffer().clone(),
-		    mask: state.access_mask,
-		    queue
-		});
-	    },
-	    QueueState::Released { from, to } => {
-		let before_state = buffer.state();
-		//was releaed, can acquire
-		self.acquire_buffer(buffer, from, to);
-		//then transition to state
-		self.transitions.push(Trans::BufFmt {
-		    buf: buffer.buffer().clone(),
-		    src_mask: before_state.access_mask,
-		    dst_mask: state.access_mask,
-		});
-	    },
-	    QueueState::Owned(q) => {
-		//This is the case where the image was not released elsewhere. So we have to discrad. Warn, then ignore and
-		//trans anyways
-		#[cfg(feature="logging")]
-		if q != queue{
-		    log::warn!("Buffer {:?} is owned by a different queue, but graph is initializing. Consider adding an explicit release pass for this Buffer to the graph that was executed before, to allow the pass on queue_family={} to schedule a acquire operation instead.", buffer.buffer().inner, queue);
-
-		    
-		}else{
-		    //Is already owned. Therefore we can transition.
-		    self.transitions.push(Trans::BufInit {
-			buf: buffer.buffer().clone(),
-			mask: state.access_mask,
-			queue
-		    });
-		}
-	    }
-	}
-	
-	
-	//and move image to this state
-	*buffer.state.write().unwrap() = state.clone();
-	*buffer.queue.write().unwrap() = QueueState::Owned(queue);
+        //and move image to this state
+        *buffer.state.write().unwrap() = state.clone();
+        *buffer.queue.write().unwrap() = QueueState::Owned(queue);
     }
-    
-    
+
     ///Adds a image acquire operation which acquires `image` for `queue`.
     pub fn acquire_image(&mut self, image: &StImage, src_queue: u32, dst_queue: u32) {
         let current_state = image.state.read().unwrap().clone();
@@ -464,9 +477,21 @@ impl Transitions {
             src_layout: current_state.layout,
             dst_layout: current_state.layout,
         });
-	
-	debug_assert!(image.queue.read().unwrap().is_released(src_queue, dst_queue), "Acquired image {:?}, but queue was defined!", image.image().inner);
-        image.queue.write().unwrap().acquire_to(src_queue, dst_queue);
+
+        debug_assert!(
+            image
+                .queue
+                .read()
+                .unwrap()
+                .is_released(src_queue, dst_queue),
+            "Acquired image {:?}, but queue was defined!",
+            image.image().inner
+        );
+        image
+            .queue
+            .write()
+            .unwrap()
+            .acquire_to(src_queue, dst_queue);
     }
 
     pub fn release_buffer(&mut self, buffer: &StBuffer, src_queue: u32, dst_queue: u32) {
@@ -479,9 +504,17 @@ impl Transitions {
             dst_queue,
         });
 
-	
-	debug_assert!(buffer.queue.read().unwrap().is_owned(src_queue), "Released buffer = {:?} on queue = {}, but was not owned by this queue!", buffer.buffer().inner, src_queue);
-        buffer.queue.write().unwrap().release_to(src_queue, dst_queue);
+        debug_assert!(
+            buffer.queue.read().unwrap().is_owned(src_queue),
+            "Released buffer = {:?} on queue = {}, but was not owned by this queue!",
+            buffer.buffer().inner,
+            src_queue
+        );
+        buffer
+            .queue
+            .write()
+            .unwrap()
+            .release_to(src_queue, dst_queue);
     }
 
     pub fn acquire_buffer(&mut self, buffer: &StBuffer, src_queue: u32, dst_queue: u32) {
@@ -494,8 +527,20 @@ impl Transitions {
             dst_queue,
         });
 
-	debug_assert!(buffer.queue.read().unwrap().is_released(src_queue, dst_queue), "Acquired buffer {:?}, but queue was defined!", buffer.buffer().inner);
-        buffer.queue.write().unwrap().acquire_to(src_queue, dst_queue);
+        debug_assert!(
+            buffer
+                .queue
+                .read()
+                .unwrap()
+                .is_released(src_queue, dst_queue),
+            "Acquired buffer {:?}, but queue was defined!",
+            buffer.buffer().inner
+        );
+        buffer
+            .queue
+            .write()
+            .unwrap()
+            .acquire_to(src_queue, dst_queue);
     }
 
     ///Adds a transition state transforms `src` into the assumed state on `queue`.
@@ -532,28 +577,26 @@ impl Transitions {
                 }
             }
             AssumedState::Buffer { buffer, state } => {
+                let buffer_state = buffer.state.read().unwrap().clone();
 
-		let buffer_state = buffer.state.read().unwrap().clone();
-		
-		if buffer.queue_family() == UNDEFINED_QUEUE{
-		    #[cfg(feature = "log_reasoning")]
+                if buffer.queue_family() == UNDEFINED_QUEUE {
+                    #[cfg(feature = "log_reasoning")]
                     log::trace!(
                         "Found uninitialized buffer {:?}, that was not catched by the graph. Moving to state {:?}",
                         buffer.buffer().inner,
                         &state
                     );
 
-		    self.init_buffer(buffer, queue_family, state)
-		}else{
-		    //Simple format transform since queue is alright
-		    self.transitions.push(Trans::BufFmt {
-			buf: buffer.buffer.clone(),
-			src_mask: buffer_state.access_mask,
-			dst_mask: state.access_mask
-		    });
-		}
-		
-	    },
+                    self.init_buffer(buffer, queue_family, state)
+                } else {
+                    //Simple format transform since queue is alright
+                    self.transitions.push(Trans::BufFmt {
+                        buf: buffer.buffer.clone(),
+                        src_mask: buffer_state.access_mask,
+                        dst_mask: state.access_mask,
+                    });
+                }
+            }
         }
 
         //Signal state change internally
@@ -627,15 +670,14 @@ impl Transitions {
                 },
             );
 
-            #[cfg(feature = "log_reasoning")]
-            log::trace!(
-                "Sheduling queue transitions: \nBuffer={:#?}\nImages={:#?}!",
-                buffer_barriers,
-                image_barriers
-            );
-
             //Emit actual transition
             if !buffer_barriers.is_empty() || !image_barriers.is_empty() {
+                #[cfg(feature = "log_reasoning")]
+                log::trace!(
+                    "Sheduling queue transitions: \nBuffer={:#?}\nImages={:#?}!",
+                    buffer_barriers,
+                    image_barriers
+                );
                 unsafe {
                     dev.cmd_pipeline_barrier(
                         *cmd,
@@ -655,9 +697,9 @@ impl Transitions {
             let (buffer_barriers, image_barriers): (
                 Vec<vk::BufferMemoryBarrier>,
                 Vec<vk::ImageMemoryBarrier>,
-            ) = other
-                .iter()
-                .fold((Vec::new(), Vec::new()), |(bufbar, mut imgbar), trans| {
+            ) = other.iter().fold(
+                (Vec::new(), Vec::new()),
+                |(mut bufbar, mut imgbar), trans| {
                     match trans {
                         Trans::ImgInit {
                             img,
@@ -690,19 +732,44 @@ impl Transitions {
                             subresource_range: img.subresource_all(),
                             ..Default::default()
                         }),
-                        _ => todo!("Transition unimplemented!"),
+                        Trans::BufInit { buf, mask, queue } => {
+                            bufbar.push(vk::BufferMemoryBarrier {
+                                buffer: buf.inner,
+                                src_access_mask: vk::AccessFlags::NONE,
+                                dst_access_mask: *mask,
+                                src_queue_family_index: *queue,
+                                dst_queue_family_index: *queue,
+                                offset: 0,
+                                size: vk::WHOLE_SIZE,
+                                ..Default::default()
+                            })
+                        }
+                        Trans::BufFmt {
+                            buf,
+                            src_mask,
+                            dst_mask,
+                        } => bufbar.push(vk::BufferMemoryBarrier {
+                            buffer: buf.inner,
+                            src_access_mask: *src_mask,
+                            dst_access_mask: *dst_mask,
+                            offset: 0,
+                            size: vk::WHOLE_SIZE,
+                            ..Default::default()
+                        }),
+                        _ => panic!("Found non init or fmt operation in buffer/image barriers"),
                     }
 
                     (bufbar, imgbar)
-                });
-
-            #[cfg(feature = "log_reasoning")]
-            log::trace!(
-                "Sheduling barriers: \nBuffer={:#?}\nImages={:#?}!",
-                buffer_barriers,
-                image_barriers
+                },
             );
+
             if !buffer_barriers.is_empty() || !image_barriers.is_empty() {
+                #[cfg(feature = "log_reasoning")]
+                log::trace!(
+                    "Sheduling barriers: \nBuffer={:#?}\nImages={:#?}!",
+                    buffer_barriers,
+                    image_barriers
+                );
                 unsafe {
                     dev.cmd_pipeline_barrier(
                         *cmd,
