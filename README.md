@@ -62,6 +62,44 @@ Examples are executed via `cargo run --bin example_name`. Have a look at `exampl
 
 ![Initial mind map](resources/initialMindMap.svg)
 
+
+## Dependencies
+A list of dependencies used in the crates of this project. Have a look at the `Cargo.toml` of each crate for further information about features and versions.
+
+### MarpII
+
+- ash: general vulkan API bindings
+- ash-window: convenient abstraction over window handles. Allows for a generic implementation of `Surface` without having to handle multiple window crates.
+- raw-window-handle: used to be able to expose the window handle needed for `Surface`
+- anyhow: convenient error handling. Otherwise we'd have either one really big error ENum, or multiple small ones. Either way, there are a lot of different error states that are not really recoverable. So a simple string like error is enough in most cases.
+- const-cstr: Allows defining constant CStrings. They are used for default messages in the debug callback. 
+- small-vec: Whenever only small collections are needed this allows us to uses arrays in the general case and Vecs if those are not big enough.
+- fxhash: in the cases where we need a hash map/set fx-hash is used for speed.
+- gpu-allocator: standard Vulkan memory allocator
+- log: logging if enabled
+- puffin: profiling if enabled
+- rspirv-reflect: spirv-module reflection if enabled. Allows convenient descriptor-layout creation.
+
+### MarpII-Command-Graph
+
+- marpii/marpii-commands: marpii binding
+- anyhow: convenient error handling.
+- fxhash: in the cases where we need a hash map/set fx-hash is used for speed.
+- slotmap: Fast and safe Vec-like access for `Passe`s within a Graph.
+- log: logging if enabled
+
+### MarpII-Commands
+- marpii: marpii binding
+- anyhow: convenient error handling.
+- log: logging if enabled
+
+### MarpII-Descriptor
+
+- marpii: marpii binding
+- anyhow: convenient error handling.
+- fxhash: in the cases where we need a hash map/set fx-hash is used for speed.
+- log: logging if enabled
+
 ## Contributing
 
 You are welcome to contribute. All contributions are licensed under the MPL v2.0.
