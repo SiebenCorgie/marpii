@@ -1,32 +1,34 @@
 use std::sync::Arc;
 
-use fxhash::FxHashMap;
-use marpii::{ash::vk, context::Device, sync::Semaphore};
+use marpii::{ash::vk, sync::Semaphore};
 
 use crate::{
-    graph::PassSubmit,
+    graph::{ExecutionFence, PassSubmit},
+    graph_builder::{Dependee, Dependency, Segment, SegmentKey},
     pass::AssumedState,
     state::Transitions,
-    Graph, Resource,
-    graph_builder::{Dependency, Dependee, Segment, SegmentKey},
+    Graph,
 };
 
-pub struct Submit {
+///Single command buffer submit. Queueing multiple segments. Synchronises itself via wait_for and signaling semaphores.
+///Borrows internal passes for `passes`
+pub struct Submit<'passes> {
     pub(crate) queue: u32,
     pub(crate) wait_for: Vec<Arc<Semaphore>>,
-    pub(crate) order: Vec<Segment>,
+    pub(crate) order: Vec<Segment<'passes>>,
     //The submits "own" signal that might be created while building the graph
     pub(crate) signaling: Option<Arc<Semaphore>>,
     //possible external signals that are submitted regardless
     pub(crate) external_signals: Vec<Arc<Semaphore>>,
 }
 
-impl Submit {
-    pub(crate) fn get_seamphore(&mut self, device: &Arc<Device>) -> Arc<Semaphore> {
+impl<'passes> Submit<'passes> {
+    ///Returns its signal semaphore. Might create one if there wasn't already. Assumes that the semaphore is waited uppon at some point.
+    pub(crate) fn get_seamphore(&mut self, graph: &mut Graph) -> Arc<Semaphore> {
         if let Some(sem) = &self.signaling {
             sem.clone()
         } else {
-            self.signaling = Some(Semaphore::new(device).unwrap());
+            self.signaling = Some(graph.alloc_semaphore());
             self.signaling.as_ref().unwrap().clone()
         }
     }
@@ -36,20 +38,16 @@ impl Submit {
 ///and waiting information.
 ///
 ///A submission however can be optimized as long as each *segment* dependencies are respected.
-pub struct OptGraph {
-    pub(crate) device: Arc<Device>,
-    pub(crate) submits: Vec<Submit>,
-
-    ///True if the graph is resubmittable
-    pub(crate) is_resubmitable: bool,
+pub struct OptGraph<'graph, 'passes> {
+    pub(crate) graph: &'graph mut Graph,
+    pub(crate) submits: Vec<Submit<'passes>>,
 }
 
-impl OptGraph {
-    pub fn new(device: &Arc<Device>) -> Self {
+impl<'graph, 'passes> OptGraph<'graph, 'passes> {
+    pub fn new(graph: &'graph mut Graph) -> Self {
         OptGraph {
-            device: device.clone(),
+            graph,
             submits: Vec::new(),
-            is_resubmitable: false,
         }
     }
 
@@ -65,7 +63,7 @@ impl OptGraph {
             }
 
             if has_key {
-                return Some(sub.get_seamphore(&self.device));
+                return Some(sub.get_seamphore(self.graph));
             }
         }
 
@@ -112,39 +110,8 @@ impl OptGraph {
         unimplemented!();
     }
 
-    ///Adds additional steps to the graph in order to keep `data` valid in between graph submission.
-    ///
-    /// # Implementation
-    ///
-    /// While [make_resubmitable][OptGraph::make_resubmitable] makes the graph resubmittable it can not gurantee that
-    /// data can be kept between submissions.
-    pub fn keep(self, _data: Resource) -> Self {
-        unimplemented!();
-    }
-
-    ///Makes the whole graph resubmitable. This adds data dependencies in order to make resubmissions of the same command buffer valid.
-    ///
-    /// # Implementation
-    ///
-    ///In practise the final layout of each resource is analyzed. An additional "Initialization" Segment is introduced
-    /// that transforms each resource to the "final layout" before executing the graph for the first time.
-    ///
-    /// On first submit the graph will then transform the resources to the "final layout" first, then start "normal" execution.
-    /// Since the final and initial layout are the same now the graph becomes resubmittable.
-    pub fn make_resubmitable(self) -> Self {
-        unimplemented!();
-    }
-
-    ///Uses the current submit state to record all command buffers.
-    pub fn finish(self) -> Result<Graph, anyhow::Error> {
-        let mut graph = Graph {
-            device: self.device.clone(),
-            command_pools: FxHashMap::default(),
-            queue_submits: Vec::with_capacity(self.submits.len()),
-            is_resubmitable: self.is_resubmitable,
-            was_submitted: false,
-        };
-
+    ///Uses the current state to record the final command buffer and submits all of it to the GPU.
+    pub fn execute(self) -> Result<ExecutionFence, anyhow::Error> {
         //We now take each submit, allocate a command buffer for it, record the command buffer based on the submits conditions. This mostly means
         //adding all queue/acquires at the start, then recording for each segment:
         //    Barriers
@@ -153,10 +120,14 @@ impl OptGraph {
         //and finaly after recording all segments of a submit, enqueue possible queue-release operations based on the dependees field.
         //
         //The final command buffers are then put into the final graphs "submission order". Which can be executed once ore multiple times.
+        let mut execution_fence = ExecutionFence {
+            fences: Vec::with_capacity(self.submits.len()),
+        };
+
         for submit in self.submits.into_iter() {
-            let mut cb = graph.alloc_new_command_buffer(&self.device, submit.queue)?;
+            let mut cb = self.graph.alloc_new_command_buffer(submit.queue)?;
             let mut recorder = cb.start_recording()?;
-            for mut segment in submit.order.into_iter() {
+            for segment in submit.order.into_iter() {
                 //Check if there is one or more queue transfers. In that case, schedule the queue transfer barrier,
                 // and collect the assosiated assumed states for a later transitioning barrier.
                 let transitions = segment.dependencies.into_iter().fold(
@@ -169,7 +140,6 @@ impl OptGraph {
                                 //Update tracked state.
                             }
                             Dependency::Init(init_state) => {
-				
 				//Check if the resource already lives on our queue.
 				// If not we have to transition it. Depending on the if it was released or not
 				// we either acquire (which keeps the data) or have to initialize from UNDEFINED.
@@ -183,8 +153,6 @@ impl OptGraph {
 					AssumedState::Buffer { buffer, state } => trans.init_buffer(buffer, submit.queue, state),
 					AssumedState::Image { image, state } => trans.init_image(image, submit.queue, state),
 				    }
-
-				    trans.add_into_assumed(init_state, submit.queue);				    
 				}else{
 				    #[cfg(feature="log_reasoning")]
 				    log::trace!("Initing resource {:?} on same queue via transition", init_state);
@@ -244,13 +212,11 @@ impl OptGraph {
                                 resource,
                             } = dep;
                             match resource {
-                                AssumedState::Image { image, .. } => {
-                                    trans.release_image(
-					&image,
-					from_segment.queue,
-					to_segment.queue
-				    )
-                                }
+                                AssumedState::Image { image, .. } => trans.release_image(
+                                    &image,
+                                    from_segment.queue,
+                                    to_segment.queue,
+                                ),
                                 AssumedState::Buffer { buffer, .. } => trans.release_buffer(
                                     &buffer,
                                     from_segment.queue,
@@ -268,9 +234,11 @@ impl OptGraph {
 
             recorder.finish_recording()?;
 
-            //build sinal submit and push it
-            let graph_submit = PassSubmit {
+            //build sinal submit, execute and push it.
+            //NOTE: Currently using the first queue for the given family.
+            let mut graph_submit = PassSubmit {
                 queue: self
+                    .graph
                     .device
                     .get_first_queue_for_family(submit.queue)
                     .map(|q| q.clone())
@@ -281,11 +249,8 @@ impl OptGraph {
                         )
                     })?, //FIXME: Currently not scheduling for multiple queues on same queue family.
                 command_buffer: cb,
-                signaling: submit
-                    .signaling
-                    .into_iter()
-                    .chain(submit.external_signals.into_iter())
-                    .collect(), //merge internal and external signals
+                signaling: submit.signaling, //merge internal and external signals
+                external_signaling: submit.external_signals,
                 wait_for: submit
                     .wait_for
                     .into_iter()
@@ -293,9 +258,14 @@ impl OptGraph {
                     .collect(), //TODO optimize based on passes context information.
             };
 
-            graph.queue_submits.push(graph_submit);
+            //Submit command buffer to gpu
+            let fence = graph_submit.submit(&self.graph.device)?;
+            execution_fence.fences.push(fence);
+            //Now push to signal that it is executing. Allows us later to recycle submit related data.
+            self.graph.push_inflight(graph_submit);
         }
 
-        Ok(graph)
+        //Finally drop all borrows
+        Ok(execution_fence)
     }
 }

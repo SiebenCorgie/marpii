@@ -52,102 +52,94 @@ fn main() {
     let light = simple_image(&ctx, "Light");
     let post = simple_image(&ctx, "Post");
 
-    let mut graph = Graph::new(&ctx.device)
-        .insert_pass(
-            "Gbuffer",
-            DummyPass {
-                assumed: vec![AssumedState::Image {
-                    image: gbuffer.clone(),
-                    state: ImageState {
-                        access_mask: vk::AccessFlags::SHADER_WRITE,
-                        layout: vk::ImageLayout::GENERAL,
-                    },
-                }],
+    let mut gbuffer_pass = DummyPass {
+        assumed: vec![AssumedState::Image {
+            image: gbuffer.clone(),
+            state: ImageState {
+                access_mask: vk::AccessFlags::SHADER_WRITE,
+                layout: vk::ImageLayout::GENERAL,
             },
-            0,
-        )
-        .insert_pass(
-            "AsyncShadow",
-            DummyPass {
-                assumed: vec![AssumedState::Image {
-                    image: shadow.clone(),
-                    state: ImageState {
-                        access_mask: vk::AccessFlags::SHADER_WRITE,
-                        layout: vk::ImageLayout::GENERAL,
-                    },
-                }],
+        }],
+    };
+
+    let mut shadowpasss = DummyPass {
+        assumed: vec![AssumedState::Image {
+            image: shadow.clone(),
+            state: ImageState {
+                access_mask: vk::AccessFlags::SHADER_WRITE,
+                layout: vk::ImageLayout::GENERAL,
             },
-            1,
-        )
-        .insert_pass(
-            "Light",
-            DummyPass {
-                assumed: vec![
-                    AssumedState::Image {
-                        image: shadow.clone(),
-                        state: ImageState {
-                            access_mask: vk::AccessFlags::SHADER_READ,
-                            layout: vk::ImageLayout::GENERAL,
-                        },
-                    },
-                    AssumedState::Image {
-                        image: gbuffer.clone(),
-                        state: ImageState {
-                            access_mask: vk::AccessFlags::SHADER_READ,
-                            layout: vk::ImageLayout::GENERAL,
-                        },
-                    },
-                    AssumedState::Image {
-                        image: light.clone(),
-                        state: ImageState {
-                            access_mask: vk::AccessFlags::SHADER_READ,
-                            layout: vk::ImageLayout::GENERAL,
-                        },
-                    },
-                ],
+        }],
+    };
+
+    let mut light_pass = DummyPass {
+        assumed: vec![
+            AssumedState::Image {
+                image: shadow.clone(),
+                state: ImageState {
+                    access_mask: vk::AccessFlags::SHADER_READ,
+                    layout: vk::ImageLayout::GENERAL,
+                },
             },
-            0,
-        )
-        .insert_pass(
-            "Post",
-            DummyPass {
-                assumed: vec![
-                    AssumedState::Image {
-                        image: light.clone(),
-                        state: ImageState {
-                            access_mask: vk::AccessFlags::SHADER_READ,
-                            layout: vk::ImageLayout::GENERAL,
-                        },
-                    },
-                    AssumedState::Image {
-                        image: post.clone(),
-                        state: ImageState {
-                            access_mask: vk::AccessFlags::SHADER_WRITE,
-                            layout: vk::ImageLayout::GENERAL,
-                        },
-                    },
-                ],
+            AssumedState::Image {
+                image: gbuffer.clone(),
+                state: ImageState {
+                    access_mask: vk::AccessFlags::SHADER_READ,
+                    layout: vk::ImageLayout::GENERAL,
+                },
             },
-            0,
-        )
-        .insert_pass(
-            "Present",
-            DummyPass {
-                assumed: vec![AssumedState::Image {
-                    image: post.clone(),
-                    state: ImageState {
-                        access_mask: vk::AccessFlags::empty(),
-                        layout: vk::ImageLayout::PRESENT_SRC_KHR,
-                    },
-                }],
+            AssumedState::Image {
+                image: light.clone(),
+                state: ImageState {
+                    access_mask: vk::AccessFlags::SHADER_READ,
+                    layout: vk::ImageLayout::GENERAL,
+                },
             },
-            0,
-        )
-        .build()
+        ],
+    };
+
+    let mut post_pass = DummyPass {
+        assumed: vec![
+            AssumedState::Image {
+                image: light.clone(),
+                state: ImageState {
+                    access_mask: vk::AccessFlags::SHADER_READ,
+                    layout: vk::ImageLayout::GENERAL,
+                },
+            },
+            AssumedState::Image {
+                image: post.clone(),
+                state: ImageState {
+                    access_mask: vk::AccessFlags::SHADER_WRITE,
+                    layout: vk::ImageLayout::GENERAL,
+                },
+            },
+        ],
+    };
+
+    let mut present_pass = DummyPass {
+        assumed: vec![AssumedState::Image {
+            image: post.clone(),
+            state: ImageState {
+                access_mask: vk::AccessFlags::empty(),
+                layout: vk::ImageLayout::PRESENT_SRC_KHR,
+            },
+        }],
+    };
+
+    let mut graph = Graph::new(&ctx.device);
+
+    graph
+        .record()
+        .insert_pass("Gbuffer", &mut gbuffer_pass, 0)
+        .insert_pass("AsyncShadow", &mut shadowpasss, 1)
+        .insert_pass("Light", &mut light_pass, 0)
+        .insert_pass("Post", &mut post_pass, 0)
+        .insert_pass("Present", &mut present_pass, 0)
+        .finish()
+        .execute()
         .unwrap();
 
     println!("Blub");
-
-    graph.submit().unwrap();
     println!("Bye bye");
 }
