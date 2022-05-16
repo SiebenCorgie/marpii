@@ -1,24 +1,29 @@
-use marpii::ash::vk;
+use marpii::{ash::vk, util::ImageRegion};
 use marpii_commands::Recorder;
 
+use crate::{ImageState, StImage};
+
 use super::{AssumedState, Pass, SubPassRequirement};
-use crate::{state::StImage, ImageState};
 
-///Simple subpass that blits one image to another.
-///
-/// In case of non matching dimensions (1d to 2d, 2d to 3d or arrays), the minimum of both is used.
-/// For instance, when bliting a 1d image to a 2d image, only the first row is blit.
-/// when blitting a 2-element array to a 4-element array, only the first two are blit.
-pub struct ImageBlit {
+///Blits an image (or a region of an image) to another image (or a region there of). If you want to blit one whole image to another whole image, consider using the simple [ImageBlit](super::ImageBlit) pass.
+pub struct BlitToRegion {
     src: StImage,
+    src_region: ImageRegion,
     dst: StImage,
+    dst_region: ImageRegion,
 
-    assume: [AssumedState; 2],
+    assumed_state: [AssumedState; 2],
 }
 
-impl ImageBlit {
-    pub fn new(src: StImage, dst: StImage) -> Self {
-        let assume = [
+impl BlitToRegion {
+    ///Blits the given region of the source image to the given region of the destination image.
+    pub fn new(
+        src: StImage,
+        src_region: ImageRegion,
+        dst: StImage,
+        dst_region: ImageRegion,
+    ) -> Self {
+        let assumed_state = [
             AssumedState::Image {
                 image: src.clone(),
                 state: ImageState {
@@ -35,42 +40,37 @@ impl ImageBlit {
             },
         ];
 
-        ImageBlit { src, dst, assume }
+        BlitToRegion {
+            assumed_state,
+            dst,
+            dst_region,
+            src_region,
+            src,
+        }
     }
 
-    pub fn set_images(&mut self, src: StImage, dst: StImage) {
-        self.src = src;
-        self.dst = dst;
-        self.assume = [
-            AssumedState::Image {
-                image: self.src.clone(),
-                state: ImageState {
-                    access_mask: vk::AccessFlags::TRANSFER_READ,
-                    layout: vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
-                },
-            },
-            AssumedState::Image {
-                image: self.dst.clone(),
-                state: ImageState {
-                    access_mask: vk::AccessFlags::TRANSFER_WRITE,
-                    layout: vk::ImageLayout::TRANSFER_DST_OPTIMAL,
-                },
-            },
-        ]
+    ///Blits the whole image to the given region of the destination image.
+    pub fn image_to_region(src: StImage, dst: StImage, dst_region: ImageRegion) -> Self {
+        let src_region = ImageRegion {
+            offset: vk::Offset3D { x: 0, y: 0, z: 0 },
+            extent: src.image().extent_3d(),
+        };
+        Self::new(src, src_region, dst, dst_region)
     }
 
-    pub fn src_image(&self) -> &StImage {
-        &self.src
-    }
+    pub fn region_to_image(src: StImage, src_region: ImageRegion, dst: StImage) -> Self {
+        let dst_region = ImageRegion {
+            offset: vk::Offset3D { x: 0, y: 0, z: 0 },
+            extent: dst.image().extent_3d(),
+        };
 
-    pub fn dst_image(&self) -> &StImage {
-        &self.dst
+        Self::new(src, src_region, dst, dst_region)
     }
 }
 
-impl Pass for ImageBlit {
+impl Pass for BlitToRegion {
     fn assumed_states(&self) -> &[AssumedState] {
-        &self.assume
+        &self.assumed_state
     }
 
     ///The actual recording step. Gets provided with access to the actual resources through the
@@ -79,13 +79,13 @@ impl Pass for ImageBlit {
         let src_img = self.src.image().clone();
         let dst_img = self.dst.image().clone();
 
-        let src_region = src_img.image_region();
-        let dst_region = dst_img.image_region();
         //TODO: actually create the min subresource ranges. But need a test case for that
 
         let src_subresource = src_img.subresource_layers_all();
         let dst_subresource = dst_img.subresource_layers_all();
 
+        let src_offsets = self.src_region.to_blit_offsets();
+        let dst_offsets = self.dst_region.to_blit_offsets();
         command_buffer.record({
             move |dev, cmd| unsafe {
                 dev.cmd_blit_image(
@@ -96,8 +96,8 @@ impl Pass for ImageBlit {
                     vk::ImageLayout::TRANSFER_DST_OPTIMAL,
                     &[vk::ImageBlit {
                         //Note we are using blit mainly for format transfer
-                        src_offsets: src_region.to_blit_offsets(),
-                        dst_offsets: dst_region.to_blit_offsets(),
+                        src_offsets,
+                        dst_offsets,
                         src_subresource,
                         dst_subresource,
                         ..Default::default()

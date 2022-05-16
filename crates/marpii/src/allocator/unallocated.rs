@@ -21,12 +21,26 @@ impl std::error::Error for UnamanagedAllocationError {}
 
 //Those function cannot be called, since the struct cannot be created.
 impl Allocation for UnmanagedAllocation {
+    fn mapped_ptr(&self) -> Option<std::ptr::NonNull<std::ffi::c_void>> {
+        None
+    }
     fn memory(&self) -> ash::vk::DeviceMemory {
         ash::vk::DeviceMemory::null()
     }
 
+    fn size(&self) -> u64 {
+        0
+    }
     fn offset(&self) -> u64 {
         0
+    }
+
+    fn as_slice_ref(&self) -> Option<&[u8]> {
+        None
+    }
+
+    fn as_slice_mut(&mut self) -> Option<&mut [u8]> {
+        None
     }
 }
 

@@ -1,3 +1,5 @@
+use ash::vk::QueueFlags;
+
 use super::{Queue, QueueBuilder};
 use std::sync::Arc;
 
@@ -166,6 +168,8 @@ pub struct Device {
     pub instance: Arc<crate::context::Instance>,
     pub physical_device: ash::vk::PhysicalDevice,
     pub queues: Vec<Queue>,
+
+    pub physical_device_properties: ash::vk::PhysicalDeviceProperties,
 }
 
 impl Device {
@@ -204,17 +208,113 @@ impl Device {
             .flatten()
             .collect();
 
+        let physical_device_properties = instance
+            .inner
+            .get_physical_device_properties(physical_device);
+
         Ok(Arc::new(Device {
             inner: device,
             instance,
             physical_device,
             queues,
+            physical_device_properties,
         }))
     }
 
     ///Returns the first queue for the given family, if there is any.
     pub fn get_first_queue_for_family(&self, family: u32) -> Option<&Queue> {
         self.queues.iter().find(|q| q.family_index == family)
+    }
+
+    ///Returns the first queue that has all attributes flaged as true
+    pub fn first_queue_for_attribute(
+        &self,
+        graphics: bool,
+        compute: bool,
+        transfer: bool,
+    ) -> Option<&Queue> {
+        self.queues.iter().find(|q| {
+            let mut is = true;
+            if graphics && !q.properties.queue_flags.contains(QueueFlags::GRAPHICS) {
+                is = false;
+            }
+            if compute && !q.properties.queue_flags.contains(QueueFlags::COMPUTE) {
+                is = false;
+            }
+            if transfer && !q.properties.queue_flags.contains(QueueFlags::TRANSFER) {
+                is = false;
+            }
+            is
+        })
+    }
+
+    ///Returns the feature list of the currently used physical device
+    pub fn get_physical_device_features(&self) -> ash::vk::PhysicalDeviceFeatures {
+        unsafe {
+            self.instance
+                .inner
+                .get_physical_device_features(self.physical_device)
+        }
+    }
+
+    ///same as [get_physical_device_features](crate::context::Device::get_physical_device_features) but for PhysicalDeviceFetures2
+    pub fn get_physical_device_features2(&self) -> ash::vk::PhysicalDeviceFeatures2 {
+        let mut features = ash::vk::PhysicalDeviceFeatures2::default();
+        unsafe {
+            self.instance
+                .inner
+                .get_physical_device_features2(self.physical_device, &mut features)
+        };
+        features
+    }
+
+    ///Returns true if the format is usable with the intended usage. Can be used in a `Filter` iterator to select
+    /// usable formats at runtime
+    pub fn get_image_format_properties(
+        &self,
+        format: ash::vk::Format,
+        ty: ash::vk::ImageType,
+        tiling: ash::vk::ImageTiling,
+        usage: ash::vk::ImageUsageFlags,
+        crate_flags: ash::vk::ImageCreateFlags,
+    ) -> Result<ash::vk::ImageFormatProperties, anyhow::Error> {
+        match unsafe {
+            self.instance
+                .inner
+                .get_physical_device_image_format_properties(
+                    self.physical_device,
+                    format,
+                    ty,
+                    tiling,
+                    usage,
+                    crate_flags,
+                )
+        } {
+            Err(e) => {
+                #[cfg(feature = "logging")]
+                log::error!("Failed to get image format properties: {e}");
+                anyhow::bail!("Failed to get image format properties: {e}")
+            }
+            Ok(o) => Ok(o),
+        }
+    }
+
+    ///Moves `offset` to next lower multiple of DeviceLimits::nonCoherentAtomSize.
+    pub fn offset_to_next_lower_coherent_atom_size(&self, offset: u64) -> u64 {
+        let atom_size = self
+            .physical_device_properties
+            .limits
+            .non_coherent_atom_size;
+        offset - (offset % atom_size)
+    }
+
+    ///Moves `offset` to next higher multiple of DeviceLimits::nonCoherentAtomSize.
+    pub fn offset_to_next_higher_coherent_atom_size(&self, offset: u64) -> u64 {
+        let atom_size = self
+            .physical_device_properties
+            .limits
+            .non_coherent_atom_size;
+        offset + (atom_size - (offset % atom_size))
     }
 }
 

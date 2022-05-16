@@ -42,7 +42,8 @@ use crate::allocator::Allocator;
 pub enum ContextError {}
 
 ///MarpII's Vulkan context. Can either be constructed by hand, or via helper functions.
-pub struct Ctx<A: Allocator> {
+#[derive(Clone)]
+pub struct Ctx<A: Allocator + Send> {
     ///Allocator instance used for all buffer and image allocation in this context.
     pub allocator: Arc<Mutex<A>>,
     ///Vulkan device including assosiated queues.
@@ -53,7 +54,7 @@ pub struct Ctx<A: Allocator> {
     //TODO include swapchain? Or make another highlevel context for that?
 }
 
-impl<A: Allocator> Ctx<A> {
+impl<A: Allocator + Send> Ctx<A> {
     ///Creates the context from its elements.
     ///
     /// # Safety
@@ -111,6 +112,8 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
                 instance: instance.inner.clone(),
                 physical_device: device.physical_device,
             })?;
+
+        allocator.report_memory_leaks(log::Level::Info);
 
         Ok(Ctx {
             allocator: Arc::new(Mutex::new(allocator)),

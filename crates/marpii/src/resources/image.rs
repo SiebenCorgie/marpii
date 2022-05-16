@@ -1,9 +1,10 @@
-use ash::vk::SamplerCreateInfoBuilder;
+use ash::vk::{self, SamplerCreateInfoBuilder};
 
 use crate::{
     allocator::{Allocation, Allocator, AnonymAllocation, ManagedAllocation, MemoryUsage},
     context::Device,
     resources::SharingMode,
+    util::ImageRegion,
 };
 use std::{
     hash::{Hash, Hasher},
@@ -142,6 +143,7 @@ impl Drop for ImageView {
 ///
 ///
 /// In most cases the provided helper function should cover 99% of the use cases.
+#[derive(Clone, Debug)]
 pub struct ImgDesc {
     pub img_type: ImageType,
     pub format: ash::vk::Format,
@@ -282,6 +284,7 @@ pub struct Image {
     ///assosiated allocation that is freed when the image is dropped
     pub allocation: Box<dyn AnonymAllocation + Send + Sync + 'static>,
     pub desc: ImgDesc,
+    pub usage: MemoryUsage,
     pub device: Arc<Device>,
     ///True if the image should not be destroyed on [Drop](Drop) of `Self`.
     /// This should usually be false, except for swapchain images.
@@ -351,10 +354,12 @@ impl Image {
             allocation: Box::new(ManagedAllocation {
                 allocation: Some(allocation),
                 allocator: allocator.clone(),
+                device: device.clone(),
             }),
             desc: description,
             inner: image,
             device: device.clone(),
+            usage: memory_usage,
             do_not_destroy: false,
         })
     }
@@ -368,6 +373,14 @@ impl Image {
         ash::vk::Extent2D {
             width: self.desc.extent.width,
             height: self.desc.extent.height,
+        }
+    }
+
+    ///Returns the *whole* image region
+    pub fn image_region(&self) -> ImageRegion {
+        ImageRegion {
+            offset: vk::Offset3D { x: 0, y: 0, z: 0 },
+            extent: self.extent_3d(),
         }
     }
 

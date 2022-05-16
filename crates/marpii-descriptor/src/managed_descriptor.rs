@@ -300,6 +300,8 @@ impl<P: DescriptorAllocator> ManagedDescriptorSet<P> {
             Binding::Buffer { ty, buffer } => {
                 let bufferinfo = [ash::vk::DescriptorBufferInfo::builder()
                     .buffer(buffer.inner)
+                    .offset(0)
+                    .range(ash::vk::WHOLE_SIZE)
                     .build()];
                 let write = ash::vk::WriteDescriptorSet::builder()
                     .buffer_info(&bufferinfo)

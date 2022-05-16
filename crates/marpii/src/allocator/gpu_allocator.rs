@@ -12,12 +12,25 @@ pub fn memory_usage_to_location(usage: MemoryUsage) -> MemoryLocation {
 }
 
 impl Allocation for gpu_allocator::vulkan::Allocation {
+    fn mapped_ptr(&self) -> Option<std::ptr::NonNull<std::ffi::c_void>> {
+        self.mapped_ptr()
+    }
     fn memory(&self) -> ash::vk::DeviceMemory {
         unsafe { self.memory() }
     }
-
+    fn size(&self) -> u64 {
+        self.size()
+    }
     fn offset(&self) -> u64 {
         self.offset()
+    }
+
+    fn as_slice_ref(&self) -> Option<&[u8]> {
+        self.mapped_slice()
+    }
+
+    fn as_slice_mut(&mut self) -> Option<&mut [u8]> {
+        self.mapped_slice_mut()
     }
 }
 
