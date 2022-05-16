@@ -14,6 +14,8 @@
 //! # Pass
 //! A pass is a node within a [Graph]. It is characterized by a command buffer that might be recorded and executed on a queue.
 //!
+
+#![deny(warnings)]
 mod graph;
 pub use graph::{ExecutionFence, Graph};
 

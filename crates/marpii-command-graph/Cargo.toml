@@ -17,6 +17,7 @@ log_reasoning = ["log"]
 marpii = {path = "../marpii"}
 marpii-commands = {path = "../marpii-commands"}
 anyhow = "1.0.56"
+thiserror = "1.0.31"
 fxhash = "0.2.1"
 slotmap = "1.0"
 

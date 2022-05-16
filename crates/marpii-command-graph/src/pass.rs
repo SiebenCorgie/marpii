@@ -14,6 +14,20 @@ pub use swapchain_prepare::SwapchainPrepare;
 mod wait_external;
 pub use wait_external::WaitExternal;
 
+mod buffer_upload;
+pub use buffer_upload::BufferUploadPass;
+mod image_upload;
+pub use image_upload::ImageUploadPass;
+
+mod dynamic_buffer;
+pub use dynamic_buffer::DynamicBufferPass;
+mod dynamic_image;
+pub use dynamic_image::DynamicImagePass;
+mod blit_to_region;
+mod std_gbuffer;
+mod std_swapchain;
+pub use blit_to_region::BlitToRegion;
+
 pub enum SubPassRequirement {
     ///Signales that the queue this is executed on must be graphics capable.
     GraphicsBit,

@@ -2,7 +2,7 @@ mod image;
 pub use image::{Image, ImageType, ImageView, ImgDesc, ImgViewDesc, SafeImageView, Sampler};
 
 mod buffer;
-pub use buffer::{BufDesc, Buffer};
+pub use buffer::{BufDesc, Buffer, BufferMapError};
 
 mod push_constant;
 pub use push_constant::PushConstant;

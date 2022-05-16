@@ -19,3 +19,97 @@ pub fn extent_to_offset(extent: ash::vk::Extent3D, zero_to_one: bool) -> ash::vk
         }
     }
 }
+
+///Defines a region of some image. Starting at `offset` ranging till `offset + extent`.
+#[derive(Clone, Copy, Debug)]
+pub struct ImageRegion {
+    pub offset: vk::Offset3D,
+    pub extent: vk::Extent3D,
+}
+
+impl ImageRegion {
+    pub fn to_blit_offsets(&self) -> [vk::Offset3D; 2] {
+        [
+            self.offset,
+            vk::Offset3D {
+                x: self.offset.x + self.extent.width as i32,
+                y: (self.offset.y + self.extent.height as i32).max(1),
+                z: (self.offset.z + self.extent.depth as i32).max(1),
+            },
+        ]
+    }
+
+    ///Clamps `self` to be fully within `region`. This might move the offset into "within" `region`, and if the region
+    /// exceeds `region` it might shrink `self.extent`.
+    pub fn clamp_to(&mut self, region: &ImageRegion) {
+        //TODO Currently moves `self.offset` in relation to `region`. In practise the relative
+        // distance should be kept.
+
+        //self.offset.x = self.offset.x.max(region.offset.x);
+        //self.offset.y = self.offset.y.max(region.offset.y);
+        //self.offset.z = self.offset.z.max(region.offset.z);
+
+        self.extent.width = self.extent.width.clamp(0, region.extent.width);
+        self.extent.height = self.extent.height.clamp(0, region.extent.height);
+        self.extent.depth = self.extent.depth.clamp(0, region.extent.depth);
+    }
+}
+
+/*
+///Returns the number of byte per pixel for the given format. This is usefull when trying to calculate how a given buffer translates to an image.
+/// for instance, given a buffer and the target images width the heigh could be calculated.
+///
+/// # Note
+/// The function is only implemented for core formats. Otherwise 0 is returned and an error is printed to the logs.
+pub fn byte_per_pixel(format: vk::Format) -> usize{
+    match format{
+    vk::Format::R4G4_UNORM_PACK8 => 1,
+    vk::Format::R4G4B4A4_UNORM_PACK16 => 2,
+    vk::Format::B4G4R4A4_UNORM_PACK16 => 2,
+    vk::Format::R5G6B5_UNORM_PACK16 => 2,
+    vk::Format::B5G6R5_UNORM_PACK16 => 2,
+    vk::Format::R5G5B5A1_UNORM_PACK16 => 2,
+    vk::Format::B5G5R5A1_UNORM_PACK16 => 2,
+    vk::Format::A1R5G5B5_UNORM_PACK16 => 2,
+
+    vk::Format::R8_UNORM | vk::Format::R8_SNORM | vk::Format::R8_USCALED | vk::Format::R8_SSCALED | vk::Format::R8_UINT | vk::Format::R8_SINT | vk::Format::R8_SRGB => 1,
+    vk::Format::R8G8_UNORM | vk::Format::R8G8_SNORM | vk::Format::R8G8_USCALED | vk::Format::R8G8_SSCALED | vk::Format::R8G8_UINT | vk::Format::R8G8_SINT | vk::Format::R8G8_SRGB => 2,
+    vk::Format::R8G8B8_UNORM | vk::Format::R8G8B8_SNORM | vk::Format::R8G8B8_USCALED | vk::Format::R8G8B8_SSCALED | vk::Format::R8G8B8_UINT | vk::Format::R8G8B8_SINT | vk::Format::R8G8B8_SRGB => 3,
+    vk::Format::B8G8R8_UNORM | vk::Format::B8G8R8_SNORM | vk::Format::B8G8R8_USCALED | vk::Format::B8G8R8_SSCALED | vk::Format::B8G8R8_UINT | vk::Format::B8G8R8_SINT | vk::Format::B8G8R8_SRGB => 3,
+    vk::Format::R8G8B8A8_UNORM | vk::Format::R8G8B8A8_SNORM | vk::Format::R8G8B8A8_USCALED | vk::Format::R8G8B8A8_SSCALED | vk::Format::R8G8B8A8_UINT | vk::Format::R8G8B8A8_SINT | vk::Format::R8G8B8A8_SRGB => 4,
+    vk::Format::B8G8R8A8_UNORM | vk::Format::B8G8R8A8_SNORM | vk::Format::B8G8R8A8_USCALED | vk::Format::B8G8R8A8_SSCALED | vk::Format::B8G8R8A8_UINT | vk::Format::B8G8R8A8_SINT | vk::Format::B8G8R8A8_SRGB => 4,
+
+    vk::Format::A2R10G10B10_UNORM_PACK32 => 4,
+    vk::Format::A2R10G10B10_SNORM_PACK32 => 4,
+    vk::Format::A2R10G10B10_USCALED_PACK32 => 4,
+    vk::Format::A2R10G10B10_SSCALED_PACK32 => 4,
+    vk::Format::A2R10G10B10_UINT_PACK32 => 4,
+    vk::Format::A2R10G10B10_SINT_PACK32 => 4,
+    vk::Format::A2B10G10R10_UNORM_PACK32 => 4,
+    vk::Format::A2B10G10R10_SNORM_PACK32 => 4,
+    vk::Format::A2B10G10R10_USCALED_PACK32 => 4,
+    vk::Format::A2B10G10R10_SSCALED_PACK32 => 4,
+    vk::Format::A2B10G10R10_UINT_PACK32 => 4,
+    vk::Format::A2B10G10R10_SINT_PACK32 => 4,
+
+    vk::Format::R16_UNORM | vk::Format::R16_SNORM | vk::Format::R16_USCALED | vk::Format::R16_SSCALED | vk::Format::R16_UINT | vk::Format::R16_SINT | vk::Format::R16_SFLOAT => 2,
+    vk::Format::R16G16_UNORM | vk::Format::R16G16_SNORM | vk::Format::R16G16_USCALED | vk::Format::R16G16_SSCALED | vk::Format::R16G16_UINT | vk::Format::R16G16_SINT | vk::Format::R16G16_SFLOAT => 4,
+    vk::Format::R16G16B16_UNORM | vk::Format::R16G16B16_SNORM | vk::Format::R16G16B16_USCALED | vk::Format::R16G16B16_SSCALED | vk::Format::R16G16B16_UINT | vk::Format::R16G16B16_SINT | vk::Format::R16G16B16_SFLOAT => 6,
+    vk::Format::R16G16B16A16_UNORM | vk::Format::R16G16B16A16_SNORM | vk::Format::R16G16B16A16_USCALED | vk::Format::R16G16B16A16_SSCALED | vk::Format::R16G16B16A16_UINT | vk::Format::R16G16B16A16_SINT | vk::Format::R16G16B16A16_SFLOAT => 8,
+
+    vk::Format::R32_UINT | vk::Format::R32_SINT | vk::Format::R32_SFLOAT => 4,
+    vk::Format::R32G32_UINT | vk::Format::R32G32_SINT | vk::Format::R32G32_SFLOAT => 8,
+    vk::Format::R32G32B32_UINT | vk::Format::R32G32B32_SINT | vk::Format::R32G32B32_SFLOAT => 12,
+    vk::Format::R32G32B32A32_UINT | vk::Format::R32G32B32A32_SINT | vk::Format::R32G32B32A32_SFLOAT => 16,
+
+
+    _ => {
+        #[cfg(feature="logging")]
+        log::error!("Format {:#?} is not supported by byte_per_pixel(). Returning 0!", format);
+        0
+    }
+    }
+}
+*/
+
+use ash::vk;

@@ -4,7 +4,7 @@ use std::{
 };
 
 use crate::{
-    allocator::{ManagedAllocation, UnmanagedAllocation, UnmanagedAllocator},
+    allocator::{ManagedAllocation, MemoryUsage, UnmanagedAllocation, UnmanagedAllocator},
     context::Device,
     resources::{Image, ImgDesc, SharingMode},
     surface::Surface,
@@ -57,6 +57,7 @@ impl SwapchainBuilder {
                             hidden: PhantomData,
                         }),
                         allocator: Arc::new(Mutex::new(UnmanagedAllocator)),
+                        device: self.device.clone(),
                     }),
                     desc: ImgDesc {
                         extent: ash::vk::Extent3D {
@@ -72,6 +73,7 @@ impl SwapchainBuilder {
                         tiling: ash::vk::ImageTiling::OPTIMAL,
                         usage: self.usage,
                     },
+                    usage: MemoryUsage::GpuOnly, //FIXME: maybe incorrect... might depend on the implementation?
                     inner: swimage,
                     device: self.device.clone(),
                     do_not_destroy: true,
@@ -379,6 +381,7 @@ impl Swapchain {
                             hidden: PhantomData,
                         }),
                         allocator: Arc::new(Mutex::new(UnmanagedAllocator)),
+                        device: device.clone(),
                     }),
                     desc: ImgDesc {
                         extent: ash::vk::Extent3D {
@@ -395,6 +398,7 @@ impl Swapchain {
                         usage: self.usage,
                     },
                     inner: img,
+                    usage: MemoryUsage::GpuOnly,
                     device: device.clone(),
                     do_not_destroy: true,
                 })

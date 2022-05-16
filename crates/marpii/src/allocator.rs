@@ -11,7 +11,12 @@
 mod gpu_allocator;
 
 mod unallocated;
+use std::{ffi::c_void, ptr::NonNull};
+
+use ash::vk::MappedMemoryRange;
 pub use unallocated::{UnamanagedAllocationError, UnmanagedAllocation, UnmanagedAllocator};
+
+use crate::context::Device;
 
 ///Types of memory usage. Make sure to use GpuOnly wherever it applies to get optimal performance.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
@@ -24,13 +29,47 @@ pub enum MemoryUsage {
 }
 
 ///Implemented for all managed allocations. Allows the [Image](crate::resources::Image) and [Buffer](crate::resources::Buffer) implementations to hide their allocator type.
-pub trait AnonymAllocation {}
+pub trait AnonymAllocation {
+    fn mapped_ptr(&self) -> Option<NonNull<c_void>>;
+    fn as_memory_range(&self) -> Option<MappedMemoryRange>;
+    ///Returns the memory as host readable slice, or none if this is not possible.
+    fn as_slice_ref(&self) -> Option<&[u8]>;
+    ///Returns the memory as host read/write-able slice, or none if this is not possible.
+    fn as_slice_mut(&mut self) -> Option<&mut [u8]>;
+}
 
-impl<A: Allocator + Send + Sync + 'static> AnonymAllocation for ManagedAllocation<A> {}
+impl<A: Allocator + Send + Sync + 'static> AnonymAllocation for ManagedAllocation<A> {
+    fn mapped_ptr(&self) -> Option<NonNull<c_void>> {
+        if let Some(a) = &self.allocation {
+            a.mapped_ptr()
+        } else {
+            None
+        }
+    }
+    fn as_memory_range(&self) -> Option<MappedMemoryRange> {
+        self.allocation.as_ref().map(|alo| alo.as_memory_range())
+    }
+    fn as_slice_ref(&self) -> Option<&[u8]> {
+        if let Some(alloc) = &self.allocation {
+            alloc.as_slice_ref()
+        } else {
+            None
+        }
+    }
+
+    fn as_slice_mut(&mut self) -> Option<&mut [u8]> {
+        if let Some(alloc) = &mut self.allocation {
+            alloc.as_slice_mut()
+        } else {
+            None
+        }
+    }
+}
 
 ///An allocation that frees itself when dropped.
 pub struct ManagedAllocation<A: Allocator + Send + Sync + 'static> {
     pub allocator: std::sync::Arc<std::sync::Mutex<A>>,
+    pub device: std::sync::Arc<Device>, //needed to outlive the allocator
     pub allocation: Option<<A as Allocator>::Allocation>,
 }
 
@@ -62,8 +101,23 @@ impl<A: Allocator + Send + Sync + 'static> Drop for ManagedAllocation<A> {
 
 ///Abstract allocation trait that allows finding the memory handle of an allocation, as well as its offset on that memory.
 pub trait Allocation {
+    fn mapped_ptr(&self) -> Option<NonNull<c_void>>;
+    fn as_memory_range(&self) -> MappedMemoryRange {
+        MappedMemoryRange {
+            memory: self.memory(),
+            offset: self.offset(),
+            size: self.size(),
+            ..Default::default()
+        }
+    }
     fn memory(&self) -> ash::vk::DeviceMemory;
+    ///Returns the allocation.
+    fn size(&self) -> u64;
     fn offset(&self) -> u64;
+    ///Returns the memory as host readable slice, or none if this is not possible.
+    fn as_slice_ref(&self) -> Option<&[u8]>;
+    ///Returns the memory as host read/write-able slice, or none if this is not possible.
+    fn as_slice_mut(&mut self) -> Option<&mut [u8]>;
 }
 
 ///Trait that can be implemented by anything that can handle allocation for a initialized [ash::Device](ash::Device).
