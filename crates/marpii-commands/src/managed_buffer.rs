@@ -136,8 +136,9 @@ impl ManagedCommands {
 
         //submit to queue
         if let Err(e) = unsafe {
+            let queue_lock = queue.inner();
             device.inner.queue_submit(
-                queue.inner,
+                *queue_lock,
                 &[*ash::vk::SubmitInfo::builder()
                     .command_buffers(&[self.inner.inner])
                     .wait_semaphores(&local_wait_semaphores)
