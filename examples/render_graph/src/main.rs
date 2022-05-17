@@ -211,7 +211,7 @@ impl App {
         //now enqueue for present
         if let Err(e) = self
             .swapchain
-            .present_image(swimage, &self.ctx.device.queues[0].inner)
+            .present_image(swimage, &self.ctx.device.queues[0].inner())
         {
             println!("Present error: {}", e);
         }

@@ -1,9 +1,18 @@
+use std::sync::{Arc, Mutex, MutexGuard};
+
 ///Abstract queue that collects a [ash::vk::Queue](ash::vk::Queue) and its family.
 #[derive(Clone, Debug)]
 pub struct Queue {
-    pub inner: ash::vk::Queue,
+    pub(crate) inner: Arc<Mutex<ash::vk::Queue>>,
     pub family_index: u32,
     pub properties: ash::vk::QueueFamilyProperties,
+}
+
+impl Queue {
+    ///Locks the inner queue object for this thread. Prevents submitting on multiple queues at once.
+    pub fn inner(&self) -> MutexGuard<ash::vk::Queue> {
+        self.inner.lock().unwrap()
+    }
 }
 
 pub struct QueueBuilder {

@@ -55,6 +55,34 @@ impl ImageRegion {
     }
 }
 
+///Converts ImageUsageFlags to FormatFeatureFlags needed to satisfy the usage flags. This does not contain all convertions. Only the basic ones.
+pub fn image_usage_to_format_features(
+    usage: ash::vk::ImageUsageFlags,
+) -> ash::vk::FormatFeatureFlags {
+    let mut properties = ash::vk::FormatFeatureFlags::empty();
+
+    if usage.contains(ash::vk::ImageUsageFlags::COLOR_ATTACHMENT) {
+        properties |= ash::vk::FormatFeatureFlags::COLOR_ATTACHMENT;
+    }
+    if usage.contains(ash::vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT) {
+        properties |= ash::vk::FormatFeatureFlags::DEPTH_STENCIL_ATTACHMENT;
+    }
+    if usage.contains(ash::vk::ImageUsageFlags::SAMPLED) {
+        properties |= ash::vk::FormatFeatureFlags::SAMPLED_IMAGE;
+    }
+    if usage.contains(ash::vk::ImageUsageFlags::STORAGE) {
+        properties |= ash::vk::FormatFeatureFlags::STORAGE_IMAGE;
+    }
+    if usage.contains(ash::vk::ImageUsageFlags::TRANSFER_SRC) {
+        properties |= ash::vk::FormatFeatureFlags::TRANSFER_SRC;
+    }
+    if usage.contains(ash::vk::ImageUsageFlags::TRANSFER_DST) {
+        properties |= ash::vk::FormatFeatureFlags::TRANSFER_DST;
+    }
+
+    properties
+}
+
 /*
 ///Returns the number of byte per pixel for the given format. This is usefull when trying to calculate how a given buffer translates to an image.
 /// for instance, given a buffer and the target images width the heigh could be calculated.

@@ -1,7 +1,9 @@
 use ash::vk::QueueFlags;
 
+use crate::{resources::ImgDesc, util::image_usage_to_format_features};
+
 use super::{Queue, QueueBuilder};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 ///Helper that lets you setup device properties and possibly needed extensions before creating the actual
 /// device.
@@ -200,8 +202,9 @@ impl Device {
                     .map(|queue_index| Queue {
                         family_index: queue_family.family_index,
                         properties: queue_family.properties,
-                        inner: device
-                            .get_device_queue(queue_family.family_index, queue_index as u32),
+                        inner: Arc::new(Mutex::new(
+                            device.get_device_queue(queue_family.family_index, queue_index as u32),
+                        )),
                     })
                     .collect::<Vec<Queue>>()
             })
@@ -246,6 +249,76 @@ impl Device {
             }
             is
         })
+    }
+
+    pub fn is_format_supported(
+        &self,
+        usage: ash::vk::ImageUsageFlags,
+        tiling: ash::vk::ImageTiling,
+        format: ash::vk::Format,
+    ) -> bool {
+        let format_properties = unsafe {
+            self.instance
+                .inner
+                .get_physical_device_format_properties(self.physical_device, format)
+        };
+
+        //now check if the tiling mode and usage are given by the properties
+        if tiling == ash::vk::ImageTiling::LINEAR {
+            format_properties
+                .linear_tiling_features
+                .contains(image_usage_to_format_features(usage))
+        } else {
+            format_properties
+                .optimal_tiling_features
+                .contains(image_usage_to_format_features(usage))
+        }
+    }
+
+    ///Selects the first format of the provided formats that can be used with `usage` on `self`.
+    pub fn select_format(
+        &self,
+        usage: ash::vk::ImageUsageFlags,
+        tiling: ash::vk::ImageTiling,
+        formats: &[ash::vk::Format],
+    ) -> Option<ash::vk::Format> {
+        formats
+            .iter()
+            .filter_map(|f| {
+                if self.is_format_supported(usage, tiling, *f) {
+                    Some(*f)
+                } else {
+                    None
+                }
+            })
+            .next()
+    }
+
+    ///Returns the image format properties for the given image description (`desc`), assuming the image was/is created with `create_flags`.
+    pub fn image_format_properties(
+        &self,
+        desc: &ImgDesc,
+        create_flags: ash::vk::ImageCreateFlags,
+    ) -> Result<ash::vk::ImageFormatProperties2, ash::vk::Result> {
+        let mut properties = ash::vk::ImageFormatProperties2::default();
+        unsafe {
+            self.instance
+                .inner
+                .get_physical_device_image_format_properties2(
+                    self.physical_device,
+                    &ash::vk::PhysicalDeviceImageFormatInfo2 {
+                        flags: create_flags,
+                        format: desc.format,
+                        tiling: desc.tiling,
+                        ty: desc.img_type.into(),
+                        usage: desc.usage,
+                        ..Default::default()
+                    },
+                    &mut properties,
+                )?;
+        };
+
+        Ok(properties)
     }
 
     ///Returns the feature list of the currently used physical device
