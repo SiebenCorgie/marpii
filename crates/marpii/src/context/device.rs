@@ -3,7 +3,10 @@ use ash::vk::QueueFlags;
 use crate::{resources::ImgDesc, util::image_usage_to_format_features};
 
 use super::{Queue, QueueBuilder};
-use std::sync::{Arc, Mutex};
+use std::{
+    os::raw::c_char,
+    sync::{Arc, Mutex},
+};
 
 ///Helper that lets you setup device properties and possibly needed extensions before creating the actual
 /// device.
@@ -51,7 +54,7 @@ impl DeviceBuilder {
 
         #[cfg(feature = "logging")]
         {
-            log::info!("Supported extensions");
+            log::trace!("Supported extensions");
             for ext in all_supported_names.iter() {
                 log::info!("  {}", ext);
             }
@@ -171,6 +174,8 @@ pub struct Device {
     pub physical_device: ash::vk::PhysicalDevice,
     pub queues: Vec<Queue>,
 
+    pub enabled_extensions: Vec<String>,
+
     pub physical_device_properties: ash::vk::PhysicalDeviceProperties,
 }
 
@@ -215,13 +220,48 @@ impl Device {
             .inner
             .get_physical_device_properties(physical_device);
 
+        let enabled_extensions = {
+            let extension_properties = instance
+                .inner
+                .enumerate_device_extension_properties(physical_device)?;
+
+            #[cfg(feature = "logging")]
+            log::debug!("Extension properties:\n{:#?}", &extension_properties);
+
+            extension_properties
+                .iter()
+                .map(|ext| {
+                    std::ffi::CStr::from_ptr(ext.extension_name.as_ptr() as *const c_char)
+                        .to_string_lossy()
+                        .as_ref()
+                        .to_owned()
+                })
+                .collect()
+        };
+
         Ok(Arc::new(Device {
             inner: device,
             instance,
             physical_device,
+            enabled_extensions,
             queues,
             physical_device_properties,
         }))
+    }
+
+    ///Returns true if `extension_name` is enabled. The name can usualy be retrieved like this: `ash::extensions::khr::DynamicRendering::name()`.
+    pub fn extension_enabled_cstr(&self, extension_name: &'static std::ffi::CStr) -> bool {
+        //FIXME do not convert to String which allocates
+        self.enabled_extensions
+            .contains(&extension_name.to_string_lossy().to_string())
+    }
+
+    pub fn extension_enabled(&self, extension_name: &str) -> bool {
+        //FIXME do not convert to String which allocates
+        self.enabled_extensions.iter().fold(
+            false,
+            |flag, this| if flag { flag } else { this == extension_name },
+        )
     }
 
     ///Returns the first queue for the given family, if there is any.

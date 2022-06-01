@@ -3,6 +3,8 @@ use std::{
     sync::{Arc, Mutex},
 };
 
+use ash::vk::SwapchainCreateInfoKHRBuilder;
+
 use crate::{
     allocator::{ManagedAllocation, MemoryUsage, UnmanagedAllocation, UnmanagedAllocator},
     context::Device,
@@ -11,17 +13,10 @@ use crate::{
     sync::Semaphore,
 };
 
-pub struct SwapchainBuilder {
-    ///Surface based on which the swapchain will be build.
-    pub surface: Arc<Surface>,
-    ///Device for which the swapchain will be build.
-    pub device: Arc<Device>,
-
-    ///Ordered prefered image formats. If not even the last preferred format is available,
-    /// any format is taken.
-    pub format_preference: Vec<ash::vk::SurfaceFormatKHR>,
-    ///Ordered list of prefered present modes. If none of those are present the first supported one (usually FIFO) is used.
-    pub present_mode_preference: Vec<ash::vk::PresentModeKHR>,
+///All info needed to create a swapchain
+pub struct RecreateInfo {
+    pub format: ash::vk::SurfaceFormatKHR,
+    pub present_mode: ash::vk::PresentModeKHR,
 
     pub image_count: u32,
 
@@ -34,13 +29,58 @@ pub struct SwapchainBuilder {
     pub is_clipped: bool,
 }
 
+impl RecreateInfo {
+    pub fn apply_on<'a>(
+        &'a self,
+        mut create_info: SwapchainCreateInfoKHRBuilder<'a>,
+    ) -> SwapchainCreateInfoKHRBuilder<'a> {
+        create_info = create_info
+            .min_image_count(self.image_count)
+            .image_format(self.format.format)
+            .image_color_space(self.format.color_space)
+            .image_extent(self.extent)
+            .image_array_layers(self.array_layers)
+            .image_usage(self.usage)
+            .pre_transform(self.transform)
+            .composite_alpha(self.composite_alpha)
+            .present_mode(self.present_mode)
+            .clipped(self.is_clipped);
+
+        match &self.sharing_mode {
+            SharingMode::Exclusive => {
+                create_info = create_info.image_sharing_mode(ash::vk::SharingMode::EXCLUSIVE)
+            }
+            SharingMode::Concurrent {
+                queue_family_indices,
+            } => {
+                create_info = create_info
+                    .image_sharing_mode(ash::vk::SharingMode::CONCURRENT)
+                    .queue_family_indices(queue_family_indices);
+            }
+        }
+
+        create_info
+    }
+}
+
+pub struct SwapchainBuilder {
+    ///Surface based on which the swapchain will be build.
+    pub surface: Arc<Surface>,
+    ///Device for which the swapchain will be build.
+    pub device: Arc<Device>,
+    pub create_info: RecreateInfo,
+
+    pub format_preference: Vec<ash::vk::SurfaceFormatKHR>,
+    pub present_mode_preference: Vec<ash::vk::PresentModeKHR>,
+}
+
 impl SwapchainBuilder {
     pub fn build(self) -> Result<Swapchain, anyhow::Error> {
-        if self.extent.width == 0 || self.extent.height == 0 {
+        if self.create_info.extent.width == 0 || self.create_info.extent.height == 0 {
             anyhow::bail!("Could not create swapchain, choosen extent had a zero-axis");
         }
 
-        let sharing_mode = self.sharing_mode.clone();
+        let sharing_mode = self.create_info.sharing_mode.clone();
 
         let create_info = self.as_swapchain_create_info();
         let swapchain_loader =
@@ -71,7 +111,7 @@ impl SwapchainBuilder {
                         samples: ash::vk::SampleCountFlags::TYPE_1,
                         sharing_mode: sharing_mode.clone(),
                         tiling: ash::vk::ImageTiling::OPTIMAL,
-                        usage: self.usage,
+                        usage: self.create_info.usage,
                     },
                     usage: MemoryUsage::GpuOnly, //FIXME: maybe incorrect... might depend on the implementation?
                     inner: swimage,
@@ -89,8 +129,13 @@ impl SwapchainBuilder {
             .map(|_| Semaphore::new(&self.device).expect("Failed to create acquire semaphores"))
             .collect();
 
-        //NOTE: see safety concern below.
-        let recreate_info = create_info.build();
+        //Update recreate info with the stuff we currently use.
+
+        let format = self.get_first_supported_format();
+        let present_mode = self.get_first_supported_present_mode();
+        let mut recreate_info = self.create_info;
+        recreate_info.format = format;
+        recreate_info.present_mode = present_mode;
 
         Ok(Swapchain {
             surface: self.surface,
@@ -100,12 +145,7 @@ impl SwapchainBuilder {
             next_semaphore: 0,
             loader: swapchain_loader,
             swapchain,
-            //FIXME: This is potentually unsafe if the p_next chain had lifetime requirements.
-            //       Otherwise only the surface is referenced, but the reference is kept alive since we
-            //       "Own" a ref until we are dropped.
             recreate_info,
-            sharing_mode,
-            usage: self.usage,
         })
     }
 
@@ -148,12 +188,12 @@ impl SwapchainBuilder {
             width: supported
                 .min_image_extent
                 .width
-                .max(self.extent.width)
+                .max(self.create_info.extent.width)
                 .min(supported.max_image_extent.width),
             height: supported
                 .min_image_extent
                 .height
-                .max(self.extent.height)
+                .max(self.create_info.extent.height)
                 .min(supported.max_image_extent.height),
         };
 
@@ -172,18 +212,18 @@ impl SwapchainBuilder {
 
         let mut builder = ash::vk::SwapchainCreateInfoKHR::builder()
             .surface(self.surface.surface)
-            .min_image_count(self.image_count)
+            .min_image_count(self.create_info.image_count)
             .image_format(format.format)
             .image_color_space(format.color_space)
             .image_extent(self.get_supported_image_extent())
-            .image_array_layers(self.array_layers)
-            .image_usage(self.usage)
-            .pre_transform(self.transform)
-            .composite_alpha(self.composite_alpha)
+            .image_array_layers(self.create_info.array_layers)
+            .image_usage(self.create_info.usage)
+            .pre_transform(self.create_info.transform)
+            .composite_alpha(self.create_info.composite_alpha)
             .present_mode(self.get_first_supported_present_mode())
-            .clipped(self.is_clipped);
+            .clipped(self.create_info.is_clipped);
 
-        match &self.sharing_mode {
+        match &self.create_info.sharing_mode {
             SharingMode::Exclusive => {
                 builder = builder.image_sharing_mode(ash::vk::SharingMode::EXCLUSIVE)
             }
@@ -274,12 +314,7 @@ pub struct Swapchain {
     render_finished_semaphore: Vec<Arc<crate::sync::Semaphore>>,
     ///present_finished semaphores
     next_semaphore: usize,
-
-    ///cached swapchain create info for recreation. If you want to change the recreation process,
-    /// for instnace, change the image format when recreating the next time, modify this info.
-    pub recreate_info: ash::vk::SwapchainCreateInfoKHR,
-    sharing_mode: SharingMode,
-    usage: ash::vk::ImageUsageFlags,
+    recreate_info: RecreateInfo,
 }
 
 impl Swapchain {
@@ -296,29 +331,36 @@ impl Swapchain {
         let capabilities = surface.get_capabilities(device.physical_device)?;
         let present_modes = surface.get_present_modes(device.physical_device)?;
 
+        let format = formats[0];
+        let present_mode = present_modes[0];
+
         Ok(SwapchainBuilder {
             surface: surface.clone(),
             device: device.clone(),
             format_preference: formats,
             present_mode_preference: present_modes,
-            image_count: capabilities
-                .max_image_count
-                .min(3)
-                .max(capabilities.min_image_count), //default to trippelbuffering if possible
-            extent: capabilities.current_extent,
-            array_layers: 1,
-            usage: capabilities.supported_usage_flags,
-            sharing_mode: SharingMode::Exclusive,
-            transform: if capabilities
-                .supported_transforms
-                .contains(ash::vk::SurfaceTransformFlagsKHR::IDENTITY)
-            {
-                ash::vk::SurfaceTransformFlagsKHR::IDENTITY
-            } else {
-                capabilities.current_transform
+            create_info: RecreateInfo {
+                format, //Get later set
+                present_mode,
+                image_count: capabilities
+                    .max_image_count
+                    .min(3)
+                    .max(capabilities.min_image_count), //default to trippelbuffering if possible
+                extent: capabilities.current_extent,
+                array_layers: 1,
+                usage: capabilities.supported_usage_flags,
+                sharing_mode: SharingMode::Exclusive,
+                transform: if capabilities
+                    .supported_transforms
+                    .contains(ash::vk::SurfaceTransformFlagsKHR::IDENTITY)
+                {
+                    ash::vk::SurfaceTransformFlagsKHR::IDENTITY
+                } else {
+                    capabilities.current_transform
+                },
+                composite_alpha: ash::vk::CompositeAlphaFlagsKHR::OPAQUE,
+                is_clipped: false,
             },
-            composite_alpha: ash::vk::CompositeAlphaFlagsKHR::OPAQUE,
-            is_clipped: false,
         })
     }
 
@@ -360,14 +402,24 @@ impl Swapchain {
     //       Should not overwrite self's fields until recreation succeeded.
     pub fn recreate(&mut self, extent: ash::vk::Extent2D) -> Result<(), anyhow::Error> {
         let device = self.images[0].device.clone();
-        //set old swapchain to current one and update extent
-        self.recreate_info.old_swapchain = self.swapchain;
-        self.recreate_info.image_extent = extent;
+
+        //overwrite extent
+        self.recreate_info.extent = extent;
+
+        //Setup recreate info
+        let mut recreateinfo = ash::vk::SwapchainCreateInfoKHR::builder()
+            .surface(self.surface.surface)
+            .old_swapchain(self.swapchain)
+            .image_extent(extent);
+
+        recreateinfo = self.recreate_info.apply_on(recreateinfo);
 
         //create new swapchain and change self's sc
-        let new_sc = unsafe { self.loader.create_swapchain(&self.recreate_info, None)? };
+        let new_sc = unsafe { self.loader.create_swapchain(&recreateinfo, None)? };
         //destroy old chain
         unsafe { self.loader.destroy_swapchain(self.swapchain, None) };
+
+        //overwrite swapchain ptr
         self.swapchain = new_sc;
 
         //Now overwrite inner swapchain images with new ones. The old ones should be dropped once
@@ -385,17 +437,17 @@ impl Swapchain {
                     }),
                     desc: ImgDesc {
                         extent: ash::vk::Extent3D {
-                            width: self.recreate_info.image_extent.width,
-                            height: self.recreate_info.image_extent.height,
+                            width: self.recreate_info.extent.width,
+                            height: self.recreate_info.extent.height,
                             depth: 1,
                         },
-                        format: self.recreate_info.image_format,
+                        format: self.recreate_info.format.format,
                         img_type: crate::resources::ImageType::Tex2d,
                         mip_levels: 1,
                         samples: ash::vk::SampleCountFlags::TYPE_1,
-                        sharing_mode: self.sharing_mode.clone(),
+                        sharing_mode: self.recreate_info.sharing_mode.clone(),
                         tiling: ash::vk::ImageTiling::OPTIMAL,
-                        usage: self.usage,
+                        usage: self.recreate_info.usage,
                     },
                     inner: img,
                     usage: MemoryUsage::GpuOnly,
@@ -448,5 +500,16 @@ impl Drop for Swapchain {
         unsafe {
             self.loader.destroy_swapchain(self.swapchain, None);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use static_assertions::assert_impl_all;
+
+    #[test]
+    fn impl_send_sync() {
+        assert_impl_all!(Arc<Swapchain>: Send, Sync);
     }
 }

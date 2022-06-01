@@ -1,8 +1,35 @@
 use std::sync::Arc;
 
-use crate::context::Device;
-
 use super::PipelineLayout;
+use crate::ash::vk;
+use crate::context::Device;
+use crate::resources::ShaderStage;
+
+///Renderpass describing the order of shader invocation. Note that this is only a thin wrapper over the creation and destruction process. If possible try to use the dnamic_rendering extension which
+/// integrates much better with marpii.
+pub struct RenderPass {
+    device: Arc<Device>,
+    pub inner: vk::RenderPass,
+}
+
+impl RenderPass {
+    pub fn new(
+        device: &Arc<Device>,
+        create_info: vk::RenderPassCreateInfoBuilder,
+    ) -> Result<Self, vk::Result> {
+        let renderpass = unsafe { device.inner.create_render_pass(&create_info, None)? };
+        Ok(RenderPass {
+            device: device.clone(),
+            inner: renderpass,
+        })
+    }
+}
+
+impl Drop for RenderPass {
+    fn drop(&mut self) {
+        unsafe { self.device.inner.destroy_render_pass(self.inner, None) }
+    }
+}
 
 ///Pipeline that manages its own lifetime and keeps resources alive needed for its correct execution.
 ///
@@ -13,7 +40,7 @@ pub struct GraphicsPipeline {
     pub layout: PipelineLayout,
     /// if not using dynamic-rendering, this is some renderpass which is kept alive.
     //TODO: Change to marpii renderpass if such a thing is created at some point.
-    pub renderpass: Option<ash::vk::RenderPass>,
+    pub renderpass: Option<RenderPass>,
 }
 
 impl GraphicsPipeline {
@@ -23,12 +50,10 @@ impl GraphicsPipeline {
         device: &Arc<Device>,
         create_info: ash::vk::GraphicsPipelineCreateInfoBuilder,
         layout: PipelineLayout,
-        renderpass: Option<ash::vk::RenderPass>,
+        renderpass: RenderPass,
     ) -> Result<Self, anyhow::Error> {
         let mut create_info = create_info.layout(layout.layout);
-        if let Some(rp) = renderpass {
-            create_info = create_info.render_pass(rp);
-        }
+        create_info = create_info.render_pass(renderpass.inner);
 
         let mut pipelines = unsafe {
             match device.inner.create_graphics_pipelines(
@@ -53,7 +78,64 @@ impl GraphicsPipeline {
             device: device.clone(),
             pipeline,
             layout,
-            renderpass,
+            renderpass: Some(renderpass),
+        })
+    }
+
+    pub fn new_dynamic_pipeline(
+        device: &Arc<Device>,
+        create_info: ash::vk::GraphicsPipelineCreateInfoBuilder,
+        layout: PipelineLayout,
+        shader_stages: &[ShaderStage],
+        color_formats: &[vk::Format],
+        depth_format: vk::Format,
+    ) -> Result<Self, anyhow::Error> {
+        assert!(
+            device.extension_enabled_cstr(ash::extensions::khr::DynamicRendering::name()),
+            "DynamicRenderingKHR extension not activated!"
+        );
+
+        let mut pipline_rendering_create_info = vk::PipelineRenderingCreateInfo::builder()
+            .depth_attachment_format(depth_format)
+            .color_attachment_formats(&color_formats);
+
+        let stages = shader_stages
+            .iter()
+            .map(|s| *s.as_create_info(None))
+            .collect::<Vec<_>>();
+
+        //make renderpass nullptr
+        let create_info = create_info
+            .stages(&stages)
+            .render_pass(vk::RenderPass::null())
+            .layout(layout.layout)
+            //now push dynamic extension
+            .push_next(&mut pipline_rendering_create_info);
+
+        let mut pipelines = unsafe {
+            match device.inner.create_graphics_pipelines(
+                ash::vk::PipelineCache::null(),
+                core::slice::from_ref(&*create_info),
+                None,
+            ) {
+                Ok(p) => p,
+                Err((_plines, err)) => {
+                    return Err(err.into());
+                }
+            }
+        };
+
+        if pipelines.len() != 1 {
+            anyhow::bail!("Pipeline count wasn't 1, was {}", pipelines.len());
+        }
+
+        let pipeline = pipelines.remove(0);
+
+        Ok(GraphicsPipeline {
+            device: device.clone(),
+            pipeline,
+            layout,
+            renderpass: None,
         })
     }
 }

@@ -4,7 +4,7 @@ use std::sync::Arc;
 use super::{DescriptorSetLayout, PushConstant};
 
 pub(crate) mod compute;
-pub(crate) mod graphics;
+pub mod graphics;
 
 pub struct PipelineLayout {
     pub device: Arc<Device>,

@@ -5,14 +5,14 @@
 /// of image_blit.
 pub fn extent_to_offset(extent: ash::vk::Extent3D, zero_to_one: bool) -> ash::vk::Offset3D {
     if zero_to_one {
-        ash::vk::Offset3D {
+        vk::Offset3D {
             //Note: max is correct since we are casting from a u32
             x: (extent.width as i32).max(1),
             y: (extent.height as i32).max(1),
             z: (extent.depth as i32).max(1),
         }
     } else {
-        ash::vk::Offset3D {
+        vk::Offset3D {
             x: extent.width as i32,
             y: extent.height as i32,
             z: extent.depth as i32,
@@ -53,6 +53,37 @@ impl ImageRegion {
         self.extent.height = self.extent.height.clamp(0, region.extent.height);
         self.extent.depth = self.extent.depth.clamp(0, region.extent.depth);
     }
+
+    ///Converts this image region to a viewport. Note that offset and extent are set accordingly.
+    ///
+    /// The depth range is set to 0..1 by default.
+    ///
+    ///# Hint
+    /// If you use this function in your shader the clip space will reach from [x,y] till [width,height].
+    /// A more common convention is to use a range from 0..1 for x/y or -1..1 .
+    pub fn as_viewport(&self) -> vk::Viewport {
+        vk::Viewport {
+            height: self.extent.height as f32,
+            width: self.extent.width as f32,
+            x: self.offset.x as f32,
+            y: self.offset.y as f32,
+            min_depth: 0.0,
+            max_depth: 1.0,
+        }
+    }
+
+    pub fn as_rect_2d(&self) -> vk::Rect2D {
+        vk::Rect2D {
+            extent: vk::Extent2D {
+                width: self.extent.width,
+                height: self.extent.height,
+            },
+            offset: vk::Offset2D {
+                x: self.offset.x,
+                y: self.offset.y,
+            },
+        }
+    }
 }
 
 ///Converts ImageUsageFlags to FormatFeatureFlags needed to satisfy the usage flags. This does not contain all convertions. Only the basic ones.
@@ -81,6 +112,18 @@ pub fn image_usage_to_format_features(
     }
 
     properties
+}
+
+// Simple offset_of macro akin to C++ offsetof
+#[macro_export]
+macro_rules! offset_of {
+    ($base:path, $field:ident) => {{
+        #[allow(unused_unsafe)]
+        unsafe {
+            let b: $base = core::mem::zeroed();
+            (&b.$field as *const _ as isize) - (&b as *const _ as isize)
+        }
+    }};
 }
 
 /*

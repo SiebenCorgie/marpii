@@ -6,7 +6,7 @@ use super::Reflection;
 ///Single shader module
 pub struct ShaderModule {
     pub device: Arc<Device>,
-    pub module: ash::vk::ShaderModule,
+    pub inner: ash::vk::ShaderModule,
     ///saves the descriptor interface of this module where each bindings `shader_stage` is marked as `ALL`.
     /// for best performance those might be optimitzed by the user.
     #[cfg(feature = "shader_reflection")]
@@ -45,7 +45,7 @@ impl ShaderModule {
         };
         Ok(ShaderModule {
             device: device.clone(),
-            module,
+            inner: module,
             #[cfg(feature = "shader_reflection")]
             reflection,
         })
@@ -92,7 +92,7 @@ impl ShaderModule {
         entry_name: String,
     ) -> ShaderStage {
         ShaderStage {
-            module: self,
+            module: StageModule::Owned(self),
             stage,
             entry_name: CString::new(entry_name).unwrap(),
         }
@@ -101,26 +101,59 @@ impl ShaderModule {
 
 impl Drop for ShaderModule {
     fn drop(&mut self) {
-        unsafe { self.device.inner.destroy_shader_module(self.module, None) }
+        unsafe { self.device.inner.destroy_shader_module(self.inner, None) }
     }
 }
 
+enum StageModule {
+    Owned(ShaderModule),
+    Shared(Arc<ShaderModule>),
+}
+
+impl StageModule {
+    fn module(&self) -> &ShaderModule {
+        match self {
+            StageModule::Owned(s) => &s,
+            StageModule::Shared(s) => &s,
+        }
+    }
+}
 ///Build from a [ShaderModule] this type knows its entry point name as well as the shader stage at which it is executed.
 pub struct ShaderStage {
     ///Keeps the referenced shader module alive until the stage is dropped.
-    pub module: ShaderModule,
+    module: StageModule,
     pub stage: ash::vk::ShaderStageFlags,
     pub entry_name: CString,
 }
 
 impl ShaderStage {
+    ///Creates shader stage from a shared module. Panics if the entry_name is not utf8
+    pub fn from_shared_module(
+        module: Arc<ShaderModule>,
+        stage: ash::vk::ShaderStageFlags,
+        entry_name: String,
+    ) -> Self {
+        ShaderStage {
+            module: StageModule::Shared(module),
+            stage,
+            entry_name: CString::new(entry_name).unwrap(),
+        }
+    }
+
+    pub fn module(&self) -> &ShaderModule {
+        self.module.module()
+    }
+    pub fn inner(&self) -> &ash::vk::ShaderModule {
+        &self.module.module().inner
+    }
+
     pub fn as_create_info<'a>(
         &'a self,
         specialization_info: Option<&'a ash::vk::SpecializationInfo>,
     ) -> ash::vk::PipelineShaderStageCreateInfoBuilder<'a> {
         let mut builder = ash::vk::PipelineShaderStageCreateInfo::builder()
             .stage(self.stage)
-            .module(self.module.module)
+            .module(self.module.module().inner)
             .name(self.entry_name.as_c_str());
 
         if let Some(special) = specialization_info {

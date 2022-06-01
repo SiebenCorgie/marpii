@@ -452,20 +452,12 @@ impl Image {
 ///If implemented, creates a self managing image view that keeps its source image and device alive long enough
 /// to destroy the inner view when dropped.
 pub trait SafeImageView {
-    fn view(
-        &self,
-        device: Arc<crate::context::Device>,
-        desc: ImgViewDesc,
-    ) -> Result<ImageView, anyhow::Error>;
+    fn view(&self, device: &Arc<Device>, desc: ImgViewDesc) -> Result<ImageView, anyhow::Error>;
 }
 
 impl SafeImageView for Arc<Image> {
     ///Creates an image view for this image based on the based `desc`.
-    fn view(
-        &self,
-        device: Arc<crate::context::Device>,
-        desc: ImgViewDesc,
-    ) -> Result<ImageView, anyhow::Error> {
+    fn view(&self, device: &Arc<Device>, desc: ImgViewDesc) -> Result<ImageView, anyhow::Error> {
         let mut builder = ash::vk::ImageViewCreateInfo::builder().image(self.inner);
         builder = desc.set_on_builder(builder);
 
@@ -473,7 +465,7 @@ impl SafeImageView for Arc<Image> {
 
         Ok(ImageView {
             desc,
-            device,
+            device: device.clone(),
             view,
             src_img: self.clone(),
         })

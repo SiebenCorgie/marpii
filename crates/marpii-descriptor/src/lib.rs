@@ -1,4 +1,4 @@
-//! # Managed Descriptor
+//! # std Descriptor
 //!
 //! Similar to marpii-commands this crate provides highlever abstractions for descriptorsets
 //!
@@ -16,8 +16,15 @@
 //!
 
 ///Bindless descriptor handling related structures.
+#[cfg(not(feature = "bindless-wrapper"))]
 pub mod bindless;
 
+///Bindless wrapper for shader usage of this graph.
+#[cfg(feature = "bindless-wrapper")]
+pub mod bindless_wrapper;
+
+#[cfg(not(feature = "bindless-wrapper"))]
 pub mod dynamic_pool;
 
+#[cfg(not(feature = "bindless-wrapper"))]
 pub mod managed_descriptor;

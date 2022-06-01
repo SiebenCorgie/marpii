@@ -9,7 +9,7 @@ use marpii_commands::Recorder;
 
 use crate::{pass::AssumedState, UNDEFINED_QUEUE};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct ImageState {
     pub layout: vk::ImageLayout,
     pub access_mask: vk::AccessFlags,
@@ -174,7 +174,7 @@ impl StImage {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct BufferState {
     pub access_mask: vk::AccessFlags,
 }
@@ -544,7 +544,7 @@ impl Transitions {
     }
 
     ///Adds a transition state transforms `src` into the assumed state on `queue`.
-    pub fn add_into_assumed(&mut self, src: AssumedState, queue_family: u32) {
+    pub fn add_into_assumed(&mut self, src: &AssumedState, queue_family: u32) {
         match &src {
             AssumedState::Image { image, state } => {
                 //There are two events that can occure.

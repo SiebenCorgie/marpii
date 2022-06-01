@@ -1,4 +1,5 @@
 use anyhow::Result;
+use marpii::ash::vk::Extent2D;
 use marpii::gpu_allocator::vulkan::Allocator;
 use marpii::resources::{
     ComputePipeline, DescriptorPool, PipelineLayout, PushConstant, SafeImageView, ShaderModule,
@@ -8,7 +9,6 @@ use marpii::{
     ash::vk,
     context::Ctx,
     resources::{Image, ImgDesc},
-    swapchain::Swapchain,
 };
 use marpii_command_graph::pass::{AssumedState, Pass, SubPassRequirement};
 use marpii_command_graph::{ImageState, StImage};
@@ -37,7 +37,7 @@ pub struct ComputeDispatch {
 }
 
 impl ComputeDispatch {
-    pub fn new(ctx: &Ctx<Allocator>, swapchain: &Swapchain) -> Self {
+    pub fn new(ctx: &Ctx<Allocator>, extent: Extent2D) -> Self {
         let push_constant = Arc::new(Mutex::new(PushConstant::new(
             PushConst {
                 offset: [500.0, 500.0],
@@ -69,16 +69,30 @@ impl ComputeDispatch {
         };
 
         //Now create the target image and descriptor set
-        let width = swapchain.images[0].extent_2d().width;
-        let height = swapchain.images[0].extent_2d().height;
+        let width = extent.width;
+        let height = extent.height;
+
+        let target_format = ctx
+            .device
+            .select_format(
+                vk::ImageUsageFlags::TRANSFER_SRC | vk::ImageUsageFlags::STORAGE,
+                vk::ImageTiling::OPTIMAL,
+                &[
+                    vk::Format::R8G8B8A8_UNORM,
+                    vk::Format::R8G8B8A8_UINT,
+                    vk::Format::R32G32B32A32_SFLOAT,
+                ],
+            )
+            .unwrap();
+
+        let imgdesc = ImgDesc::storage_image_2d(width, height, target_format);
+        println!("Desc: {:#?}", imgdesc);
 
         let target_image = StImage::unitialized(
             Image::new(
                 &ctx.device,
                 &ctx.allocator,
-                ImgDesc::color_attachment_2d(width, height, ash::vk::Format::R8G8B8A8_UNORM)
-                    .add_usage(ash::vk::ImageUsageFlags::TRANSFER_SRC)
-                    .add_usage(ash::vk::ImageUsageFlags::STORAGE),
+                imgdesc,
                 marpii::allocator::MemoryUsage::GpuOnly,
                 Some("TargetImage"),
                 None,
@@ -88,15 +102,15 @@ impl ComputeDispatch {
         let image_view = Arc::new(
             target_image
                 .image()
-                .view(ctx.device.clone(), target_image.image().view_all())
+                .view(&ctx.device, target_image.image().view_all())
                 .unwrap(),
         );
         //NOTE bad practise, should be done per app.
         let pool = DescriptorPool::new_for_module(
             &ctx.device,
             ash::vk::DescriptorPoolCreateFlags::FREE_DESCRIPTOR_SET,
-            &shader_stage.module,
-            swapchain.images.len() as u32,
+            shader_stage.module(),
+            1,
         )
         .unwrap();
 

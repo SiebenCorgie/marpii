@@ -204,6 +204,7 @@ impl<'a> Recorder<'a> {
     ///	   self.push_constant.content_as_bytes(),
     ///));
     ///```
+    /// as to be transformed to
     ///```ignore
     ///recorder.record({
     ///    let pipe = self.pipeline.clone(); //assuming this is in a arc, if used just in this cb, could be moved as well
@@ -217,7 +218,13 @@ impl<'a> Recorder<'a> {
     ///    )
     ///});
     ///```
-    /// as to be transformed to
+    ///
+    /// In essence you dont want to reference anyhting outside the closure, like `self` or any reference that does not has
+    /// a `'static` lifetime (which most references won't have).
+    ///
+    ///
+    /// In practice this can usually be done by either moving data into the closure (if they are used once), or, if you
+    /// need to keep the reference, wrapping it into `Arc<T>` / `Arc<Mutex<T>>`.
     pub fn record<F: Send + 'static>(&mut self, cmd: F)
     where
         F: Fn(&ash::Device, &ash::vk::CommandBuffer),
