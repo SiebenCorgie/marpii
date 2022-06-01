@@ -8,8 +8,6 @@ use marpii_commands::Recorder;
 
 mod image_blit;
 pub use image_blit::ImageBlit;
-mod swapchain_prepare;
-pub use swapchain_prepare::SwapchainPrepare;
 
 mod wait_external;
 pub use wait_external::WaitExternal;
@@ -25,8 +23,9 @@ mod dynamic_image;
 pub use dynamic_image::DynamicImagePass;
 mod blit_to_region;
 mod std_gbuffer;
-mod std_swapchain;
+mod swapchain;
 pub use blit_to_region::BlitToRegion;
+pub use swapchain::{SwapchainPrepare, SwapchainPresent};
 
 pub enum SubPassRequirement {
     ///Signales that the queue this is executed on must be graphics capable.
@@ -70,10 +69,10 @@ impl Debug for AssumedState {
 
 impl AssumedState {
     ///Makes the inner buffer/images state the assumed state
-    pub(crate) fn apply_state(self) {
+    pub(crate) fn apply_state(&self) {
         match self {
-            AssumedState::Buffer { buffer, state } => *buffer.state.write().unwrap() = state,
-            AssumedState::Image { image, state } => *image.state.write().unwrap() = state,
+            AssumedState::Buffer { buffer, state } => *buffer.state.write().unwrap() = *state,
+            AssumedState::Image { image, state } => *image.state.write().unwrap() = *state,
         }
     }
 
@@ -127,4 +126,10 @@ pub trait Pass {
     fn waits_for_external(&self) -> &[Arc<Semaphore>] {
         &[]
     }
+
+    ///Called before the command buffer of this pass is submitted.
+    fn pre_action(&mut self) {}
+
+    ///Called after the command buffer of this pass is submitted
+    fn post_action(&mut self) {}
 }

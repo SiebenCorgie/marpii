@@ -124,13 +124,20 @@ impl<'graph, 'passes> OptGraph<'graph, 'passes> {
             fences: Vec::with_capacity(self.submits.len()),
         };
 
-        for submit in self.submits.into_iter() {
+        for mut submit in self.submits.into_iter() {
             let mut cb = self.graph.alloc_new_command_buffer(submit.queue)?;
             let mut recorder = cb.start_recording()?;
-            for segment in submit.order.into_iter() {
+
+            //handle pre submit calls
+            for seg in submit.order.iter_mut() {
+                seg.pass.pre_action();
+            }
+
+            for segment in submit.order.iter_mut() {
                 //Check if there is one or more queue transfers. In that case, schedule the queue transfer barrier,
+
                 // and collect the assosiated assumed states for a later transitioning barrier.
-                let transitions = segment.dependencies.into_iter().fold(
+                let transitions = segment.dependencies.iter().fold(
                     Transitions::empty(),
                     |mut trans, dep| {
                         match dep {
@@ -203,7 +210,7 @@ impl<'graph, 'passes> OptGraph<'graph, 'passes> {
                 let transitions =
                     segment
                         .dependees
-                        .into_iter()
+                        .iter()
                         .fold(Transitions::empty(), |mut trans, dep| {
                             //if we got a dependee, add a queue release transition
                             let Dependee {
@@ -263,6 +270,11 @@ impl<'graph, 'passes> OptGraph<'graph, 'passes> {
             execution_fence.fences.push(fence);
             //Now push to signal that it is executing. Allows us later to recycle submit related data.
             self.graph.push_inflight(graph_submit);
+
+            //Finally handle post submit calls
+            for seg in submit.order.iter_mut() {
+                seg.pass.post_action();
+            }
         }
 
         //Finally drop all borrows

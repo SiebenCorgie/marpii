@@ -1,27 +1,35 @@
-//! # Render Graph
-//! Similar function to the hello_triangle example, but uses the marpii-command-graph crate to handle
-//! resource state and state transition.
-
-///Collects all runtime state for the application. Basically the context, swapchain and pipeline used for drawing.
+//! Simple app that takes one command line argument (the path to a gltf model), and tries to load it as a scene.
+//!
+//! Other features:
+//!
+//! - Custom context via `Ctx::custom_context`
+//! - DynamicRendering based Graphics pipeline
+//! - Simple forward rendering pass
+//!
+//!
 use anyhow::Result;
+use forward_pass::{ForwardPass, Mesh};
+use glam::{Mat4, Quat, Vec3};
 use marpii::gpu_allocator::vulkan::Allocator;
 use marpii::{
-    ash::{vk, vk::Extent2D},
+    ash::{self, vk, vk::Extent2D},
     context::Ctx,
 };
 use marpii_command_graph::pass::{ImageBlit, SwapchainPresent};
 use marpii_command_graph::{ExecutionFence, Graph};
-use winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
+use std::path::PathBuf;
+use std::sync::Arc;
+use winit::event::{DeviceEvent, ElementState, KeyboardInput, VirtualKeyCode};
 use winit::{
     event::{Event, WindowEvent},
     event_loop::ControlFlow,
 };
 
-mod compute_pass;
-use compute_pass::{ComputeDispatch, PushConst};
+mod forward_pass;
+mod gltf_loader;
 
 struct FrameData {
-    compute_pass: ComputeDispatch,
+    forward_pass: ForwardPass,
     wait_fence: Option<ExecutionFence>,
 }
 
@@ -32,13 +40,34 @@ struct App {
 
     frame_data: Vec<FrameData>,
 
+    //all loaded meshes. We load those once and give a reference to the forward pass
+    meshes: Vec<Mesh>,
+
     graph: Graph,
 }
 
 impl App {
     pub fn new(window: &winit::window::Window) -> anyhow::Result<Self> {
-        //now test context setup
-        let (ctx, surface) = Ctx::default_with_surface(&window, true)?;
+        //for this test, setup maximum context. We therefore have to activate features needed for rust shaders and
+        //dynamicRendering our self.
+
+        //NOTE: By default we setup extensions in a way that we can load rust shaders.
+        let vulkan_memory_model = ash::vk::PhysicalDeviceVulkan12Features::builder()
+            .shader_int8(true)
+            .vulkan_memory_model(true);
+        //NOTE: used for dynamic rendering based pipelines which are preffered over renderpass based graphics queues.
+        let dynamic_rendering =
+            ash::vk::PhysicalDeviceDynamicRenderingFeatures::builder().dynamic_rendering(true);
+
+        let (ctx, surface) = Ctx::custom_context(Some(&window), true, |devbuilder| {
+            devbuilder
+                .push_extensions(ash::extensions::khr::Swapchain::name())
+                .push_extensions(ash::vk::KhrVulkanMemoryModelFn::name())
+                .push_extensions(ash::extensions::khr::DynamicRendering::name())
+                .with(|b| b.features.shader_int16 = 1)
+                .with_additional_feature(vulkan_memory_model)
+                .with_additional_feature(dynamic_rendering)
+        })?;
 
         let graphics_queue = ctx.device.queues[0].clone();
         assert!(graphics_queue
@@ -46,20 +75,21 @@ impl App {
             .queue_flags
             .contains(vk::QueueFlags::GRAPHICS | vk::QueueFlags::TRANSFER));
 
-        let swapchain = SwapchainPresent::new(&ctx.device, surface)?;
+        let swapchain = SwapchainPresent::new(&ctx.device, Arc::new(surface.unwrap()))?;
         //dummy swapchain image, will be set per recording.
 
         let extent = swapchain.image_extent();
+
         //Rebuild passes.
         let frame_data = swapchain
             .swapchain()
             .images
             .iter()
             .map(|_i| {
-                let compute_pass = ComputeDispatch::new(&ctx, extent);
+                let forward_pass = ForwardPass::new(&ctx, extent).unwrap();
 
                 FrameData {
-                    compute_pass,
+                    forward_pass,
                     wait_fence: None,
                 }
             })
@@ -73,9 +103,16 @@ impl App {
             graph,
             current_extent: extent,
             frame_data,
+            meshes: Vec::new(),
         };
 
         Ok(app)
+    }
+
+    fn update_meshes(&mut self) {
+        for fpass in &mut self.frame_data {
+            fpass.forward_pass.objects = self.meshes.clone();
+        }
     }
 
     //Called if resizing needs to take place
@@ -99,19 +136,24 @@ impl App {
             .swapchain()
             .images
             .iter()
-            .map(|_i| {
-                let compute_pass = ComputeDispatch::new(&self.ctx, extent);
-                FrameData {
-                    compute_pass,
-                    wait_fence: None,
-                }
+            .map(|_i| FrameData {
+                forward_pass: ForwardPass::new(&self.ctx, extent).unwrap(),
+                wait_fence: None,
             })
             .collect();
 
+        self.update_meshes();
         self.current_extent = extent;
     }
+
+    fn update_cam(&mut self, cam_pos: Vec3, cam_rot: Quat) {
+        for frame in &self.frame_data {
+            frame.forward_pass.push_camera(cam_pos, cam_rot);
+        }
+    }
+
     //Enques a new draw event.
-    pub fn draw(&mut self, window: &winit::window::Window, push: PushConst) {
+    pub fn draw(&mut self, window: &winit::window::Window) {
         let extent = self.swapchain.current_extent();
         //if on wayland this will be wrong, therfore sanitize
         let extent = if let Some(ext) = extent {
@@ -147,16 +189,12 @@ impl App {
         }
 
         //Build new frame graph and submit
-        //Setup compute pass
-        self.frame_data[self.swapchain.next_index()]
-            .compute_pass
-            .push_const(push);
 
         //setup image blit and prepare pass
         let mut blit = ImageBlit::new(
             self.frame_data[self.swapchain.next_index()]
-                .compute_pass
-                .target_image
+                .forward_pass
+                .target_color
                 .clone(),
             self.swapchain.next_image().clone(),
         );
@@ -166,8 +204,8 @@ impl App {
             .graph
             .record()
             .insert_pass(
-                "ComputePass",
-                &mut self.frame_data[self.swapchain.next_index()].compute_pass,
+                "ForwardPass",
+                &mut self.frame_data[self.swapchain.next_index()].forward_pass,
                 graphics_queue.family_index,
             )
             .insert_pass("SwapchainBlit", &mut blit, graphics_queue.family_index)
@@ -185,33 +223,70 @@ impl App {
 }
 
 fn main() -> Result<(), anyhow::Error> {
-    simple_logger::SimpleLogger::new().init().unwrap();
+    simple_logger::SimpleLogger::new()
+        .with_level(log::LevelFilter::Info)
+        .init()
+        .unwrap();
+
+    let mut args = std::env::args();
+    let _progname = args.next();
+    let mesh_path = if let Some(path) = args.next() {
+        let path = PathBuf::from(path);
+        if !path.exists() {
+            anyhow::bail!("Gltf-file @ {:?} does not exist!", path);
+        }
+
+        path
+    } else {
+        anyhow::bail!("No gltf path provided!");
+    };
+
+    let gltf_file = easy_gltf::load(&mesh_path).expect("Failed to load gltf file!");
 
     let ev = winit::event_loop::EventLoop::new();
     let window = winit::window::Window::new(&ev).unwrap();
 
     let mut app = App::new(&window)?;
 
-    let mut rad = 45.0f32;
-    let mut offset = [500.0, 500.0];
+    for scene in gltf_file {
+        println!("Loading scene");
+        for model in scene.models {
+            println!("Loading mesh with {} verts", model.vertices().len());
+            let mesh = Mesh::from_vertex_index_buffers(
+                &app.ctx,
+                model.vertices(),
+                model.indices().expect("Model has no index buffer!"),
+            );
+            app.meshes.push(mesh);
+        }
+    }
+    app.update_meshes();
 
-    let start = std::time::Instant::now();
+    let mut last_frame = std::time::Instant::now();
+
+    let mut cam_loc = Vec3::new(0.0, 0.0, 0.0);
+    let mut cam_rot = Quat::IDENTITY;
 
     ev.run(move |event, _, ctrl| {
         *ctrl = ControlFlow::Poll;
-
+        let delta = last_frame.elapsed().as_secs_f32();
         match event {
             Event::MainEventsCleared => window.request_redraw(),
             Event::RedrawRequested(_) => {
-                rad = start.elapsed().as_secs_f32().sin() + 1.0;
-                app.draw(
-                    &window,
-                    PushConst {
-                        radius: 450.0,
-                        opening: rad,
-                        offset,
-                    },
-                );
+                last_frame = std::time::Instant::now();
+                app.update_cam(cam_loc, cam_rot);
+                app.draw(&window);
+            }
+            Event::DeviceEvent {
+                event: DeviceEvent::MouseMotion { delta: (x, y) },
+                ..
+            } => {
+                let right = cam_rot.mul_vec3(Vec3::new(1.0, 0.0, 0.0));
+                let rot_yaw = Quat::from_rotation_y(x as f32 * 0.001);
+                let rot_pitch = Quat::from_axis_angle(right, -y as f32 * 0.001);
+
+                let to_add = rot_yaw * rot_pitch;
+                cam_rot = to_add * cam_rot;
             }
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::CloseRequested => {
@@ -233,10 +308,12 @@ fn main() -> Result<(), anyhow::Error> {
                         },
                     ..
                 } => match (state, kc) {
-                    (ElementState::Pressed, VirtualKeyCode::A) => offset[0] += 10.0,
-                    (ElementState::Pressed, VirtualKeyCode::D) => offset[0] -= 10.0,
-                    (ElementState::Pressed, VirtualKeyCode::W) => offset[1] += 10.0,
-                    (ElementState::Pressed, VirtualKeyCode::S) => offset[1] -= 10.0,
+                    (ElementState::Pressed, VirtualKeyCode::A) => cam_loc.x += 50.0 * delta,
+                    (ElementState::Pressed, VirtualKeyCode::D) => cam_loc.x -= 50.0 * delta,
+                    (ElementState::Pressed, VirtualKeyCode::E) => cam_loc.y += 50.0 * delta,
+                    (ElementState::Pressed, VirtualKeyCode::Q) => cam_loc.y -= 50.0 * delta,
+                    (ElementState::Pressed, VirtualKeyCode::S) => cam_loc.z += 50.0 * delta,
+                    (ElementState::Pressed, VirtualKeyCode::W) => cam_loc.z -= 50.0 * delta,
                     (ElementState::Pressed, VirtualKeyCode::Escape) => *ctrl = ControlFlow::Exit,
                     _ => {}
                 },
@@ -244,7 +321,5 @@ fn main() -> Result<(), anyhow::Error> {
             },
             _ => {}
         }
-
-        rad = rad.clamp(1.0, 179.0);
     });
 }

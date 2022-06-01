@@ -57,7 +57,7 @@ impl PassData {
             Some("RenderTarget"),
             None,
         )?);
-        let image_view = Arc::new(image.view(ctx.device.clone(), image.view_all())?);
+        let image_view = Arc::new(image.view(&ctx.device, image.view_all())?);
 
         let push_constant = Arc::new(Mutex::new(PushConstant::new(
             PushConst {
@@ -392,7 +392,7 @@ impl App {
 
         let swapchain = Swapchain::builder(&ctx.device, &surface)?
             .with(|b| {
-                b.usage = ash::vk::ImageUsageFlags::COLOR_ATTACHMENT
+                b.create_info.usage = ash::vk::ImageUsageFlags::COLOR_ATTACHMENT
                     | ash::vk::ImageUsageFlags::TRANSFER_DST
             })
             .with(|b| {

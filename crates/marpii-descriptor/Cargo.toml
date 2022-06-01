@@ -9,6 +9,11 @@ default = ["logging"]
 # if enabled, uses the log crate for messages.
 logging = ["log"]
 
+# If enabled the crate only compiles the "bindless wrapper" portion of the crate. This allows the crate
+# to be used within a shader. It will expose a simple wrapper around the standard bindless layout that allows loading resources from resource handles without having to deal with the
+# correct access etc.
+bindless-wrapper = []
+
 [dependencies]
 marpii = {path = "../marpii"}
 fxhash = "0.2.1"

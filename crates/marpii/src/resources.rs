@@ -12,7 +12,7 @@ mod descriptor;
 pub use descriptor::shader_interface::Reflection;
 pub use descriptor::{DescriptorAllocator, DescriptorPool, DescriptorSet, DescriptorSetLayout};
 
-mod pipeline;
+pub mod pipeline;
 pub use pipeline::{compute::ComputePipeline, graphics::GraphicsPipeline, PipelineLayout};
 
 mod command_buffer;

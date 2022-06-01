@@ -8,5 +8,7 @@ members = [
 "examples/hello_triangle",
 "examples/render_graph",
 "examples/rust_shader",
-"examples/shader_builder"
+"examples/shader_builder",
+"examples/vertex_graphics_shader",
+"examples/gltf_loading"
 ]
