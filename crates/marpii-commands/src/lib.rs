@@ -15,4 +15,7 @@ pub use buffer_init::buffer_from_data;
 mod image_init;
 pub use image_init::image_from_data;
 #[cfg(feature = "image_loading")]
-pub use image_init::image_from_file;
+pub use image_init::{image_from_file, image_from_image};
+#[cfg(feature = "image_loading")]
+///image create re-export. Feel free to use it, since its already in your dependency tree.
+pub use image;

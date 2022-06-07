@@ -272,6 +272,22 @@ impl ImgDesc {
         }
     }
 
+
+    ///Creates a simple texture image that has the sampeld bit set as well as transfere bits.
+    pub fn texture_2d(width: u32, height: u32, format: ash::vk::Format) -> Self {
+        ImgDesc {
+            extent: ash::vk::Extent3D {
+                width,
+                height,
+                depth: 1,
+            },
+            format,
+            usage: ash::vk::ImageUsageFlags::SAMPLED
+                | ash::vk::ImageUsageFlags::TRANSFER_DST,
+            ..Default::default()
+        }
+    }
+
     //TODO: add more complex init methodes. for instance difference between 2dArray vs 3d images
     //      or cube maps.
 }

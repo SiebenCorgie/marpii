@@ -30,12 +30,13 @@ pub fn compile_rust_shader(
 
     println!("SpirV dir @ {:?}", spirv_target_location);
 
-    let compiler_result = SpirvBuilder::new(&shader_crate_location, "spirv-unknown-vulkan1.1")
+    let compiler_result = SpirvBuilder::new(&shader_crate_location, "spirv-unknown-vulkan1.2")
         .spirv_metadata(SpirvMetadata::NameVariables)
         .print_metadata(MetadataPrintout::None)
         .capability(Capability::Int8)
         .capability(Capability::Int16)
         .capability(Capability::ImageQuery)
+        .capability(Capability::RuntimeDescriptorArray)
         .build()?;
 
     println!("Generated following Spirv entrypoints:");

@@ -9,6 +9,9 @@ use super::ShaderModule;
 #[cfg(feature = "shader_reflection")]
 pub(crate) mod shader_interface;
 
+
+/// Wrapped descriptor set layout. Can either be created through [new](DescriptorSetLayout::new), or by filling
+/// the struct. Handles on-drop destruction of the resource.
 pub struct DescriptorSetLayout {
     pub device: Arc<Device>,
     pub inner: ash::vk::DescriptorSetLayout,
@@ -163,7 +166,57 @@ impl DescriptorAllocator for DescriptorPool {
         #[cfg(feature = "logging")]
         if sets.len() > 1 {
             log::warn!(
-                "Allocate too many descriptor sets, expected 1 git {}",
+                "Allocate too many descriptor sets, expected 1 got {}",
+                sets.len()
+            );
+        }
+
+        let set = sets.remove(0);
+
+        Ok(DescriptorSet {
+            inner: set,
+            is_freed: false,
+            parent_pool: self,
+        })
+    }
+
+    fn free(&self, set: &ash::vk::DescriptorSet) -> Result<(), anyhow::Error> {
+        if self.can_free {
+            unsafe {
+                self.device
+                    .inner
+                    .free_descriptor_sets(self.inner, core::slice::from_ref(set))
+                    .map_err(|e| e.into())
+            }
+        } else {
+            anyhow::bail!("DescriptorPool can not free!");
+        }
+    }
+
+    fn device(&self) -> &ash::Device {
+        &self.device.inner
+    }
+}
+
+impl DescriptorAllocator for Arc<DescriptorPool>{
+    fn allocate(
+        self,
+        layout: &ash::vk::DescriptorSetLayout,
+    ) -> Result<DescriptorSet<Self>, anyhow::Error> {
+        let create_info = ash::vk::DescriptorSetAllocateInfo::builder()
+            .descriptor_pool(self.inner)
+            .set_layouts(core::slice::from_ref(layout));
+
+        let mut sets = unsafe { self.device.inner.allocate_descriptor_sets(&create_info)? };
+
+        if sets.len() == 0 {
+            anyhow::bail!("Failed to allocate descriptor set!");
+        }
+
+        #[cfg(feature = "logging")]
+        if sets.len() > 1 {
+            log::warn!(
+                "Allocate too many descriptor sets, expected 1 got {}",
                 sets.len()
             );
         }
