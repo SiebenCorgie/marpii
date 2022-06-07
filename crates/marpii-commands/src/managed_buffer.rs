@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use marpii::{ash, resources::CommandPool};
+use marpii::{ash::{self, vk}, resources::CommandPool};
 use marpii::{
     context::{Device, Queue},
     resources::{CommandBuffer, CommandBufferAllocator},

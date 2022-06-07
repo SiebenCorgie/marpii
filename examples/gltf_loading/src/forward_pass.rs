@@ -15,6 +15,7 @@ use marpii_command_graph::{
     ImageState, StBuffer, StImage,
 };
 use marpii_commands::buffer_from_data;
+use marpii_descriptor::bindless::{SampledImageHandle, ResourceHandle, BindlessDescriptor};
 use std::sync::{Arc, Mutex};
 
 #[repr(C, align(16))]
@@ -22,8 +23,8 @@ use std::sync::{Arc, Mutex};
 pub struct ForwardPush {
     rotation: [f32; 4],
     location: [f32; 4],
+    texture_indices: [u32; 4],
 }
-
 #[repr(C, align(16))]
 #[derive(Clone, Copy)]
 pub struct Vertex {
@@ -38,6 +39,10 @@ pub struct Mesh {
     index_count: u32,
     vertex_buffer: StBuffer,
     index_buffer: StBuffer,
+
+    albedo_texture: Option<SampledImageHandle>,
+    normal_texture: Option<SampledImageHandle>,
+    roughness_metallness_texture: Option<SampledImageHandle>,
 }
 
 impl Mesh {
@@ -46,6 +51,9 @@ impl Mesh {
         ctx: &Ctx<A>,
         vertex_buffer: &[easy_gltf::model::Vertex],
         index_buffer: &[usize],
+        albedo_texture: Option<SampledImageHandle>,
+        normal_texture: Option<SampledImageHandle>,
+        roughness_metallness_texture: Option<SampledImageHandle>,
     ) -> Self {
         let vertex_buffer: Vec<Vertex> = vertex_buffer
             .into_iter()
@@ -100,6 +108,9 @@ impl Mesh {
             index_count,
             index_buffer,
             vertex_buffer,
+            albedo_texture,
+            normal_texture,
+            roughness_metallness_texture
         }
     }
 
@@ -127,7 +138,16 @@ impl Mesh {
 
         let index_buffer = [0, 1, 2];
 
-        Self::from_vertex_index_buffers(ctx, &triangle, &index_buffer)
+        Self::from_vertex_index_buffers(ctx, &triangle, &index_buffer, None, None, None)
+    }
+
+    fn get_texture_inidces(&self) -> [u32; 4]{
+        [
+            self.albedo_texture.map(|i|i.0.0).unwrap_or(ResourceHandle::UNDEFINED_HANDLE),
+            self.normal_texture.map(|i|i.0.0).unwrap_or(ResourceHandle::UNDEFINED_HANDLE),
+            self.roughness_metallness_texture.map(|i|i.0.0).unwrap_or(ResourceHandle::UNDEFINED_HANDLE),
+            ResourceHandle::UNDEFINED_HANDLE
+        ]
     }
 }
 
@@ -230,7 +250,6 @@ pub fn forward_pipeline(
         .viewport_state(&viewport_state)
         .tessellation_state(&tesselation_state)
         .vertex_input_state(&vertex_input_state);
-
     let pipeline = GraphicsPipeline::new_dynamic_pipeline(
         device,
         create_info,
@@ -261,6 +280,7 @@ impl ForwardPass {
     pub fn new<A: Allocator + Send + Sync + 'static>(
         ctx: &Ctx<A>,
         window_ext: Extent2D,
+        pipeline_layout: PipelineLayout,
     ) -> Result<Self, anyhow::Error> {
         let target_color = StImage::unitialized(Image::new(
             &ctx.device,
@@ -356,6 +376,7 @@ impl ForwardPass {
             ForwardPush {
                 location: [0.0; 4],
                 rotation: [0.0; 4],
+                texture_indices: [ResourceHandle::UNDEFINED_HANDLE; 4]
             },
             vk::ShaderStageFlags::ALL,
         )));
@@ -364,12 +385,14 @@ impl ForwardPass {
             ShaderModule::new_from_file(&ctx.device, "resources/vertex_graphics_shader.spv")
                 .unwrap(),
         );
+        /*
         let pipeline_layout = PipelineLayout::from_layout_push(
             &ctx.device,
             &shader_module.create_descriptor_set_layouts()?,
             &push.lock().unwrap(), //no push atm
         )
         .unwrap();
+        */
         let vertex_shader_stage = ShaderStage::from_shared_module(
             shader_module.clone(),
             vk::ShaderStageFlags::VERTEX,
@@ -487,15 +510,22 @@ impl Pass for ForwardPass {
 
                 dev.cmd_bind_pipeline(*cmd, vk::PipelineBindPoint::GRAPHICS, pipeline.pipeline);
 
-                dev.cmd_push_constants(
-                    *cmd,
-                    pipeline.layout.layout,
-                    vk::ShaderStageFlags::ALL,
-                    0,
-                    push.lock().unwrap().content_as_bytes(),
-                );
+            }
 
-                for mesh in meshes.iter() {
+            let mut push_lock = push.lock().unwrap();
+
+            for mesh in meshes.iter() {
+                //Setup push constant
+                push_lock.get_content_mut().texture_indices = mesh.get_texture_inidces();
+                unsafe{
+                    dev.cmd_push_constants(
+                        *cmd,
+                        pipeline.layout.layout,
+                        vk::ShaderStageFlags::ALL,
+                        0,
+                        push_lock.content_as_bytes()
+                    );
+
                     dev.cmd_bind_index_buffer(
                         *cmd,
                         mesh.index_buffer.buffer().inner,
@@ -510,10 +540,11 @@ impl Pass for ForwardPass {
                     );
                     dev.cmd_draw_indexed(*cmd, mesh.index_count, 1, 0, 0, 0);
                 }
-
-                //dev.cmd_end_rendering(*cmd);
-                dyn_rendering.cmd_end_rendering(*cmd);
             }
+
+            //dev.cmd_end_rendering(*cmd);
+            unsafe{dyn_rendering.cmd_end_rendering(*cmd)};
+
         });
 
         Ok(())

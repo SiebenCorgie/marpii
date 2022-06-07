@@ -27,6 +27,9 @@ mod swapchain;
 pub use blit_to_region::BlitToRegion;
 pub use swapchain::{SwapchainPrepare, SwapchainPresent};
 
+mod bindless_bind;
+pub use bindless_bind::BindlessBind;
+
 pub enum SubPassRequirement {
     ///Signales that the queue this is executed on must be graphics capable.
     GraphicsBit,

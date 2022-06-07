@@ -107,24 +107,29 @@ pub fn image_from_data<A: Allocator + Send + Sync + 'static>(
     Ok(image)
 }
 
-///Loads an image from `file`.
+
+
+///Loads an image from `image`. `image` in this case is an somehow by the `image` crate initialized image. This can happen when using
+/// external loaders for instance. And yes, *images* is confusing here, but typesignatures should help.
+///
+///
 ///The images format, extent etc. are decided from the files properties. But you can
 /// read those afterwards from the file directly. Note that each *integer* format is used as `UNORM` which is
 /// not always correct. If you want to control the format/loading process your self, consider using [image_from_data](image_from_data)
 ///
+///
 /// If you need a certain format, consider using a Blit operation after loading.
 #[cfg(feature = "image_loading")]
-pub fn image_from_file<A: Allocator + Send + Sync + 'static>(
+pub fn image_from_image<A: Allocator + Send + Sync + 'static>(
     device: &Arc<Device>,
     allocator: &Arc<Mutex<A>>,
     upload_queue: &Queue,
     usage: vk::ImageUsageFlags,
-    file: impl AsRef<std::path::Path>,
+    img: image::DynamicImage,
 ) -> Result<Image, anyhow::Error> {
-    use image::GenericImageView;
+    use image::{GenericImageView, DynamicImage};
     use marpii::resources::ImageType;
 
-    let img = image::open(file)?;
     let (width, height) = img.dimensions();
 
     //TODO decide for a format
@@ -167,4 +172,24 @@ pub fn image_from_file<A: Allocator + Send + Sync + 'static>(
         None,
         img.as_bytes(),
     )
+}
+
+
+///Loads an image from `file`.
+///The images format, extent etc. are decided from the files properties. But you can
+/// read those afterwards from the file directly. Note that each *integer* format is used as `UNORM` which is
+/// not always correct. If you want to control the format/loading process your self, consider using [image_from_data](image_from_data)
+///
+/// If you need a certain format, consider using a Blit operation after loading.
+#[cfg(feature = "image_loading")]
+pub fn image_from_file<A: Allocator + Send + Sync + 'static>(
+    device: &Arc<Device>,
+    allocator: &Arc<Mutex<A>>,
+    upload_queue: &Queue,
+    usage: vk::ImageUsageFlags,
+    file: impl AsRef<std::path::Path>,
+) -> Result<Image, anyhow::Error> {
+
+    let img = image::open(file)?;
+    image_from_image(device, allocator, upload_queue, usage, img)
 }

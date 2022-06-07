@@ -16,6 +16,8 @@ log_reasoning = ["log"]
 [dependencies]
 marpii = {path = "../marpii"}
 marpii-commands = {path = "../marpii-commands"}
+marpii-descriptor = {path = "../marpii-descriptor"}
+
 anyhow = "1.0.56"
 thiserror = "1.0.31"
 fxhash = "0.2.1"
