@@ -414,10 +414,14 @@ impl Image {
                 .usage
                 .contains(ash::vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT)
             {
-                ash::vk::ImageAspectFlags::DEPTH
+                //use depth only aspect flag for depth only format, otherwise use both flags
+                match self.desc.format{
+                    vk::Format::D16_UNORM | vk::Format::D32_SFLOAT => ash::vk::ImageAspectFlags::DEPTH,
+                    _ => ash::vk::ImageAspectFlags::DEPTH | ash::vk::ImageAspectFlags::STENCIL
+                }
             } else {
                 #[cfg(feature = "logging")]
-                log::info!("Could not find COLOR_ATTACHMENT nor DEPTH_STENCIL_ATTACHMENT bit whil trying to decide for an initial aspect mask. Using COLOR.");
+                log::warn!("Could not find COLOR_ATTACHMENT nor DEPTH_STENCIL_ATTACHMENT bit while trying to decide for an initial aspect mask. Using COLOR.");
                 ash::vk::ImageAspectFlags::COLOR
             },
             base_array_layer: 0,
