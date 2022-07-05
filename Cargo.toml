@@ -2,6 +2,7 @@
 members = [
 "crates/marpii",
 "crates/marpii-command-graph",
+"crates/marpii-rmg",
 "crates/marpii-commands",
 "crates/marpii-descriptor",
 

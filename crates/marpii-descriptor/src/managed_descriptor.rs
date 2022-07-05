@@ -4,10 +4,10 @@ use std::{
 };
 
 use marpii::{
-    ash,
+    ash::{self, vk::DescriptorType},
     context::Device,
     resources::{
-        Buffer, DescriptorAllocator, DescriptorSet, DescriptorSetLayout, ImageView, Sampler,
+        Buffer, DescriptorAllocator, DescriptorSet, DescriptorSetLayout, Image, ImageView, Sampler, SafeImageView,
     },
 };
 
@@ -78,6 +78,9 @@ pub enum Binding {
         ty: ash::vk::DescriptorType,
         buffer: Arc<Buffer>,
     },
+    Sampler{
+        sampler: Arc<Sampler>
+    }
     //TODO implement array versions as well
 }
 
@@ -89,6 +92,12 @@ impl Binding {
             ty: ash::vk::DescriptorType::STORAGE_IMAGE,
         }
     }
+
+    pub fn new_whole_image(image: Arc<Image>, layout: ash::vk::ImageLayout) -> Self{
+        let view = image.view(&image.device, image.view_all()).unwrap();
+        Self::new_image(Arc::new(view), layout)
+    }
+
     pub fn new_sampled_image(
         image: Arc<ImageView>,
         layout: ash::vk::ImageLayout,
@@ -101,11 +110,21 @@ impl Binding {
             ty: ash::vk::DescriptorType::SAMPLED_IMAGE,
         }
     }
+
+    pub fn new_whole_sampled_image(image: Arc<Image>, layout: ash::vk::ImageLayout, sampler: Arc<Sampler>) -> Self{
+        let view = image.view(&image.device, image.view_all()).unwrap();
+        Self::new_sampled_image(Arc::new(view), layout, sampler)
+    }
+
     pub fn new_buffer(buffer: Arc<Buffer>) -> Self {
         Binding::Buffer {
             buffer,
             ty: ash::vk::DescriptorType::STORAGE_BUFFER,
         }
+    }
+
+    pub fn new_sampler(sampler: Arc<Sampler>) -> Self{
+        Binding::Sampler { sampler }
     }
 
     pub fn into_raw<'a>(
@@ -129,6 +148,12 @@ impl Binding {
                 .stage_flags(stage_flags)
                 .descriptor_count(1)
                 .descriptor_type(*ty),
+            Binding::Sampler { .. } => ash::vk::DescriptorSetLayoutBinding::builder()
+                .binding(binding_id)
+                .stage_flags(stage_flags)
+                .descriptor_count(1)
+                .descriptor_type(DescriptorType::SAMPLER),
+
         }
     }
 }
@@ -248,6 +273,9 @@ impl<P: DescriptorAllocator> ManagedDescriptorSet<P> {
                 } else {
                     return Err(BindingError::ImageLayoutMissmatch(binding));
                 }
+            },
+            (Binding::Sampler { sampler: s_old }, Binding::Sampler { sampler: s_new }) => {
+                std::mem::swap(s_old, s_new);
             }
             _ => return Err(BindingError::DescriptorTypeDoesNotMatch(binding)),
         }
@@ -306,6 +334,19 @@ impl<P: DescriptorAllocator> ManagedDescriptorSet<P> {
                 let write = ash::vk::WriteDescriptorSet::builder()
                     .buffer_info(&bufferinfo)
                     .descriptor_type(*ty)
+                    .dst_binding(id as u32)
+                    .dst_set(self.inner.inner);
+
+                self.inner.write(write);
+            }
+            Binding::Sampler { sampler } => {
+
+                let imginfo = [ash::vk::DescriptorImageInfo::builder()
+                    .sampler(sampler.inner)
+                    .build()];
+                let write = ash::vk::WriteDescriptorSet::builder()
+                    .image_info(&imginfo)
+                    .descriptor_type(ash::vk::DescriptorType::SAMPLER)
                     .dst_binding(id as u32)
                     .dst_set(self.inner.inner);
 
