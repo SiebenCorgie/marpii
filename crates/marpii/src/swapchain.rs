@@ -297,9 +297,17 @@ pub struct SwapchainImage {
     pub index: u32,
     ///Semaphore used for image acquire operatons. Will usually be used as a dependency for swapchain accessing
     /// operations, or the swapchain present operation.
+    ///
+    ///
+    /// Note that this is **NOT** a TimelineSemaphore. Therefor giving it any value when submittig to a queue won't have
+    /// any effect.
     pub sem_acquire: Arc<vk::Semaphore>,
     ///Semaphore that is signalled when this image is ready for present. Should be signalled by the commandbuffer
     /// that is writing to the image.
+    ///
+    ///
+    /// Note that this is **NOT** a TimelineSemaphore. Therefor giving it any value when submittig to a queue won't have
+    /// any effect.
     pub sem_present: Arc<vk::Semaphore>,
 }
 

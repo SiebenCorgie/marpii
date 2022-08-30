@@ -7,7 +7,7 @@
 //!
 
 mod managed_buffer;
-pub use managed_buffer::{Caputured, ManagedCommands, Recorder, Signal, SignalState};
+pub use managed_buffer::{Captured, ManagedCommands, Recorder, Signal, SignalState};
 
 mod buffer_init;
 pub use buffer_init::buffer_from_data;

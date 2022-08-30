@@ -5,32 +5,23 @@ use marpii::{
     ash::vk,
     context::{Device, Queue},
     resources::{CommandBufferAllocator, CommandPool},
-    sync::{AbstractFence, Semaphore},
+    sync::{Semaphore, AnonymGuard},
 };
 use marpii_commands::ManagedCommands;
 
 use crate::graph_builder::GraphBuilder;
 
 ///Fence wrapper holding all fences that are related to a particular execution.
-pub struct ExecutionFence {
-    pub(crate) fences: Vec<Arc<dyn AbstractFence + Send + Sync>>,
+pub struct ExecutionGuard {
+    pub(crate) guards: Vec<Arc<dyn AnonymGuard + Send + Sync>>,
 }
 
-impl ExecutionFence {
-    ///Returns true if all fences are signaled
+impl ExecutionGuard {
+    ///Returns true if all guards have finished
     pub fn has_finished(&self) -> bool {
-        for f in self.fences.iter() {
-            match f.get_status() {
-                Ok(state) => {
-                    if !state {
-                        return false;
-                    }
-                }
-                Err(e) => {
-                    #[cfg(feature = "logging")]
-                    log::error!("Failed to get fence state: {},\n considering unfinished. Not this might lead to accumulating memory if a lot of passes fail to end.", e);
-                    return false;
-                }
+        for g in self.guards.iter() {
+            if !g.has_finished(){
+                return false;
             }
         }
         true
@@ -38,7 +29,7 @@ impl ExecutionFence {
 
     ///Waits for all fences. Panics if any fence fails to signal.
     pub fn wait(self) {
-        for f in self.fences {
+        for f in self.guards {
             f.wait(u64::MAX).unwrap()
         }
     }
@@ -59,7 +50,7 @@ impl PassSubmit {
     pub fn submit(
         &mut self,
         device: &Arc<Device>,
-    ) -> Result<Arc<dyn AbstractFence + Send + Sync + 'static>, anyhow::Error> {
+    ) -> Result<Arc<dyn AnonymGuard + Send + Sync + 'static>, anyhow::Error> {
         #[cfg(feature = "log_reasoning")]
         log::trace!(
             "Submitting with wait: {:?}, signaling: {:?}",

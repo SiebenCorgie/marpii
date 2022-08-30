@@ -102,7 +102,7 @@ pub fn image_from_data<A: Allocator + Send + Sync + 'static>(
     recorder.finish_recording()?;
 
     cb.submit(&device, upload_queue, &[], &[])?;
-    cb.fence.wait(u64::MAX)?;
+    cb.wait()?;
 
     Ok(image)
 }

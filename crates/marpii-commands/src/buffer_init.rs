@@ -74,7 +74,7 @@ pub fn buffer_from_data<A: Allocator + Send + Sync + 'static, T: Copy + Sized + 
     recorder.finish_recording()?;
 
     cb.submit(&device, upload_queue, &[], &[])?;
-    cb.fence.wait(u64::MAX)?;
+    cb.wait()?;
 
     Ok(buffer)
 }

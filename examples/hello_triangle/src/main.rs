@@ -482,22 +482,16 @@ impl App {
 
         if let Err(e) = self.pass_data[swimage.index as usize]
             .command_buffer
-            .submit(
+            .submit_present(
                 &self.ctx.device,
                 &self.ctx.device.queues[0],
-                &[swimage.sem_present.clone()],
+                swimage,
+                &self.swapchain,
+                &[],
                 &[],
             )
         {
             println!("Error queue submit: {}", e);
-        }
-
-        //now enqueue for present
-        if let Err(e) = self
-            .swapchain
-            .present_image(swimage, &self.ctx.device.queues[0].inner())
-        {
-            println!("Present error: {}", e);
         }
     }
 }

@@ -206,6 +206,32 @@ impl<T> Drop for GuardSemaphore<T> {
     }
 }
 
+///Convenience type to mark a point in time on a Semaphore.
+pub type EmptyGuard = GuardSemaphore<()>;
+
+///Abstracts over specific guards.
+pub trait AnonymGuard{
+    fn get_value(&self) -> u64;
+    fn get_target(&self) -> u64;
+    fn has_finished(&self) -> bool {
+        self.get_value() >= self.get_target()
+    }
+    fn wait(&self, timeout: u64) -> Result<(), ash::vk::Result>;
+}
+
+impl<T> AnonymGuard for GuardSemaphore<T> {
+    fn get_value(&self) -> u64 {
+        self.sem.get_value()
+    }
+
+    fn get_target(&self) -> u64 {
+        self.target
+    }
+    fn wait(&self, timeout: u64) -> Result<(), ash::vk::Result>{
+        self.sem.wait(self.target, timeout)
+    }
+}
+
 #[derive(Debug)]
 pub enum EventError {
     SetEventStatusError(ash::vk::Result),
