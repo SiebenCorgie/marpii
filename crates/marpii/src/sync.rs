@@ -1,36 +1,25 @@
-//! # Synchronization
+//! # Synchronisation
 //!
-//! ## Types of synchronization primitives
+//! ## Types of synchronisation primitives
 //!
-//! marpii uses a thin wrapper around vulkans native synchronizations primitives. There are mainly
+//! marpii uses a thin wrapper around vulkans native synchronisations primitives. There are mainly
 //! - memory barriers: created by the image object or the buffer object, defines memory state transitions and more
-//! - fences: to signal to the host/the CPU when something is done on the GPU
-//! - semaphores: to synchronize resource access on the GPU between threads/queues
+//! - semaphores: to synchronise resource access on the GPU between threads/queues and the CPU. Those are usually called "TimelineSemaphores". We do not expose Fences.
 //! - events: to synchronise commands on a single queue or between host and a queue
 //!
-//! ## When to use what
+//! ## Semaphores
 //!
-//!### Events
-//!
-//! In Marp you'll always get a event provided by commands which support event signaling. You can decide if you want to use it or if you don't want to use it.
-//! In general you should collect the events and provide them to a command if you need to be sure that the work of an command has to be finished before some other work can start.
-//! For instance, if you want to access a buffer but need to be sure that a buffer to buffer copy has finished before. Just wait for the event of the copy to signal before starting to access the buffer.
-//!
-//! ### Semaphores
-//!
-//! Semaphores are usually set by the programmer to sync between two (or more) command buffers on more then one queue. They can potentially let a queue wait for a long time. However, they allow you to do the following for instance:
+//! Semaphores are usually set by the programmer to sync between two (or more) command buffers on more than one queue. They can potentially let a queue wait for a long time. However, they allow you to do the following for instance:
 //! ```ignore
 //! Generate a Gbuffer -> Set Barrier -> Compute lightning on graphics queue while you compute SSAO on compute queue async -> set Barrier -> Assemble final image
 //! ```
-//! Here the barriers are needed first, to make sure that the Gbuffer has been finished. We can't uses a Event since after that we want to operate on two different queues.
+//! Here the barriers are needed first, to make sure that the Gbuffer has been finished. We can't uses a Event since we want to operate on two different queues.
 //! Second we don't know when both queues have finished and we can use the result, so naturally we wait again for both to signal the semaphore. Therefore we can be sure that the lightning and the SSAO calculations are finished.
 //!
 //! ### Fences
 //!
-//! A fence is usually used to signal something between Host and Device. the most common usage is to wait for the GPU to finish some work. However, you could also let the gpu wait
-//! for the host to finish some work before it is allowed to access something. Like a resource, or a new frame.
-//! An inportant difference to the raww vulkan fence is, that marps's fence can carry a
-//! payload. This can be used for instance if resource have to life at leas as long as work is done on the gpu.
+//! Vulkan 1.0 exposes a Fence primitive that allows synchronisation between the device and the host. This capability however was merged into TimelineSemaphores starting with Vulkan 1.2.
+//! Since MarpII requires the newest Vulkan version anyways, the fence primitive is not wrapped at all. As always you are free to create Fences through Ash though.
 //!
 //! ### Memory barriers
 //!
@@ -40,8 +29,8 @@
 //! Most images won't have to change layout on a per frame basis, similar buffers as well.
 //! **The memory barriers are obtained from the buffer/image which is transformed.**
 //!
-//! ## Important note on fences
-//! Since fences are usually used to sync between Device and Host, they will block till they are in the signaled stayed when dropped.
+//! ## Important note on `GuardSemaphore`s
+//! Since `GuardSemaphore` are usually used to sync between Device and Host, they will block till they are in the signaled state when dropped.
 
 //use crate::context::SubmitInfo;
 use crate::context::Device;
@@ -51,185 +40,107 @@ use std::sync::Arc;
 
 use std::u64;
 
-pub struct Fence<T> {
-    pub inner: ash::vk::Fence,
-    pub device: Arc<Device>,
-    pub payload: Option<T>,
-}
-
-impl<T> Debug for Fence<T> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        self.inner.fmt(f)
-    }
-}
-
-impl<T> Fence<T> {
-    pub fn new(
-        device: Arc<Device>,
-        is_signaled: bool,
-        payload: Option<T>,
-    ) -> Result<Arc<Self>, ash::vk::Result> {
-        let mut create_info = ash::vk::FenceCreateInfo::builder();
-        if is_signaled {
-            create_info = create_info.flags(ash::vk::FenceCreateFlags::SIGNALED);
-        }
-
-        let fence = unsafe {
-            match device.inner.create_fence(&create_info, None) {
-                Ok(f) => f,
-                Err(er) => return Err(er),
-            }
-        };
-
-        Ok(Arc::new(Fence {
-            inner: fence,
-            device,
-            payload,
-        }))
-    }
-
-    ///Resets the fence to its initial state. Might be faster then creating a new one.
-    pub fn reset(&self) -> Result<(), ash::vk::Result> {
-        unsafe {
-            match self.device.inner.reset_fences(&[self.inner]) {
-                Ok(_) => Ok(()),
-                Err(er) => Err(er),
-            }
-        }
-    }
-
-    ///Returns the current status of this fence. The status is encode in the returned `ash::vk::Result`
-    pub fn get_status(&self) -> ash::prelude::VkResult<bool> {
-        unsafe { self.device.inner.get_fence_status(self.inner) }
-    }
-
-    /// Waits for this single fence. If you want to wait for several fences to
-    /// signal finished, use `marp::sync::wait_for_fences()` instead since it
-    /// uses the native vulkan wait for fence function with the whole array of fences you supply.
-    pub fn wait(&self, timeout: u64) -> Result<(), ash::vk::Result> {
-        unsafe {
-            match self
-                .device
-                .inner
-                .wait_for_fences(&[self.inner], true, timeout)
-            {
-                Ok(_) => Ok(()),
-                Err(er) => {
-                    #[cfg(feature = "logging")]
-                    log::error!("Fence wait error: {}", er);
-                    Err(er)
-                }
-            }
-        }
-    }
-
-    ///Returns the cpu local payload which is embedded.
-    pub fn get_payload(&self) -> Option<&T> {
-        self.payload.as_ref()
-    }
-
-    ///Allows taking the payload type out of fence.
-    ///Fails if fence is not signaled.
-    pub fn take_payload(&mut self) -> Option<T> {
-        if let Ok(true) = self.get_status() {
-            self.payload.take()
-        } else {
-            None
-        }
-    }
-
-    ///Allows setting the fences payload. Fails if the fence is not signaled. In case of failing the supplied `payload` is returned.
-    ///On success, if a payload is already set the old payload is returned.
-    pub fn set_payload(&mut self, payload: T) -> Result<Option<T>, T> {
-        if let Ok(true) = self.get_status() {
-            let old = self.payload.take();
-            self.payload = Some(payload);
-            Ok(old)
-        } else {
-            Err(payload)
-        }
-    }
-}
-
-///An abstract way of defining any fence. Can be used if the payload does not have to be acquired at any point and for storing fences in an `Arc<AbstractFence>`
-pub trait AbstractFence {
-    fn reset(&self) -> Result<(), ash::vk::Result>;
-    fn get_status(&self) -> ash::prelude::VkResult<bool>;
-    fn wait(&self, timeout: u64) -> Result<(), ash::vk::Result>;
-    fn inner(&self) -> &ash::vk::Fence;
-}
-
-impl<T> AbstractFence for Fence<T> {
-    fn reset(&self) -> Result<(), ash::vk::Result> {
-        self.reset()
-    }
-    fn get_status(&self) -> ash::prelude::VkResult<bool> {
-        self.get_status()
-    }
-    fn wait(&self, timeout: u64) -> Result<(), ash::vk::Result> {
-        self.wait(timeout)
-    }
-    fn inner(&self) -> &ash::vk::Fence {
-        &self.inner
-    }
-}
-
-///Waits for all fences supplied. If you only need one of those activated, use `wait_all: false`. It will then return when one of the fences supplied has finished.
-///TODO check if the lifetimes are okay.
-pub fn wait_for_fences(
-    device: Arc<Device>,
-    fences: Vec<Arc<dyn AbstractFence>>,
-    wait_all: bool,
-    timeout: u64,
-) -> Result<(), ash::vk::Result> {
-    let inner_fences: Vec<ash::vk::Fence> = fences.into_iter().map(|f| *f.inner()).collect();
-    unsafe {
-        match device
-            .inner
-            .wait_for_fences(inner_fences.as_slice(), wait_all, timeout)
-        {
-            Ok(_) => Ok(()),
-            Err(er) => Err(er),
-        }
-    }
-}
-
-impl<T> Drop for Fence<T> {
-    fn drop(&mut self) {
-        match self.wait(u64::MAX) {
-            Ok(_) => {}
-            Err(er) => {
-                #[cfg(feature = "logging")]
-                log::error!("Failed to wait for fence while dropping: {}", er);
-            }
-        }
-        unsafe {
-            self.device.inner.destroy_fence(self.inner, None);
-        }
-    }
-}
-
+///Single [TimelineSemaphore](https://www.khronos.org/blog/vulkan-timeline-semaphores).
 pub struct Semaphore {
     pub inner: ash::vk::Semaphore,
     pub device: Arc<Device>,
 }
 
 impl Semaphore {
-    pub fn new(device: &Arc<Device>) -> Result<Arc<Self>, ash::vk::Result> {
+    pub fn new(device: &Arc<Device>, initial_value: u64) -> Result<Arc<Self>, ash::vk::Result> {
+        let mut timeline_ci = ash::vk::SemaphoreTypeCreateInfo::builder()
+            .semaphore_type(ash::vk::SemaphoreType::TIMELINE)
+            .initial_value(initial_value);
+
         let semaphore = unsafe {
-            match device
-                .inner
-                .create_semaphore(&ash::vk::SemaphoreCreateInfo::builder(), None)
-            {
-                Ok(s) => s,
-                Err(er) => return Err(er),
-            }
+            let ci = ash::vk::SemaphoreCreateInfo::builder().push_next(&mut timeline_ci);
+
+            device.inner.create_semaphore(&ci, None)?
         };
 
         Ok(Arc::new(Semaphore {
             inner: semaphore,
             device: device.clone(),
         }))
+    }
+
+    ///Returns the current value of the semaphore. Note that this can change at any time if the semaphore is in use on
+    /// the device.
+    ///
+    /// # Safety
+    ///
+    /// Under normal conditions this can't fail if used on a Semaphore created via the [new](Semaphore::new) function. There are however edgecases. If those occur `u64::MAX` is returned instead.
+    pub fn get_value(&self) -> u64 {
+        //Safety: in 99% of all cases the semaphore is created via `new`. In this case the code below is safe.
+        //        Otherwise "semaphore must have been created with a VkSemaphoreType of VK_SEMAPHORE_TYPE_TIMELINE"
+        //        and "semaphore must have been created, allocated, or retrieved from device" are not guaranteed. In that case the unwrap_or
+        //        comes into play.
+        unsafe {
+            self.device
+                .inner
+                .get_semaphore_counter_value(self.inner)
+                .unwrap_or(u64::MAX)
+        }
+    }
+
+    ///Sets the semaphore value. Note that it [has to be](https://registry.khronos.org/vulkan/specs/1.2-extensions/html/chap7.html#VUID-VkSemaphoreSignalInfo-value-03258) greater then the current value.
+    ///
+    /// For more information, have a look [here](https://registry.khronos.org/vulkan/specs/1.2-extensions/html/chap7.html#vkSignalSemaphoreKHR).
+    ///
+    /// # Error
+    ///
+    /// Returns an error if the value was not greater. The value returned in this case is the current value.
+    pub fn set_value(&self, value: u64) -> Result<(), u64> {
+        let signal_info = ash::vk::SemaphoreSignalInfo::builder()
+            .semaphore(self.inner)
+            .value(value);
+
+        if let Err(_) = unsafe { self.device.inner.signal_semaphore(&signal_info) } {
+            Err(self.get_value())
+        } else {
+            Ok(())
+        }
+    }
+
+    ///Waits for multiple semaphores of the form `(Semaphore, target_value)`. Additionally a timeout for the whole wait operation can be given.
+    ///
+    /// # Performance
+    ///
+    /// Note that this function allocates two vectors, if you are only waiting for a single Semaphore, use the associated [wait](Semaphore::wait).
+    pub fn wait_for(waits: &[(&Semaphore, u64)], timeout: u64) -> Result<(), ash::vk::Result> {
+        if waits.len() == 0 {
+            return Ok(());
+        }
+
+        let (sems, values): (Vec<ash::vk::Semaphore>, Vec<u64>) = waits.iter().fold(
+            (
+                Vec::with_capacity(waits.len()),
+                Vec::with_capacity(waits.len()),
+            ), //FIXME: Oh no, allocation :/
+            |(mut semvec, mut valvec), (sem, val)| {
+                semvec.push(sem.inner);
+                valvec.push(*val);
+
+                (semvec, valvec)
+            },
+        );
+
+        let wait = ash::vk::SemaphoreWaitInfo::builder()
+            .semaphores(&sems)
+            .values(&values);
+
+        unsafe { waits[0].0.device.inner.wait_semaphores(&wait, timeout) }
+    }
+
+    ///Blocks until `self` reaches `value`, or the `timeout` is reached. When having to wait for multiple semaphores, consider using [wait_for](Semaphore::wait_for).
+    pub fn wait(&self, value: u64, timeout: u64) -> Result<(), ash::vk::Result> {
+        let sem = [self.inner];
+        let val = [value];
+        let wait = ash::vk::SemaphoreWaitInfo::builder()
+            .semaphores(&sem)
+            .values(&val);
+
+        unsafe { self.device.inner.wait_semaphores(&wait, timeout) }
     }
 }
 
@@ -242,6 +153,79 @@ impl Drop for Semaphore {
 impl Debug for Semaphore {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.inner.fmt(f)
+    }
+}
+
+///A semaphore that guard a value `T` until a certain target state is reached.
+pub struct GuardSemaphore<T> {
+    sem: Arc<Semaphore>,
+    target: u64,
+    #[allow(dead_code)]
+    value: T,
+}
+
+impl<T> GuardSemaphore<T> {
+    ///Creates a guard that won't drop `T` until `target` is reached as the semaphores value.
+    ///
+    /// # Safety
+    ///
+    /// Note that this can lead to deadlocks if `target` is illdefined.
+    pub fn guard(semaphore: Arc<Semaphore>, target: u64, guarded: T) -> GuardSemaphore<T> {
+        GuardSemaphore {
+            sem: semaphore,
+            target,
+            value: guarded,
+        }
+    }
+
+    ///Tries to drop self, returns `Self` as an error if the target value wasn't reached yet.
+    pub fn try_drop(self) -> Result<(), Self> {
+        if self.sem.get_value() >= self.target {
+            Ok(())
+        } else {
+            Err(self)
+        }
+    }
+}
+
+impl<T> Drop for GuardSemaphore<T> {
+    fn drop(&mut self) {
+        if self.sem.get_value() < self.target {
+            #[cfg(feature = "logging")]
+            log::warn!("Dropping Guard with unfulfilled target, blocking in drop implementation!");
+
+            //wait
+            if let Err(e) = self.sem.wait(self.target, u64::MAX) {
+                #[cfg(feature = "logging")]
+                log::error!("Failed to wait for GuardSemaphore: {}", e);
+            }
+        }
+    }
+}
+
+///Convenience type to mark a point in time on a Semaphore.
+pub type EmptyGuard = GuardSemaphore<()>;
+
+///Abstracts over specific guards.
+pub trait AnonymGuard {
+    fn get_value(&self) -> u64;
+    fn get_target(&self) -> u64;
+    fn has_finished(&self) -> bool {
+        self.get_value() >= self.get_target()
+    }
+    fn wait(&self, timeout: u64) -> Result<(), ash::vk::Result>;
+}
+
+impl<T> AnonymGuard for GuardSemaphore<T> {
+    fn get_value(&self) -> u64 {
+        self.sem.get_value()
+    }
+
+    fn get_target(&self) -> u64 {
+        self.target
+    }
+    fn wait(&self, timeout: u64) -> Result<(), ash::vk::Result> {
+        self.sem.wait(self.target, timeout)
     }
 }
 

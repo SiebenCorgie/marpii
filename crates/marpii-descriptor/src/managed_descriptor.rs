@@ -7,7 +7,8 @@ use marpii::{
     ash::{self, vk::DescriptorType},
     context::Device,
     resources::{
-        Buffer, DescriptorAllocator, DescriptorSet, DescriptorSetLayout, Image, ImageView, Sampler, SafeImageView,
+        Buffer, DescriptorAllocator, DescriptorSet, DescriptorSetLayout, Image, ImageView,
+        SafeImageView, Sampler,
     },
 };
 
@@ -78,10 +79,9 @@ pub enum Binding {
         ty: ash::vk::DescriptorType,
         buffer: Arc<Buffer>,
     },
-    Sampler{
-        sampler: Arc<Sampler>
-    }
-    //TODO implement array versions as well
+    Sampler {
+        sampler: Arc<Sampler>,
+    }, //TODO implement array versions as well
 }
 
 impl Binding {
@@ -93,7 +93,7 @@ impl Binding {
         }
     }
 
-    pub fn new_whole_image(image: Arc<Image>, layout: ash::vk::ImageLayout) -> Self{
+    pub fn new_whole_image(image: Arc<Image>, layout: ash::vk::ImageLayout) -> Self {
         let view = image.view(&image.device, image.view_all()).unwrap();
         Self::new_image(Arc::new(view), layout)
     }
@@ -111,7 +111,11 @@ impl Binding {
         }
     }
 
-    pub fn new_whole_sampled_image(image: Arc<Image>, layout: ash::vk::ImageLayout, sampler: Arc<Sampler>) -> Self{
+    pub fn new_whole_sampled_image(
+        image: Arc<Image>,
+        layout: ash::vk::ImageLayout,
+        sampler: Arc<Sampler>,
+    ) -> Self {
         let view = image.view(&image.device, image.view_all()).unwrap();
         Self::new_sampled_image(Arc::new(view), layout, sampler)
     }
@@ -123,7 +127,7 @@ impl Binding {
         }
     }
 
-    pub fn new_sampler(sampler: Arc<Sampler>) -> Self{
+    pub fn new_sampler(sampler: Arc<Sampler>) -> Self {
         Binding::Sampler { sampler }
     }
 
@@ -153,7 +157,6 @@ impl Binding {
                 .stage_flags(stage_flags)
                 .descriptor_count(1)
                 .descriptor_type(DescriptorType::SAMPLER),
-
         }
     }
 }
@@ -273,7 +276,7 @@ impl<P: DescriptorAllocator> ManagedDescriptorSet<P> {
                 } else {
                     return Err(BindingError::ImageLayoutMissmatch(binding));
                 }
-            },
+            }
             (Binding::Sampler { sampler: s_old }, Binding::Sampler { sampler: s_new }) => {
                 std::mem::swap(s_old, s_new);
             }
@@ -340,7 +343,6 @@ impl<P: DescriptorAllocator> ManagedDescriptorSet<P> {
                 self.inner.write(write);
             }
             Binding::Sampler { sampler } => {
-
                 let imginfo = [ash::vk::DescriptorImageInfo::builder()
                     .sampler(sampler.inner)
                     .build()];

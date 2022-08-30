@@ -156,12 +156,15 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
         }
 
         //NOTE: By default we setup extensions in a way that we can load rust shaders.
-        let vulkan_memory_model = ash::vk::PhysicalDeviceVulkan12Features::builder()
+        let features12 = ash::vk::PhysicalDeviceVulkan12Features::builder()
             .shader_int8(true)
+            .runtime_descriptor_array(true)
+            .timeline_semaphore(true)
             .vulkan_memory_model(true);
-        //NOTE: used for dynamic rendering based pipelines which are preffered over renderpass based graphics queues.
-        let dynamic_rendering =
-            ash::vk::PhysicalDeviceDynamicRenderingFeatures::builder().dynamic_rendering(true);
+
+        let features13 = ash::vk::PhysicalDeviceVulkan13Features::builder()
+            .dynamic_rendering(true)
+            .synchronization2(true);
 
         let device = device_candidates
             .remove(0)
@@ -170,8 +173,8 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
             .push_extensions(ash::vk::KhrVulkanMemoryModelFn::name())
             .push_extensions(ash::extensions::khr::DynamicRendering::name())
             .with(|b| b.features.shader_int16 = 1)
-            .with_additional_feature(vulkan_memory_model)
-            .with_additional_feature(dynamic_rendering)
+            .with_additional_feature(features12)
+            .with_additional_feature(features13)
             .build()?;
 
         //create allocator for device

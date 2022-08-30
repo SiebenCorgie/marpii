@@ -264,17 +264,20 @@ impl Device {
         )
     }
 
-
     ///If enabled, returns the Physical device extension `E`
-    pub fn get_extension<E: ash::vk::ExtendsPhysicalDeviceFeatures2>(&self) -> Option<&E>{
+    pub fn get_extension<E: ash::vk::ExtendsPhysicalDeviceFeatures2>(&self) -> Option<&E> {
         //What we do to get E is that we try to upcast each element of the p_next chain of out feature list to E.
         //FIXME: waiting for https://gitlab.com/tendsinmende/marpii/-/issues/11
         None
     }
 
-    pub fn get_device_properties(&self) -> ash::vk::PhysicalDeviceProperties2{
+    pub fn get_device_properties(&self) -> ash::vk::PhysicalDeviceProperties2 {
         let mut properties = ash::vk::PhysicalDeviceProperties2::default();
-        unsafe{self.instance.inner.get_physical_device_properties2(self.physical_device, &mut properties)};
+        unsafe {
+            self.instance
+                .inner
+                .get_physical_device_properties2(self.physical_device, &mut properties)
+        };
         properties
     }
 

@@ -7,15 +7,15 @@
 //!
 
 mod managed_buffer;
-pub use managed_buffer::{Caputured, ManagedCommands, Recorder, Signal, SignalState};
+pub use managed_buffer::{Captured, ManagedCommands, Recorder, Signal, SignalState};
 
 mod buffer_init;
 pub use buffer_init::buffer_from_data;
 
 mod image_init;
-pub use image_init::image_from_data;
-#[cfg(feature = "image_loading")]
-pub use image_init::{image_from_file, image_from_image};
 #[cfg(feature = "image_loading")]
 ///image create re-export. Feel free to use it, since its already in your dependency tree.
 pub use image;
+pub use image_init::image_from_data;
+#[cfg(feature = "image_loading")]
+pub use image_init::{image_from_file, image_from_image};
