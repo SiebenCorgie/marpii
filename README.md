@@ -2,7 +2,7 @@
 
 # MarpII
 
-Second iteration of [marp](gitlab.com/tendsinmende/marp). Vulkan wrapper around the [ash](crates.io/crates/ash) crate. Focuses on stable resource creation and usability. Tries to minimized duplication between ash and itself.
+Second iteration of [marp](gitlab.com/tendsinmende/marp). Vulkan wrapper around the [ash](crates.io/crates/ash) crate. Focuses on stable resource creation and usability. Tries to minimised duplication between ash and itself.
 
 [![pipeline status](https://gitlab.com/tendsinmende/marpii/badges/main/pipeline.svg)](https://gitlab.com/tendsinmende/marpii/-/commits/main)
 
@@ -23,9 +23,7 @@ On top of those low-level-ish helpers higher level helpers are implemented. Most
 - marpii-descriptor: Self growing descriptor pool with descriptor sets that keep their bound resources alive until they are dropped.
 - marpii-command: Command-buffer helper that keeps resources alive until the command buffer is not in use anymore. 
 - marpii-command-graph: Provides highlevel "pass" abstraction and resource state tracking. Allows easy combination of graphics/renderpasses for rapid rendering prototyping.
-
-
-Have a look at the [minder](https://flathub.org/apps/details/com.github.phase1geo.minder) mind map for the initial ideas.
+- marpii-rmg: Similar to marpii-command-graph but handles resource creation and usage, at the cost of stricter usage requirements. 
 
 ## Defaults and opinionated design
 
@@ -43,24 +41,12 @@ Examples can be found in the `examples` directory, marpii is also documented. A 
 Apart from the main crate that is closely related to Vulkan multiple helper crates exist that should make working with vulkan easier. Have a look at their READMEs for a description on what they do and how experimental they are.
 
 - marpii-commands: CommandBuffer helper that captures resources that are needed for the execution of the command buffer.
-- marpii-command-graph: Experimental frame-graph helper. Allows defining multiple abstract `Pass`es which are build from `SubPass`es. inter-pass dependencies are found and resource transition is taken care of. This basically allows the user to create complex frame graphs easyly. 
+- marpii-command-graph: Experimental frame-graph helper. Allows defining multiple abstract `Pass`es which are build from `SubPass`es. inter-pass dependencies are found and resource transition is taken care of. This basically allows the user to create complex frame graphs easily. 
 - marpii-descriptor: Multiple `DescriptorSet` helpers. Similar to the command-buffer helper resources are captured to keep the descriptor sets valid. Also handles descriptor allocation and freeing for you.
 
 ### Examples
 
 Examples are executed via `cargo run --bin example_name`. Have a look at `examples/` for available applications.
-
-
-## Roadmap
-- [x] Simple device and resource creation
-- [ ] RAII style resource (Image / Buffer) creation
-- [ ] Bindless setup helpers
-- [x] Pipeline layout <-> Shader descriptor verification
-- [x] Resource state negotiation (allows declaring "needed" state and "current" state and the needed transition between them), for single queue environment
-- [x] high level "pass" concept with automatic inter-state transitions
-- [x] command-buffer resource attachments (for better tracking of resource lifetimes)
-
-![Initial mind map](resources/initialMindMap.svg)
 
 
 ## Dependencies
@@ -87,6 +73,17 @@ A list of dependencies used in the crates of this project. Have a look at the `C
 - fxhash: in the cases where we need a hash map/set fx-hash is used for speed.
 - slotmap: Fast and safe Vec-like access for `Passe`s within a Graph.
 - log: logging if enabled
+- winit: Swapchain handling
+
+### MarpII-mrg
+
+- marpii/marpii-commands: marpii binding
+- anyhow: convenient error handling.
+- thiserror: For specific errors.
+- fxhash: in the cases where we need a hash map/set fx-hash is used for speed.
+- slotmap: Fast and safe Vec-like access for `Passe`s and resources within a Graph.
+- log: logging if enabled
+- winit: Swapchain handling
 
 ### MarpII-Commands
 - marpii: marpii binding
