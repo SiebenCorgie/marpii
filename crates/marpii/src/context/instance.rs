@@ -112,7 +112,7 @@ impl InstanceBuilder {
         } = self;
 
         let app_desc =
-            ash::vk::ApplicationInfo::builder().api_version(ash::vk::make_api_version(0, 1, 2, 0));
+            ash::vk::ApplicationInfo::builder().api_version(ash::vk::make_api_version(0, Instance::API_VERSION_MAJOR, Instance::API_VERSION_MINOR, Instance::API_VERSION_PATCH));
 
         //at this point, if we are logging, write out instance creation data
         #[cfg(feature = "logging")]
@@ -263,6 +263,13 @@ pub struct Instance {
 }
 
 impl Instance {
+    ///The major version of Vulkan loaded.
+    pub const API_VERSION_MAJOR: u32 = 1;
+    ///The minor version of Vulkan loaded.
+    pub const API_VERSION_MINOR: u32 = 3;
+    ///The patch version of Vulkan loaded.
+    pub const API_VERSION_PATCH: u32 = 0;
+
     ///Creates instance loaded by using [Entry::load](ash::Entry::load)
     pub fn load() -> Result<InstanceBuilder, anyhow::Error> {
         let entry = unsafe { ash::Entry::load()? };

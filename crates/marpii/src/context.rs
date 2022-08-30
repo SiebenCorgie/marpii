@@ -158,6 +158,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
         //NOTE: By default we setup extensions in a way that we can load rust shaders.
         let vulkan_memory_model = ash::vk::PhysicalDeviceVulkan12Features::builder()
             .shader_int8(true)
+            .runtime_descriptor_array(true)
             .vulkan_memory_model(true);
         //NOTE: used for dynamic rendering based pipelines which are preffered over renderpass based graphics queues.
         let dynamic_rendering =
