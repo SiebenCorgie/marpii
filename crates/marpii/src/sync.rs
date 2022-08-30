@@ -113,9 +113,9 @@ impl Semaphore {
     /// # Performance
     ///
     /// Note that this function allocates two vectors, if you are only waiting for a single Semaphore, use the associated [wait](Semaphore::wait).
-    pub fn wait_for(waits: &[(&Semaphore, u64)], timeout: u64){
+    pub fn wait_for(waits: &[(&Semaphore, u64)], timeout: u64) -> Result<(), ash::vk::Result>{
         if waits.len() == 0{
-            return;
+            return Ok(());
         }
 
         let (sems, values): (Vec<ash::vk::Semaphore>, Vec<u64>) = waits.iter().fold(
@@ -132,18 +132,20 @@ impl Semaphore {
             .values(&values);
 
         unsafe{
-            waits[0].0.device.inner.wait_semaphores(&wait, timeout);
+            waits[0].0.device.inner.wait_semaphores(&wait, timeout)
         }
     }
 
     ///Blocks until `self` reaches `value`, or the `timeout` is reached. When having to wait for multiple semaphores, consider using [wait_for](Semaphore::wait_for).
-    pub fn wait(&self, value: u64, timeout: u64){
+    pub fn wait(&self, value: u64, timeout: u64) -> Result<(), ash::vk::Result>{
+        let sem = [self.inner];
+        let val = [value];
         let wait = ash::vk::SemaphoreWaitInfo::builder()
-            .semaphores(&[self.inner])
-            .values(&[value]);
+            .semaphores(&sem)
+            .values(&val);
 
         unsafe{
-            self.device.inner.wait_semaphores(&wait, timeout);
+            self.device.inner.wait_semaphores(&wait, timeout)
         }
     }
 }
@@ -165,6 +167,7 @@ impl Debug for Semaphore {
 pub struct GuardSemaphore<T>{
     sem: Arc<Semaphore>,
     target: u64,
+    #[allow(dead_code)]
     value: T
 }
 
@@ -174,12 +177,12 @@ impl<T> GuardSemaphore<T> {
     /// # Safety
     ///
     /// Note that this can lead to deadlocks if `target` is illdefined.
-    fn guard(semaphore: Arc<Semaphore>, target: u64, guarded: T) -> GuardSemaphore<T>{
+    pub fn guard(semaphore: Arc<Semaphore>, target: u64, guarded: T) -> GuardSemaphore<T>{
         GuardSemaphore { sem: semaphore, target, value: guarded }
     }
 
     ///Tries to drop self, returns `Self` as an error if the target value wasn't reached yet.
-    fn try_drop(self) -> Result<(), Self>{
+    pub fn try_drop(self) -> Result<(), Self>{
         if self.sem.get_value() >= self.target{
             Ok(())
         }else {
@@ -195,7 +198,10 @@ impl<T> Drop for GuardSemaphore<T> {
             log::warn!("Dropping Guard with unfulfilled target, blocking in drop implementation!");
 
             //wait
-            self.sem.wait(self.target, u64::MAX);
+            if let Err(e) = self.sem.wait(self.target, u64::MAX){
+                #[cfg(feature="logging")]
+                log::error!("Failed to wait for GuardSemaphore: {}", e);
+            }
         }
     }
 }

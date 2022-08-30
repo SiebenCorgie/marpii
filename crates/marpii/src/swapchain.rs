@@ -3,14 +3,13 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use ash::vk::SwapchainCreateInfoKHRBuilder;
+use ash::vk::{SwapchainCreateInfoKHRBuilder, self, SemaphoreTypeCreateInfo};
 
 use crate::{
     allocator::{ManagedAllocation, MemoryUsage, UnmanagedAllocation, UnmanagedAllocator},
     context::Device,
     resources::{Image, ImgDesc, SharingMode},
     surface::Surface,
-    sync::Semaphore,
 };
 
 ///All info needed to create a swapchain
@@ -123,11 +122,19 @@ impl SwapchainBuilder {
 
         //create semaphore buffers and setup the roundtrip state for the semaphore buffers
         let acquire_semaphore = (0..images.len())
-            .map(|_| Semaphore::new(&self.device).expect("Failed to create acquire semaphores"))
-            .collect();
+            .map(|_| Arc::new(unsafe{
+                self.device.inner.create_semaphore(
+                    &vk::SemaphoreCreateInfo::builder()
+                        .push_next(&mut SemaphoreTypeCreateInfo::builder().semaphore_type(vk::SemaphoreType::BINARY)),
+                    None).expect("Failed to create swapchain binary semaphore")
+            })).collect();
         let render_finished_semaphore = (0..images.len())
-            .map(|_| Semaphore::new(&self.device).expect("Failed to create acquire semaphores"))
-            .collect();
+            .map(|_| Arc::new(unsafe{
+                self.device.inner.create_semaphore(
+                    &vk::SemaphoreCreateInfo::builder()
+                        .push_next(&mut SemaphoreTypeCreateInfo::builder().semaphore_type(vk::SemaphoreType::BINARY)),
+                    None).expect("Failed to create swapchain binary semaphore")
+            })).collect();
 
         //Update recreate info with the stuff we currently use.
 
@@ -140,6 +147,7 @@ impl SwapchainBuilder {
         Ok(Swapchain {
             surface: self.surface,
             images,
+            device: self.device,
             acquire_semaphore,
             render_finished_semaphore,
             next_semaphore: 0,
@@ -285,19 +293,22 @@ impl SwapchainBuilder {
 pub struct SwapchainImage {
     ///The actual image, managed by the swapchain implementation (the reason for the "UnmanagedAllocator").
     pub image: Arc<crate::resources::Image>,
-    ///Index identfying the image when presenting
+    ///Index identifying the image when presenting
     pub index: u32,
     ///Semaphore used for image acquire operatons. Will usually be used as a dependency for swapchain accessing
     /// operations, or the swapchain present operation.
-    pub sem_acquire: Arc<crate::sync::Semaphore>,
-    ///Semaphore that is signaled when this image is ready for present. Should be signaled by the commandbuffer
+    pub sem_acquire: Arc<vk::Semaphore>,
+    ///Semaphore that is signalled when this image is ready for present. Should be signalled by the commandbuffer
     /// that is writing to the image.
-    pub sem_present: Arc<crate::sync::Semaphore>,
+    pub sem_present: Arc<vk::Semaphore>,
 }
 
 pub struct Swapchain {
     pub loader: ash::extensions::khr::Swapchain,
     pub swapchain: ash::vk::SwapchainKHR,
+
+    pub device: Arc<Device>,
+
     ///assosiated surface. Needed to keep the surface alive until the swapchain is dropped.
     pub surface: Arc<Surface>,
 
@@ -309,20 +320,21 @@ pub struct Swapchain {
     /// It depends on the correct ordering (and size) of this field.
     pub images: Vec<Arc<crate::resources::Image>>,
     ///acquire semaphores
-    //NOTE: They are hidden, since those are fully managed by this struct. Chaning anything would break assumptions.
-    acquire_semaphore: Vec<Arc<crate::sync::Semaphore>>,
-    render_finished_semaphore: Vec<Arc<crate::sync::Semaphore>>,
+    //NOTE: They are hidden, since those are fully managed by this struct. Changing anything would break assumptions.
+    // Not that those are binary semaphores, since this is defined for the present function.
+    acquire_semaphore: Vec<Arc<vk::Semaphore>>,
+    render_finished_semaphore: Vec<Arc<vk::Semaphore>>,
     ///present_finished semaphores
     next_semaphore: usize,
     recreate_info: RecreateInfo,
 }
 
 impl Swapchain {
-    ///Creates a new swapchain builder where all fields are set either with defaults, or data optained from surface capabilities.
+    ///Creates a new swapchain builder where all fields are set either with defaults, or data obtained from surface capabilities.
     ///Most notably the format preferences are filled with all available formats, same with the present modes, and the extent is set to the current maximum.
     ///
     /// # Note on Wayland
-    /// It can happen that the suraces "supported" extend is `u32::MAX` on all axis. In that case you'll have to manualy set the the correct extent.
+    /// It can happen that the surfaces "supported" extend is `u32::MAX` on all axis. In that case you'll have to manually set the the correct extent.
     pub fn builder(
         device: &Arc<Device>,
         surface: &Arc<Surface>,
@@ -345,7 +357,7 @@ impl Swapchain {
                 image_count: capabilities
                     .max_image_count
                     .min(3)
-                    .max(capabilities.min_image_count), //default to trippelbuffering if possible
+                    .max(capabilities.min_image_count), //default to trippel-buffering if possible
                 extent: capabilities.current_extent,
                 array_layers: 1,
                 usage: capabilities.supported_usage_flags,
@@ -365,7 +377,7 @@ impl Swapchain {
     }
 
     ///Retrieves the next image that should be written to. Note that all required information (acquire semaphore and)
-    /// a semaphore to be signaled when finished presenting is included in that image.
+    /// a semaphore to be signalled when finished presenting is included in that image.
     pub fn acquire_next_image(&mut self) -> Result<SwapchainImage, anyhow::Error> {
         //find right semaphores
         let acquire_semaphore = self.acquire_semaphore[self.next_semaphore].clone();
@@ -376,7 +388,7 @@ impl Swapchain {
             self.loader.acquire_next_image(
                 self.swapchain,
                 core::u64::MAX,
-                acquire_semaphore.inner,
+                *acquire_semaphore,
                 ash::vk::Fence::null(),
             )?
         };
@@ -457,6 +469,29 @@ impl Swapchain {
             })
             .collect();
 
+        //add semaphores if needed
+        while self.acquire_semaphore.len() < self.images.len(){
+            self.acquire_semaphore.push(
+                Arc::new(unsafe{
+                    self.device.inner.create_semaphore(
+                        &vk::SemaphoreCreateInfo::builder()
+                            .push_next(&mut SemaphoreTypeCreateInfo::builder().semaphore_type(vk::SemaphoreType::BINARY)),
+                        None).expect("Failed to create swapchain binary semaphore")
+                })
+            );
+        }
+
+        while self.render_finished_semaphore.len() < self.images.len(){
+            self.render_finished_semaphore.push(
+                Arc::new(unsafe{
+                    self.device.inner.create_semaphore(
+                        &vk::SemaphoreCreateInfo::builder()
+                            .push_next(&mut SemaphoreTypeCreateInfo::builder().semaphore_type(vk::SemaphoreType::BINARY)),
+                        None).expect("Failed to create swapchain binary semaphore")
+                })
+            );
+        }
+
         #[cfg(feature = "logging")]
         log::info!("Recreating swapchain for {:?}", extent);
 
@@ -474,7 +509,7 @@ impl Swapchain {
         let present_info = ash::vk::PresentInfoKHR::builder()
             .swapchains(core::slice::from_ref(&self.swapchain))
             .image_indices(core::slice::from_ref(&image.index))
-            .wait_semaphores(core::slice::from_ref(&image.sem_present.inner));
+            .wait_semaphores(core::slice::from_ref(&image.sem_present));
 
         match unsafe { self.loader.queue_present(*queue, &present_info) } {
             Ok(b) => {
@@ -499,6 +534,10 @@ impl Drop for Swapchain {
     fn drop(&mut self) {
         unsafe {
             self.loader.destroy_swapchain(self.swapchain, None);
+            //Destroy binary semaphores
+            for sem in self.acquire_semaphore.iter().chain(self.render_finished_semaphore.iter()){
+                self.device.inner.destroy_semaphore(**sem, None);
+            }
         }
     }
 }

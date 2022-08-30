@@ -10,7 +10,7 @@ use marpii::{
     sync::{Fence, Semaphore},
 };
 
-///Signaled that can be assosiated with a resource.
+///Signaled that can be associated with a resource.
 pub enum SignalState {
     Unused,
     InUse,
@@ -46,8 +46,11 @@ pub struct ManagedCommands {
     pub inner: CommandBuffer<Arc<CommandPool>>,
     ///All resources needed for the current `inner` command buffer to be valid.
     pub resources: Vec<Caputured>,
-    ///Assioated fence that represents the `in use` state on the gpu.
-    pub fence: Arc<Fence<()>>,
+
+    ///Inner semaphore that is used for the execution state of this buffer.
+    exec_semaphore: Arc<Semaphore>,
+    ///The `exec_semaphore` value that is reached after the current version has finished its execution.
+    next_finish: u64,
 }
 
 impl ManagedCommands {
@@ -60,13 +63,14 @@ impl ManagedCommands {
         Ok(ManagedCommands {
             inner: command_buffer,
             resources: Vec::new(),
-            fence: Fence::new(device.clone(), true, None)?,
+            exec_semaphore: Semaphore::new(device, 0).unwrap(),
+            next_finish: 0,
         })
     }
 
     ///waits for the execution fence to get signaled.
-    pub fn wait(&mut self) -> Result<(), ash::vk::Result> {
-        self.fence.wait(u64::MAX)
+    pub fn wait(&mut self) {
+        self.exec_semaphore.wait(self.next_finish, u64::MAX)
     }
 
     ///Starts recording a new command buffer. Might block until any execution of this command buffer has finished.
@@ -74,7 +78,7 @@ impl ManagedCommands {
     /// If you want prevent blocking, use `wait`.
     pub fn start_recording<'a>(&'a mut self) -> Result<Recorder<'a>, anyhow::Error> {
         //wait until all execution has finished.
-        self.fence.wait(u64::MAX)?;
+        self.wait();
         //now drop all bound resources
         self.resources.clear();
 
@@ -98,20 +102,20 @@ impl ManagedCommands {
 
     ///Submits commands to a queue.
     ///
-    ///`signal_semaphores` will be signaled when the execution has finished.
-    /// `wait_semaphores` is a list of semaphores that need to be signaled before starting execution. Each semaphore
+    ///`signal_semaphores` will be signalled when the execution has finished to the given value.
+    /// `wait_semaphores` is a list of semaphores that need to be signalled to the given value before starting execution. Each semaphore
     /// must supply the pipeline stage on which is waited.
     pub fn submit(
         &mut self,
         device: &Arc<Device>,
         queue: &Queue,
-        signal_semaphores: &[Arc<Semaphore>],
-        wait_semaphores: &[(Arc<Semaphore>, ash::vk::PipelineStageFlags)],
+        signal_semaphores: &[(Arc<Semaphore>, u64)],
+        wait_semaphores: &[(Arc<Semaphore>, ash::vk::PipelineStageFlags, u64)],
     ) -> Result<(), anyhow::Error> {
         //first of all, make a copy from each semaphore and include them in our captured variables
         for sem in signal_semaphores
-            .iter()
-            .chain(wait_semaphores.iter().map(|(s, _stage)| s))
+            .iter().map(|(sem, src_val)| sem)
+            .chain(wait_semaphores.iter().map(|(s, _stage, _target)| s))
         {
             self.resources
                 .push(Caputured::Unsignaled(Box::new(sem.clone())));
@@ -131,9 +135,7 @@ impl ManagedCommands {
             },
         );
 
-        //reset fence for resubmission
-        self.fence.reset()?;
-
+        compile_error!("unimplmented");
         //submit to queue
         if let Err(e) = unsafe {
             let queue_lock = queue.inner();
@@ -255,7 +257,7 @@ impl<'a> Recorder<'a> {
     }
 }
 
-///Custom implementation of drop. Prevents leafing the command buffer in a recording state.
+///Custom implementation of drop. Prevents leaving the command buffer in a recording state.
 ///This is however most likely creating UB, therefore a log error is issued
 impl<'a> Drop for Recorder<'a> {
     fn drop(&mut self) {
