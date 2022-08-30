@@ -15,6 +15,8 @@
 //! allocation and lifetime handling. Have a look at its module documentation.
 //!
 
+#[deny(warnings)]
+
 ///Bindless descriptor handling related structures.
 #[cfg(not(feature = "bindless-wrapper"))]
 pub mod bindless;

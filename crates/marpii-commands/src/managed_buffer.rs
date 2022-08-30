@@ -4,10 +4,11 @@ use std::{
 };
 
 use marpii::{
-    ash::{self, vk},
+    ash::vk,
     resources::CommandPool,
     swapchain::{Swapchain, SwapchainImage},
 };
+
 use marpii::{
     context::{Device, Queue},
     resources::{CommandBuffer, CommandBufferAllocator},
@@ -93,8 +94,7 @@ impl ManagedCommands {
         unsafe {
             self.inner.pool.device().begin_command_buffer(
                 self.inner.inner,
-                &ash::vk::CommandBufferBeginInfo::builder()
-                    .flags(ash::vk::CommandBufferUsageFlags::empty()), //TODO: optimize?
+                &vk::CommandBufferBeginInfo::builder().flags(vk::CommandBufferUsageFlags::empty()), //TODO: optimize?
             )?
         };
 
@@ -111,14 +111,14 @@ impl ManagedCommands {
         device: &Arc<Device>,
         queue: &Queue,
         signal_semaphores: &[(Arc<Semaphore>, u64)],
-        wait_semaphores: &[(Arc<Semaphore>, ash::vk::PipelineStageFlags2, u64)],
+        wait_semaphores: &[(Arc<Semaphore>, vk::PipelineStageFlags2, u64)],
         signal_binary_semaphores: &[Arc<vk::Semaphore>],
-        wait_binary_semaphores: &[(Arc<vk::Semaphore>, ash::vk::PipelineStageFlags2)],
+        wait_binary_semaphores: &[(Arc<vk::Semaphore>, vk::PipelineStageFlags2)],
     ) -> Result<(), anyhow::Error> {
         //first of all, make a copy from each semaphore and include them in our captured variables
         for sem in signal_semaphores
             .iter()
-            .map(|(sem, src_val)| sem)
+            .map(|(sem, _src_val)| sem)
             .chain(wait_semaphores.iter().map(|(s, _stage, _target)| s))
         {
             self.resources
@@ -229,7 +229,7 @@ impl ManagedCommands {
         image: SwapchainImage,
         swapchain: &Swapchain,
         signal_semaphores: &[(Arc<Semaphore>, u64)],
-        wait_semaphores: &[(Arc<Semaphore>, ash::vk::PipelineStageFlags2, u64)],
+        wait_semaphores: &[(Arc<Semaphore>, vk::PipelineStageFlags2, u64)],
     ) -> Result<(), anyhow::Error> {
         assert!(queue
             .properties
@@ -265,7 +265,7 @@ impl ManagedCommands {
         device: &Arc<Device>,
         queue: &Queue,
         signal_semaphores: &[(Arc<Semaphore>, u64)],
-        wait_semaphores: &[(Arc<Semaphore>, ash::vk::PipelineStageFlags2, u64)],
+        wait_semaphores: &[(Arc<Semaphore>, vk::PipelineStageFlags2, u64)],
     ) -> Result<(), anyhow::Error> {
         self.inner_submit(device, queue, signal_semaphores, wait_semaphores, &[], &[])
     }
@@ -338,7 +338,7 @@ impl<'a> Recorder<'a> {
     /// need to keep the reference, wrapping it into `Arc<T>` / `Arc<Mutex<T>>`.
     pub fn record<F: Send + 'static>(&mut self, cmd: F)
     where
-        F: Fn(&ash::Device, &ash::vk::CommandBuffer),
+        F: Fn(&marpii::ash::Device, &vk::CommandBuffer),
     {
         //wrap command in a box to catch the resources
         let cmd = Box::new(cmd);

@@ -1,0 +1,18 @@
+[package]
+name = "rmg_rendering"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+simple_logger = "2.1.0"
+log = "0.4.15"
+anyhow = "1.0.56"
+marpii = {path = "../../crates/marpii"}
+marpii-commands = {path = "../../crates/marpii-commands", features = ["image_loading"]}
+marpii-descriptor = {path = "../../crates/marpii-descriptor"}
+marpii-rmg = {path = "../../crates/marpii-rmg"}
+winit = "0.26.1"
+easy-gltf = "0.1.5"
+glam = "*"

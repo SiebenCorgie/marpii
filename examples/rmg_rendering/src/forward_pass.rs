@@ -10,12 +10,9 @@ use marpii::{
         SafeImageView, ShaderModule, ShaderStage,
     },
 };
-use marpii_command_graph::{
-    pass::{AssumedState, Pass},
-    ImageState, StBuffer, StImage,
-};
 use marpii_commands::buffer_from_data;
 use marpii_descriptor::bindless::{ResourceHandle, SampledImageHandle};
+use marpii_rmg::resources::BufferHdl;
 use std::sync::{Arc, Mutex};
 
 #[repr(C, align(16))]
@@ -34,11 +31,10 @@ pub struct Vertex {
     pub tex_coords: [f32; 2],
 }
 
-#[derive(Clone)]
 pub struct Mesh {
     index_count: u32,
-    vertex_buffer: StBuffer,
-    index_buffer: StBuffer,
+    vertex_buffer: BufferHdl<Vertex>,
+    index_buffer: BufferHdl<u32>,
 
     albedo_texture: Option<SampledImageHandle>,
     normal_texture: Option<SampledImageHandle>,
@@ -46,6 +42,7 @@ pub struct Mesh {
 }
 
 impl Mesh {
+/*
     ///Uploads vertex and index buffer
     pub fn from_vertex_index_buffers<A: Allocator + Send + Sync + 'static>(
         ctx: &Ctx<A>,
@@ -128,6 +125,7 @@ impl Mesh {
             ResourceHandle::UNDEFINED_HANDLE,
         ]
     }
+*/
 }
 
 pub fn forward_pipeline(
@@ -241,12 +239,6 @@ pub fn forward_pipeline(
 }
 
 pub struct ForwardPass {
-    pub target_color: StImage,
-    color_view: Arc<ImageView>,
-    pub target_depth: StImage,
-    depth_view: Arc<ImageView>,
-    assumed: [AssumedState; 2],
-
     graphics_pipeline: Arc<GraphicsPipeline>,
     push_constant: Arc<Mutex<PushConstant<ForwardPush>>>,
 
@@ -254,7 +246,7 @@ pub struct ForwardPass {
 
     pub objects: Vec<Mesh>,
 }
-
+/*
 impl ForwardPass {
     pub fn new<A: Allocator + Send + Sync + 'static>(
         ctx: &Ctx<A>,
@@ -527,3 +519,4 @@ impl Pass for ForwardPass {
         Ok(())
     }
 }
+*/

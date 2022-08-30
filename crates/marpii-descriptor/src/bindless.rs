@@ -1,12 +1,7 @@
-use marpii::{
-    ash::vk,
-    context::Device,
-    resources::{
-        Buffer, DescriptorPool, DescriptorSet, DescriptorSetLayout, ImageView, PipelineLayout,
-        Sampler,
-    },
-};
-use std::{collections::VecDeque, sync::Arc};
+
+use std::{sync::Arc, collections::VecDeque};
+use marpii::{context::Device, ash::vk, resources::{Buffer, DescriptorSetLayout, DescriptorPool, DescriptorSet, ImageView, Sampler, PipelineLayout}};
+
 
 ///Low-level handle type. The two least segnificant bits describe the handles type, all higher bits describe the handles
 /// position in its descriptor set. Therefore, after checking the type the index can be calculated by shifting the handle down two bits.
@@ -112,7 +107,7 @@ impl<T> SetManagment<T> {
             }
         }
     }
-
+    #[allow(dead_code)]
     fn free_handle(&mut self, hdl: ResourceHandle) {
         assert!(hdl.ty() == self.ty);
         self.free.push_front(hdl);
@@ -133,7 +128,8 @@ impl<T> SetManagment<T> {
             p_immutable_samplers: core::ptr::null(),
         };
 
-        println!("Allocating @ {} {:?} size={}", binding_id, ty, max_count);
+        #[cfg(feature="logging")]
+        log::trace!("Allocating @ {} {:?} size={}", binding_id, ty, max_count);
 
         let flags = [vk::DescriptorBindingFlags::PARTIALLY_BOUND
             | vk::DescriptorBindingFlags::VARIABLE_DESCRIPTOR_COUNT
@@ -142,7 +138,6 @@ impl<T> SetManagment<T> {
         let mut ext_flags =
             vk::DescriptorSetLayoutBindingFlagsCreateInfo::builder().binding_flags(&flags);
 
-        println!("    {:#?}", binding_layout);
         let layout = unsafe {
             device.inner.create_descriptor_set_layout(
                 &vk::DescriptorSetLayoutCreateInfo::builder()
@@ -236,6 +231,7 @@ impl<T> SetManagment<T> {
         Ok(hdl)
     }
 
+    #[allow(dead_code)]
     fn free_binding(&mut self, hdl: ResourceHandle) -> Option<T> {
         if let Some(res) = self.stored.remove(&hdl) {
             self.free_handle(hdl); //free handle since we are safely removing
@@ -250,7 +246,7 @@ impl<T> SetManagment<T> {
     }
 }
 
-/// Bindless descriptor helper. Manages a single big descriptor sset that binds all resources.
+/// Bindless descriptor helper. Manages a single big descriptor set that binds all resources.
 /// in the shader there is one binding per descriptor type (Sampled Image, Storage Image, Buffer), each binding is a array of multiple
 /// images/buffers that can be indexed.
 ///
@@ -258,7 +254,7 @@ impl<T> SetManagment<T> {
 /// Since the bindless descriptorset does not take care of queue ownership you have to make sure that:
 ///
 /// 1. The descriptor set is used only on the same queue family
-/// 2. bound resoureces are owned by this queue family
+/// 2. bound resources are owned by this queue family
 /// 3. bound resources are in the correct access-mask / image-layout for the intended access
 ///
 /// # In shader usage
@@ -273,6 +269,7 @@ pub struct BindlessDescriptor {
     accel_structure_set: SetManagment<Arc<Buffer>>,
 
     ///Safes the actual max push constant size, to verify bound push constants.
+    #[allow(dead_code)]
     push_constant_size: u32,
 
     device: Arc<Device>,
@@ -292,6 +289,7 @@ impl BindlessDescriptor {
     pub const MAX_PUSH_CONSTANT_SIZE: u32 = (core::mem::size_of::<u32>() * 16) as u32;
 
     ///max slot id.
+    #[allow(dead_code)]
     const MAX_SLOT: u32 = 2u32.pow(29);
 
     ///Number of descriptor sets to cover each type
@@ -364,12 +362,6 @@ impl BindlessDescriptor {
             Self::NUM_SETS,
         )?);
 
-        let push_range = vk::PushConstantRange {
-            stage_flags: vk::ShaderStageFlags::ALL,
-            offset: 0,
-            size: push_constant_size,
-        };
-
         let sampled_image_set = SetManagment::new(
             device,
             &desc_pool,
@@ -412,7 +404,7 @@ impl BindlessDescriptor {
     ///Creates a new instance of the pipeline layout used for bindless descriptors.
     pub fn new_pipeline_layout(&self, push_constant_size: u32) -> PipelineLayout {
         //NOTE: This is the delicate part. We create a link between the descriptor set layouts and this pipeline layout. This is however *safe*
-        //      since we keep the sets in memory together with the pipeline layout. On drop the pipeline layout is destried before the descriptorset layouts
+        //      since we keep the sets in memory together with the pipeline layout. On drop the pipeline layout is destroied before the descriptorset layouts
         //      which is again *safe*
         let descset_layouts = &[
             self.sampled_image_set.layout.inner,
@@ -479,6 +471,7 @@ impl BindlessDescriptor {
         Ok(SampledImageHandle(hdl)) //wrap handle into correct type and exit
     }
 
+    //TODO buffer/sampler/acceleration structure bind
     pub fn clone_descriptor_sets(
         &self,
     ) -> [Arc<DescriptorSet<Arc<DescriptorPool>>>; Self::NUM_SETS as usize] {
