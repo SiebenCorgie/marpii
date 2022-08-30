@@ -1,5 +1,5 @@
-use std::{sync::Arc, collections::{VecDeque, HashMap}};
-use marpii::{context::Device, ash::vk, resources::{Buffer, DescriptorSetLayout, DescriptorPool, DescriptorSet, DescriptorAllocator, ImageView, Sampler, PipelineLayout}};
+use std::{sync::Arc, collections::VecDeque};
+use marpii::{context::Device, ash::vk, resources::{Buffer, DescriptorSetLayout, DescriptorPool, DescriptorSet, ImageView, Sampler, PipelineLayout}};
 
 ///Low-level handle type. The two least segnificant bits describe the handles type, all higher bits describe the handles
 /// position in its descriptor set. Therefore, after checking the type the index can be calculated by shifting the handle down two bits.
