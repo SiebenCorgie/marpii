@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use ash::vk::{SwapchainCreateInfoKHRBuilder, self, SemaphoreTypeCreateInfo};
+use ash::vk::{self, SemaphoreTypeCreateInfo, SwapchainCreateInfoKHRBuilder};
 
 use crate::{
     allocator::{ManagedAllocation, MemoryUsage, UnmanagedAllocation, UnmanagedAllocator},
@@ -122,19 +122,37 @@ impl SwapchainBuilder {
 
         //create semaphore buffers and setup the roundtrip state for the semaphore buffers
         let acquire_semaphore = (0..images.len())
-            .map(|_| Arc::new(unsafe{
-                self.device.inner.create_semaphore(
-                    &vk::SemaphoreCreateInfo::builder()
-                        .push_next(&mut SemaphoreTypeCreateInfo::builder().semaphore_type(vk::SemaphoreType::BINARY)),
-                    None).expect("Failed to create swapchain binary semaphore")
-            })).collect();
+            .map(|_| {
+                Arc::new(unsafe {
+                    self.device
+                        .inner
+                        .create_semaphore(
+                            &vk::SemaphoreCreateInfo::builder().push_next(
+                                &mut SemaphoreTypeCreateInfo::builder()
+                                    .semaphore_type(vk::SemaphoreType::BINARY),
+                            ),
+                            None,
+                        )
+                        .expect("Failed to create swapchain binary semaphore")
+                })
+            })
+            .collect();
         let render_finished_semaphore = (0..images.len())
-            .map(|_| Arc::new(unsafe{
-                self.device.inner.create_semaphore(
-                    &vk::SemaphoreCreateInfo::builder()
-                        .push_next(&mut SemaphoreTypeCreateInfo::builder().semaphore_type(vk::SemaphoreType::BINARY)),
-                    None).expect("Failed to create swapchain binary semaphore")
-            })).collect();
+            .map(|_| {
+                Arc::new(unsafe {
+                    self.device
+                        .inner
+                        .create_semaphore(
+                            &vk::SemaphoreCreateInfo::builder().push_next(
+                                &mut SemaphoreTypeCreateInfo::builder()
+                                    .semaphore_type(vk::SemaphoreType::BINARY),
+                            ),
+                            None,
+                        )
+                        .expect("Failed to create swapchain binary semaphore")
+                })
+            })
+            .collect();
 
         //Update recreate info with the stuff we currently use.
 
@@ -478,26 +496,34 @@ impl Swapchain {
             .collect();
 
         //add semaphores if needed
-        while self.acquire_semaphore.len() < self.images.len(){
-            self.acquire_semaphore.push(
-                Arc::new(unsafe{
-                    self.device.inner.create_semaphore(
-                        &vk::SemaphoreCreateInfo::builder()
-                            .push_next(&mut SemaphoreTypeCreateInfo::builder().semaphore_type(vk::SemaphoreType::BINARY)),
-                        None).expect("Failed to create swapchain binary semaphore")
-                })
-            );
+        while self.acquire_semaphore.len() < self.images.len() {
+            self.acquire_semaphore.push(Arc::new(unsafe {
+                self.device
+                    .inner
+                    .create_semaphore(
+                        &vk::SemaphoreCreateInfo::builder().push_next(
+                            &mut SemaphoreTypeCreateInfo::builder()
+                                .semaphore_type(vk::SemaphoreType::BINARY),
+                        ),
+                        None,
+                    )
+                    .expect("Failed to create swapchain binary semaphore")
+            }));
         }
 
-        while self.render_finished_semaphore.len() < self.images.len(){
-            self.render_finished_semaphore.push(
-                Arc::new(unsafe{
-                    self.device.inner.create_semaphore(
-                        &vk::SemaphoreCreateInfo::builder()
-                            .push_next(&mut SemaphoreTypeCreateInfo::builder().semaphore_type(vk::SemaphoreType::BINARY)),
-                        None).expect("Failed to create swapchain binary semaphore")
-                })
-            );
+        while self.render_finished_semaphore.len() < self.images.len() {
+            self.render_finished_semaphore.push(Arc::new(unsafe {
+                self.device
+                    .inner
+                    .create_semaphore(
+                        &vk::SemaphoreCreateInfo::builder().push_next(
+                            &mut SemaphoreTypeCreateInfo::builder()
+                                .semaphore_type(vk::SemaphoreType::BINARY),
+                        ),
+                        None,
+                    )
+                    .expect("Failed to create swapchain binary semaphore")
+            }));
         }
 
         #[cfg(feature = "logging")]
@@ -543,7 +569,11 @@ impl Drop for Swapchain {
         unsafe {
             self.loader.destroy_swapchain(self.swapchain, None);
             //Destroy binary semaphores
-            for sem in self.acquire_semaphore.iter().chain(self.render_finished_semaphore.iter()){
+            for sem in self
+                .acquire_semaphore
+                .iter()
+                .chain(self.render_finished_semaphore.iter())
+            {
                 self.device.inner.destroy_semaphore(**sem, None);
             }
         }

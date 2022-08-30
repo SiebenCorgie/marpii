@@ -111,8 +111,12 @@ impl InstanceBuilder {
             enabled_extensions,
         } = self;
 
-        let app_desc =
-            ash::vk::ApplicationInfo::builder().api_version(ash::vk::make_api_version(0, Instance::API_VERSION_MAJOR, Instance::API_VERSION_MINOR, Instance::API_VERSION_PATCH));
+        let app_desc = ash::vk::ApplicationInfo::builder().api_version(ash::vk::make_api_version(
+            0,
+            Instance::API_VERSION_MAJOR,
+            Instance::API_VERSION_MINOR,
+            Instance::API_VERSION_PATCH,
+        ));
 
         //at this point, if we are logging, write out instance creation data
         #[cfg(feature = "logging")]

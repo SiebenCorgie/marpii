@@ -272,7 +272,6 @@ impl ImgDesc {
         }
     }
 
-
     ///Creates a simple texture image that has the sampeld bit set as well as transfere bits.
     pub fn texture_2d(width: u32, height: u32, format: ash::vk::Format) -> Self {
         ImgDesc {
@@ -282,8 +281,7 @@ impl ImgDesc {
                 depth: 1,
             },
             format,
-            usage: ash::vk::ImageUsageFlags::SAMPLED
-                | ash::vk::ImageUsageFlags::TRANSFER_DST,
+            usage: ash::vk::ImageUsageFlags::SAMPLED | ash::vk::ImageUsageFlags::TRANSFER_DST,
             ..Default::default()
         }
     }
@@ -415,9 +413,11 @@ impl Image {
                 .contains(ash::vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT)
             {
                 //use depth only aspect flag for depth only format, otherwise use both flags
-                match self.desc.format{
-                    vk::Format::D16_UNORM | vk::Format::D32_SFLOAT => ash::vk::ImageAspectFlags::DEPTH,
-                    _ => ash::vk::ImageAspectFlags::DEPTH | ash::vk::ImageAspectFlags::STENCIL
+                match self.desc.format {
+                    vk::Format::D16_UNORM | vk::Format::D32_SFLOAT => {
+                        ash::vk::ImageAspectFlags::DEPTH
+                    }
+                    _ => ash::vk::ImageAspectFlags::DEPTH | ash::vk::ImageAspectFlags::STENCIL,
                 }
             } else {
                 #[cfg(feature = "logging")]

@@ -40,7 +40,6 @@ use std::sync::Arc;
 
 use std::u64;
 
-
 ///Single [TimelineSemaphore](https://www.khronos.org/blog/vulkan-timeline-semaphores).
 pub struct Semaphore {
     pub inner: ash::vk::Semaphore,
@@ -49,19 +48,14 @@ pub struct Semaphore {
 
 impl Semaphore {
     pub fn new(device: &Arc<Device>, initial_value: u64) -> Result<Arc<Self>, ash::vk::Result> {
-
         let mut timeline_ci = ash::vk::SemaphoreTypeCreateInfo::builder()
             .semaphore_type(ash::vk::SemaphoreType::TIMELINE)
             .initial_value(initial_value);
 
         let semaphore = unsafe {
+            let ci = ash::vk::SemaphoreCreateInfo::builder().push_next(&mut timeline_ci);
 
-            let ci = ash::vk::SemaphoreCreateInfo::builder()
-                .push_next(&mut timeline_ci);
-
-            device
-                .inner
-                .create_semaphore(&ci, None)?
+            device.inner.create_semaphore(&ci, None)?
         };
 
         Ok(Arc::new(Semaphore {
@@ -76,14 +70,16 @@ impl Semaphore {
     /// # Safety
     ///
     /// Under normal conditions this can't fail if used on a Semaphore created via the [new](Semaphore::new) function. There are however edgecases. If those occur `u64::MAX` is returned instead.
-    pub fn get_value(&self) -> u64{
-
+    pub fn get_value(&self) -> u64 {
         //Safety: in 99% of all cases the semaphore is created via `new`. In this case the code below is safe.
         //        Otherwise "semaphore must have been created with a VkSemaphoreType of VK_SEMAPHORE_TYPE_TIMELINE"
         //        and "semaphore must have been created, allocated, or retrieved from device" are not guaranteed. In that case the unwrap_or
         //        comes into play.
-        unsafe{
-            self.device.inner.get_semaphore_counter_value(self.inner).unwrap_or(u64::MAX)
+        unsafe {
+            self.device
+                .inner
+                .get_semaphore_counter_value(self.inner)
+                .unwrap_or(u64::MAX)
         }
     }
 
@@ -94,16 +90,14 @@ impl Semaphore {
     /// # Error
     ///
     /// Returns an error if the value was not greater. The value returned in this case is the current value.
-    pub fn set_value(&self, value: u64) -> Result<(), u64>{
+    pub fn set_value(&self, value: u64) -> Result<(), u64> {
         let signal_info = ash::vk::SemaphoreSignalInfo::builder()
             .semaphore(self.inner)
             .value(value);
 
-        if let Err(_) = unsafe{
-            self.device.inner.signal_semaphore(&signal_info)
-        }{
+        if let Err(_) = unsafe { self.device.inner.signal_semaphore(&signal_info) } {
             Err(self.get_value())
-        }else{
+        } else {
             Ok(())
         }
     }
@@ -113,40 +107,40 @@ impl Semaphore {
     /// # Performance
     ///
     /// Note that this function allocates two vectors, if you are only waiting for a single Semaphore, use the associated [wait](Semaphore::wait).
-    pub fn wait_for(waits: &[(&Semaphore, u64)], timeout: u64) -> Result<(), ash::vk::Result>{
-        if waits.len() == 0{
+    pub fn wait_for(waits: &[(&Semaphore, u64)], timeout: u64) -> Result<(), ash::vk::Result> {
+        if waits.len() == 0 {
             return Ok(());
         }
 
         let (sems, values): (Vec<ash::vk::Semaphore>, Vec<u64>) = waits.iter().fold(
-            (Vec::with_capacity(waits.len()), Vec::with_capacity(waits.len())), //FIXME: Oh no, allocation :/
-            |(mut semvec, mut valvec),(sem, val)| {
+            (
+                Vec::with_capacity(waits.len()),
+                Vec::with_capacity(waits.len()),
+            ), //FIXME: Oh no, allocation :/
+            |(mut semvec, mut valvec), (sem, val)| {
                 semvec.push(sem.inner);
                 valvec.push(*val);
 
                 (semvec, valvec)
-            });
+            },
+        );
 
         let wait = ash::vk::SemaphoreWaitInfo::builder()
             .semaphores(&sems)
             .values(&values);
 
-        unsafe{
-            waits[0].0.device.inner.wait_semaphores(&wait, timeout)
-        }
+        unsafe { waits[0].0.device.inner.wait_semaphores(&wait, timeout) }
     }
 
     ///Blocks until `self` reaches `value`, or the `timeout` is reached. When having to wait for multiple semaphores, consider using [wait_for](Semaphore::wait_for).
-    pub fn wait(&self, value: u64, timeout: u64) -> Result<(), ash::vk::Result>{
+    pub fn wait(&self, value: u64, timeout: u64) -> Result<(), ash::vk::Result> {
         let sem = [self.inner];
         let val = [value];
         let wait = ash::vk::SemaphoreWaitInfo::builder()
             .semaphores(&sem)
             .values(&val);
 
-        unsafe{
-            self.device.inner.wait_semaphores(&wait, timeout)
-        }
+        unsafe { self.device.inner.wait_semaphores(&wait, timeout) }
     }
 }
 
@@ -162,13 +156,12 @@ impl Debug for Semaphore {
     }
 }
 
-
 ///A semaphore that guard a value `T` until a certain target state is reached.
-pub struct GuardSemaphore<T>{
+pub struct GuardSemaphore<T> {
     sem: Arc<Semaphore>,
     target: u64,
     #[allow(dead_code)]
-    value: T
+    value: T,
 }
 
 impl<T> GuardSemaphore<T> {
@@ -177,15 +170,19 @@ impl<T> GuardSemaphore<T> {
     /// # Safety
     ///
     /// Note that this can lead to deadlocks if `target` is illdefined.
-    pub fn guard(semaphore: Arc<Semaphore>, target: u64, guarded: T) -> GuardSemaphore<T>{
-        GuardSemaphore { sem: semaphore, target, value: guarded }
+    pub fn guard(semaphore: Arc<Semaphore>, target: u64, guarded: T) -> GuardSemaphore<T> {
+        GuardSemaphore {
+            sem: semaphore,
+            target,
+            value: guarded,
+        }
     }
 
     ///Tries to drop self, returns `Self` as an error if the target value wasn't reached yet.
-    pub fn try_drop(self) -> Result<(), Self>{
-        if self.sem.get_value() >= self.target{
+    pub fn try_drop(self) -> Result<(), Self> {
+        if self.sem.get_value() >= self.target {
             Ok(())
-        }else {
+        } else {
             Err(self)
         }
     }
@@ -193,13 +190,13 @@ impl<T> GuardSemaphore<T> {
 
 impl<T> Drop for GuardSemaphore<T> {
     fn drop(&mut self) {
-        if self.sem.get_value() < self.target{
-            #[cfg(feature="logging")]
+        if self.sem.get_value() < self.target {
+            #[cfg(feature = "logging")]
             log::warn!("Dropping Guard with unfulfilled target, blocking in drop implementation!");
 
             //wait
-            if let Err(e) = self.sem.wait(self.target, u64::MAX){
-                #[cfg(feature="logging")]
+            if let Err(e) = self.sem.wait(self.target, u64::MAX) {
+                #[cfg(feature = "logging")]
                 log::error!("Failed to wait for GuardSemaphore: {}", e);
             }
         }
@@ -210,7 +207,7 @@ impl<T> Drop for GuardSemaphore<T> {
 pub type EmptyGuard = GuardSemaphore<()>;
 
 ///Abstracts over specific guards.
-pub trait AnonymGuard{
+pub trait AnonymGuard {
     fn get_value(&self) -> u64;
     fn get_target(&self) -> u64;
     fn has_finished(&self) -> bool {
@@ -227,7 +224,7 @@ impl<T> AnonymGuard for GuardSemaphore<T> {
     fn get_target(&self) -> u64 {
         self.target
     }
-    fn wait(&self, timeout: u64) -> Result<(), ash::vk::Result>{
+    fn wait(&self, timeout: u64) -> Result<(), ash::vk::Result> {
         self.sem.wait(self.target, timeout)
     }
 }

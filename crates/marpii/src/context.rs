@@ -166,7 +166,6 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
             .dynamic_rendering(true)
             .synchronization2(true);
 
-
         let device = device_candidates
             .remove(0)
             .into_device_builder(instance.clone())?

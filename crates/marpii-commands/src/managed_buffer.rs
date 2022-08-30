@@ -3,7 +3,11 @@ use std::{
     sync::{Arc, RwLock},
 };
 
-use marpii::{ash::{self, vk}, resources::CommandPool, swapchain::{SwapchainImage, Swapchain}};
+use marpii::{
+    ash::{self, vk},
+    resources::CommandPool,
+    swapchain::{Swapchain, SwapchainImage},
+};
 use marpii::{
     context::{Device, Queue},
     resources::{CommandBuffer, CommandBufferAllocator},
@@ -110,45 +114,47 @@ impl ManagedCommands {
         wait_semaphores: &[(Arc<Semaphore>, ash::vk::PipelineStageFlags2, u64)],
         signal_binary_semaphores: &[Arc<vk::Semaphore>],
         wait_binary_semaphores: &[(Arc<vk::Semaphore>, ash::vk::PipelineStageFlags2)],
-    ) -> Result<(), anyhow::Error>{
+    ) -> Result<(), anyhow::Error> {
         //first of all, make a copy from each semaphore and include them in our captured variables
         for sem in signal_semaphores
-            .iter().map(|(sem, src_val)| sem)
+            .iter()
+            .map(|(sem, src_val)| sem)
             .chain(wait_semaphores.iter().map(|(s, _stage, _target)| s))
         {
             self.resources
                 .push(Captured::Unsignaled(Box::new(sem.clone())));
         }
 
-        for sem in wait_binary_semaphores.iter().map(|(s, _stage)| s)
+        for sem in wait_binary_semaphores
+            .iter()
+            .map(|(s, _stage)| s)
             .chain(signal_binary_semaphores.iter())
         {
             self.resources
                 .push(Captured::Unsignaled(Box::new(sem.clone())));
         }
 
-
         //before submitting, update to next value. This allows us to querry the submission state
         self.next_finish = self.exec_semaphore.get_value() + 1;
 
         let mut signal_semaphore_infos = signal_semaphores
             .into_iter()
-            .map(
-                |(s, value)| vk::SemaphoreSubmitInfo::builder()
+            .map(|(s, value)| {
+                vk::SemaphoreSubmitInfo::builder()
                     .semaphore(s.inner)
                     .value(*value)
                     .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS) //FIXME: Not right, should be exposed
                     .build()
-            )
+            })
             .collect::<Vec<_>>();
 
         //add binary semaphores
-        for bsem in signal_binary_semaphores.iter(){
+        for bsem in signal_binary_semaphores.iter() {
             signal_semaphore_infos.push(
                 vk::SemaphoreSubmitInfo::builder()
-                .semaphore(**bsem)
-                .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                .build()
+                    .semaphore(**bsem)
+                    .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
+                    .build(),
             );
         }
 
@@ -158,37 +164,33 @@ impl ManagedCommands {
                 .value(self.next_finish) //set above
                 .semaphore(self.exec_semaphore.inner)
                 .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                .build()
+                .build(),
         );
 
         let mut wait_semaphore_infos = wait_semaphores
             .into_iter()
-            .map(
-                |(s, stage, value)| vk::SemaphoreSubmitInfo::builder()
+            .map(|(s, stage, value)| {
+                vk::SemaphoreSubmitInfo::builder()
                     .semaphore(s.inner)
                     .value(*value)
                     .stage_mask(*stage)
                     .build()
-            )
+            })
             .collect::<Vec<_>>();
 
-
         //add binary semaphores
-        for (bsem, stage) in wait_binary_semaphores.iter(){
+        for (bsem, stage) in wait_binary_semaphores.iter() {
             wait_semaphore_infos.push(
                 vk::SemaphoreSubmitInfo::builder()
-                .semaphore(**bsem)
-                .stage_mask(*stage)
-                .build()
+                    .semaphore(**bsem)
+                    .stage_mask(*stage)
+                    .build(),
             );
         }
 
-        let command_buffer_infos = [
-            vk::CommandBufferSubmitInfo::builder()
-                .command_buffer(self.inner.inner)
-                .build()
-        ];
-
+        let command_buffer_infos = [vk::CommandBufferSubmitInfo::builder()
+            .command_buffer(self.inner.inner)
+            .build()];
 
         //submit to queue
         if let Err(e) = unsafe {
@@ -196,13 +198,11 @@ impl ManagedCommands {
 
             device.inner.queue_submit2(
                 *queue_lock,
-                &[
-                    *vk::SubmitInfo2::builder()
-                        .command_buffer_infos(&command_buffer_infos)
-                        .signal_semaphore_infos(&signal_semaphore_infos)
-                        .wait_semaphore_infos(&wait_semaphore_infos)
-                ],
-                vk::Fence::null()
+                &[*vk::SubmitInfo2::builder()
+                    .command_buffer_infos(&command_buffer_infos)
+                    .signal_semaphore_infos(&signal_semaphore_infos)
+                    .wait_semaphore_infos(&wait_semaphore_infos)],
+                vk::Fence::null(),
             )
         } {
             #[cfg(feature = "logging")]
@@ -231,7 +231,10 @@ impl ManagedCommands {
         signal_semaphores: &[(Arc<Semaphore>, u64)],
         wait_semaphores: &[(Arc<Semaphore>, ash::vk::PipelineStageFlags2, u64)],
     ) -> Result<(), anyhow::Error> {
-        assert!(queue.properties.queue_flags.contains(vk::QueueFlags::GRAPHICS));
+        assert!(queue
+            .properties
+            .queue_flags
+            .contains(vk::QueueFlags::GRAPHICS));
 
         //Submit
         self.inner_submit(
@@ -240,7 +243,10 @@ impl ManagedCommands {
             signal_semaphores,
             wait_semaphores,
             &[image.sem_present.clone()],
-            &[(image.sem_acquire.clone(), vk::PipelineStageFlags2::ALL_COMMANDS)]
+            &[(
+                image.sem_acquire.clone(),
+                vk::PipelineStageFlags2::ALL_COMMANDS,
+            )],
         )?;
 
         //and present, being save that present is signaled
@@ -248,7 +254,7 @@ impl ManagedCommands {
 
         Ok(())
     }
-    
+
     ///Submits commands to a queue.
     ///
     ///`signal_semaphores` will be signalled when the execution has finished to the given value.
@@ -261,14 +267,7 @@ impl ManagedCommands {
         signal_semaphores: &[(Arc<Semaphore>, u64)],
         wait_semaphores: &[(Arc<Semaphore>, ash::vk::PipelineStageFlags2, u64)],
     ) -> Result<(), anyhow::Error> {
-        self.inner_submit(
-            device,
-            queue,
-            signal_semaphores,
-            wait_semaphores,
-            &[],
-            &[]
-        )
+        self.inner_submit(device, queue, signal_semaphores, wait_semaphores, &[], &[])
     }
 }
 

@@ -9,7 +9,6 @@ use super::ShaderModule;
 #[cfg(feature = "shader_reflection")]
 pub(crate) mod shader_interface;
 
-
 /// Wrapped descriptor set layout. Can either be created through [new](DescriptorSetLayout::new), or by filling
 /// the struct. Handles on-drop destruction of the resource.
 pub struct DescriptorSetLayout {
@@ -198,7 +197,7 @@ impl DescriptorAllocator for DescriptorPool {
     }
 }
 
-impl DescriptorAllocator for Arc<DescriptorPool>{
+impl DescriptorAllocator for Arc<DescriptorPool> {
     fn allocate(
         self,
         layout: &ash::vk::DescriptorSetLayout,

@@ -107,8 +107,6 @@ pub fn image_from_data<A: Allocator + Send + Sync + 'static>(
     Ok(image)
 }
 
-
-
 ///Loads an image from `image`. `image` in this case is an somehow by the `image` crate initialized image. This can happen when using
 /// external loaders for instance. And yes, *images* is confusing here, but typesignatures should help.
 ///
@@ -127,7 +125,7 @@ pub fn image_from_image<A: Allocator + Send + Sync + 'static>(
     usage: vk::ImageUsageFlags,
     img: image::DynamicImage,
 ) -> Result<Image, anyhow::Error> {
-    use image::{GenericImageView, DynamicImage};
+    use image::{DynamicImage, GenericImageView};
     use marpii::resources::ImageType;
 
     let (width, height) = img.dimensions();
@@ -174,7 +172,6 @@ pub fn image_from_image<A: Allocator + Send + Sync + 'static>(
     )
 }
 
-
 ///Loads an image from `file`.
 ///The images format, extent etc. are decided from the files properties. But you can
 /// read those afterwards from the file directly. Note that each *integer* format is used as `UNORM` which is
@@ -189,7 +186,6 @@ pub fn image_from_file<A: Allocator + Send + Sync + 'static>(
     usage: vk::ImageUsageFlags,
     file: impl AsRef<std::path::Path>,
 ) -> Result<Image, anyhow::Error> {
-
     let img = image::open(file)?;
     image_from_image(device, allocator, upload_queue, usage, img)
 }
