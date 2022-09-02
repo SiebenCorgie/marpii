@@ -1,11 +1,9 @@
 use fxhash::FxHashMap;
 use graph::Recorder;
-use marpii::{context::{Ctx, Queue}, allocator::Allocator, ash::vk::{self, QueueFlags}};
+use marpii::{context::{Ctx, Queue}, allocator::Allocator, ash::vk::{self, QueueFlags}, sync::Semaphore};
 use marpii_descriptor::bindless::BindlessDescriptor;
-use slotmap::SlotMap;
-use task::Task;
 use thiserror::Error;
-use std::{sync::Arc};
+use std::sync::Arc;
 
 
 pub mod graph;
@@ -22,6 +20,17 @@ pub enum RmgError {
     Any(#[from] anyhow::Error)
 }
 
+pub type TrackId = QueueFlags;
+
+///Execution track. Basically a DeviceQueue and some associated data.
+pub(crate) struct Track{
+    pub(crate) queue_idx: usize,
+    pub(crate) flags: QueueFlags,
+    pub(crate) sem: Arc<Semaphore>,
+    ///last known target of the semaphore's counter
+    pub(crate) sem_target: u64,
+}
+
 ///Main runtime environment that handles resources and frame/pass scheduling.
 pub struct Rmg{
     ///bindless management
@@ -30,7 +39,7 @@ pub struct Rmg{
     res: resources::Resources,
 
     ///maps a capability pattern to a index in `Device`'s queue list. Each queue type defines a QueueTrack type.
-    tracks: FxHashMap<QueueFlags, Arc<Queue>>
+    tracks: FxHashMap<TrackId, Track>
 }
 
 impl Rmg{
@@ -38,9 +47,19 @@ impl Rmg{
         //Per definition we try to find at least one graphic, compute and transfer queue.
         // We then create the swapchain. It is used for image presentation and the start/end point for frame scheduling.
 
-        let tracks = context.device.queues.iter().enumerate().fold(FxHashMap::default(), |mut set, (idx, q)| {
+        let tracks = context.device.queues.iter().enumerate().fold(FxHashMap::default(), |mut set: FxHashMap<TrackId, Track>, (idx, q)| {
+
+            //Make sure to only add queue, if we don't have a queue with those capabilities yet.
             if !set.contains_key(&q.properties.queue_flags){
-                set.insert(q.properties.queue_flags, idx);
+                set.insert(
+                    q.properties.queue_flags,
+                    Track {
+                        queue_idx: idx,
+                        flags: q.properties.queue_flags,
+                        sem: Semaphore::new(&context.device, 0).expect("Could not create Track's semaphore"),
+                        sem_target: 0
+                    }
+                );
             }
 
             set

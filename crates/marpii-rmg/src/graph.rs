@@ -137,6 +137,7 @@ impl<'a> Recorder<'a> {
         let images = task.images().to_vec();
 
         self.tasks.push(TaskRecord {
+            task_id: self.tasks.len(),
             task,
             capability: task.queue_flags(),
             attachments,
@@ -158,6 +159,8 @@ pub(crate) struct TaskAttachment<'a>{
 ///Record of a single task. Carries all context information needed to execute the task
 /// in the correct environment.
 pub struct TaskRecord<'a>{
+    // Its index on the global task list of this graph
+    pub(crate) task_id: usize,
     task: &'a dyn Task,
     ///Declares capabilities needed to run this task.
     pub capability: QueueFlags,

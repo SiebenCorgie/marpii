@@ -40,7 +40,7 @@ pub struct ImageHdl{
 pub(crate) struct ResImage{
     pub(crate) image: Arc<Image>,
     pub(crate) sampler: Option<Arc<Sampler>>,
-    pub(crate) owning_family: u32,
+    pub(crate) owning_family: Option<u32>,
     pub(crate) mask: vk::AccessFlags,
     pub(crate) layout: vk::ImageLayout,
 
@@ -56,6 +56,8 @@ pub(crate) struct ResImage{
 ///Combined state of a single buffer, type tagged. Note that it is valid to use a `u8` as type, which turns this buffer into a simple byte-address-buffer.
 pub(crate) struct ResBuffer{
     pub(crate) buffer: Arc<Buffer>,
+    pub(crate) owning_family: usize,
+    pub(crate) mask: vk::AccessFlags,
 
     ///Some if the image is currently guarded by some execution.
     pub(crate) guard: Option<GuardKey>
