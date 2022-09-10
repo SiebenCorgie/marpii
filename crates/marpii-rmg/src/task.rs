@@ -4,20 +4,20 @@ use crate::{graph::TaskRecord, resources::{ImageKey, BufferKey}};
 mod blit;
 pub use blit::Blit;
 
-#[derive(Clone, Copy)]
+#[derive(Hash, Clone, Copy)]
 pub enum AttachmentType{
     Framebuffer,
     Defined(vk::Extent2D)
 }
 
-#[derive(Clone, Copy)]
+#[derive(Hash, Clone, Copy)]
 pub enum AccessType {
     Read,
     Write
 }
 
 ///Defines an attachment image to this pass.
-#[derive(Clone, Copy)]
+#[derive(Hash, Clone, Copy)]
 pub struct Attachment{
     pub ty: AttachmentType,
     pub access: AccessType,

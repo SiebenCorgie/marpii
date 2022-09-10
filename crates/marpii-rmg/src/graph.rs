@@ -171,7 +171,6 @@ pub struct TaskRecord<'a>{
 }
 
 impl<'a> TaskRecord<'a> {
-
     pub fn need_buffer<T>(&mut self, buffer: BufferHdl<T>){
         //TODO only allow one "need" per key
         todo!("Impl state assignment and type erasure");

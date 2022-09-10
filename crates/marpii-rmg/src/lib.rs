@@ -84,6 +84,16 @@ impl Rmg{
     pub fn new_graph<'a>(&'a mut self) -> Recorder<'a>{
         Recorder::new(self)
     }
+
+    pub fn queue_idx_to_trackid(&self, idx: usize) -> Option<TrackId>{
+        for t in self.tracks.iter(){
+            if t.1.queue_idx == idx{
+                return Some(*t.0);
+            }
+        }
+
+        None
+    }
 }
 
 
