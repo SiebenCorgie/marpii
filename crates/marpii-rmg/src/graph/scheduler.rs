@@ -2,7 +2,7 @@ use std::{sync::Arc, collections::VecDeque};
 use fxhash::FxHashMap;
 use marpii::ash::vk::QueueFlags;
 use marpii::sync::Semaphore;
-use crate::{resources::{ImageKey, BufferKey, Resources}, Rmg, TrackId, task::Attachment, UNDEFINED_TRACK};
+use crate::{resources::{ImageKey, BufferKey, Resources}, Rmg, TrackId, task::Attachment};
 
 use super::{TaskRecord, TaskAttachment};
 
@@ -54,8 +54,8 @@ impl<'a> CommandFrame<'a>  {
     }
 
     fn add_outside_dep(&mut self, val: u64){
-        if let Some(dep) = &mut self.outside_dependency{
-            dep = dep.max(&mut val); //always wait for the maximum of this track to ocure
+        if let Some(dep) = self.outside_dependency{
+            self.outside_dependency = Some(dep.max(val)); //always wait for the maximum of this track to ocure
         }else {
             self.outside_dependency = Some(val);
         }

@@ -11,4 +11,4 @@ crate-type = ["lib", "dylib"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-spirv-std = { git = "https://github.com/EmbarkStudios/rust-gpu", features = ["glam"], rev="0866cf591a7fdbbd15bdb3468e192bb9b6189fd0"}
+spirv-std = { git = "https://github.com/EmbarkStudios/rust-gpu", features = ["glam"], rev="14bbae1e4bbc5b49af25f3d272406b49c7144c4e"}
