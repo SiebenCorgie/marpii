@@ -1,4 +1,4 @@
-use marpii::ash::vk::{self, QueueFlags};
+use marpii::{ash::vk::{self, QueueFlags}, resources::{ImgDesc, ImageType, SharingMode}, util::extent2d_to_3d};
 use crate::{graph::TaskRecord, resources::{ImageKey, BufferKey}};
 
 mod blit;
@@ -20,9 +20,28 @@ pub enum AccessType {
 #[derive(Hash, Clone, Copy)]
 pub struct Attachment{
     pub ty: AttachmentType,
+    pub format: vk::Format,
     pub access: AccessType,
     pub access_mask: vk::AccessFlags2,
     pub layout: vk::ImageLayout
+}
+
+impl Attachment {
+    pub fn as_desc(&self, framebuffer_extent: vk::Extent2D) -> ImgDesc{
+        ImgDesc {
+            img_type: ImageType::Tex2d,
+            format: self.format,
+            extent: match self.ty {
+                AttachmentType::Framebuffer =>  extent2d_to_3d(framebuffer_extent, 0),
+                AttachmentType::Defined(d) => extent2d_to_3d(d, 0)
+            },
+            mip_levels: 1,
+            samples: vk::SampleCountFlags::TYPE_1,
+            tiling: vk::ImageTiling::OPTIMAL,
+            usage: vk::ImageUsageFlags::INPUT_ATTACHMENT, //TODO: optimize based on format...
+            sharing_mode: SharingMode::Exclusive
+        }
+    }
 }
 
 
@@ -68,12 +87,14 @@ pub(crate) struct DummyTask<const N: usize>{
 
 pub(crate) const READATT: Attachment = Attachment{
     ty: AttachmentType::Framebuffer,
+    format: vk::Format::R8G8B8A8_SINT,
     access: AccessType::Read,
     access_mask: vk::AccessFlags2::COLOR_ATTACHMENT_READ,
     layout: vk::ImageLayout::ATTACHMENT_OPTIMAL
 };
 pub(crate) const WRITEATT: Attachment = Attachment{
     ty: AttachmentType::Framebuffer,
+    format: vk::Format::R8G8B8A8_SINT,
     access: AccessType::Write,
     access_mask: vk::AccessFlags2::COLOR_ATTACHMENT_READ,
     layout: vk::ImageLayout::ATTACHMENT_OPTIMAL

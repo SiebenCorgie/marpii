@@ -143,7 +143,7 @@ impl Drop for ImageView {
 ///
 ///
 /// In most cases the provided helper function should cover 99% of the use cases.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ImgDesc {
     pub img_type: ImageType,
     pub format: ash::vk::Format,
@@ -156,7 +156,7 @@ pub struct ImgDesc {
 }
 
 impl Default for ImgDesc {
-    ///Creates a convervative image desciption for a 2d 8bit 4-channel image without mipmapping or multisampling.
+    ///Creates a Conservative image description for a 2d 8bit 4-channel image without mipmapping or multisampling.
     /// with an extend of 512x512
     fn default() -> Self {
         ImgDesc {

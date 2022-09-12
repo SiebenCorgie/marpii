@@ -39,9 +39,12 @@ pub struct DummyForward{
 }
 
 pub struct DummyBackCopy{
-    attachments: [Attachment; 2],
     buffers: [BufferKey; 2],
     images: [ImageKey; 2],
+}
+pub struct DummyPost{
+    attachments: [Attachment; 2],
+    buffers: [BufferKey; 1],
 }
 pub struct DummyPreCompute{
     buffers: [BufferKey; 2],
@@ -53,12 +56,14 @@ pub struct DummyTransfer{
 
 pub(crate) const READATT: Attachment = Attachment{
     ty: AttachmentType::Framebuffer,
+    format: vk::Format::R32G32B32A32_SFLOAT,
     access: AccessType::Read,
     access_mask: vk::AccessFlags2::COLOR_ATTACHMENT_READ,
     layout: vk::ImageLayout::ATTACHMENT_OPTIMAL
 };
 pub(crate) const WRITEATT: Attachment = Attachment{
     ty: AttachmentType::Framebuffer,
+    format: vk::Format::R32G32B32A32_SFLOAT,
     access: AccessType::Write,
     access_mask: vk::AccessFlags2::COLOR_ATTACHMENT_READ,
     layout: vk::ImageLayout::ATTACHMENT_OPTIMAL
@@ -85,10 +90,6 @@ impl Task for DummyForward {
 }
 
 impl Task for DummyBackCopy {
-    fn attachments(&self) -> &[Attachment] {
-        &self.attachments
-    }
-
     fn buffers(&self) -> &[BufferKey] {
         &self.buffers
     }
@@ -100,7 +101,23 @@ impl Task for DummyBackCopy {
         println!("Record");
     }
     fn queue_flags(&self) -> vk::QueueFlags {
-        vk::QueueFlags::GRAPHICS
+        vk::QueueFlags::TRANSFER
+    }
+}
+
+impl Task for DummyPost {
+    fn attachments(&self) -> &[Attachment] {
+        &self.attachments
+    }
+
+    fn buffers(&self) -> &[BufferKey] {
+        &self.buffers
+    }
+    fn record(&self, recorder: &mut TaskRecord) {
+        println!("Record");
+    }
+    fn queue_flags(&self) -> vk::QueueFlags {
+        vk::QueueFlags::TRANSFER
     }
 }
 impl Task for DummyPreCompute {
@@ -133,6 +150,7 @@ struct App {
     transfer: DummyTransfer,
     compute: DummyPreCompute,
     back_copy: DummyBackCopy,
+    post: DummyPost,
 }
 
 impl App {
@@ -182,6 +200,7 @@ impl App {
 
         let back_buffer1: BufferHdl<u64> = rmg.new_buffer(10, Some("BackBuffer1"))?;
         let back_buffer2: BufferHdl<u64> = rmg.new_buffer(10, Some("BackBuffer2"))?;
+        let lookup: BufferHdl<u64> = rmg.new_buffer(10, Some("PostLookup"))?;
 
         let vertexbuffe: BufferHdl<u64> = rmg.new_buffer(10, Some("VertexBuffer"))?;
         let compute_dst: BufferHdl<u64> = rmg.new_buffer(10, Some("ComputeDst"))?;
@@ -194,15 +213,14 @@ impl App {
         };
 
         let compute = DummyPreCompute { buffers: [back_buffer2.into(), compute_dst.into()] };
-
-        let back_copy = DummyBackCopy { attachments: [READATT, WRITEATT], buffers: [back_buffer2.into(), back_buffer1.into()], images: [tex1.into(), tex2.into()] };
-
+        let back_copy = DummyBackCopy {buffers: [back_buffer2.into(), back_buffer1.into()], images: [tex1.into(), tex2.into()] };
         let forward = DummyForward { attachments: [WRITEATT], buffers: [compute_dst.into(), vertexbuffe.into()], images: [tex1.into(), tex2.into()] };
-
+        let post = DummyPost{attachments: [READATT, WRITEATT], buffers: [lookup.into()] };
         let app = App {
             transfer,
             compute,
             back_copy,
+            post,
             forward,
             rmg,
         };
@@ -212,26 +230,27 @@ impl App {
 
 
     //Enques a new draw event.
-    pub fn draw(&mut self, window: &winit::window::Window) -> Result<(), RmgError> {
+    pub fn draw(&mut self) -> Result<(), RmgError> {
 
         //Builds the following graph:
         //
-        // grapics:                       /- forward----back_copy
-        //                               /
-        //                              /
-        //                             /
-        // compute: ----------compute -
-        //                           /
-        //                          /
-        //                         /
-        // transfer: ----transfer-/
+        // graphics:                      /- forward------post_progress
+        //                               /          \
+        //                              /            \
+        //                             /              \
+        // compute: ------compute ----/                \
+        //                           /                 |
+        //                          /                  |
+        //                         /                   |
+        // transfer: ----transfer-/                    |-- back_copy
 
-        let graph = self.rmg.new_graph()
+        self.rmg.new_graph()
             .pass(&self.transfer, &[])?
             .pass(&self.compute, &[])?
             .pass(&self.forward, &["forward_dst"])?
-            .pass(&self.back_copy, &["forward_dst", "Post"])?
-            .present("Post");
+            .pass(&self.post, &["forward_dst", "Post"])?
+            .pass(&self.back_copy, &[])?
+            .present("Post")?;
 
         Ok(())
     }
@@ -277,7 +296,7 @@ fn main() -> Result<(), anyhow::Error> {
             Event::RedrawRequested(_) => {
                 last_frame = std::time::Instant::now();
                 //app.update_cam(cam_loc, cam_rot);
-                app.draw(&window);
+                app.draw().unwrap();
             }
             Event::DeviceEvent {
                 event: DeviceEvent::MouseMotion { delta: (x, y) },

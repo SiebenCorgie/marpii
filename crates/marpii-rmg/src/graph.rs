@@ -1,7 +1,7 @@
-use marpii::ash::vk::QueueFlags;
+use marpii::ash::vk::{QueueFlags, self};
 use thiserror::Error;
 
-use crate::{Rmg, resources::{BufferKey, ImageKey, BufferHdl, ImageHdl}, task::{Attachment, Task, AccessType}};
+use crate::{Rmg, resources::{BufferKey, ImageKey, BufferHdl, ImageHdl, ResourceError}, task::{Attachment, Task, AccessType}};
 
 use self::scheduler::{Schedule, SchedulerError};
 
@@ -10,6 +10,8 @@ mod scheduler;
 
 #[derive(Debug, Error)]
 pub enum RecordError {
+    #[error("anyhow")]
+    Any(#[from] anyhow::Error),
     #[error("Task does not exist (anymore?)")]
     TaskDoesNotExist,
     #[error("Pass reads from undefined attachment {0}")]
@@ -17,7 +19,12 @@ pub enum RecordError {
     #[error("Pass overwriting an already defined attachment ({0}) is not allowed (yet).")]
     OverwriteAttachment(String),
     #[error("Scheduling failed")]
-    SchedulingFailed(#[from] SchedulerError)
+    SchedulingFailed(#[from] SchedulerError),
+    #[error("Swapchain error")]
+    SwapchainError,
+    #[error("Resource Error")]
+    ResourceError(#[from] ResourceError),
+
 }
 
 
@@ -25,6 +32,7 @@ pub enum RecordError {
 /// recording steps is respected.
 pub struct Recorder<'a>{
     rmg: &'a mut Rmg,
+    framebuffer_ext: vk::Extent2D,
     tasks: Vec<TaskRecord<'a>>
 }
 
@@ -33,8 +41,8 @@ impl<'a> Recorder<'a> {
     ///Reserved name for undefined attachments.
     pub const UNDEFINED_ATTACHMENT: &'static str = "_UNDEFINED_ATTACHMENT";
 
-    pub fn new(rmg: &'a mut Rmg) -> Self{
-        Recorder { rmg, tasks: Vec::new() }
+    pub fn new(rmg: &'a mut Rmg, current_ext: vk::Extent2D) -> Self{
+        Recorder { rmg, tasks: Vec::new(), framebuffer_ext: current_ext }
     }
 
     ///Finishes the tasklist by presenting `present_image`. Might add an additional blit operation if the image is in the wrong format.
@@ -42,7 +50,19 @@ impl<'a> Recorder<'a> {
 
         //TODO: Needs to acquire a new image, setup semaphores etc. to schedule execution.
 
-        let Recorder { rmg, tasks } = self;
+        let img = if let Ok(img) = self.rmg.swapchain.acquire_next_image(){
+            img
+        }else{
+            #[cfg(feature="logging")]
+            log::warn!("Getting swapchain image failed, trying recreation");
+            let current_ext = self.rmg.swapchain.surface.get_current_extent(&self.rmg.ctx.device.physical_device).ok_or(RecordError::SwapchainError)?;
+            self.rmg.swapchain.recreate(current_ext);
+            self.rmg.swapchain.acquire_next_image()?
+        };
+
+        todo!("Add present pass correctly");
+
+        let Recorder { rmg, tasks, framebuffer_ext } = self;
         let mut schedule = Schedule::from_tasks(rmg, tasks)?;
         schedule.set_present_image(present_image);
         schedule.execute();
@@ -50,7 +70,7 @@ impl<'a> Recorder<'a> {
     }
     ///Finishes the pass by executing the accumulated tasks on the GPU.
     pub fn execute(mut self) -> Result<(), RecordError>{
-        let Recorder { rmg, tasks } = self;
+        let Recorder { rmg, tasks, framebuffer_ext } = self;
         let schedule = Schedule::from_tasks(rmg, tasks)?;
         schedule.execute();
         Ok(())
@@ -122,7 +142,9 @@ impl<'a> Recorder<'a> {
                         return Err(RecordError::OverwriteAttachment(name.to_string()));
                     }
 
-                    let key = self.rmg.res.register_attachment(&att);
+
+
+                    let key = self.rmg.res.tmp_image(att.as_desc(self.framebuffer_ext), &self.rmg.ctx, &self.rmg.tracks)?;
 
                     attachments.push(TaskAttachment {
                         info: att.clone(),

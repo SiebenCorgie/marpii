@@ -103,7 +103,7 @@ pub(crate) struct Schedule<'a>{
 impl<'a> Schedule<'a> {
     pub(crate) fn from_tasks(rmg: &'a mut Rmg, tasks: Vec<TaskRecord<'a>>) -> Result<Self, SchedulerError>{
         let mut schedule = Schedule{
-            tracks: rmg.tracks.iter().map(|track| QueueTrack{
+            tracks: rmg.tracks.0.iter().map(|track| QueueTrack{
                 track_id: *track.0,
                 //Add first, now active frame
                 cmd_frames: vec![CommandFrame::new()],

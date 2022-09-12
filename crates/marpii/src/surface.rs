@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use ash::vk;
+
 ///using [ash-window](https://crates.io/crates/ash-window) to safely find a surface for a given window
 /// handle. Also keeps the instance alive lon enough to destroy the created surface in time.
 pub struct Surface {
@@ -28,11 +30,11 @@ impl Surface {
 
     pub fn get_capabilities(
         &self,
-        physical_device: ash::vk::PhysicalDevice,
+        physical_device: &ash::vk::PhysicalDevice,
     ) -> Result<ash::vk::SurfaceCapabilitiesKHR, anyhow::Error> {
         Ok(unsafe {
             self.surface_loader
-                .get_physical_device_surface_capabilities(physical_device, self.surface)?
+                .get_physical_device_surface_capabilities(*physical_device, self.surface)?
         })
     }
 
@@ -54,6 +56,46 @@ impl Surface {
             self.surface_loader
                 .get_physical_device_surface_present_modes(physical_device, self.surface)?
         })
+    }
+
+
+    ///Tries to read the current surface extent. This can fail on some platforms (like Linux+Wayland).
+    /// Note that this can be different than the swapchain extent, for instace right after a resize.
+    pub fn get_current_extent(&self,
+        physical_device: &ash::vk::PhysicalDevice
+    ) -> Option<vk::Extent2D> {
+        let extent = self
+            .get_capabilities(physical_device)
+            .unwrap()
+            .current_extent;
+        //if on wayland this will be wrong, check and maybe return nothing.
+        match extent {
+            vk::Extent2D {
+                width: 0xFFFFFFFF,
+                height: 0xFFFFFFFF,
+            }
+            | vk::Extent2D {
+                width: 0,
+                height: 0,
+            } => None,
+            vk::Extent2D {
+                width: 0x4_000,
+                height: 0x4_000,
+            } => {
+                //FIXME: Not sure why, but on wayland+Intel this size gets reported on startup, which is wrong.
+                #[cfg(feature = "logging")]
+                log::warn!(
+                    "possibly wrong swapchain extent of {:?}, falling back to 512x512",
+                    extent
+                );
+
+                Some(vk::Extent2D {
+                    width: 512,
+                    height: 512,
+                })
+            }
+            vk::Extent2D { width, height } => Some(vk::Extent2D { width, height }),
+        }
     }
 }
 
