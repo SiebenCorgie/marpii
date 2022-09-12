@@ -1,7 +1,12 @@
-
-use std::{sync::Arc, collections::VecDeque};
-use marpii::{context::Device, ash::vk, resources::{Buffer, DescriptorSetLayout, DescriptorPool, DescriptorSet, ImageView, Sampler, PipelineLayout}};
-
+use marpii::{
+    ash::vk,
+    context::Device,
+    resources::{
+        Buffer, DescriptorPool, DescriptorSet, DescriptorSetLayout, ImageView, PipelineLayout,
+        Sampler,
+    },
+};
+use std::{collections::VecDeque, sync::Arc};
 
 ///Low-level handle type. The two least segnificant bits describe the handles type, all higher bits describe the handles
 /// position in its descriptor set. Therefore, after checking the type the index can be calculated by shifting the handle down two bits.
@@ -128,7 +133,7 @@ impl<T> SetManagment<T> {
             p_immutable_samplers: core::ptr::null(),
         };
 
-        #[cfg(feature="logging")]
+        #[cfg(feature = "logging")]
         log::trace!("Allocating @ {} {:?} size={}", binding_id, ty, max_count);
 
         let flags = [vk::DescriptorBindingFlags::PARTIALLY_BOUND

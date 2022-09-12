@@ -1,12 +1,10 @@
 use crate::resources::ImageKey;
 
-use super::{Task, Attachment, AttachmentType};
+use super::{Attachment, AttachmentType, Task};
 
-
-
-pub struct Blit{
+pub struct Blit {
     src_image: ImageKey,
-    dst_image: ImageKey
+    dst_image: ImageKey,
 }
 
 impl Task for Blit {

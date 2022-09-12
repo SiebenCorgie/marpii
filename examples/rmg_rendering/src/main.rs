@@ -18,8 +18,8 @@ use marpii::{
     context::Ctx,
 };
 use marpii_rmg::graph::TaskRecord;
-use marpii_rmg::resources::{ImageKey, BufferKey, BufferHdl};
-use marpii_rmg::task::{Attachment, Task, AttachmentType, AccessType};
+use marpii_rmg::resources::{BufferHdl, BufferKey, ImageKey};
+use marpii_rmg::task::{AccessType, Attachment, AttachmentType, Task};
 use marpii_rmg::{Rmg, RmgError};
 use std::path::PathBuf;
 use winit::event::{DeviceEvent, ElementState, KeyboardInput, VirtualKeyCode};
@@ -31,42 +31,40 @@ use winit::{
 //mod forward_pass;
 //mod gltf_loader;
 
-
-pub struct DummyForward{
+pub struct DummyForward {
     attachments: [Attachment; 1],
     buffers: [BufferKey; 2],
     images: [ImageKey; 2],
 }
 
-pub struct DummyBackCopy{
+pub struct DummyBackCopy {
     buffers: [BufferKey; 2],
     images: [ImageKey; 2],
 }
-pub struct DummyPost{
+pub struct DummyPost {
     attachments: [Attachment; 2],
     buffers: [BufferKey; 1],
 }
-pub struct DummyPreCompute{
+pub struct DummyPreCompute {
     buffers: [BufferKey; 2],
 }
-pub struct DummyTransfer{
+pub struct DummyTransfer {
     buffers: [BufferKey; 2],
 }
 
-
-pub(crate) const READATT: Attachment = Attachment{
+pub(crate) const READATT: Attachment = Attachment {
     ty: AttachmentType::Framebuffer,
     format: vk::Format::R32G32B32A32_SFLOAT,
     access: AccessType::Read,
     access_mask: vk::AccessFlags2::COLOR_ATTACHMENT_READ,
-    layout: vk::ImageLayout::ATTACHMENT_OPTIMAL
+    layout: vk::ImageLayout::ATTACHMENT_OPTIMAL,
 };
-pub(crate) const WRITEATT: Attachment = Attachment{
+pub(crate) const WRITEATT: Attachment = Attachment {
     ty: AttachmentType::Framebuffer,
     format: vk::Format::R32G32B32A32_SFLOAT,
     access: AccessType::Write,
     access_mask: vk::AccessFlags2::COLOR_ATTACHMENT_READ,
-    layout: vk::ImageLayout::ATTACHMENT_OPTIMAL
+    layout: vk::ImageLayout::ATTACHMENT_OPTIMAL,
 };
 
 impl Task for DummyForward {
@@ -183,7 +181,6 @@ impl App {
         let acceleration_late_bind = vk::PhysicalDeviceAccelerationStructureFeaturesKHR::builder()
             .descriptor_binding_acceleration_structure_update_after_bind(true);
 
-
         let (ctx, surface) = Ctx::custom_context(Some(&window), true, |devbuilder| {
             devbuilder
                 .push_extensions(ash::extensions::khr::Swapchain::name())
@@ -205,17 +202,37 @@ impl App {
         let vertexbuffe: BufferHdl<u64> = rmg.new_buffer(10, Some("VertexBuffer"))?;
         let compute_dst: BufferHdl<u64> = rmg.new_buffer(10, Some("ComputeDst"))?;
 
-        let tex1 = rmg.new_image_uninitialized(ImgDesc::texture_2d(1024, 1024, vk::Format::R8G8B8A8_UINT), None, Some("Tex1"))?;
-        let tex2 = rmg.new_image_uninitialized(ImgDesc::texture_2d(1024, 1024, vk::Format::R8G8B8A8_UINT), None, Some("Tex2"))?;
+        let tex1 = rmg.new_image_uninitialized(
+            ImgDesc::texture_2d(1024, 1024, vk::Format::R8G8B8A8_UINT),
+            None,
+            Some("Tex1"),
+        )?;
+        let tex2 = rmg.new_image_uninitialized(
+            ImgDesc::texture_2d(1024, 1024, vk::Format::R8G8B8A8_UINT),
+            None,
+            Some("Tex2"),
+        )?;
 
-        let transfer = DummyTransfer{
+        let transfer = DummyTransfer {
             buffers: [back_buffer1.into(), back_buffer2.into()],
         };
 
-        let compute = DummyPreCompute { buffers: [back_buffer2.into(), compute_dst.into()] };
-        let back_copy = DummyBackCopy {buffers: [back_buffer2.into(), back_buffer1.into()], images: [tex1.into(), tex2.into()] };
-        let forward = DummyForward { attachments: [WRITEATT], buffers: [compute_dst.into(), vertexbuffe.into()], images: [tex1.into(), tex2.into()] };
-        let post = DummyPost{attachments: [READATT, WRITEATT], buffers: [lookup.into()] };
+        let compute = DummyPreCompute {
+            buffers: [back_buffer2.into(), compute_dst.into()],
+        };
+        let back_copy = DummyBackCopy {
+            buffers: [back_buffer2.into(), back_buffer1.into()],
+            images: [tex1.into(), tex2.into()],
+        };
+        let forward = DummyForward {
+            attachments: [WRITEATT],
+            buffers: [compute_dst.into(), vertexbuffe.into()],
+            images: [tex1.into(), tex2.into()],
+        };
+        let post = DummyPost {
+            attachments: [READATT, WRITEATT],
+            buffers: [lookup.into()],
+        };
         let app = App {
             transfer,
             compute,
@@ -228,10 +245,8 @@ impl App {
         Ok(app)
     }
 
-
     //Enques a new draw event.
     pub fn draw(&mut self) -> Result<(), RmgError> {
-
         //Builds the following graph:
         //
         // graphics:                      /- forward------post_progress
@@ -244,7 +259,8 @@ impl App {
         //                         /                   |
         // transfer: ----transfer-/                    |-- back_copy
 
-        self.rmg.new_graph()
+        self.rmg
+            .new_graph()
             .pass(&self.transfer, &[])?
             .pass(&self.compute, &[])?
             .pass(&self.forward, &["forward_dst"])?
@@ -281,8 +297,6 @@ fn main() -> Result<(), anyhow::Error> {
     let window = winit::window::Window::new(&ev).unwrap();
     let mut app = App::new(&window)?;
 
-
-
     let mut last_frame = std::time::Instant::now();
 
     let mut cam_loc = Vec3::new(0.0, 0.0, 2.0);
@@ -313,7 +327,8 @@ fn main() -> Result<(), anyhow::Error> {
                 WindowEvent::CloseRequested => {
                     *ctrl = ControlFlow::Exit;
                     unsafe {
-                        app.rmg.ctx
+                        app.rmg
+                            .ctx
                             .device
                             .inner
                             .device_wait_idle()

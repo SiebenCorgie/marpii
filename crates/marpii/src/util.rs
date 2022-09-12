@@ -22,11 +22,11 @@ pub fn extent_to_offset(extent: vk::Extent3D, zero_to_one: bool) -> vk::Offset3D
     }
 }
 
-pub fn extent2d_to_3d(extent: vk::Extent2D, depth: u32) -> vk::Extent3D{
-    vk::Extent3D{
+pub fn extent2d_to_3d(extent: vk::Extent2D, depth: u32) -> vk::Extent3D {
+    vk::Extent3D {
         width: extent.width,
         height: extent.height,
-        depth
+        depth,
     }
 }
 

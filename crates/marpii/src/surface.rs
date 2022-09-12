@@ -58,11 +58,11 @@ impl Surface {
         })
     }
 
-
     ///Tries to read the current surface extent. This can fail on some platforms (like Linux+Wayland).
     /// Note that this can be different than the swapchain extent, for instace right after a resize.
-    pub fn get_current_extent(&self,
-        physical_device: &ash::vk::PhysicalDevice
+    pub fn get_current_extent(
+        &self,
+        physical_device: &ash::vk::PhysicalDevice,
     ) -> Option<vk::Extent2D> {
         let extent = self
             .get_capabilities(physical_device)
