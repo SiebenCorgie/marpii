@@ -146,7 +146,7 @@ impl<'a> Schedule<'a> {
             //Check which resources we have to acquire...
             for res in task.buffers.iter().map(|bufid| Res::Buffer(*bufid)).chain(task.images.iter().map(|imgid| Res::Image(*imgid))){
                 //If we don't own already, find resource in tracks/global resources
-                schedule.request_res(rmg.res_mut(), &res, track_id)?;
+                schedule.request_res(&mut rmg.res, &res, track_id)?;
             }
 
             //now create/bind all attachments
@@ -155,7 +155,7 @@ impl<'a> Schedule<'a> {
             for att in task.attachments.iter(){
                 #[cfg(feature="logging")]
                 log::info!("Requesting attachment {} under id={:?}", att.name, att.key);
-                schedule.request_res(rmg.res_mut(), &Res::Image(att.key), track_id)?;
+                schedule.request_res(&mut rmg.res, &Res::Image(att.key), track_id)?;
             }
 
             //Since the track is now up to date, push the task

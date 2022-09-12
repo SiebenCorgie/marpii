@@ -62,7 +62,7 @@ pub struct Buffer {
     pub device: Arc<Device>,
     //NOTE: The allocator was a generic once. However this clocks up the type system over time, as specially when
     //      Mixing different allocator types etc. Since the allocation field is only used once (on drop) to free the
-    //      Memory I find it okay to use dynamic disaptch here. The benefit is a much cleaner API, and the ability to
+    //      Memory I find it okay to use dynamic dispatch here. The benefit is a much cleaner API, and the ability to
     //      collect buffers from different allocators in one Vec<Buffer> for instance.
     pub allocation: Box<dyn AnonymAllocation + Send + Sync + 'static>,
 }

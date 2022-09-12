@@ -10,32 +10,129 @@
 
 #[deny(warnings)]
 use anyhow::Result;
-use forward_pass::{ForwardPass, Mesh};
 use glam::{Quat, Vec3};
-use marpii::ash::vk::SamplerMipmapMode;
 use marpii::gpu_allocator::vulkan::Allocator;
-use marpii::resources::{SafeImageView, Sampler};
+use marpii::resources::ImgDesc;
 use marpii::{
-    ash::{self, vk, vk::Extent2D},
+    ash::{self, vk},
     context::Ctx,
 };
-use marpii_commands::image::{DynamicImage, ImageBuffer, Rgba};
-use marpii_commands::image_from_image;
+use marpii_rmg::graph::TaskRecord;
+use marpii_rmg::resources::{ImageKey, BufferKey, BufferHdl};
+use marpii_rmg::task::{Attachment, Task, AttachmentType, AccessType};
+use marpii_rmg::{Rmg, RmgError};
 use std::path::PathBuf;
-use std::sync::Arc;
 use winit::event::{DeviceEvent, ElementState, KeyboardInput, VirtualKeyCode};
 use winit::{
     event::{Event, WindowEvent},
     event_loop::ControlFlow,
 };
 
-mod forward_pass;
-mod gltf_loader;
+//mod forward_pass;
+//mod gltf_loader;
 
+
+pub struct DummyForward{
+    attachments: [Attachment; 1],
+    buffers: [BufferKey; 2],
+    images: [ImageKey; 2],
+}
+
+pub struct DummyBackCopy{
+    attachments: [Attachment; 2],
+    buffers: [BufferKey; 2],
+    images: [ImageKey; 2],
+}
+pub struct DummyPreCompute{
+    buffers: [BufferKey; 2],
+}
+pub struct DummyTransfer{
+    buffers: [BufferKey; 2],
+}
+
+
+pub(crate) const READATT: Attachment = Attachment{
+    ty: AttachmentType::Framebuffer,
+    access: AccessType::Read,
+    access_mask: vk::AccessFlags2::COLOR_ATTACHMENT_READ,
+    layout: vk::ImageLayout::ATTACHMENT_OPTIMAL
+};
+pub(crate) const WRITEATT: Attachment = Attachment{
+    ty: AttachmentType::Framebuffer,
+    access: AccessType::Write,
+    access_mask: vk::AccessFlags2::COLOR_ATTACHMENT_READ,
+    layout: vk::ImageLayout::ATTACHMENT_OPTIMAL
+};
+
+impl Task for DummyForward {
+    fn attachments(&self) -> &[Attachment] {
+        &self.attachments
+    }
+
+    fn buffers(&self) -> &[BufferKey] {
+        &self.buffers
+    }
+
+    fn images(&self) -> &[ImageKey] {
+        &self.images
+    }
+    fn record(&self, recorder: &mut TaskRecord) {
+        println!("Record");
+    }
+    fn queue_flags(&self) -> vk::QueueFlags {
+        vk::QueueFlags::GRAPHICS
+    }
+}
+
+impl Task for DummyBackCopy {
+    fn attachments(&self) -> &[Attachment] {
+        &self.attachments
+    }
+
+    fn buffers(&self) -> &[BufferKey] {
+        &self.buffers
+    }
+
+    fn images(&self) -> &[ImageKey] {
+        &self.images
+    }
+    fn record(&self, recorder: &mut TaskRecord) {
+        println!("Record");
+    }
+    fn queue_flags(&self) -> vk::QueueFlags {
+        vk::QueueFlags::GRAPHICS
+    }
+}
+impl Task for DummyPreCompute {
+    fn buffers(&self) -> &[BufferKey] {
+        &self.buffers
+    }
+    fn record(&self, recorder: &mut TaskRecord) {
+        println!("Record");
+    }
+    fn queue_flags(&self) -> vk::QueueFlags {
+        vk::QueueFlags::COMPUTE
+    }
+}
+impl Task for DummyTransfer {
+    fn buffers(&self) -> &[BufferKey] {
+        &self.buffers
+    }
+    fn record(&self, recorder: &mut TaskRecord) {
+        println!("Record");
+    }
+    fn queue_flags(&self) -> vk::QueueFlags {
+        vk::QueueFlags::TRANSFER
+    }
+}
 
 struct App {
-    ctx: Ctx<Allocator>,
-    meshes: Vec<Mesh>,
+    rmg: Rmg,
+
+    forward: DummyForward,
+    transfer: DummyTransfer,
+    compute: DummyPreCompute,
+    back_copy: DummyBackCopy,
 }
 
 impl App {
@@ -44,7 +141,9 @@ impl App {
         //dynamicRendering our self.
 
         //NOTE: By default we setup extensions in a way that we can load rust shaders.
-        let vulkan_memory_model = ash::vk::PhysicalDeviceVulkan12Features::builder()
+        let vk12 = ash::vk::PhysicalDeviceVulkan12Features::builder()
+            //timeline semaphore
+            .timeline_semaphore(true)
             //bindless
             .descriptor_binding_partially_bound(true)
             .descriptor_binding_sampled_image_update_after_bind(true)
@@ -55,13 +154,17 @@ impl App {
             //for Rust-GPU
             .shader_int8(true)
             .vulkan_memory_model(true);
+
+        let vk13 = ash::vk::PhysicalDeviceVulkan13Features::builder()
+            //NOTE: used for dynamic rendering based pipelines which are preffered over renderpass based graphics queues.
+            .dynamic_rendering(true)
+            //NOTE: For timeline semaphores
+            .synchronization2(true);
+
         //NOTE: used for late bind of acceleration structure
         let acceleration_late_bind = vk::PhysicalDeviceAccelerationStructureFeaturesKHR::builder()
             .descriptor_binding_acceleration_structure_update_after_bind(true);
 
-        //NOTE: used for dynamic rendering based pipelines which are preffered over renderpass based graphics queues.
-        let dynamic_rendering =
-            ash::vk::PhysicalDeviceDynamicRenderingFeatures::builder().dynamic_rendering(true);
 
         let (ctx, surface) = Ctx::custom_context(Some(&window), true, |devbuilder| {
             devbuilder
@@ -69,20 +172,39 @@ impl App {
                 .push_extensions(ash::vk::KhrVulkanMemoryModelFn::name())
                 .push_extensions(ash::extensions::khr::DynamicRendering::name())
                 .with(|b| b.features.shader_int16 = 1)
-                .with_additional_feature(vulkan_memory_model)
-                .with_additional_feature(dynamic_rendering)
+                .with_additional_feature(vk12)
+                .with_additional_feature(vk13)
                 .with_additional_feature(acceleration_late_bind)
         })?;
 
-        let graphics_queue = ctx.device.queues[0].clone();
-        assert!(graphics_queue
-            .properties
-            .queue_flags
-            .contains(vk::QueueFlags::GRAPHICS | vk::QueueFlags::TRANSFER));
-//dummy swapchain image, will be set per recording.
+        let surface = surface.ok_or(anyhow::anyhow!("Failed to create surface"))?;
+        let mut rmg = Rmg::new(ctx, surface)?;
+
+        let back_buffer1: BufferHdl<u64> = rmg.new_buffer(10, Some("BackBuffer1"))?;
+        let back_buffer2: BufferHdl<u64> = rmg.new_buffer(10, Some("BackBuffer2"))?;
+
+        let vertexbuffe: BufferHdl<u64> = rmg.new_buffer(10, Some("VertexBuffer"))?;
+        let compute_dst: BufferHdl<u64> = rmg.new_buffer(10, Some("ComputeDst"))?;
+
+        let tex1 = rmg.new_image_uninitialized(ImgDesc::texture_2d(1024, 1024, vk::Format::R8G8B8A8_UINT), None, Some("Tex1"))?;
+        let tex2 = rmg.new_image_uninitialized(ImgDesc::texture_2d(1024, 1024, vk::Format::R8G8B8A8_UINT), None, Some("Tex2"))?;
+
+        let transfer = DummyTransfer{
+            buffers: [back_buffer1.into(), back_buffer2.into()],
+        };
+
+        let compute = DummyPreCompute { buffers: [back_buffer2.into(), compute_dst.into()] };
+
+        let back_copy = DummyBackCopy { attachments: [READATT, WRITEATT], buffers: [back_buffer2.into(), back_buffer1.into()], images: [tex1.into(), tex2.into()] };
+
+        let forward = DummyForward { attachments: [WRITEATT], buffers: [compute_dst.into(), vertexbuffe.into()], images: [tex1.into(), tex2.into()] };
+
         let app = App {
-            ctx,
-            meshes: Vec::new(),
+            transfer,
+            compute,
+            back_copy,
+            forward,
+            rmg,
         };
 
         Ok(app)
@@ -90,8 +212,28 @@ impl App {
 
 
     //Enques a new draw event.
-    pub fn draw(&mut self, window: &winit::window::Window) {
-        panic!("No frame building yet!");
+    pub fn draw(&mut self, window: &winit::window::Window) -> Result<(), RmgError> {
+
+        //Builds the following graph:
+        //
+        // grapics:                       /- forward----back_copy
+        //                               /
+        //                              /
+        //                             /
+        // compute: ----------compute -
+        //                           /
+        //                          /
+        //                         /
+        // transfer: ----transfer-/
+
+        let graph = self.rmg.new_graph()
+            .pass(&self.transfer, &[])?
+            .pass(&self.compute, &[])?
+            .pass(&self.forward, &["forward_dst"])?
+            .pass(&self.back_copy, &["forward_dst", "Post"])?
+            .present("Post");
+
+        Ok(())
     }
 }
 
@@ -114,82 +256,14 @@ fn main() -> Result<(), anyhow::Error> {
         anyhow::bail!("No gltf path provided!");
     };
 
-    let gltf_file = easy_gltf::load(&mesh_path).expect("Failed to load gltf file!");
-
+    println!("Load gltf");
+    //let gltf_file = easy_gltf::load(&mesh_path).expect("Failed to load gltf file!");
     let ev = winit::event_loop::EventLoop::new();
     let window = winit::window::Window::new(&ev).unwrap();
-
     let mut app = App::new(&window)?;
-/*
-    for scene in gltf_file {
-        println!("Loading scene");
 
-        for model in scene.models {
-            println!("Loading mesh with {} verts", model.vertices().len());
 
-            let texture_sampler = Arc::new(
-                Sampler::new(
-                    &app.ctx.device,
-                    &vk::SamplerCreateInfo::builder().mipmap_mode(SamplerMipmapMode::LINEAR),
-                )
-                .unwrap(),
-            );
 
-            //Load albedo texture
-            let albedo: ImageBuffer<Rgba<f32>, Vec<f32>> = DynamicImage::from(
-                model
-                    .material()
-                    .pbr
-                    .base_color_texture
-                    .as_ref()
-                    .unwrap()
-                    .deref()
-                    .clone(),
-            )
-            .into_rgba32f();
-            let albedo_texture = Arc::new(
-                image_from_image(
-                    &app.ctx.device,
-                    &app.ctx.allocator,
-                    app.ctx
-                        .device
-                        .first_queue_for_attribute(true, false, false)
-                        .unwrap(),
-                    vk::ImageUsageFlags::SAMPLED,
-                    marpii_commands::image::DynamicImage::from(albedo),
-                )
-                .unwrap(),
-            );
-
-            let albedo_view = Arc::new(
-                albedo_texture
-                    .view(&app.ctx.device, albedo_texture.view_all())
-                    .unwrap(),
-            );
-
-            let albedo_handle = if let Ok(hdl) = app
-                .bindless
-                .bindless_descriptor
-                .bind_sampled_image(albedo_view, texture_sampler.clone())
-            {
-                hdl
-            } else {
-                panic!("Couldn't bind!")
-            };
-
-            let mesh = Mesh::from_vertex_index_buffers(
-                &app.ctx,
-                model.vertices(),
-                model.indices().expect("Model has no index buffer!"),
-                Some(albedo_handle),
-                None,
-                None,
-            );
-            app.meshes.push(mesh);
-        }
-    }
-    app.update_meshes();
-*/
     let mut last_frame = std::time::Instant::now();
 
     let mut cam_loc = Vec3::new(0.0, 0.0, 2.0);
@@ -220,7 +294,7 @@ fn main() -> Result<(), anyhow::Error> {
                 WindowEvent::CloseRequested => {
                     *ctrl = ControlFlow::Exit;
                     unsafe {
-                        app.ctx
+                        app.rmg.ctx
                             .device
                             .inner
                             .device_wait_idle()

@@ -13,6 +13,7 @@ use marpii::{
 use marpii_commands::buffer_from_data;
 use marpii_descriptor::bindless::{ResourceHandle, SampledImageHandle};
 use marpii_rmg::resources::BufferHdl;
+use marpii_rmg::task::{Task, Attachment, AttachmentType, AccessType};
 use std::sync::{Arc, Mutex};
 
 #[repr(C, align(16))]
@@ -246,7 +247,7 @@ pub struct ForwardPass {
 
     pub objects: Vec<Mesh>,
 }
-/*
+
 impl ForwardPass {
     pub fn new<A: Allocator + Send + Sync + 'static>(
         ctx: &Ctx<A>,
@@ -418,15 +419,26 @@ impl ForwardPass {
             .rotation = cam_rotation.to_array();
     }
 }
-impl Pass for ForwardPass {
-    fn assumed_states(&self) -> &[marpii_command_graph::pass::AssumedState] {
-        &self.assumed
-    }
 
-    fn record(
-        &mut self,
-        command_buffer: &mut marpii_commands::Recorder,
-    ) -> Result<(), anyhow::Error> {
+impl Task for ForwardPass {
+    fn attachments(&self) -> &[Attachment] {
+        &[Attachment{
+            ty: AttachmentType::Framebuffer,
+            access: AccessType::Write,
+            access_mask: vk::AccessFlags2::COLOR_ATTACHMENT_WRITE,
+            layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL
+        }]
+    }
+    fn buffers(&self) -> &[marpii_rmg::resources::BufferKey] {
+
+    }
+    fn images(&self) -> &[marpii_rmg::resources::ImageKey] {
+
+    }
+    fn queue_flags(&self) -> vk::QueueFlags {
+        vk::QueueFlags::GRAPHICS
+    }
+    fn record(&self, recorder: &mut marpii_rmg::graph::TaskRecord) {
         //Since we are using dynamic rendering, drawing is as easy as
         //starting the pass via a vk::RenderingInfo, setting up clears and finishing it of
 
@@ -519,4 +531,3 @@ impl Pass for ForwardPass {
         Ok(())
     }
 }
-*/

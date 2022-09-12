@@ -1,9 +1,10 @@
 use fxhash::FxHashMap;
-use graph::Recorder;
-use marpii::{context::{Ctx, Queue}, allocator::Allocator, ash::vk::{self, QueueFlags}, sync::Semaphore};
+use graph::{Recorder, RecordError};
+use marpii::{context::{Ctx, Queue}, allocator::MemoryUsage, ash::vk::{self, QueueFlags}, sync::Semaphore, surface::Surface, resources::{Image, ImgDesc, Buffer, BufDesc, Sampler, SharingMode}, gpu_allocator::vulkan::Allocator};
 use marpii_descriptor::bindless::BindlessDescriptor;
+use resources::{Resources, ImageHdl, SamplerHdl, BufferHdl};
 use thiserror::Error;
-use std::sync::Arc;
+use std::{sync::Arc, convert::TryInto};
 
 
 pub mod graph;
@@ -17,7 +18,11 @@ pub enum RmgError {
     VkError(#[from] vk::Result),
 
     #[error("anyhow")]
-    Any(#[from] anyhow::Error)
+    Any(#[from] anyhow::Error),
+
+    #[error("Recording error")]
+    RecordingError(#[from] RecordError),
+
 }
 
 pub type TrackId = QueueFlags;
@@ -36,14 +41,16 @@ pub struct Rmg{
     ///bindless management
     bindless: BindlessDescriptor,
     ///Resource management
-    res: resources::Resources,
+    pub(crate) res: resources::Resources,
 
     ///maps a capability pattern to a index in `Device`'s queue list. Each queue type defines a QueueTrack type.
-    tracks: FxHashMap<TrackId, Track>
+    tracks: FxHashMap<TrackId, Track>,
+
+    pub ctx: Ctx<Allocator>
 }
 
 impl Rmg{
-    pub fn new<A: Allocator + Send + Sync + 'static>(context: &Ctx<A>, window: &winit::window::Window) -> Result<Self, RmgError>{
+    pub fn new(context: Ctx<Allocator>, swapchain_surface: Surface) -> Result<Self, RmgError>{
         //Per definition we try to find at least one graphic, compute and transfer queue.
         // We then create the swapchain. It is used for image presentation and the start/end point for frame scheduling.
 
@@ -65,16 +72,54 @@ impl Rmg{
             set
         });
 
+        let bindless = BindlessDescriptor::new_default(&context.device)?;
+        let res = Resources::new();
 
-        Err(RmgError::Any(anyhow::anyhow!("unimplemented")))
+        Ok(Rmg{
+            bindless,
+            res,
+            tracks,
+            ctx: context
+        })
     }
 
-    pub fn res_ref(&self) -> &resources::Resources{
-        &self.res
+    pub fn new_image_uninitialized(&mut self, description: ImgDesc, sampler: Option<SamplerHdl>, name: Option<&str>) -> Result<ImageHdl, RmgError>{
+        let image = Image::new(
+            &self.ctx.device,
+            &self.ctx.allocator,
+            description,
+            MemoryUsage::GpuOnly, //always cpu only, everything else is handled by passes directly
+            name,
+            None
+        )?;
+
+        Ok(self.res.new_image(Arc::new(image), sampler))
     }
 
-    pub fn res_mut(&mut self) -> &mut resources::Resources{
-        &mut self.res
+    pub fn new_buffer_uninitialized<T: 'static>(&mut self, description: BufDesc, name: Option<&str>) -> Result<BufferHdl<T>, RmgError>{
+        let buffer = Buffer::new(
+            &self.ctx.device,
+            &self.ctx.allocator,
+            description,
+            MemoryUsage::GpuOnly,
+            name,
+            None
+        )?;
+
+        Ok(self.res.new_buffer(Arc::new(buffer)))
+    }
+
+    ///Creates a new (storage)buffer that can hold at max `size` times `T`.
+    pub fn new_buffer<T: 'static>(&mut self, size: usize, name: Option<&str>) -> Result<BufferHdl<T>, RmgError>{
+        let size = core::mem::size_of::<T>() * size;
+        let description = BufDesc { size: size.try_into().unwrap(), usage: vk::BufferUsageFlags::STORAGE_BUFFER, sharing: SharingMode::Exclusive };
+        self.new_buffer_uninitialized(description, name)
+    }
+
+    pub fn new_sampler(&mut self, description: &vk::SamplerCreateInfoBuilder) -> Result<SamplerHdl, RmgError>{
+        let sampler = Sampler::new(&self.ctx.device, description)?;
+
+        Ok(self.res.new_sampler(Arc::new(sampler)))
     }
 
     ///Records a task graph. Use [present](Recorder::present) tfo present the result on screen, or [execute](Recorder::execute) to execute without

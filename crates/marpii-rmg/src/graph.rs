@@ -82,6 +82,10 @@ impl<'a> Recorder<'a> {
     /// are only temporarily mapped to the attachments.
     pub fn pass(mut self, task: &'a dyn Task, attachment_names: &[&'a str]) -> Result<Self, RecordError>{
 
+        #[cfg(feature="logging")]
+        if attachment_names.len() < task.attachments().len(){
+            log::warn!("Task had unnamed attachments!");
+        }
 
         //register write attachments and collect read attachments
         let mut attachments = Vec::with_capacity(attachment_names.len());
@@ -118,7 +122,7 @@ impl<'a> Recorder<'a> {
                         return Err(RecordError::OverwriteAttachment(name.to_string()));
                     }
 
-                    let key = self.rmg.res_mut().register_attachment(&att);
+                    let key = self.rmg.res.register_attachment(&att);
 
                     attachments.push(TaskAttachment {
                         info: att.clone(),

@@ -50,7 +50,7 @@ pub enum ContextError {}
 pub struct Ctx<A: Allocator + Send> {
     ///Allocator instance used for all buffer and image allocation in this context.
     pub allocator: Arc<Mutex<A>>,
-    ///Vulkan device including assosiated queues.
+    ///Vulkan device including associated queues.
     //TODO expose queues directly?
     pub device: Arc<Device>,
     ///The initial vulkan instance used for the context.
