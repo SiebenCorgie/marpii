@@ -8,9 +8,13 @@
 //! TODO: more docs on how to get started etc.
 
 mod resources;
+pub use resources::ResourceError;
 
 mod recorder;
-pub use recorder::task::Task;
+pub use recorder::{RecordError, task::Task};
+
+use thiserror::Error;
+use marpii::ash::vk;
 
 ///Top level Error structure.
 #[derive(Debug, Error)]
@@ -23,6 +27,9 @@ pub enum RmgError {
 
     #[error("Recording error")]
     RecordingError(#[from] RecordError),
+
+    #[error("Resource error")]
+    ResourceError(#[from] ResourceError),
 }
 
 
