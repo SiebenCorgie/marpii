@@ -120,17 +120,17 @@ impl<T> SetManager<T> {
         pool: &Arc<DescriptorPool>,
         ty: vk::DescriptorType,
         max_count: u32,
-        binding_id: u32,
+        //binding_id: u32,
     ) -> Result<Self, anyhow::Error> {
         let binding_layout = vk::DescriptorSetLayoutBinding {
-            binding: binding_id,
+            binding: 0,
             descriptor_type: ty,
             descriptor_count: max_count,
             stage_flags: vk::ShaderStageFlags::ALL,
             p_immutable_samplers: core::ptr::null(),
         };
 
-        println!("Allocating @ {} {:?} size={}", binding_id, ty, max_count);
+        println!("Allocating @ {:?} size={}", ty, max_count);
 
         let flags = [vk::DescriptorBindingFlags::PARTIALLY_BOUND
             | vk::DescriptorBindingFlags::VARIABLE_DESCRIPTOR_COUNT
@@ -211,6 +211,7 @@ impl<T> SetManager<T> {
             !self.stored.contains_key(&hdl),
             "Allocated handle was in use!"
         );
+
         //allocated handle, and is not in use, we can bind!
         write_instruction = write_instruction
             .dst_set(self.descriptor_set.inner)
@@ -377,35 +378,30 @@ impl Bindless {
             &desc_pool,
             vk::DescriptorType::SAMPLED_IMAGE,
             max_sampled_image,
-            ResourceHandle::TYPE_SAMPLED_IMAGE as u32,
         )?;
         let stimage = SetManager::new(
             device,
             &desc_pool,
             vk::DescriptorType::STORAGE_IMAGE,
             max_storage_image,
-            ResourceHandle::TYPE_STORAGE_IMAGE as u32,
         )?;
         let stbuffer = SetManager::new(
             device,
             &desc_pool,
             vk::DescriptorType::STORAGE_BUFFER,
             max_storage_buffer,
-            ResourceHandle::TYPE_STORAGE_BUFFER as u32,
         )?;
         let sampler = SetManager::new(
             device,
             &desc_pool,
             vk::DescriptorType::SAMPLER,
             max_sampler,
-            ResourceHandle::TYPE_SAMPLER as u32,
         )?;
         let accel = SetManager::new(
             device,
             &desc_pool,
             vk::DescriptorType::ACCELERATION_STRUCTURE_KHR,
             max_acceleration_structure,
-            ResourceHandle::TYPE_ACCELERATION_STRUCTURE as u32,
         )?;
 
         Ok(Bindless {

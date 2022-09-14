@@ -49,27 +49,37 @@ impl Resources {
 
     pub fn add_image(&mut self, image: Arc<Image>, is_sampled: bool) -> Result<ImageKey, ResourceError>{
 
-        let image_view = Arc::new(image.view(&image.device, image.view_all())?);
+        let mut image_view_desc = image.view_all();
 
-        let handle = if is_sampled{
-            self.bindless.bind_sampled_image(image_view.clone()).map_err(|e|{
+        let (handle, view) = if is_sampled{
+
+
+            let image_view = Arc::new(image.view(&image.device, image_view_desc)?);
+
+            let handle = self.bindless.bind_sampled_image(image_view.clone()).map_err(|e|{
                 #[cfg(feature="logging")]
                 log::error!("Binding sampled image failed");
 
                 ResourceError::BindingFailed
-            })?
+            })?;
+
+            (handle, image_view)
         }else{
-            self.bindless.bind_storage_image(image_view.clone()).map_err(|e|{
+            let image_view = Arc::new(image.view(&image.device, image_view_desc)?);
+
+            let handle = self.bindless.bind_storage_image(image_view.clone()).map_err(|e|{
                 #[cfg(feature="logging")]
                 log::error!("Binding storage image failed");
 
                 ResourceError::BindingFailed
-            })?
+            })?;
+
+            (handle, image_view)
         };
 
         let key = self.images.insert(ResImage {
             image,
-            view: image_view,
+            view,
             owning_family: None,
             mask: vk::AccessFlags2::empty(),
             layout: vk::ImageLayout::PREINITIALIZED,

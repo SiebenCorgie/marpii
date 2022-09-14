@@ -160,11 +160,21 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
             .shader_int8(true)
             .runtime_descriptor_array(true)
             .timeline_semaphore(true)
+            .descriptor_binding_sampled_image_update_after_bind(true)
+            .descriptor_binding_storage_image_update_after_bind(true)
+            .descriptor_binding_storage_buffer_update_after_bind(true)
+            .descriptor_binding_partially_bound(true)
+            .descriptor_binding_variable_descriptor_count(true)
             .vulkan_memory_model(true);
 
         let features13 = ash::vk::PhysicalDeviceVulkan13Features::builder()
             .dynamic_rendering(true)
             .synchronization2(true);
+
+        //Acceleration structure support
+        let accel_structure = ash::vk::PhysicalDeviceAccelerationStructureFeaturesKHR::builder()
+            .acceleration_structure(true)
+            .descriptor_binding_acceleration_structure_update_after_bind(true);
 
         let device = device_candidates
             .remove(0)
@@ -175,6 +185,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
             .with(|b| b.features.shader_int16 = 1)
             .with_additional_feature(features12)
             .with_additional_feature(features13)
+            .with_additional_feature(accel_structure)
             .build()?;
 
         //create allocator for device

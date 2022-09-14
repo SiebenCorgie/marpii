@@ -98,10 +98,18 @@ impl Rmg {
 
     pub fn new_image_uninitialized(
         &mut self,
-        description: ImgDesc,
+        mut description: ImgDesc,
         is_sampled: bool,
         name: Option<&str>,
     ) -> Result<ImageKey, RmgError> {
+
+        //patch usage bits
+        if is_sampled{
+            description.usage |= vk::ImageUsageFlags::SAMPLED;
+        }else{
+            description.usage |= vk::ImageUsageFlags::STORAGE;
+        }
+
         let image = Arc::new(Image::new(
             &self.ctx.device,
             &self.ctx.allocator,
