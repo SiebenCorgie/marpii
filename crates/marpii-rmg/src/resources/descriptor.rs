@@ -471,7 +471,44 @@ impl Bindless {
         )
     }
 
-    ///Tries to bind the image and its sampler. On success returns the handle, on error the data is not bound and returned back to the caller.
+    pub fn bind_storage_buffer(
+        &mut self,
+        buffer: Arc<Buffer>,
+    ) -> Result<ResourceHandle, Arc<Buffer>> {
+        //prepare our write instruction, then submit
+        let buffer_info = vk::DescriptorBufferInfo::builder()
+            .buffer(buffer.inner)
+            .offset(0)
+            .range(vk::WHOLE_SIZE);
+        let write_instruction = vk::WriteDescriptorSet::builder()
+            .buffer_info(core::slice::from_ref(&buffer_info))
+            .descriptor_type(vk::DescriptorType::STORAGE_BUFFER);
+
+        let hdl = self
+            .stbuffer
+            .bind(buffer, write_instruction)?;
+        Ok(hdl) //wrap handle into correct type and exit
+    }
+
+    pub fn bind_storage_image(
+        &mut self,
+        image: Arc<ImageView>,
+    ) -> Result<ResourceHandle, Arc<ImageView>> {
+        //prepare our write instruction, then submit
+        let image_info = vk::DescriptorImageInfo::builder()
+            .image_layout(vk::ImageLayout::GENERAL) //FIXME: works but is suboptimal. Might tag images
+            .image_view(image.view);
+        let write_instruction = vk::WriteDescriptorSet::builder()
+            .image_info(core::slice::from_ref(&image_info))
+            .descriptor_type(vk::DescriptorType::STORAGE_IMAGE);
+
+        let hdl = self
+            .stimage
+            .bind(image, write_instruction)?;
+        Ok(hdl) //wrap handle into correct type and exit
+    }
+
+    ///Tries to bind the image. On success returns the handle, on error the data is not bound and returned back to the caller.
     pub fn bind_sampled_image(
         &mut self,
         image: Arc<ImageView>,
@@ -487,6 +524,23 @@ impl Bindless {
         let hdl = self
             .saimage
             .bind(image, write_instruction)?;
+        Ok(hdl) //wrap handle into correct type and exit
+    }
+
+    pub fn bind_sampler(
+        &mut self,
+        sampler: Arc<Sampler>,
+    ) -> Result<ResourceHandle, Arc<Sampler>> {
+        //prepare our write instruction, then submit
+        let image_info = vk::DescriptorImageInfo::builder()
+            .sampler(sampler.inner);
+        let write_instruction = vk::WriteDescriptorSet::builder()
+            .image_info(core::slice::from_ref(&image_info))
+            .descriptor_type(vk::DescriptorType::SAMPLER);
+
+        let hdl = self
+            .sampler
+            .bind(sampler, write_instruction)?;
         Ok(hdl) //wrap handle into correct type and exit
     }
 

@@ -16,7 +16,7 @@ pub(crate) struct Track {
 
 
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
-pub struct TrackId(vk::QueueFlags);
+pub struct TrackId(pub vk::QueueFlags);
 pub(crate) struct Tracks(pub FxHashMap<TrackId, Track>);
 
 impl Tracks {

@@ -1,15 +1,31 @@
 use std::sync::Arc;
 
-use marpii::{resources::{Image, Buffer, Sampler}, ash::vk};
+use marpii::{resources::{Image, Buffer, Sampler, ImageView}, ash::vk};
 
 use crate::track::TrackId;
 
 use super::descriptor::ResourceHandle;
 
 
+slotmap::new_key_type!(
+    ///exposed keys used to reference internal data from externally. Try to use `BufferHdl<T>` and `ImageHdl` for user facing API.
+    pub struct BufferKey;
+);
+slotmap::new_key_type!(
+    ///exposed keys used to reference internal data from externally. Try to use `BufferHdl<T>` and `ImageHdl` for user facing API.
+    pub struct ImageKey;
+);
+slotmap::new_key_type!(
+    ///exposed keys used to reference internal data from externally. Try to use `SamplerHdl` user facing API.
+    pub struct SamplerKey;
+);
+
+
+
 ///Combined state of a single image.
 pub(crate) struct ResImage {
     pub(crate) image: Arc<Image>,
+    pub(crate) view: Arc<ImageView>,
     pub(crate) owning_family: Option<u32>,
     pub(crate) mask: vk::AccessFlags2,
     pub(crate) layout: vk::ImageLayout,
@@ -46,7 +62,7 @@ impl ResBuffer {
 }
 
 pub(crate) struct ResSampler {
-    sampler: Arc<Sampler>,
+    pub sampler: Arc<Sampler>,
     ///Handle into bindless this is located at.
     pub descriptor_handle: ResourceHandle,
 }
