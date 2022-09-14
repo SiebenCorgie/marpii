@@ -113,6 +113,7 @@ impl<T> SetManagment<T> {
         }
     }
 
+    #[allow(dead_code)]
     fn free_handle(&mut self, hdl: ResourceHandle) {
         assert!(hdl.ty() == self.ty);
         self.free.push_front(hdl);
@@ -236,6 +237,7 @@ impl<T> SetManagment<T> {
         Ok(hdl)
     }
 
+    #[allow(dead_code)]
     fn free_binding(&mut self, hdl: ResourceHandle) -> Option<T> {
         if let Some(res) = self.stored.remove(&hdl) {
             self.free_handle(hdl); //free handle since we are safely removing
@@ -273,6 +275,7 @@ pub struct BindlessDescriptor {
     accel_structure_set: SetManagment<Arc<Buffer>>,
 
     ///Safes the actual max push constant size, to verify bound push constants.
+    #[allow(dead_code)]
     push_constant_size: u32,
 
     device: Arc<Device>,
@@ -292,6 +295,7 @@ impl BindlessDescriptor {
     pub const MAX_PUSH_CONSTANT_SIZE: u32 = (core::mem::size_of::<u32>() * 16) as u32;
 
     ///max slot id.
+    #[allow(dead_code)]
     const MAX_SLOT: u32 = 2u32.pow(29);
 
     ///Number of descriptor sets to cover each type
@@ -364,6 +368,7 @@ impl BindlessDescriptor {
             Self::NUM_SETS,
         )?);
 
+        #[allow(unused_variables)]
         let push_range = vk::PushConstantRange {
             stage_flags: vk::ShaderStageFlags::ALL,
             offset: 0,

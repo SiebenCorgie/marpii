@@ -118,7 +118,7 @@ impl ManagedCommands {
         //first of all, make a copy from each semaphore and include them in our captured variables
         for sem in signal_semaphores
             .iter()
-            .map(|(sem, src_val)| sem)
+            .map(|(sem, _src_val)| sem)
             .chain(wait_semaphores.iter().map(|(s, _stage, _target)| s))
         {
             self.resources
