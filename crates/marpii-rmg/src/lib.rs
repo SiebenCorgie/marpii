@@ -13,6 +13,8 @@ pub use resources::ResourceError;
 mod recorder;
 pub use recorder::{RecordError, task::Task};
 
+pub(crate) mod track;
+
 use thiserror::Error;
 use marpii::ash::vk;
 
@@ -31,7 +33,6 @@ pub enum RmgError {
     #[error("Resource error")]
     ResourceError(#[from] ResourceError),
 }
-
 
 ///Main RMG interface.
 pub struct Rmg{
