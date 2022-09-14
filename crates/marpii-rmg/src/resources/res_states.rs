@@ -22,11 +22,8 @@ pub(crate) struct ResImage {
 }
 
 impl ResImage{
-    pub fn is_sampled(&self) -> bool{
-        match self.descriptor_handle.handle_type() {
-            ResourceHandle::TYPE_SAMPLED_IMAGE => true,
-            _ => false
-        }
+    pub fn is_sampled_image(&self) -> bool{
+        self.descriptor_handle.handle_type() == ResourceHandle::TYPE_SAMPLED_IMAGE
     }
 }
 
@@ -42,6 +39,12 @@ pub(crate) struct ResBuffer {
     pub descriptor_handle: ResourceHandle,
 }
 
+impl ResBuffer {
+    pub fn is_storage_buffer(&self) -> bool{
+         self.descriptor_handle.handle_type() == ResourceHandle::TYPE_STORAGE_BUFFER
+    }
+}
+
 pub(crate) struct ResSampler {
     sampler: Arc<Sampler>,
     ///Handle into bindless this is located at.
@@ -50,8 +53,8 @@ pub(crate) struct ResSampler {
 
 
 pub(crate) struct Guard{
-    track: TrackId,
-    value: u64
+    pub track: TrackId,
+    pub target_value: u64
 }
 
 pub(crate) enum AnyRes{
