@@ -165,9 +165,7 @@ impl Rmg {
     }
 
     pub fn record<'rmg>(&'rmg mut self) -> Recorder<'rmg>{
-        Recorder{
-            rmg: self
-        }
+        Recorder::new(self)
     }
 
     pub(crate) fn queue_idx_to_trackid(&self, idx: usize) -> Option<TrackId> {

@@ -78,3 +78,10 @@ pub(crate) enum AnyRes{
     Buffer(ResBuffer),
     Sampler(Sampler)
 }
+
+#[derive(Clone, Copy, Hash, PartialEq, PartialOrd, Eq, Debug)]
+pub enum AnyResKey{
+    Image(ImageKey),
+    Buffer(BufferKey),
+    Sampler(SamplerKey)
+}

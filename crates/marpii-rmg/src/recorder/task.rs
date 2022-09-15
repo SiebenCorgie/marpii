@@ -2,7 +2,7 @@ use marpii::ash::vk::{self, Extent2D};
 use marpii_commands::ManagedCommands;
 use slotmap::SlotMap;
 
-use crate::resources::{res_states::{ImageKey, AnyRes, BufferKey, SamplerKey, ResImage, ResBuffer, ResSampler}, Resources};
+use crate::{resources::{res_states::{ImageKey, AnyRes, BufferKey, SamplerKey, ResImage, ResBuffer, ResSampler, AnyResKey}, Resources}, RecordError};
 
 
 pub struct AttachmentDescription{
@@ -59,6 +59,12 @@ impl<'res> ResourceRegistry<'res>{
     pub fn request_attachment(&mut self, desc: AttachmentDescription){
         self.attachments.push(AttachmentDescState::Unresolved(desc));
     }
+
+    pub fn any_res_iter<'a>(&'a self) -> impl Iterator<Item = AnyResKey> + 'a{
+        self.images.iter().map(|img| AnyResKey::Image(*img))
+            .chain(self.buffers.iter().map(|buf| AnyResKey::Buffer(*buf)))
+            .chain(self.sampler.iter().map(|sam| AnyResKey::Sampler(*sam)))
+    }
 }
 
 
@@ -75,4 +81,14 @@ pub trait Task{
     fn register(&self, registry: &mut ResourceRegistry);
 
     fn record(&mut self, command_buffer: &mut ManagedCommands, resources: &ResourceAccess);
+
+        ///Signals the task type to the recorder. By default this is compute only.
+    fn queue_flags(&self) -> vk::QueueFlags {
+        vk::QueueFlags::COMPUTE
+    }
+
+    ///Can be implemented to make debugging easier
+    fn name(&self) -> &'static str{
+        "Unnamed Task"
+    }
 }
