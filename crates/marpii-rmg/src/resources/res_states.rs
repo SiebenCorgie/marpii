@@ -23,14 +23,14 @@ slotmap::new_key_type!(
 
 
 ///Combined state of a single image.
-pub(crate) struct ResImage {
+pub struct ResImage {
     pub(crate) image: Arc<Image>,
     pub(crate) view: Arc<ImageView>,
     pub(crate) owning_family: Option<u32>,
     pub(crate) mask: vk::AccessFlags2,
     pub(crate) layout: vk::ImageLayout,
 
-    ///Last known execution guard.
+    ///Last known execution guard. None if either the resource has just been created, or all operations have finished.
     pub(crate) guard: Option<Guard>,
 
     ///Handle into bindless this is located at.
@@ -44,12 +44,12 @@ impl ResImage{
 }
 
 ///Combined state of a single buffer,
-pub(crate) struct ResBuffer {
+pub struct ResBuffer {
     pub(crate) buffer: Arc<Buffer>,
     pub(crate) owning_family: Option<u32>,
     pub(crate) mask: vk::AccessFlags2,
 
-    ///Some if the image is currently guarded by some execution.
+    ///Some if the buffer is currently guarded by some execution. None if either the resource has just been created, or all operations have finished.
     pub(crate) guard: Option<Guard>,
     ///Handle into bindless this is located at.
     pub descriptor_handle: ResourceHandle,
@@ -61,8 +61,8 @@ impl ResBuffer {
     }
 }
 
-pub(crate) struct ResSampler {
-    pub sampler: Arc<Sampler>,
+pub struct ResSampler {
+    pub(crate) sampler: Arc<Sampler>,
     ///Handle into bindless this is located at.
     pub descriptor_handle: ResourceHandle,
 }
