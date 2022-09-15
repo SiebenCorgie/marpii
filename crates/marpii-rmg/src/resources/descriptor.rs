@@ -490,6 +490,13 @@ impl Bindless {
         &mut self,
         image: Arc<ImageView>,
     ) -> Result<ResourceHandle, Arc<ImageView>> {
+
+        if !image.src_img.desc.usage.contains(vk::ImageUsageFlags::STORAGE){
+            #[cfg(feature="logging")]
+            log::error!("Tried to bind as storage image, but has no storage usage!");
+            return Err(image);
+        }
+
         //prepare our write instruction, then submit
         let image_info = vk::DescriptorImageInfo::builder()
             .image_layout(vk::ImageLayout::GENERAL) //FIXME: works but is suboptimal. Might tag images
@@ -509,6 +516,14 @@ impl Bindless {
         &mut self,
         image: Arc<ImageView>,
     ) -> Result<ResourceHandle, Arc<ImageView>> {
+
+
+        if !image.src_img.desc.usage.contains(vk::ImageUsageFlags::SAMPLED){
+            #[cfg(feature="logging")]
+            log::error!("Tried to bind as sampled image, but has no sample usage!");
+            return Err(image);
+        }
+
         //prepare our write instruction, then submit
         let image_info = vk::DescriptorImageInfo::builder()
             .image_layout(vk::ImageLayout::GENERAL) //FIXME: works but is suboptimal. Might tag images

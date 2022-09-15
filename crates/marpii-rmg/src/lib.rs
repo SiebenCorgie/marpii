@@ -9,6 +9,7 @@
 
 mod resources;
 use fxhash::FxHashMap;
+use recorder::Recorder;
 pub use resources::ResourceError;
 
 mod recorder;
@@ -163,7 +164,13 @@ impl Rmg {
         Ok(self.res.add_sampler(Arc::new(sampler))?)
     }
 
-    pub fn queue_idx_to_trackid(&self, idx: usize) -> Option<TrackId> {
+    pub fn record<'rmg>(&'rmg mut self) -> Recorder<'rmg>{
+        Recorder{
+            rmg: self
+        }
+    }
+
+    pub(crate) fn queue_idx_to_trackid(&self, idx: usize) -> Option<TrackId> {
         for t in self.tracks.0.iter() {
             if t.1.queue_idx == idx {
                 return Some(*t.0);
