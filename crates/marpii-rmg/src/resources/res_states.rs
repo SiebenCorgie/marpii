@@ -125,4 +125,21 @@ impl AnyResKey{
             AnyResKey::Sampler(_) => true
         }
     }
+
+    ///Returns the guards value, if there is any, or 0.
+    pub fn guarded_until(&self, rmg: &Rmg) -> u64{
+        match self {
+            AnyResKey::Image(imgkey) => if let Some(img) = rmg.res.images.get(*imgkey){
+                img.guard.as_ref().map(|g| g.target_value).unwrap_or(0)
+            }else{
+                0
+            }
+            AnyResKey::Buffer(bufkey) => if let Some(buf) = rmg.res.buffer.get(*bufkey){
+                buf.guard.as_ref().map(|g| g.target_value).unwrap_or(0)
+            }else{
+                0
+            }
+            AnyResKey::Sampler(_) => 0
+        }
+    }
 }

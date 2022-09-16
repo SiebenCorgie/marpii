@@ -1,6 +1,6 @@
 use fxhash::FxHashMap;
 use std::sync::Arc;
-use marpii::sync::Semaphore;
+use marpii::{sync::Semaphore, ash::vk};
 
 use crate::{Rmg, RecordError, track::TrackId, resources::res_states::AnyResKey};
 
@@ -8,19 +8,19 @@ use super::TaskRecord;
 
 
 #[derive(Debug)]
-struct Acquire{
+pub(crate) struct Acquire{
     //The track, and frame index this aquires from
     from: ResLocation,
     res: AnyResKey
 }
 
 #[derive(Debug)]
-struct Init{
+pub(crate) struct Init{
     res: AnyResKey
 }
 
 #[derive(Debug)]
-struct Release{
+pub(crate) struct Release{
     to: ResLocation,
     res: AnyResKey
 }
@@ -28,13 +28,13 @@ struct Release{
 ///A frame is a set of tasks on a certain Track that can be executed after each other without having to synchronise via
 /// Semaphores in between.
 #[derive(Debug)]
-struct CmdFrame<'rmg>{
-    acquire: Vec<Acquire>,
-    init: Vec<Init>,
-    release: Vec<Release>,
+pub(crate) struct CmdFrame<'rmg>{
+    pub acquire: Vec<Acquire>,
+    pub init: Vec<Init>,
+    pub release: Vec<Release>,
 
 
-    tasks: Vec<TaskRecord<'rmg>>
+    pub tasks: Vec<TaskRecord<'rmg>>
 }
 
 impl<'rmg> CmdFrame<'rmg>  {
@@ -45,13 +45,51 @@ impl<'rmg> CmdFrame<'rmg>  {
     fn is_empty(&self) -> bool{
         self.acquire.is_empty() && self.init.is_empty() && self.release.is_empty() && self.tasks.is_empty()
     }
+
+    //TODO: - write/remove new owner to to each res
+    //      -
+
+    ///append all image acquire barriers for the frame.
+    ///
+    /// # Safety
+    /// The barriers (mostly the vk resource handle is not lifetime checked)
+    pub unsafe fn image_acquire_barriers(&self, rmg: &Rmg, barrier_buffer: &mut Vec<vk::ImageMemoryBarrier2>) {
+        todo!()
+    }
+
+    ///appends all buffer acquire barriers for the frame.
+    ///
+    /// # Safety
+    /// The barriers (mostly the vk resource handle is not lifetime checked)
+    pub unsafe fn buffer_acquire_barriers(&self, rmg: &Rmg, barrier_buffer: &mut Vec<vk::BufferMemoryBarrier2>) {
+        todo!()
+    }
+
+
+    ///append all image release barriers for the frame.
+    ///
+    /// # Safety
+    /// The barriers (mostly the vk resource handle is not lifetime checked)
+    pub unsafe fn image_release_barriers(&self, rmg: &Rmg, barrier_buffer: &mut Vec<vk::ImageMemoryBarrier2>) {
+        todo!()
+    }
+
+    ///appends all buffer release barriers for the frame.
+    ///
+    /// # Safety
+    /// The barriers (mostly the vk resource handle is not lifetime checked)
+    pub unsafe fn buffer_release_barriers(&self, rmg: &Rmg, barrier_buffer: &mut Vec<vk::BufferMemoryBarrier2>) {
+        todo!()
+    }
 }
 
 
 ///Represents all frames for this specific track.
 #[derive(Debug)]
-struct TrackRecord<'rmg>{
-    frames: Vec<CmdFrame<'rmg>>
+pub(crate) struct TrackRecord<'rmg>{
+    ///Latest known semaphore value of any imported resource on this track
+    pub latest_outside_sync: u64,
+    pub frames: Vec<CmdFrame<'rmg>>
 }
 
 impl<'rmg> TrackRecord<'rmg>{
@@ -75,25 +113,32 @@ impl<'rmg> TrackRecord<'rmg>{
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-struct ResLocation{
-    track: TrackId,
-    frame: usize
+pub(crate) struct ResLocation{
+    pub track: TrackId,
+    pub frame: usize
 }
 
+///Technically something different, but is the same data, thefore just a renamed type.
+///
+pub(crate) type SubmitFrame = ResLocation;
+
 pub struct Schedule<'rmg>{
+    pub(crate) submission_order: Vec<SubmitFrame>,
     known_res: FxHashMap<AnyResKey, ResLocation>,
-    tracks: FxHashMap<TrackId, TrackRecord<'rmg>>
+    pub(crate) tracks: FxHashMap<TrackId, TrackRecord<'rmg>>
 }
 
 impl<'rmg> Schedule<'rmg> {
-    pub(crate) fn from_tasks(rmg: &'rmg mut Rmg, records: Vec<TaskRecord<'rmg>>) -> Result<Self, RecordError>{
+    pub(crate) fn from_tasks(rmg: &mut Rmg, records: Vec<TaskRecord<'rmg>>) -> Result<Self, RecordError>{
 
         //setup at least one frame per track.
         let tracks = rmg.tracks.0.iter().map(|(id, _track)| (*id, TrackRecord{
+            latest_outside_sync: 0, //NOTE: if nothing is imported, the track can start immediately
             frames: vec![CmdFrame::new()]
         })).collect();
 
         let mut schedule = Schedule{
+            submission_order: Vec::new(),
             known_res: FxHashMap::default(),
             tracks
         };
@@ -101,6 +146,7 @@ impl<'rmg> Schedule<'rmg> {
         for task in records{
             schedule.schedule_task(rmg, task)?;
         }
+        schedule.finish_schedule();
 
         //after building the base schedule, optimise the transfer operations by removing:
         // - release/acquire chain from/to same track
@@ -110,8 +156,6 @@ impl<'rmg> Schedule<'rmg> {
             track.remove_empty_frames();
             track.remove_redundant_chains(track_id);
         }
-
-        //schedule.print_schedule();
 
         Ok(schedule)
     }
@@ -167,6 +211,8 @@ impl<'rmg> Schedule<'rmg> {
                     log::trace!("Finishing {:?}", src_loc);
 
                     self.tracks.get_mut(&src_loc.track).unwrap().finish_frame();
+                    //add to submission list
+                    self.submission_order.push(src_loc);
                     debug_assert!(self.tracks.get(&src_loc.track).unwrap().current_frame() == src_loc.frame + 1);
                 }else{
                     debug_assert!(self.tracks.get(&src_loc.track).unwrap().current_frame() > src_loc.frame)
@@ -191,10 +237,12 @@ impl<'rmg> Schedule<'rmg> {
                     //Note that we release from the current owner by pushing the release to the firs track
                     #[cfg(feature="logging")]
                     log::trace!("Importing outside from {:?} to {:?} for res={:?}", origin_track, track, res);
-
-
                     self.tracks.get_mut(&origin_track).unwrap().frames[0].release.push(Release { to: dst_loc, res});
-                    self.tracks.get_mut(&dst_loc.track).unwrap().frames[dst_loc.frame].acquire.push(Acquire { from: ResLocation { track: origin_track, frame: 0 }, res })
+                    self.tracks.get_mut(&dst_loc.track).unwrap().frames[dst_loc.frame].acquire.push(Acquire { from: ResLocation { track: origin_track, frame: 0 }, res });
+
+                    //update semaphore value on this track
+                    self.tracks.get_mut(&origin_track).unwrap().latest_outside_sync = self.tracks.get(&origin_track).unwrap().latest_outside_sync.max(res.guarded_until(rmg));
+
                 }else{
                     #[cfg(feature="logging")]
                     log::trace!("Ignoring ownership transfer for res={:?}", res);
@@ -216,10 +264,26 @@ impl<'rmg> Schedule<'rmg> {
         Ok(dst_loc)
     }
 
+    //Adds all currently active, non-empty frames to the submission list
+    fn finish_schedule(&mut self){
+        for (track_id, track) in self.tracks.iter_mut(){
+            if !track.frames.last().unwrap().is_empty(){
+                let frame = track.current_frame();
+                track.finish_frame();
+                self.submission_order.push(SubmitFrame { track: *track_id, frame });
+
+                #[cfg(feature="logging")]
+                log::trace!("Late Submit frame {:?}", SubmitFrame{track: *track_id, frame});
+            }
+        }
+    }
+
     pub(crate) fn print_schedule(&self){
         println!("Schedule");
+        println!("    Submission: {:?}\n", self.submission_order);
+
         for t in self.tracks.iter(){
-            println!("[{:?}]\n    {:#?}", t.0, t.1);
+            println!("    [{:?}]\n    {:#?}\n", t.0, t.1);
         }
     }
 }

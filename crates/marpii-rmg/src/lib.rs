@@ -19,7 +19,7 @@ pub(crate) mod track;
 
 use std::sync::Arc;
 use thiserror::Error;
-use marpii::{ash::vk, context::Ctx, gpu_allocator::vulkan::Allocator, swapchain::Swapchain, surface::Surface, sync::Semaphore, resources::{ImgDesc, BufDesc, Image, Buffer, Sampler, SharingMode}, allocator::MemoryUsage};
+use marpii::{ash::vk, context::Ctx, gpu_allocator::vulkan::Allocator, swapchain::Swapchain, surface::Surface, sync::Semaphore, resources::{ImgDesc, BufDesc, Image, Buffer, Sampler, SharingMode, CommandPool}, allocator::MemoryUsage};
 use track::{Tracks, TrackId, Track};
 
 ///Top level Error structure.
@@ -57,6 +57,7 @@ impl Rmg {
         //Per definition we try to find at least one graphic, compute and transfer queue.
         // We then create the swapchain. It is used for image presentation and the start/end point for frame scheduling.
 
+        //TODO: make the iterator return an error. Currently if track creation fails, everything fails
         let tracks = context.device.queues.iter().enumerate().fold(
             FxHashMap::default(),
             |mut set: FxHashMap<TrackId, Track>, (idx, q)| {
@@ -66,13 +67,7 @@ impl Rmg {
                 if !set.contains_key(&TrackId(q.properties.queue_flags)) {
                     set.insert(
                         TrackId(q.properties.queue_flags),
-                        Track {
-                            queue_idx: idx as u32,
-                            flags: q.properties.queue_flags,
-                            sem: Semaphore::new(&context.device, 0)
-                                .expect("Could not create Track's semaphore"),
-                            sem_target: 0,
-                        },
+                        Track::new(&context.device, idx as u32, q.properties.queue_flags),
                     );
                 }
 

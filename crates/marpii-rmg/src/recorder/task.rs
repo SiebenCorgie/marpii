@@ -1,9 +1,7 @@
-use marpii::ash::vk::{self, Extent2D};
-use marpii_commands::ManagedCommands;
+use marpii::{ash::vk::{self, Extent2D}, context::Device};
 use slotmap::SlotMap;
-
 use crate::{resources::{res_states::{ImageKey, AnyRes, BufferKey, SamplerKey, ResImage, ResBuffer, ResSampler, AnyResKey}, Resources}, RecordError};
-
+use std::sync::Arc;
 
 pub struct AttachmentDescription{
     write: bool,
@@ -80,7 +78,7 @@ pub trait Task{
     /// needed for successfull execution.
     fn register(&self, registry: &mut ResourceRegistry);
 
-    fn record(&mut self, command_buffer: &mut ManagedCommands, resources: &ResourceAccess);
+    fn record(&mut self, device: &Arc<Device>, command_buffer: &vk::CommandBuffer, resources: &ResourceAccess);
 
         ///Signals the task type to the recorder. By default this is compute only.
     fn queue_flags(&self) -> vk::QueueFlags {

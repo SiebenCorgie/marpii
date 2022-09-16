@@ -7,7 +7,6 @@ use marpii::{
     context::Ctx,
 };
 use marpii_rmg::{Rmg, Task, ResourceAccess, ResourceRegistry, ImageKey, BufferKey, SamplerKey};
-use marpii_commands::ManagedCommands;
 use winit::event::{DeviceEvent, ElementState, KeyboardInput, VirtualKeyCode};
 use winit::{
     event::{Event, WindowEvent},
@@ -27,11 +26,14 @@ impl Task for ShadowPass {
         registry.request_buffer(self.param);
         registry.request_sampler(self.sampler);
     }
-    fn record(&mut self, command_buffer: &mut ManagedCommands, resources: &ResourceAccess) {
+    fn record(&mut self, device: &std::sync::Arc<marpii::context::Device>, command_buffer: &vk::CommandBuffer, resources: &ResourceAccess) {
         println!("Shadow pass")
     }
     fn queue_flags(&self) -> vk::QueueFlags {
         vk::QueueFlags::COMPUTE
+    }
+    fn name(&self) -> &'static str {
+        "ShadowPass"
     }
 }
 
@@ -47,11 +49,15 @@ impl Task for ForwardPass {
         registry.request_image(self.target);
         registry.request_buffer(self.meshes);
     }
-    fn record(&mut self, command_buffer: &mut ManagedCommands, resources: &ResourceAccess) {
+
+    fn record(&mut self, device: &std::sync::Arc<marpii::context::Device>, command_buffer: &vk::CommandBuffer, resources: &ResourceAccess) {
         println!("Forward pass")
     }
     fn queue_flags(&self) -> vk::QueueFlags {
         vk::QueueFlags::GRAPHICS
+    }
+    fn name(&self) -> &'static str {
+        "ForwardPass"
     }
 }
 struct PostPass{
@@ -64,11 +70,14 @@ impl Task for PostPass {
         registry.request_image(self.swimage);
         registry.request_image(self.src);
     }
-    fn record(&mut self, command_buffer: &mut ManagedCommands, resources: &ResourceAccess) {
+    fn record(&mut self, device: &std::sync::Arc<marpii::context::Device>, command_buffer: &vk::CommandBuffer, resources: &ResourceAccess) {
         println!("Post pass")
     }
     fn queue_flags(&self) -> vk::QueueFlags {
         vk::QueueFlags::GRAPHICS
+    }
+    fn name(&self) -> &'static str {
+        "PostPass"
     }
 }
 fn main() -> Result<(), anyhow::Error> {

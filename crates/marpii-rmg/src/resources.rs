@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use marpii::{context::Device, ash::vk, resources::{SafeImageView, Image, Buffer, Sampler}};
+use marpii::{context::Device, ash::vk, resources::{SafeImageView, Image, Buffer, Sampler, CommandBufferAllocator, CommandPool}};
 use slotmap::SlotMap;
 use thiserror::Error;
 

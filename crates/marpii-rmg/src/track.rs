@@ -1,8 +1,8 @@
 use std::sync::Arc;
 use fxhash::FxHashMap;
-use marpii::{ash::vk, sync::Semaphore};
+use marpii::{ash::vk, context::Device, sync::Semaphore, resources::{CommandPool, CommandBufferAllocator, CommandBuffer}};
 
-use crate::resources::res_states::Guard;
+use crate::{resources::res_states::{Guard, AnyRes}, RecordError};
 
 
 ///Execution track. Basically a DeviceQueue and some associated data.
@@ -10,10 +10,31 @@ pub(crate) struct Track {
     pub(crate) queue_idx: u32,
     pub(crate) flags: vk::QueueFlags,
     pub(crate) sem: Arc<Semaphore>,
-    ///last known target of the semaphore's counter
-    pub(crate) sem_target: u64,
+
+    pub(crate) command_buffer_pool: Arc<CommandPool>,
 }
 
+impl Track {
+
+    pub fn new(device: &Arc<Device>, queue_idx: u32, flags: vk::QueueFlags) -> Self{
+        Track {
+            queue_idx,
+            flags,
+            sem: Semaphore::new(device, 0)
+                .expect("Could not create Track's semaphore"),
+            command_buffer_pool: Arc::new(CommandPool::new(
+                device,
+                queue_idx,
+                vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER
+            ).expect("Failed to create command pool!")),
+        }
+    }
+
+    pub fn new_command_buffer(&mut self) -> Result<CommandBuffer<Arc<CommandPool>>, RecordError>{
+        let cb = self.command_buffer_pool.clone().allocate_buffer(vk::CommandBufferLevel::PRIMARY)?;
+        Ok(cb)
+    }
+}
 
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
 pub struct TrackId(pub vk::QueueFlags);

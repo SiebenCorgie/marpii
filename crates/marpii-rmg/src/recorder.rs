@@ -17,6 +17,12 @@ use self::{task::ResourceRegistry, scheduler::Schedule, executor::Executor};
 pub enum RecordError{
     #[error("No fitting track for flags found")]
     NoFittingTrack(vk::QueueFlags),
+
+    #[error("Vulkan recording error")]
+    VkError(#[from] vk::Result),
+
+    #[error("anyhow")]
+    Any(#[from] anyhow::Error),
 }
 
 pub(crate) struct TaskRecord<'t>{
@@ -81,7 +87,8 @@ impl<'rmg> Recorder<'rmg> {
     ///Schedules everything for execution
     pub fn execute(self) -> Result<(), RecordError>{
         let schedule = Schedule::from_tasks(self.rmg, self.records)?;
+        schedule.print_schedule();
 
-        Executor::exec(schedule)
+        Executor::exec(self.rmg, schedule)
     }
 }
