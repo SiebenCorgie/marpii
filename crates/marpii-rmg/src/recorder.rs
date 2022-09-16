@@ -4,6 +4,8 @@ pub(crate) mod task;
 mod scheduler;
 mod executor;
 
+use std::fmt::Debug;
+
 use marpii::ash::vk;
 use thiserror::Error;
 
@@ -20,6 +22,12 @@ pub enum RecordError{
 pub(crate) struct TaskRecord<'t>{
     task: &'t dyn Task,
     registry: ResourceRegistry<'t>,
+}
+
+impl<'t> Debug for TaskRecord<'t> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Task [{}]", self.task.name())
+    }
 }
 
 ///records a new execution graph blocks any access to `rmg` until the graph is executed.

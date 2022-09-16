@@ -5,7 +5,7 @@ use marpii::{context::Device, resources::{Buffer, Image, Sampler, ImageView, Des
 ///
 /// Note that the descriptor set index is the same as the type
 #[derive(Clone, Copy, Hash, PartialEq, PartialOrd, Eq, Debug)]
-pub struct ResourceHandle(pub u32);
+pub struct ResourceHandle(u32);
 
 impl ResourceHandle{
     pub const TYPE_STORAGE_BUFFER: u8 = 0x0;
@@ -16,7 +16,7 @@ impl ResourceHandle{
 
     ///Returns the handle type bits of this handle.
     pub fn handle_type(&self) -> u8{
-        self.0.to_be_bytes()[core::mem::size_of::<u64>() - 1]
+        self.0.to_be_bytes()[0]
     }
 
     pub fn descriptor_ty(&self) -> vk::DescriptorType {
@@ -39,7 +39,7 @@ impl ResourceHandle{
     ///Returns the index of this handle into its own descriptor.
     pub fn index(&self) -> u32{
         let mut bytes = self.0.to_be_bytes();
-        bytes[core::mem::size_of::<u32>() - 1] = 0;
+        bytes[0] = 0;
         u32::from_be_bytes(bytes)
     }
 
@@ -63,11 +63,11 @@ impl ResourceHandle{
 
     ///Creates a new handle, panics if the type is outside the defined types, or the index exceeds (2^56)-1.
     pub fn new(ty: u8, index: u32) -> Self{
-        assert!(ty < Self::TYPE_ACCELERATION_STRUCTURE);
+        assert!(ty <= Self::TYPE_ACCELERATION_STRUCTURE);
         assert!(index < 2u32.pow(24));
 
         let mut bytes = index.to_be_bytes();
-        *bytes.last_mut().unwrap() = ty;
+        bytes[0] = ty;
 
         ResourceHandle(u32::from_be_bytes(bytes))
     }
@@ -91,6 +91,8 @@ struct SetManager<T>{
 impl<T> SetManager<T> {
     fn allocate_handle(&mut self) -> Option<ResourceHandle> {
         if let Some(hdl) = self.free.pop_back() {
+            #[cfg(feature = "logging")]
+            log::trace!("Reusing handle {:?} for descty {:#?}", hdl, self.ty);
             Some(hdl)
         } else {
             if self.head_idx >= self.max_idx {
@@ -103,6 +105,8 @@ impl<T> SetManager<T> {
                 None
             } else {
                 let new_idx = self.head_idx;
+                #[cfg(feature = "logging")]
+                log::trace!("Allocating new handle {:?} for descty {:#?}", new_idx, self.ty);
                 self.head_idx += 1;
                 Some(ResourceHandle::new_from_desc_ty(self.ty, new_idx))
             }
@@ -209,14 +213,19 @@ impl<T> SetManager<T> {
 
         assert!(
             !self.stored.contains_key(&hdl),
-            "Allocated handle was in use!"
+            "Allocated handle was in use, \nnew_handle: {:?},\nstore: {:?}!",
+            hdl,
+            self.stored.keys()
         );
+
+        #[cfg(feature="logging")]
+        log::trace!("Binding {:?} to {:?}", self.ty, hdl.index());
 
         //allocated handle, and is not in use, we can bind!
         write_instruction = write_instruction
             .dst_set(self.descriptor_set.inner)
             .dst_binding(0)
-            .dst_array_element(hdl.0);
+            .dst_array_element(hdl.index());
 
         assert!(write_instruction.descriptor_count == 1);
 
@@ -567,5 +576,26 @@ impl Bindless {
             self.sampler.descriptor_set.clone(),
             self.accel.descriptor_set.clone(),
         ]
+    }
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resource_handle_access() {
+        let sa_img = ResourceHandle::new_from_desc_ty(vk::DescriptorType::SAMPLED_IMAGE, 42);
+        let st_img = ResourceHandle::new_from_desc_ty(vk::DescriptorType::STORAGE_IMAGE, 43);
+        let st_buf = ResourceHandle::new_from_desc_ty(vk::DescriptorType::STORAGE_BUFFER, 44);
+        let sa = ResourceHandle::new_from_desc_ty(vk::DescriptorType::SAMPLER, 10);
+        let acc = ResourceHandle::new_from_desc_ty(vk::DescriptorType::ACCELERATION_STRUCTURE_KHR, 45);
+
+        assert!(sa_img.index() == 42 && sa_img.descriptor_ty() == vk::DescriptorType::SAMPLED_IMAGE);
+        assert!(st_img.index() == 43 && st_img.descriptor_ty() == vk::DescriptorType::STORAGE_IMAGE);
+        assert!(st_buf.index() == 44 && st_buf.descriptor_ty() == vk::DescriptorType::STORAGE_BUFFER);
+        assert!(sa.index() == 10 && sa.descriptor_ty() == vk::DescriptorType::SAMPLER);
+        assert!(acc.index() == 45 && acc.descriptor_ty() == vk::DescriptorType::ACCELERATION_STRUCTURE_KHR);
     }
 }

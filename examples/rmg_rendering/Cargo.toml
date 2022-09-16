@@ -11,5 +11,6 @@ anyhow = "1.0.56"
 
 marpii = {path = "../../crates/marpii"}
 marpii-rmg = {path = "../../crates/marpii-rmg"}
+marpii-commands = {path = "../../crates/marpii-commands"}
 winit = "0.26.1"
 log = "*"

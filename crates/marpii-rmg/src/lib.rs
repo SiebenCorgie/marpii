@@ -10,15 +10,14 @@
 mod resources;
 use fxhash::FxHashMap;
 use recorder::Recorder;
-pub use resources::ResourceError;
+pub use resources::{ResourceError, res_states::{AnyResKey, ImageKey, ResImage, BufferKey, ResBuffer, SamplerKey, ResSampler}, Resources};
 
 mod recorder;
-pub use recorder::{RecordError, task::Task};
+pub use recorder::{RecordError, task::{Task, ResourceAccess, ResourceRegistry}};
 
 pub(crate) mod track;
 
 use std::sync::Arc;
-use resources::{Resources, res_states::{BufferKey, SamplerKey, ImageKey}};
 use thiserror::Error;
 use marpii::{ash::vk, context::Ctx, gpu_allocator::vulkan::Allocator, swapchain::Swapchain, surface::Surface, sync::Semaphore, resources::{ImgDesc, BufDesc, Image, Buffer, Sampler, SharingMode}, allocator::MemoryUsage};
 use track::{Tracks, TrackId, Track};

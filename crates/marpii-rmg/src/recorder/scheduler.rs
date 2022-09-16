@@ -7,18 +7,19 @@ use crate::{Rmg, RecordError, track::TrackId, resources::res_states::AnyResKey};
 use super::TaskRecord;
 
 
-
+#[derive(Debug)]
 struct Acquire{
     //The track, and frame index this aquires from
     from: ResLocation,
     res: AnyResKey
 }
 
-
+#[derive(Debug)]
 struct Init{
     res: AnyResKey
 }
 
+#[derive(Debug)]
 struct Release{
     to: ResLocation,
     res: AnyResKey
@@ -26,6 +27,7 @@ struct Release{
 
 ///A frame is a set of tasks on a certain Track that can be executed after each other without having to synchronise via
 /// Semaphores in between.
+#[derive(Debug)]
 struct CmdFrame<'rmg>{
     acquire: Vec<Acquire>,
     init: Vec<Init>,
@@ -39,10 +41,15 @@ impl<'rmg> CmdFrame<'rmg>  {
     fn new() -> Self{
         CmdFrame { acquire: Vec::new(), init: Vec::new(), release: Vec::new(), tasks: Vec::new() }
     }
+
+    fn is_empty(&self) -> bool{
+        self.acquire.is_empty() && self.init.is_empty() && self.release.is_empty() && self.tasks.is_empty()
+    }
 }
 
 
 ///Represents all frames for this specific track.
+#[derive(Debug)]
 struct TrackRecord<'rmg>{
     frames: Vec<CmdFrame<'rmg>>
 }
@@ -53,6 +60,17 @@ impl<'rmg> TrackRecord<'rmg>{
     }
     fn finish_frame(&mut self){
         self.frames.push(CmdFrame::new())
+    }
+
+    fn remove_empty_frames(&mut self){
+        self.frames.retain(|f| !f.is_empty());
+    }
+    //removes all acquire and release pairs where track == this_id.
+    fn remove_redundant_chains(&mut self, this_id: &TrackId){
+        for frame in &mut self.frames{
+            frame.acquire.retain(|ac| &ac.from.track != this_id);
+            frame.release.retain(|re| &re.to.track != this_id);
+        }
     }
 }
 
@@ -84,6 +102,16 @@ impl<'rmg> Schedule<'rmg> {
             schedule.schedule_task(rmg, task)?;
         }
 
+        //after building the base schedule, optimise the transfer operations by removing:
+        // - release/acquire chain from/to same track
+        // - remove empty frames
+
+        for (track_id, track) in &mut schedule.tracks{
+            track.remove_empty_frames();
+            track.remove_redundant_chains(track_id);
+        }
+
+        //schedule.print_schedule();
 
         Ok(schedule)
     }
@@ -119,23 +147,37 @@ impl<'rmg> Schedule<'rmg> {
 
         if let Some(src_loc) = self.known_res.remove(&res){
             //found, release it from current location to new one.
-            //
-            // if the frame we release from is the *current*, we also end the frame.
-            self.tracks.get_mut(&src_loc.track).unwrap().frames[src_loc.frame].release.push(Release {
-                to: dst_loc,
-                res
-            });
 
-            self.tracks.get_mut(&dst_loc.track).unwrap().frames[dst_loc.frame].acquire.push(Acquire { from: src_loc, res });
+            //Note: if we are already on the dst_loc we don't need to acquire
+            if src_loc != dst_loc{
 
-            //if we where on the same frame, finish
-            if src_loc.frame == self.tracks.get(&src_loc.track).unwrap().current_frame(){
-                self.tracks.get_mut(&src_loc.track).unwrap().finish_frame();
-                debug_assert!(self.tracks.get(&src_loc.track).unwrap().current_frame() == src_loc.frame + 1);
+                #[cfg(feature="logging")]
+                log::trace!("Transfer {:?}: {:?} -> {:?}", res, src_loc, dst_loc);
+                // if the frame we release from is the *current*, we also end the frame.
+                self.tracks.get_mut(&src_loc.track).unwrap().frames[src_loc.frame].release.push(Release {
+                    to: dst_loc,
+                    res
+                });
+
+                self.tracks.get_mut(&dst_loc.track).unwrap().frames[dst_loc.frame].acquire.push(Acquire { from: src_loc, res });
+
+                //if we where on the same frame, finish
+                if src_loc.frame == self.tracks.get(&src_loc.track).unwrap().current_frame(){
+                    #[cfg(feature = "logging")]
+                    log::trace!("Finishing {:?}", src_loc);
+
+                    self.tracks.get_mut(&src_loc.track).unwrap().finish_frame();
+                    debug_assert!(self.tracks.get(&src_loc.track).unwrap().current_frame() == src_loc.frame + 1);
+                }else{
+                    debug_assert!(self.tracks.get(&src_loc.track).unwrap().current_frame() > src_loc.frame)
+                }
+
+                //for sanity, if a transfer happened, the src_loc can't be the last frame on its track
+                debug_assert!(self.tracks.get(&src_loc.track).unwrap().current_frame() > src_loc.frame);
             }else{
-                debug_assert!(self.tracks.get(&src_loc.track).unwrap().current_frame() > src_loc.frame)
+                #[cfg(feature = "logging")]
+                log::trace!("{:?} already owned by {:?}", res, src_loc);
             }
-
         }else{
             //check if the resource was initialised yet. If not we init on this track/frame. Otherwise we add a release op on the header
             // of the currently owning track and a acquire for us.
@@ -172,5 +214,12 @@ impl<'rmg> Schedule<'rmg> {
         self.known_res.insert(res, dst_loc);
 
         Ok(dst_loc)
+    }
+
+    pub(crate) fn print_schedule(&self){
+        println!("Schedule");
+        for t in self.tracks.iter(){
+            println!("[{:?}]\n    {:#?}", t.0, t.1);
+        }
     }
 }
