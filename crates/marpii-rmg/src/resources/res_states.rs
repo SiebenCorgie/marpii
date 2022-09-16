@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use marpii::{resources::{Image, Buffer, Sampler, ImageView}, ash::vk};
 
-use crate::track::TrackId;
+use crate::{track::TrackId, Rmg};
 
 use super::descriptor::ResourceHandle;
 
@@ -84,4 +84,45 @@ pub enum AnyResKey{
     Image(ImageKey),
     Buffer(BufferKey),
     Sampler(SamplerKey)
+}
+
+impl AnyResKey{
+
+    ///Returns the currently owning track, or none if there is no owner. In that case the resource is probably
+    /// not initalised, or a sampler, which has no owner.
+    pub fn current_owner(&self, rmg: &Rmg) -> Option<TrackId>{
+        match self {
+            AnyResKey::Image(imgkey) => if let Some(img) = rmg.res.images.get(*imgkey){
+                img.owning_family.map(|qf| rmg.queue_idx_to_trackid(qf)).flatten()
+            }else{
+                #[cfg(feature="logging")]
+                log::warn!("Tried to get image for invalid key");
+                None
+            }
+            AnyResKey::Buffer(bufkey) => if let Some(buf) = rmg.res.buffer.get(*bufkey){
+                buf.owning_family.map(|qf| rmg.queue_idx_to_trackid(qf)).flatten()
+            }else{
+                #[cfg(feature="logging")]
+                log::warn!("Tried to get buffer for invalid key");
+                None
+            }
+            AnyResKey::Sampler(_) => None
+        }
+    }
+
+    pub fn is_initialised(&self, rmg: &Rmg) -> bool{
+        match self {
+            AnyResKey::Image(imgkey) => if let Some(img) = rmg.res.images.get(*imgkey){
+                img.owning_family.is_some() && (img.layout != vk::ImageLayout::PREINITIALIZED)
+            }else{
+                false
+            }
+            AnyResKey::Buffer(bufkey) => if let Some(buf) = rmg.res.buffer.get(*bufkey){
+                buf.owning_family.is_some()
+            }else{
+                false
+            }
+            AnyResKey::Sampler(_) => true
+        }
+    }
 }

@@ -258,6 +258,8 @@ impl<T> SetManager<T> {
 /// - SampledImage (without combined sampler)
 /// - Sampler
 /// - AccellerationStructure
+///
+//TODO: Check if VK_EXT_mutable_descriptor_type works even better. We could put everything into one desc pool
 pub(crate) struct Bindless{
     stbuffer: SetManager<Arc<Buffer>>,
     stimage: SetManager<Arc<ImageView>>,

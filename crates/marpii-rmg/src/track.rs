@@ -7,7 +7,7 @@ use crate::resources::res_states::Guard;
 
 ///Execution track. Basically a DeviceQueue and some associated data.
 pub(crate) struct Track {
-    pub(crate) queue_idx: usize,
+    pub(crate) queue_idx: u32,
     pub(crate) flags: vk::QueueFlags,
     pub(crate) sem: Arc<Semaphore>,
     ///last known target of the semaphore's counter

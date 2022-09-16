@@ -3,7 +3,7 @@ use marpii::{context::Device, ash::vk, resources::{SafeImageView, Image, Buffer,
 use slotmap::SlotMap;
 use thiserror::Error;
 
-use self::{descriptor::Bindless, res_states::{ResImage, ResBuffer, ResSampler, ImageKey, BufferKey, SamplerKey}};
+use self::{descriptor::Bindless, res_states::{ResImage, ResBuffer, ResSampler, ImageKey, BufferKey, SamplerKey, AnyResKey}};
 
 
 pub(crate) mod descriptor;

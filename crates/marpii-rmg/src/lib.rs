@@ -68,7 +68,7 @@ impl Rmg {
                     set.insert(
                         TrackId(q.properties.queue_flags),
                         Track {
-                            queue_idx: idx,
+                            queue_idx: idx as u32,
                             flags: q.properties.queue_flags,
                             sem: Semaphore::new(&context.device, 0)
                                 .expect("Could not create Track's semaphore"),
@@ -168,13 +168,16 @@ impl Rmg {
         Recorder::new(self)
     }
 
-    pub(crate) fn queue_idx_to_trackid(&self, idx: usize) -> Option<TrackId> {
+    pub(crate) fn queue_idx_to_trackid(&self, idx: u32) -> Option<TrackId> {
         for t in self.tracks.0.iter() {
             if t.1.queue_idx == idx {
                 return Some(*t.0);
             }
         }
-
         None
+    }
+
+    pub(crate) fn trackid_to_queue_idx(&self, id: TrackId) -> u32{
+        self.tracks.0.get(&id).unwrap().queue_idx
     }
 }
