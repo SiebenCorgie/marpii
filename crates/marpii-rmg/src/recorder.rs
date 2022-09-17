@@ -1,6 +1,7 @@
 pub(crate) mod executor;
-mod scheduler;
+pub(crate) mod scheduler;
 pub(crate) mod task;
+pub(crate) mod frame;
 
 use std::fmt::Debug;
 
@@ -104,6 +105,9 @@ impl<'rmg> Recorder<'rmg> {
         schedule.print_schedule();
 
         let executions = Executor::exec(self.rmg, schedule)?;
+        for ex in executions{
+            self.rmg.tracks.0.get_mut(&ex.guard.track).unwrap().inflight_executions.push(ex);
+        }
 
         Ok(())
     }

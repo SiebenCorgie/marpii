@@ -196,3 +196,14 @@ impl Rmg {
         self.tracks.0.get(&id).unwrap().queue_idx
     }
 }
+
+
+impl Drop for Rmg{
+    fn drop(&mut self) {
+        //make sure all executions have finished, otherwise we could destroy
+        // referenced images etc.
+        for (_id, t) in self.tracks.0.iter_mut(){
+            t.wait_for_inflights()
+        }
+    }
+}

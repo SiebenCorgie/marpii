@@ -155,7 +155,7 @@ impl AnyResKey {
         match self {
             AnyResKey::Image(imgkey) => {
                 if let Some(img) = rmg.res.images.get(*imgkey) {
-                    img.ownership.is_initalised() && (img.layout != vk::ImageLayout::PREINITIALIZED)
+                    img.ownership.is_initalised() && (img.layout != vk::ImageLayout::UNDEFINED)
                 } else {
                     false
                 }

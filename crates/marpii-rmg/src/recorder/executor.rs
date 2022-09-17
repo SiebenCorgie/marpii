@@ -9,7 +9,7 @@ use marpii::{
 use slotmap::SlotMap;
 use std::sync::Arc;
 
-use super::scheduler::{CmdFrame, Schedule, SubmitFrame, TrackRecord};
+use super::scheduler::{Schedule, SubmitFrame, TrackRecord};
 
 struct Exec<'rmg> {
     record: TrackRecord<'rmg>,

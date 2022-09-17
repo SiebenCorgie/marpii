@@ -19,7 +19,7 @@ pub(crate) struct Track {
     pub(crate) sem: Arc<Semaphore>,
 
     pub(crate) command_buffer_pool: Arc<CommandPool>,
-    inflight_executions: Vec<Execution>
+    pub(crate) inflight_executions: Vec<Execution>
 }
 
 impl Track {
@@ -47,6 +47,16 @@ impl Track {
         self.inflight_executions.retain(|exec| exec.guard.target_value >= finished_till);
     }
 
+    pub(crate) fn wait_for_inflights(&mut self){
+        //we need to wait for all executions to finish
+        let max = self.inflight_executions.iter().fold(0, |max, inflight| max.max(inflight.guard.target_value));
+
+        #[cfg(feature="logging")]
+        log::trace!("waiting track, waiting for {}", max);
+        self.sem.wait(max, u64::MAX).expect("Failed to wait for inflight execution");
+        self.inflight_executions.clear();
+    }
+
     pub fn new_command_buffer(&mut self) -> Result<CommandBuffer<Arc<CommandPool>>, RecordError> {
         let cb = self
             .command_buffer_pool
@@ -63,6 +73,7 @@ impl Display for TrackId {
         write!(f, "TrackId({:?})", self.0)
     }
 }
+
 pub(crate) struct Tracks(pub FxHashMap<TrackId, Track>);
 
 impl Tracks {
