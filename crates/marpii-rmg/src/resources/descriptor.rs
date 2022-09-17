@@ -1,5 +1,12 @@
-use std::{sync::Arc, collections::VecDeque};
-use marpii::{context::Device, resources::{Buffer, Image, Sampler, ImageView, DescriptorSetLayout, DescriptorSet, DescriptorPool, PipelineLayout}, ash::vk};
+use marpii::{
+    ash::vk,
+    context::Device,
+    resources::{
+        Buffer, DescriptorPool, DescriptorSet, DescriptorSetLayout, Image, ImageView,
+        PipelineLayout, Sampler,
+    },
+};
+use std::{collections::VecDeque, sync::Arc};
 
 ///By definition when interpreted as big endian the highest byte is the handle type and the lower bytes are the actual index.
 ///
@@ -7,7 +14,7 @@ use marpii::{context::Device, resources::{Buffer, Image, Sampler, ImageView, Des
 #[derive(Clone, Copy, Hash, PartialEq, PartialOrd, Eq, Debug)]
 pub struct ResourceHandle(u32);
 
-impl ResourceHandle{
+impl ResourceHandle {
     pub const TYPE_STORAGE_BUFFER: u8 = 0x0;
     pub const TYPE_STORAGE_IMAGE: u8 = 0x1;
     pub const TYPE_SAMPLED_IMAGE: u8 = 0x2;
@@ -15,7 +22,7 @@ impl ResourceHandle{
     pub const TYPE_ACCELERATION_STRUCTURE: u8 = 0x4;
 
     ///Returns the handle type bits of this handle.
-    pub fn handle_type(&self) -> u8{
+    pub fn handle_type(&self) -> u8 {
         self.0.to_be_bytes()[0]
     }
 
@@ -37,14 +44,14 @@ impl ResourceHandle{
     }
 
     ///Returns the index of this handle into its own descriptor.
-    pub fn index(&self) -> u32{
+    pub fn index(&self) -> u32 {
         let mut bytes = self.0.to_be_bytes();
         bytes[0] = 0;
         u32::from_be_bytes(bytes)
     }
 
-    pub fn new_from_desc_ty(ty: vk::DescriptorType, index: u32) -> Self{
-        let ty = match ty{
+    pub fn new_from_desc_ty(ty: vk::DescriptorType, index: u32) -> Self {
+        let ty = match ty {
             vk::DescriptorType::SAMPLED_IMAGE => Self::TYPE_SAMPLED_IMAGE,
             vk::DescriptorType::STORAGE_IMAGE => Self::TYPE_STORAGE_IMAGE,
             vk::DescriptorType::STORAGE_BUFFER => Self::TYPE_STORAGE_BUFFER,
@@ -52,7 +59,10 @@ impl ResourceHandle{
             vk::DescriptorType::ACCELERATION_STRUCTURE_KHR => Self::TYPE_ACCELERATION_STRUCTURE,
             _ => {
                 #[cfg(feature = "logging")]
-                log::error!("Descriptor type {:?} unsupported, using STORAGE_BUFFER instead", ty);
+                log::error!(
+                    "Descriptor type {:?} unsupported, using STORAGE_BUFFER instead",
+                    ty
+                );
 
                 Self::TYPE_STORAGE_BUFFER
             }
@@ -62,7 +72,7 @@ impl ResourceHandle{
     }
 
     ///Creates a new handle, panics if the type is outside the defined types, or the index exceeds (2^56)-1.
-    pub fn new(ty: u8, index: u32) -> Self{
+    pub fn new(ty: u8, index: u32) -> Self {
         assert!(ty <= Self::TYPE_ACCELERATION_STRUCTURE);
         assert!(index < 2u32.pow(24));
 
@@ -73,8 +83,7 @@ impl ResourceHandle{
     }
 }
 
-
-struct SetManager<T>{
+struct SetManager<T> {
     ///Collects free'd indices that can be used
     free: VecDeque<ResourceHandle>,
     stored: fxhash::FxHashMap<ResourceHandle, T>,
@@ -106,7 +115,11 @@ impl<T> SetManager<T> {
             } else {
                 let new_idx = self.head_idx;
                 #[cfg(feature = "logging")]
-                log::trace!("Allocating new handle {:?} for descty {:#?}", new_idx, self.ty);
+                log::trace!(
+                    "Allocating new handle {:?} for descty {:#?}",
+                    new_idx,
+                    self.ty
+                );
                 self.head_idx += 1;
                 Some(ResourceHandle::new_from_desc_ty(self.ty, new_idx))
             }
@@ -218,7 +231,7 @@ impl<T> SetManager<T> {
             self.stored.keys()
         );
 
-        #[cfg(feature="logging")]
+        #[cfg(feature = "logging")]
         log::trace!("Binding {:?} to {:?}", self.ty, hdl.index());
 
         //allocated handle, and is not in use, we can bind!
@@ -269,7 +282,7 @@ impl<T> SetManager<T> {
 /// - AccellerationStructure
 ///
 //TODO: Check if VK_EXT_mutable_descriptor_type works even better. We could put everything into one desc pool
-pub(crate) struct Bindless{
+pub(crate) struct Bindless {
     stbuffer: SetManager<Arc<Buffer>>,
     stimage: SetManager<Arc<ImageView>>,
     saimage: SetManager<Arc<ImageView>>,
@@ -343,7 +356,10 @@ impl Bindless {
             .max_bound_descriptor_sets
             < Self::NUM_SETS
         {
-            anyhow::bail!("Device does not support {} bound descriptor sets at a time", Self::NUM_SETS);
+            anyhow::bail!(
+                "Device does not support {} bound descriptor sets at a time",
+                Self::NUM_SETS
+            );
         }
 
         let descriptor_sizes = [
@@ -402,12 +418,8 @@ impl Bindless {
             vk::DescriptorType::STORAGE_BUFFER,
             max_storage_buffer,
         )?;
-        let sampler = SetManager::new(
-            device,
-            &desc_pool,
-            vk::DescriptorType::SAMPLER,
-            max_sampler,
-        )?;
+        let sampler =
+            SetManager::new(device, &desc_pool, vk::DescriptorType::SAMPLER, max_sampler)?;
         let accel = SetManager::new(
             device,
             &desc_pool,
@@ -491,9 +503,7 @@ impl Bindless {
             .buffer_info(core::slice::from_ref(&buffer_info))
             .descriptor_type(vk::DescriptorType::STORAGE_BUFFER);
 
-        let hdl = self
-            .stbuffer
-            .bind(buffer, write_instruction)?;
+        let hdl = self.stbuffer.bind(buffer, write_instruction)?;
         Ok(hdl) //wrap handle into correct type and exit
     }
 
@@ -501,9 +511,13 @@ impl Bindless {
         &mut self,
         image: Arc<ImageView>,
     ) -> Result<ResourceHandle, Arc<ImageView>> {
-
-        if !image.src_img.desc.usage.contains(vk::ImageUsageFlags::STORAGE){
-            #[cfg(feature="logging")]
+        if !image
+            .src_img
+            .desc
+            .usage
+            .contains(vk::ImageUsageFlags::STORAGE)
+        {
+            #[cfg(feature = "logging")]
             log::error!("Tried to bind as storage image, but has no storage usage!");
             return Err(image);
         }
@@ -516,9 +530,7 @@ impl Bindless {
             .image_info(core::slice::from_ref(&image_info))
             .descriptor_type(vk::DescriptorType::STORAGE_IMAGE);
 
-        let hdl = self
-            .stimage
-            .bind(image, write_instruction)?;
+        let hdl = self.stimage.bind(image, write_instruction)?;
         Ok(hdl) //wrap handle into correct type and exit
     }
 
@@ -527,10 +539,13 @@ impl Bindless {
         &mut self,
         image: Arc<ImageView>,
     ) -> Result<ResourceHandle, Arc<ImageView>> {
-
-
-        if !image.src_img.desc.usage.contains(vk::ImageUsageFlags::SAMPLED){
-            #[cfg(feature="logging")]
+        if !image
+            .src_img
+            .desc
+            .usage
+            .contains(vk::ImageUsageFlags::SAMPLED)
+        {
+            #[cfg(feature = "logging")]
             log::error!("Tried to bind as sampled image, but has no sample usage!");
             return Err(image);
         }
@@ -543,26 +558,18 @@ impl Bindless {
             .image_info(core::slice::from_ref(&image_info))
             .descriptor_type(vk::DescriptorType::SAMPLED_IMAGE);
 
-        let hdl = self
-            .saimage
-            .bind(image, write_instruction)?;
+        let hdl = self.saimage.bind(image, write_instruction)?;
         Ok(hdl) //wrap handle into correct type and exit
     }
 
-    pub fn bind_sampler(
-        &mut self,
-        sampler: Arc<Sampler>,
-    ) -> Result<ResourceHandle, Arc<Sampler>> {
+    pub fn bind_sampler(&mut self, sampler: Arc<Sampler>) -> Result<ResourceHandle, Arc<Sampler>> {
         //prepare our write instruction, then submit
-        let image_info = vk::DescriptorImageInfo::builder()
-            .sampler(sampler.inner);
+        let image_info = vk::DescriptorImageInfo::builder().sampler(sampler.inner);
         let write_instruction = vk::WriteDescriptorSet::builder()
             .image_info(core::slice::from_ref(&image_info))
             .descriptor_type(vk::DescriptorType::SAMPLER);
 
-        let hdl = self
-            .sampler
-            .bind(sampler, write_instruction)?;
+        let hdl = self.sampler.bind(sampler, write_instruction)?;
         Ok(hdl) //wrap handle into correct type and exit
     }
 
@@ -579,7 +586,6 @@ impl Bindless {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -590,12 +596,22 @@ mod tests {
         let st_img = ResourceHandle::new_from_desc_ty(vk::DescriptorType::STORAGE_IMAGE, 43);
         let st_buf = ResourceHandle::new_from_desc_ty(vk::DescriptorType::STORAGE_BUFFER, 44);
         let sa = ResourceHandle::new_from_desc_ty(vk::DescriptorType::SAMPLER, 10);
-        let acc = ResourceHandle::new_from_desc_ty(vk::DescriptorType::ACCELERATION_STRUCTURE_KHR, 45);
+        let acc =
+            ResourceHandle::new_from_desc_ty(vk::DescriptorType::ACCELERATION_STRUCTURE_KHR, 45);
 
-        assert!(sa_img.index() == 42 && sa_img.descriptor_ty() == vk::DescriptorType::SAMPLED_IMAGE);
-        assert!(st_img.index() == 43 && st_img.descriptor_ty() == vk::DescriptorType::STORAGE_IMAGE);
-        assert!(st_buf.index() == 44 && st_buf.descriptor_ty() == vk::DescriptorType::STORAGE_BUFFER);
+        assert!(
+            sa_img.index() == 42 && sa_img.descriptor_ty() == vk::DescriptorType::SAMPLED_IMAGE
+        );
+        assert!(
+            st_img.index() == 43 && st_img.descriptor_ty() == vk::DescriptorType::STORAGE_IMAGE
+        );
+        assert!(
+            st_buf.index() == 44 && st_buf.descriptor_ty() == vk::DescriptorType::STORAGE_BUFFER
+        );
         assert!(sa.index() == 10 && sa.descriptor_ty() == vk::DescriptorType::SAMPLER);
-        assert!(acc.index() == 45 && acc.descriptor_ty() == vk::DescriptorType::ACCELERATION_STRUCTURE_KHR);
+        assert!(
+            acc.index() == 45
+                && acc.descriptor_ty() == vk::DescriptorType::ACCELERATION_STRUCTURE_KHR
+        );
     }
 }

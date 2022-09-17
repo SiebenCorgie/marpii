@@ -6,7 +6,7 @@ use marpii::{
     ash::{self, vk, vk::Extent2D},
     context::Ctx,
 };
-use marpii_rmg::{Rmg, Task, ResourceAccess, ResourceRegistry, ImageKey, BufferKey, SamplerKey};
+use marpii_rmg::{Rmg, Task, ResourceRegistry, ImageKey, BufferKey, SamplerKey, Resources};
 use winit::event::{DeviceEvent, ElementState, KeyboardInput, VirtualKeyCode};
 use winit::{
     event::{Event, WindowEvent},
@@ -26,7 +26,7 @@ impl Task for ShadowPass {
         registry.request_buffer(self.param);
         registry.request_sampler(self.sampler);
     }
-    fn record(&mut self, device: &std::sync::Arc<marpii::context::Device>, command_buffer: &vk::CommandBuffer, resources: &ResourceAccess) {
+    fn record(&mut self, device: &std::sync::Arc<marpii::context::Device>, command_buffer: &vk::CommandBuffer, resources: &Resources) {
         println!("Shadow pass")
     }
     fn queue_flags(&self) -> vk::QueueFlags {
@@ -50,7 +50,7 @@ impl Task for ForwardPass {
         registry.request_buffer(self.meshes);
     }
 
-    fn record(&mut self, device: &std::sync::Arc<marpii::context::Device>, command_buffer: &vk::CommandBuffer, resources: &ResourceAccess) {
+    fn record(&mut self, device: &std::sync::Arc<marpii::context::Device>, command_buffer: &vk::CommandBuffer, resources: &Resources) {
         println!("Forward pass")
     }
     fn queue_flags(&self) -> vk::QueueFlags {
@@ -70,7 +70,7 @@ impl Task for PostPass {
         registry.request_image(self.swimage);
         registry.request_image(self.src);
     }
-    fn record(&mut self, device: &std::sync::Arc<marpii::context::Device>, command_buffer: &vk::CommandBuffer, resources: &ResourceAccess) {
+    fn record(&mut self, device: &std::sync::Arc<marpii::context::Device>, command_buffer: &vk::CommandBuffer, resources: &Resources) {
         println!("Post pass")
     }
     fn queue_flags(&self) -> vk::QueueFlags {
@@ -121,27 +121,27 @@ fn main() -> Result<(), anyhow::Error> {
 
     let sampler = rmg.new_sampler(&vk::SamplerCreateInfo::builder())?;
 
-    let shadow_pass = ShadowPass{
+    let mut shadow_pass = ShadowPass{
         shadow: shadow_image,
         sampler,
         param: param_buffer
     };
 
-    let forward = ForwardPass{
+    let mut forward = ForwardPass{
         shadow: shadow_image,
         target: target_image,
         meshes: mesh_buffer
     };
 
-    let post = PostPass{
+    let mut post = PostPass{
         src: target_image,
         swimage: swimage_image
     };
 
     rmg.record()
-        .add_task(&shadow_pass, &["ShadowImg"])?
-        .add_task(&forward, &["ForwardImg"])?
-        .add_task(&post, &[])?
+        .add_task(&mut shadow_pass, &["ShadowImg"])?
+        .add_task(&mut forward, &["ForwardImg"])?
+        .add_task(&mut post, &[])?
         .execute()?;
 
 

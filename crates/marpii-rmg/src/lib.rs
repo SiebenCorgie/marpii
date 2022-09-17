@@ -10,17 +10,32 @@
 mod resources;
 use fxhash::FxHashMap;
 use recorder::Recorder;
-pub use resources::{ResourceError, res_states::{AnyResKey, ImageKey, ResImage, BufferKey, ResBuffer, SamplerKey, ResSampler}, Resources};
+pub use resources::{
+    res_states::{AnyResKey, BufferKey, ImageKey, ResBuffer, ResImage, ResSampler, SamplerKey},
+    ResourceError, Resources,
+};
 
 mod recorder;
-pub use recorder::{RecordError, task::{Task, ResourceAccess, ResourceRegistry}};
+pub use recorder::{
+    task::{ResourceRegistry, Task},
+    RecordError,
+};
 
 pub(crate) mod track;
 
+use marpii::{
+    allocator::MemoryUsage,
+    ash::vk,
+    context::Ctx,
+    gpu_allocator::vulkan::Allocator,
+    resources::{BufDesc, Buffer, CommandPool, Image, ImgDesc, Sampler, SharingMode},
+    surface::Surface,
+    swapchain::Swapchain,
+    sync::Semaphore,
+};
 use std::sync::Arc;
 use thiserror::Error;
-use marpii::{ash::vk, context::Ctx, gpu_allocator::vulkan::Allocator, swapchain::Swapchain, surface::Surface, sync::Semaphore, resources::{ImgDesc, BufDesc, Image, Buffer, Sampler, SharingMode, CommandPool}, allocator::MemoryUsage};
-use track::{Tracks, TrackId, Track};
+use track::{Track, TrackId, Tracks};
 
 ///Top level Error structure.
 #[derive(Debug, Error)]
@@ -39,7 +54,7 @@ pub enum RmgError {
 }
 
 ///Main RMG interface.
-pub struct Rmg{
+pub struct Rmg {
     ///Resource management
     pub(crate) res: resources::Resources,
 
@@ -51,9 +66,11 @@ pub struct Rmg{
     swapchain: Swapchain,
 }
 
-
 impl Rmg {
-        pub fn new(context: Ctx<Allocator>, swapchain_surface: &Arc<Surface>) -> Result<Self, RmgError> {
+    pub fn new(
+        context: Ctx<Allocator>,
+        swapchain_surface: &Arc<Surface>,
+    ) -> Result<Self, RmgError> {
         //Per definition we try to find at least one graphic, compute and transfer queue.
         // We then create the swapchain. It is used for image presentation and the start/end point for frame scheduling.
 
@@ -61,7 +78,7 @@ impl Rmg {
         let tracks = context.device.queues.iter().enumerate().fold(
             FxHashMap::default(),
             |mut set: FxHashMap<TrackId, Track>, (idx, q)| {
-                #[cfg(feature="logging")]
+                #[cfg(feature = "logging")]
                 log::info!("QueueType: {:#?}", q.properties.queue_flags);
                 //Make sure to only add queue, if we don't have a queue with those capabilities yet.
                 if !set.contains_key(&TrackId(q.properties.queue_flags)) {
@@ -97,11 +114,10 @@ impl Rmg {
         is_sampled: bool,
         name: Option<&str>,
     ) -> Result<ImageKey, RmgError> {
-
         //patch usage bits
-        if is_sampled{
+        if is_sampled {
             description.usage |= vk::ImageUsageFlags::SAMPLED;
-        }else{
+        } else {
             description.usage |= vk::ImageUsageFlags::STORAGE;
         }
 
@@ -158,7 +174,12 @@ impl Rmg {
         Ok(self.res.add_sampler(Arc::new(sampler))?)
     }
 
-    pub fn record<'rmg>(&'rmg mut self) -> Recorder<'rmg>{
+    pub fn record<'rmg>(&'rmg mut self) -> Recorder<'rmg> {
+        //tick all tracks to free resources
+        for (_k, t) in self.tracks.0.iter_mut(){
+            t.tick_frame();
+        }
+
         Recorder::new(self)
     }
 
@@ -171,7 +192,7 @@ impl Rmg {
         None
     }
 
-    pub(crate) fn trackid_to_queue_idx(&self, id: TrackId) -> u32{
+    pub(crate) fn trackid_to_queue_idx(&self, id: TrackId) -> u32 {
         self.tracks.0.get(&id).unwrap().queue_idx
     }
 }

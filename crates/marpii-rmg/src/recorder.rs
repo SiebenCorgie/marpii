@@ -1,22 +1,35 @@
-
-
-pub(crate) mod task;
+pub(crate) mod executor;
 mod scheduler;
-mod executor;
+pub(crate) mod task;
 
 use std::fmt::Debug;
 
 use marpii::ash::vk;
 use thiserror::Error;
 
-use crate::{Rmg, Task, track::TrackId};
+use crate::{track::TrackId, AnyResKey, Rmg, Task};
 
-use self::{task::ResourceRegistry, scheduler::Schedule, executor::Executor};
+use self::{
+    executor::Executor,
+    scheduler::{ResLocation, Schedule},
+    task::ResourceRegistry,
+};
 
 #[derive(Debug, Error)]
-pub enum RecordError{
+pub enum RecordError {
     #[error("No fitting track for flags found")]
     NoFittingTrack(vk::QueueFlags),
+
+    #[error("No such resource found")]
+    NoSuchResource(AnyResKey),
+
+    #[error("Resource {0} was owned still owned by {1} while trying to acquire.")]
+    AcquireRecord(AnyResKey, u32),
+    #[error("Resource {0} was already released from {1} to {2} while trying to release.")]
+    ReleaseRecord(AnyResKey, u32, u32),
+
+    #[error("Resource {0} was not owned while trying to release.")]
+    ReleaseUninitialised(AnyResKey),
 
     #[error("Vulkan recording error")]
     VkError(#[from] vk::Result),
@@ -25,8 +38,8 @@ pub enum RecordError{
     Any(#[from] anyhow::Error),
 }
 
-pub(crate) struct TaskRecord<'t>{
-    task: &'t dyn Task,
+pub(crate) struct TaskRecord<'t> {
+    task: &'t mut dyn Task,
     registry: ResourceRegistry<'t>,
 }
 
@@ -37,58 +50,61 @@ impl<'t> Debug for TaskRecord<'t> {
 }
 
 ///records a new execution graph blocks any access to `rmg` until the graph is executed.
-pub struct Recorder<'rmg>{
+pub struct Recorder<'rmg> {
     pub rmg: &'rmg mut Rmg,
     records: Vec<TaskRecord<'rmg>>,
     framebuffer_extent: vk::Extent2D,
 }
 
-
 impl<'rmg> Recorder<'rmg> {
-    pub fn new(rmg: &'rmg mut Rmg) -> Self{
+    pub fn new(rmg: &'rmg mut Rmg) -> Self {
+        let framebuffer_extent = rmg
+            .swapchain
+            .surface
+            .get_current_extent(&rmg.ctx.device.physical_device)
+            .unwrap_or({
+                #[cfg(feature = "logging")]
+                log::error!("Failed to get surface extent, falling back to 1x1");
 
-        let framebuffer_extent = rmg.swapchain.surface.get_current_extent(&rmg.ctx.device.physical_device).unwrap_or({
-            #[cfg(feature="logging")]
-            log::error!("Failed to get surface extent, falling back to 1x1");
-
-            vk::Extent2D{
-                width: 1,
-                height: 1
-            }
-        });
+                vk::Extent2D {
+                    width: 1,
+                    height: 1,
+                }
+            });
 
         Recorder {
             rmg,
             records: Vec::new(),
-            framebuffer_extent
+            framebuffer_extent,
         }
     }
 
-
     ///Adds `task` to the execution plan. Optionally naming the task's attachments (in order of definition) with the given names.
-    pub fn add_task(mut self, task: &'rmg dyn Task, attachment_names: &'rmg[&'rmg str]) -> Result<Self, RecordError>{
+    pub fn add_task(
+        mut self,
+        task: &'rmg mut dyn Task,
+        attachment_names: &'rmg [&'rmg str],
+    ) -> Result<Self, RecordError> {
         //build registry
         let mut registry = ResourceRegistry::new(attachment_names);
         task.register(&mut registry);
 
         println!("resolve attachments to actual ids and register name->key mapping for pass");
 
-        let record = TaskRecord{
-            task,
-            registry
-        };
+        let record = TaskRecord { task, registry };
 
         self.records.push(record);
-
 
         Ok(self)
     }
 
     ///Schedules everything for execution
-    pub fn execute(self) -> Result<(), RecordError>{
+    pub fn execute(self) -> Result<(), RecordError> {
         let schedule = Schedule::from_tasks(self.rmg, self.records)?;
         schedule.print_schedule();
 
-        Executor::exec(self.rmg, schedule)
+        let executions = Executor::exec(self.rmg, schedule)?;
+
+        Ok(())
     }
 }
