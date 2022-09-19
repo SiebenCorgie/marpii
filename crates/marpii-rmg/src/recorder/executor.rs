@@ -94,6 +94,11 @@ impl<'rmg> Executor<'rmg> {
         // iterator over this.
         for sub in submission_order {
             executions.push(exec.record_frame(rmg, sub)?);
+
+            //execute post execution step for each task of the current frame
+            for task in exec.tracks.get_mut(&sub.track).unwrap().record.frames[sub.frame].tasks.iter_mut(){
+                task.task.post_execution(&mut rmg.res);
+            }
         }
 
         Ok(executions)
@@ -217,6 +222,19 @@ impl<'rmg> Executor<'rmg> {
             );
         }
 
+        let mut signal_semaphore = vec![
+            vk::SemaphoreSubmitInfo::builder()
+                .semaphore(rmg.tracks.0.get(&frame.track).unwrap().sem.inner)
+                .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
+                .value(guard.target_value)
+                .build()
+        ];
+
+        //if found, add all foreign semaphores
+        for task in self.tracks.get(&frame.track).unwrap().record.frames[frame.frame].tasks.iter(){
+            task.registry.append_foreign_signal_semaphores(&mut signal_semaphore);
+        }
+
         //finally, when finished recording, execute by
         unsafe {
             rmg.ctx.device.inner.end_command_buffer(cb.inner)?;
@@ -235,10 +253,7 @@ impl<'rmg> Executor<'rmg> {
                     ])
                     .wait_semaphore_infos(wait_semaphores.as_slice())
                     //Signal this tracks value uppon finish
-                    .signal_semaphore_infos(&[*vk::SemaphoreSubmitInfo::builder()
-                        .semaphore(rmg.tracks.0.get(&frame.track).unwrap().sem.inner)
-                        .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                        .value(guard.target_value)])],
+                    .signal_semaphore_infos(&signal_semaphore)],
                 vk::Fence::null(),
             )?;
         }

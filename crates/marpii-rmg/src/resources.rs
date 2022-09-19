@@ -1,7 +1,7 @@
 use marpii::{
     ash::vk,
     context::Device,
-    resources::{Buffer, CommandBufferAllocator, CommandPool, Image, SafeImageView, Sampler},
+    resources::{Buffer, CommandBufferAllocator, CommandPool, Image, SafeImageView, Sampler}, swapchain::{Swapchain, SwapchainImage}, surface::Surface,
 };
 use slotmap::SlotMap;
 use std::sync::Arc;
@@ -35,17 +35,28 @@ pub struct Resources {
     pub(crate) images: SlotMap<ImageKey, ResImage>,
     pub(crate) buffer: SlotMap<BufferKey, ResBuffer>,
     pub(crate) sampler: SlotMap<SamplerKey, ResSampler>,
+
+    pub(crate) swapchain: Swapchain
 }
 
 impl Resources {
-    pub fn new(device: &Arc<Device>) -> Result<Self, ResourceError> {
+    pub fn new(device: &Arc<Device>, surface: &Arc<Surface>) -> Result<Self, ResourceError> {
         let bindless = Bindless::new_default(device)?;
+
+
+        let swapchain = Swapchain::builder(device, surface)?
+            .with(move |b| {
+                b.create_info.usage =
+                    vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::TRANSFER_DST
+            })
+            .build()?;
 
         Ok(Resources {
             bindless,
             buffer: SlotMap::with_key(),
             images: SlotMap::with_key(),
             sampler: SlotMap::with_key(),
+            swapchain
         })
     }
 
@@ -135,5 +146,20 @@ impl Resources {
         });
 
         Ok(key)
+    }
+
+    pub fn get_next_swapchain_image(&mut self) -> Result<SwapchainImage, ResourceError>{
+        if let Ok(img) = self.swapchain.acquire_next_image(){
+            Ok(img)
+        }else{
+            //try to recreate, otherwise panic.
+            todo!("Recreating swapchain needed")
+        }
+    }
+
+    ///Schedules swapchain image for present
+    pub fn present_image(&mut self, image: SwapchainImage){
+        let queue = self.swapchain.device.first_queue_for_attribute(true, false, false).unwrap(); //FIXME use track instead
+        self.swapchain.present_image(image, &*queue.inner()).unwrap();
     }
 }

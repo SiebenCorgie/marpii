@@ -147,7 +147,8 @@ impl<T> SetManager<T> {
             p_immutable_samplers: core::ptr::null(),
         };
 
-        println!("Allocating @ {:?} size={}", ty, max_count);
+        #[cfg(feature="logging")]
+        log::trace!("Allocating @ {:?} size={}", ty, max_count);
 
         let flags = [vk::DescriptorBindingFlags::PARTIALLY_BOUND
             | vk::DescriptorBindingFlags::VARIABLE_DESCRIPTOR_COUNT
@@ -156,7 +157,9 @@ impl<T> SetManager<T> {
         let mut ext_flags =
             vk::DescriptorSetLayoutBindingFlagsCreateInfo::builder().binding_flags(&flags);
 
-        println!("    {:#?}", binding_layout);
+        #[cfg(feature="logging")]
+        log::trace!("    {:#?}", binding_layout);
+
         let layout = unsafe {
             device.inner.create_descriptor_set_layout(
                 &vk::DescriptorSetLayoutCreateInfo::builder()

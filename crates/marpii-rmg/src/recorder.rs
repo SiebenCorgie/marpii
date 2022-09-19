@@ -8,7 +8,7 @@ use std::fmt::Debug;
 use marpii::ash::vk;
 use thiserror::Error;
 
-use crate::{track::TrackId, AnyResKey, Rmg, Task};
+use crate::{AnyResKey, Rmg, Task};
 
 use self::{
     executor::Executor,
@@ -60,6 +60,7 @@ pub struct Recorder<'rmg> {
 impl<'rmg> Recorder<'rmg> {
     pub fn new(rmg: &'rmg mut Rmg) -> Self {
         let framebuffer_extent = rmg
+            .res
             .swapchain
             .surface
             .get_current_extent(&rmg.ctx.device.physical_device)
@@ -86,6 +87,8 @@ impl<'rmg> Recorder<'rmg> {
         task: &'rmg mut dyn Task,
         attachment_names: &'rmg [&'rmg str],
     ) -> Result<Self, RecordError> {
+
+        task.pre_record(&mut self.rmg.res);
         //build registry
         let mut registry = ResourceRegistry::new(attachment_names);
         task.register(&mut registry);

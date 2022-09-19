@@ -6,13 +6,13 @@ use marpii::{
     ash::{self, vk, vk::Extent2D},
     context::Ctx,
 };
+use marpii_rmg::tasks::SwapchainBlit;
 use marpii_rmg::{Rmg, Task, ResourceRegistry, ImageKey, BufferKey, SamplerKey, Resources};
 use winit::event::{DeviceEvent, ElementState, KeyboardInput, VirtualKeyCode};
 use winit::{
     event::{Event, WindowEvent},
     event_loop::ControlFlow,
 };
-
 
 struct ShadowPass{
     shadow: ImageKey,
@@ -99,7 +99,7 @@ fn main() -> Result<(), anyhow::Error> {
     let param_buffer = rmg.new_buffer::<usize>(1024, Some("ParamBuffer"))?;
 
     let swimage_image = rmg.new_image_uninitialized(
-        ImgDesc::storage_image_2d(1024, 1024, vk::Format::R8G8B8A8_UINT),
+        ImgDesc::storage_image_2d(1024, 1024, vk::Format::R8G8B8A8_SNORM),
         false,
         Some("SwImage")
     )?;
@@ -138,11 +138,17 @@ fn main() -> Result<(), anyhow::Error> {
         swimage: swimage_image
     };
 
+    let mut swapchain_blit = SwapchainBlit::new();
+    swapchain_blit.next_blit(swimage_image);
+
+
     rmg.record()
         .add_task(&mut shadow_pass, &["ShadowImg"])?
         .add_task(&mut forward, &["ForwardImg"])?
         .add_task(&mut post, &[])?
+        .add_task(&mut swapchain_blit, &[])?
         .execute()?;
+
 
 
     Ok(())

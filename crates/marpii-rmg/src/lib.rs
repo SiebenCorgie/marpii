@@ -23,19 +23,21 @@ pub use recorder::{
 
 pub(crate) mod track;
 
+///Pre implemented generic tasks
+pub mod tasks;
+
 use marpii::{
     allocator::MemoryUsage,
     ash::vk,
     context::Ctx,
     gpu_allocator::vulkan::Allocator,
-    resources::{BufDesc, Buffer, CommandPool, Image, ImgDesc, Sampler, SharingMode},
-    surface::Surface,
-    swapchain::Swapchain,
-    sync::Semaphore,
+    resources::{BufDesc, Buffer, Image, ImgDesc, Sampler, SharingMode}, swapchain::Swapchain, surface::Surface,
 };
 use std::sync::Arc;
 use thiserror::Error;
 use track::{Track, TrackId, Tracks};
+
+pub(crate) mod swapchain_handling;
 
 ///Top level Error structure.
 #[derive(Debug, Error)]
@@ -62,14 +64,12 @@ pub struct Rmg {
     tracks: Tracks,
 
     pub ctx: Ctx<Allocator>,
-
-    swapchain: Swapchain,
 }
 
 impl Rmg {
     pub fn new(
         context: Ctx<Allocator>,
-        swapchain_surface: &Arc<Surface>,
+        surface: &Arc<Surface>
     ) -> Result<Self, RmgError> {
         //Per definition we try to find at least one graphic, compute and transfer queue.
         // We then create the swapchain. It is used for image presentation and the start/end point for frame scheduling.
@@ -92,18 +92,11 @@ impl Rmg {
             },
         );
 
-        let res = Resources::new(&context.device)?;
-        let swapchain = Swapchain::builder(&context.device, swapchain_surface)?
-            .with(move |b| {
-                b.create_info.usage =
-                    vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::TRANSFER_DST
-            })
-            .build()?;
+        let res = Resources::new(&context.device, surface)?;
 
         Ok(Rmg {
             res,
             tracks: Tracks(tracks),
-            swapchain,
             ctx: context,
         })
     }
