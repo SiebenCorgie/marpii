@@ -1,12 +1,13 @@
+use fxhash::FxHashMap;
 use marpii::ash::vk;
 
-use crate::{AnyResKey, Rmg, resources::res_states::{Guard, QueueOwnership}, RecordError};
+use crate::{AnyResKey, Rmg, resources::res_states::{Guard, QueueOwnership}, RecordError, track::TrackId};
 
 use super::{scheduler::ResLocation, TaskRecord};
 
 
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct Acquire {
     //The track, and frame index this aquires from
     pub(crate) from: ResLocation,
@@ -14,13 +15,13 @@ pub(crate) struct Acquire {
     pub(crate) res: AnyResKey,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct Init {
     pub(crate) res: AnyResKey,
     pub(crate) to: ResLocation,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct Release {
     pub(crate) from: ResLocation,
     pub(crate) to: ResLocation,

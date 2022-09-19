@@ -14,6 +14,8 @@ use super::{TaskRecord, frame::CmdFrame};
 pub(crate) struct TrackRecord<'rmg> {
     ///Latest known semaphore value of any imported resource on this track
     pub latest_outside_sync: u64,
+    ///Releases that a scheduled when importing resource from outside the schedule, and on another track
+    pub release_header: Vec<Release>,
     pub frames: Vec<CmdFrame<'rmg>>,
 }
 
@@ -39,16 +41,32 @@ impl<'rmg> TrackRecord<'rmg> {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
+pub(crate) enum FrameLocation{
+    At(usize),
+    Header
+}
+
+impl FrameLocation {
+    pub fn unwrap_index(&self) -> usize{
+        if let FrameLocation::At(idx) = self{
+            *idx
+        }else{
+            panic!("Unwrap index on header location")
+        }
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub(crate) struct ResLocation {
     pub track: TrackId,
-    pub frame: usize,
+    pub frame: FrameLocation
 }
 
 impl Display for ResLocation {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "ResLocation{{\n\ttrack: {},\n\tframe: {}}}",
+            "ResLocation{{\n\ttrack: {},\n\tframe: {:?}}}",
             self.track, self.frame
         )
     }
@@ -78,22 +96,17 @@ impl<'rmg> Schedule<'rmg> {
                 (
                     *id,
                     TrackRecord {
-                        latest_outside_sync: track.sem.get_value(), //NOTE: if nothing is imported, the track can start immediately
-                        frames: vec![CmdFrame::new(), CmdFrame::new()], //Note, first frame is for releases that have to happen first
+                        latest_outside_sync: 0, //NOTE: if nothing is imported, the track can start immediately
+                        release_header: Vec::new(),
+                        frames: vec![CmdFrame::new()], //Note, first frame is for releases that have to happen first
                     },
                 )
             })
             .collect();
 
-        //ininitialy submit all frames once, since the release operations when starting a frame are in there.
-        // TODO: put those in a track specific /release header/ instead
-        let initial_submission = rmg.tracks.0.iter().map(|track| SubmitFrame{
-            track: *track.0,
-            frame: 0
-        }).collect();
 
         let mut schedule = Schedule {
-            submission_order: initial_submission,
+            submission_order: Vec::new(),
             known_res: FxHashMap::default(),
             tracks,
         };
@@ -128,7 +141,7 @@ impl<'rmg> Schedule<'rmg> {
 
         let record_location = ResLocation {
             track: track_id,
-            frame: frame_index,
+            frame: FrameLocation::At(frame_index),
         };
 
         //now move all resources to this track and add to the newest frame on this track
@@ -144,9 +157,9 @@ impl<'rmg> Schedule<'rmg> {
                 .get(&record_location.track)
                 .unwrap()
                 .current_frame()
-                == record_location.frame
+                == record_location.frame.unwrap_index()
         );
-        self.tracks.get_mut(&record_location.track).unwrap().frames[record_location.frame]
+        self.tracks.get_mut(&record_location.track).unwrap().frames[record_location.frame.unwrap_index()]
             .tasks
             .push(task);
 
@@ -166,7 +179,7 @@ impl<'rmg> Schedule<'rmg> {
 
         let dst_loc = ResLocation {
             track,
-            frame: self.tracks.get(&track).unwrap().current_frame(),
+            frame: FrameLocation::At(self.tracks.get(&track).unwrap().current_frame()),
         };
 
         if let Some(src_loc) = self.known_res.remove(&res) {
@@ -177,7 +190,7 @@ impl<'rmg> Schedule<'rmg> {
                 #[cfg(feature = "logging")]
                 log::trace!("Transfer {:?}: {:?} -> {:?}", res, src_loc, dst_loc);
                 // if the frame we release from is the *current*, we also end the frame.
-                self.tracks.get_mut(&src_loc.track).unwrap().frames[src_loc.frame]
+                self.tracks.get_mut(&src_loc.track).unwrap().frames[src_loc.frame.unwrap_index()]
                     .release
                     .push(Release {
                         from: src_loc,
@@ -185,7 +198,7 @@ impl<'rmg> Schedule<'rmg> {
                         res,
                     });
 
-                self.tracks.get_mut(&dst_loc.track).unwrap().frames[dst_loc.frame]
+                self.tracks.get_mut(&dst_loc.track).unwrap().frames[dst_loc.frame.unwrap_index()]
                     .acquire
                     .push(Acquire {
                         from: src_loc,
@@ -194,7 +207,7 @@ impl<'rmg> Schedule<'rmg> {
                     });
 
                 //if we where on the same frame, finish
-                if src_loc.frame == self.tracks.get(&src_loc.track).unwrap().current_frame() {
+                if src_loc.frame.unwrap_index() == self.tracks.get(&src_loc.track).unwrap().current_frame() {
                     #[cfg(feature = "logging")]
                     log::trace!("Finishing {:?}", src_loc);
 
@@ -203,17 +216,17 @@ impl<'rmg> Schedule<'rmg> {
                     self.submission_order.push(src_loc);
                     debug_assert!(
                         self.tracks.get(&src_loc.track).unwrap().current_frame()
-                            == src_loc.frame + 1
+                            == src_loc.frame.unwrap_index() + 1
                     );
                 } else {
                     debug_assert!(
-                        self.tracks.get(&src_loc.track).unwrap().current_frame() > src_loc.frame
+                        self.tracks.get(&src_loc.track).unwrap().current_frame() > src_loc.frame.unwrap_index()
                     )
                 }
 
                 //for sanity, if a transfer happened, the src_loc can't be the last frame on its track
                 debug_assert!(
-                    self.tracks.get(&src_loc.track).unwrap().current_frame() > src_loc.frame
+                    self.tracks.get(&src_loc.track).unwrap().current_frame() > src_loc.frame.unwrap_index()
                 );
             } else {
                 #[cfg(feature = "logging")]
@@ -241,17 +254,16 @@ impl<'rmg> Schedule<'rmg> {
 
                     let src_loc = ResLocation {
                         track: origin_track,
-                        frame: 0,
+                        frame: FrameLocation::Header,
                     };
 
-                    self.tracks.get_mut(&origin_track).unwrap().frames[0]
-                        .release
+                    self.tracks.get_mut(&origin_track).unwrap().release_header
                         .push(Release {
                             from: src_loc,
                             to: dst_loc,
                             res,
                         });
-                    self.tracks.get_mut(&dst_loc.track).unwrap().frames[dst_loc.frame]
+                    self.tracks.get_mut(&dst_loc.track).unwrap().frames[dst_loc.frame.unwrap_index()]
                         .acquire
                         .push(Acquire {
                             from: src_loc,
@@ -278,7 +290,7 @@ impl<'rmg> Schedule<'rmg> {
                 #[cfg(feature = "logging")]
                 log::trace!("Init res={:?}, seeing for first time", res);
 
-                self.tracks.get_mut(&dst_loc.track).unwrap().frames[dst_loc.frame]
+                self.tracks.get_mut(&dst_loc.track).unwrap().frames[dst_loc.frame.unwrap_index()]
                     .init
                     .push(Init { res, to: dst_loc });
             }
@@ -298,7 +310,7 @@ impl<'rmg> Schedule<'rmg> {
                 track.finish_frame();
                 self.submission_order.push(SubmitFrame {
                     track: *track_id,
-                    frame,
+                    frame: FrameLocation::At(frame),
                 });
 
                 #[cfg(feature = "logging")]
@@ -306,7 +318,7 @@ impl<'rmg> Schedule<'rmg> {
                     "Late Submit frame {:?}",
                     SubmitFrame {
                         track: *track_id,
-                        frame
+                        frame: FrameLocation::At(frame)
                     }
                 );
             }

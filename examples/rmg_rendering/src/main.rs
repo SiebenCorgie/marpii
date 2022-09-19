@@ -99,10 +99,10 @@ fn main() -> Result<(), anyhow::Error> {
 
 
     let image_data = image::open("test.png").unwrap();
-    let image_data = image_data.to_rgba8();
+    let image_data = image_data.to_rgba32f();
 
     let swimage_image = rmg.new_image_uninitialized(
-        ImgDesc::storage_image_2d(image_data.width(), image_data.height(), vk::Format::R8G8B8A8_SNORM),
+        ImgDesc::storage_image_2d(image_data.width(), image_data.height(), vk::Format::R32G32B32A32_SFLOAT),
         false,
         Some("SwImage")
     )?;
