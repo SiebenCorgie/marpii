@@ -26,7 +26,8 @@ impl<'rmg> TrackRecord<'rmg> {
     }
 
     fn remove_empty_frames(&mut self) {
-        self.frames.retain(|f| !f.is_empty());
+        //TODO make sure the indices match up...
+        //self.frames.retain(|f| !f.is_empty());
     }
     //removes all acquire and release pairs where track == this_id.
     fn remove_redundant_chains(&mut self, this_id: &TrackId) {
@@ -73,19 +74,26 @@ impl<'rmg> Schedule<'rmg> {
             .tracks
             .0
             .iter()
-            .map(|(id, _track)| {
+            .map(|(id, track)| {
                 (
                     *id,
                     TrackRecord {
-                        latest_outside_sync: 0, //NOTE: if nothing is imported, the track can start immediately
-                        frames: vec![CmdFrame::new()],
+                        latest_outside_sync: track.sem.get_value(), //NOTE: if nothing is imported, the track can start immediately
+                        frames: vec![CmdFrame::new(), CmdFrame::new()], //Note, first frame is for releases that have to happen first
                     },
                 )
             })
             .collect();
 
+        //ininitialy submit all frames once, since the release operations when starting a frame are in there.
+        // TODO: put those in a track specific /release header/ instead
+        let initial_submission = rmg.tracks.0.iter().map(|track| SubmitFrame{
+            track: *track.0,
+            frame: 0
+        }).collect();
+
         let mut schedule = Schedule {
-            submission_order: Vec::new(),
+            submission_order: initial_submission,
             known_res: FxHashMap::default(),
             tracks,
         };
@@ -221,7 +229,8 @@ impl<'rmg> Schedule<'rmg> {
                 //Note, we try to import from origin track. If there is none this a state less object like a sampler. In that case we ignore ownership
                 // transfer all together
                 if let Some(origin_track) = res.current_owner(rmg) {
-                    //Note that we release from the current owner by pushing the release to the firs track
+                    //Note that we release from the current owner by pushing the release to the firs frame of
+                    // the origin track.
                     #[cfg(feature = "logging")]
                     log::trace!(
                         "Importing outside from {:?} to {:?} for res={:?}",
@@ -250,7 +259,7 @@ impl<'rmg> Schedule<'rmg> {
                             res,
                         });
 
-                    //update semaphore value on this track
+                    //update semaphore value on  track
                     self.tracks
                         .get_mut(&origin_track)
                         .unwrap()

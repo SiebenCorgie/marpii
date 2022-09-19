@@ -112,7 +112,9 @@ impl<'rmg> Recorder<'rmg> {
 
         let executions = Executor::exec(self.rmg, schedule)?;
         for ex in executions{
-            self.rmg.tracks.0.get_mut(&ex.guard.track).unwrap().inflight_executions.push(ex);
+            let mut track = self.rmg.tracks.0.get_mut(&ex.guard.track).unwrap();
+            track.latest_signaled_value = track.latest_signaled_value.max(ex.guard.target_value);
+            track.inflight_executions.push(ex);
         }
 
         Ok(())

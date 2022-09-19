@@ -31,7 +31,7 @@ pub enum QueueOwnership {
 
 impl QueueOwnership {
     pub fn is_initalised(&self) -> bool {
-        self == &QueueOwnership::Uninitialized
+        self != &QueueOwnership::Uninitialized
     }
 
     ///If owned (not released), the queue family.

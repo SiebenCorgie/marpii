@@ -19,7 +19,10 @@ pub(crate) struct Track {
     pub(crate) sem: Arc<Semaphore>,
 
     pub(crate) command_buffer_pool: Arc<CommandPool>,
-    pub(crate) inflight_executions: Vec<Execution>
+    pub(crate) inflight_executions: Vec<Execution>,
+
+    //Latest known value that is going to be signaled eventually.
+    pub(crate) latest_signaled_value: u64,
 }
 
 impl Track {
@@ -37,6 +40,7 @@ impl Track {
                 .expect("Failed to create command pool!"),
             ),
             inflight_executions: Vec::with_capacity(10),
+            latest_signaled_value: 0
         }
     }
 

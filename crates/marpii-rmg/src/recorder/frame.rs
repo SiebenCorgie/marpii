@@ -96,7 +96,7 @@ impl<'rmg> CmdFrame<'rmg> {
                             log::error!(
                                 "Image {} was still owned by {} while trying to acquire",
                                 res,
-                                owner
+                                rmg.queue_idx_to_trackid(owner).unwrap()
                             );
                             return Err(RecordError::AcquireRecord(res, owner));
                         }

@@ -138,18 +138,24 @@ fn main() -> Result<(), anyhow::Error> {
         swimage: swimage_image
     };
 
-    let mut swapchain_blit = SwapchainBlit::new();
-    swapchain_blit.next_blit(swimage_image);
 
+    ev.run(move |ev, _, cf|{
+        *cf = ControlFlow::Poll;
 
-    rmg.record()
-        .add_task(&mut shadow_pass, &["ShadowImg"])?
-        .add_task(&mut forward, &["ForwardImg"])?
-        .add_task(&mut post, &[])?
-        .add_task(&mut swapchain_blit, &[])?
-        .execute()?;
+        match ev {
+            Event::MainEventsCleared => window.request_redraw(),
+            Event::RedrawRequested(_) => {
+                let mut swapchain_blit = SwapchainBlit::new();
+                swapchain_blit.next_blit(swimage_image);
 
-
-
-    Ok(())
+                rmg.record()
+                   .add_task(&mut shadow_pass, &["ShadowImg"]).unwrap()
+                   .add_task(&mut forward, &["ForwardImg"]).unwrap()
+                   .add_task(&mut post, &[]).unwrap()
+                   .add_task(&mut swapchain_blit, &[]).unwrap()
+                   .execute().unwrap();
+            },
+            _ => {}
+        }
+    })
 }

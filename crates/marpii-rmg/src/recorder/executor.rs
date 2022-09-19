@@ -13,16 +13,19 @@ use super::scheduler::{Schedule, SubmitFrame, TrackRecord};
 
 struct Exec<'rmg> {
     record: TrackRecord<'rmg>,
-    current_frame: usize,
+    semaphore_base_value: u64
 }
 
 impl<'rmg> Exec<'rmg> {
     fn start_val(&self) -> u64 {
         //Is the latest known value we know on this track, plus one, since we want at to start earliest right afterwards
-        self.record.latest_outside_sync + 1
+        self.semaphore_base_value + 1
     }
 
-    fn sem_val(&self, frame_index: usize) -> u64 {
+    fn frame_wait_value(&self, frame_index: u64) -> u64{
+        self.semaphore_base_value + frame_index
+    }
+    fn frame_signal_value(&self, frame_index: usize) -> u64 {
         self.start_val() + frame_index as u64
     }
 }
@@ -73,11 +76,13 @@ impl<'rmg> Executor<'rmg> {
             tracks: tracks
                 .into_iter()
                 .map(|(k, v)| {
+
+                    let max_guarded_value = v.latest_outside_sync;
                     (
                         k,
                         Exec {
                             record: v,
-                            current_frame: 0,
+                            semaphore_base_value: max_guarded_value.max(rmg.tracks.0.get(&k).unwrap().latest_signaled_value),
                         },
                     )
                 })
@@ -97,7 +102,7 @@ impl<'rmg> Executor<'rmg> {
 
             //execute post execution step for each task of the current frame
             for task in exec.tracks.get_mut(&sub.track).unwrap().record.frames[sub.frame].tasks.iter_mut(){
-                task.task.post_execution(&mut rmg.res);
+                task.task.post_execution(&mut rmg.res)?;
             }
         }
 
@@ -109,14 +114,15 @@ impl<'rmg> Executor<'rmg> {
         rmg: &mut Rmg,
         frame: SubmitFrame,
     ) -> Result<Execution, RecordError> {
+
         //create this frame's guard
-        let guard = Guard {
+        let frame_end_guard = Guard {
             track: frame.track,
-            target_value: self.tracks.get(&frame.track).unwrap().sem_val(frame.frame),
+            target_value: self.tracks.get(&frame.track).unwrap().frame_signal_value(frame.frame),
         };
 
         #[cfg(feature = "logging")]
-        log::trace!("Recording frame on guard {:?}", guard);
+        log::trace!("Recording frame on guard {:?}", frame_end_guard);
 
         //get us a new command buffer for the track
         let cb = rmg
@@ -143,7 +149,7 @@ impl<'rmg> Executor<'rmg> {
             self.buffer_barrier_buffer.clear();
             self.tracks.get(&frame.track).unwrap().record.frames[frame.frame].acquire_barriers(
                 rmg,
-                guard,
+                frame_end_guard,
                 &mut self.image_barrier_buffer,
                 &mut self.buffer_barrier_buffer,
                 &mut self.guard_buffer,
@@ -158,6 +164,7 @@ impl<'rmg> Executor<'rmg> {
         }
 
         //FIXME: make fast :)
+        // Finds the maximum guard value per track id. Since we have to wait at least until the last known
         let wait_semaphores = self
             .guard_buffer
             .iter()
@@ -226,7 +233,7 @@ impl<'rmg> Executor<'rmg> {
             vk::SemaphoreSubmitInfo::builder()
                 .semaphore(rmg.tracks.0.get(&frame.track).unwrap().sem.inner)
                 .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                .value(guard.target_value)
+                .value(frame_end_guard.target_value)
                 .build()
         ];
 
@@ -259,7 +266,7 @@ impl<'rmg> Executor<'rmg> {
         }
         Ok(Execution {
             command_buffer: cb,
-            guard,
+            guard: frame_end_guard,
         })
     }
 }
