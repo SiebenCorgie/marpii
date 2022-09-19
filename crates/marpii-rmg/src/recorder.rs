@@ -8,7 +8,7 @@ use std::fmt::Debug;
 use marpii::ash::vk;
 use thiserror::Error;
 
-use crate::{AnyResKey, Rmg, Task};
+use crate::{AnyResKey, Rmg, Task, ResourceError};
 
 use self::{
     executor::Executor,
@@ -37,6 +37,9 @@ pub enum RecordError {
 
     #[error("anyhow")]
     Any(#[from] anyhow::Error),
+
+    #[error("Record time resource error")]
+    ResError(#[from] ResourceError),
 }
 
 pub(crate) struct TaskRecord<'t> {
@@ -88,7 +91,7 @@ impl<'rmg> Recorder<'rmg> {
         attachment_names: &'rmg [&'rmg str],
     ) -> Result<Self, RecordError> {
 
-        task.pre_record(&mut self.rmg.res);
+        task.pre_record(&mut self.rmg.res, &self.rmg.ctx);
         //build registry
         let mut registry = ResourceRegistry::new(attachment_names);
         task.register(&mut registry);

@@ -37,8 +37,6 @@ use std::sync::Arc;
 use thiserror::Error;
 use track::{Track, TrackId, Tracks};
 
-pub(crate) mod swapchain_handling;
-
 ///Top level Error structure.
 #[derive(Debug, Error)]
 pub enum RmgError {
@@ -55,6 +53,9 @@ pub enum RmgError {
     ResourceError(#[from] ResourceError),
 }
 
+
+pub type CtxRmg = Ctx<Allocator>;
+
 ///Main RMG interface.
 pub struct Rmg {
     ///Resource management
@@ -63,7 +64,7 @@ pub struct Rmg {
     ///maps a capability pattern to a index in `Device`'s queue list. Each queue type defines a QueueTrack type.
     tracks: Tracks,
 
-    pub ctx: Ctx<Allocator>,
+    pub ctx: CtxRmg,
 }
 
 impl Rmg {

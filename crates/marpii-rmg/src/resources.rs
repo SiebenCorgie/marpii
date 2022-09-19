@@ -148,6 +148,24 @@ impl Resources {
         Ok(key)
     }
 
+    ///Marks the image for removal. Is kept alive until all executions using the image have finished.
+    pub fn remove_image(&mut self, image: ImageKey) -> Result<(), ResourceError>{
+        println!("Bufferremoval");
+        Ok(())
+    }
+
+    ///Marks the sampler for removal. Is kept alive until all executions using the image have finished.
+    pub fn remove_sampler(&mut self, sampler: SamplerKey) -> Result<(), ResourceError>{
+        println!("Bufferremoval");
+        Ok(())
+    }
+
+    ///Marks the buffer for removal. Is kept alive until all executions using the buffer have finished.
+    pub fn remove_buffer(&mut self, buffer: BufferKey) -> Result<(), ResourceError>{
+        println!("Bufferremoval");
+        Ok(())
+    }
+
     pub fn get_next_swapchain_image(&mut self) -> Result<SwapchainImage, ResourceError>{
         if let Ok(img) = self.swapchain.acquire_next_image(){
             Ok(img)

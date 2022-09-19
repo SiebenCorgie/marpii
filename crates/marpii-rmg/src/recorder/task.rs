@@ -5,11 +5,11 @@ use crate::{
         },
         Resources,
     },
-    RecordError, Rmg,
+    RecordError, Rmg, CtxRmg,
 };
 use marpii::{
     ash::vk::{self, Extent2D},
-    context::Device,
+    context::{Device, Ctx}, gpu_allocator::vulkan::Allocator,
 };
 use slotmap::SlotMap;
 use std::{sync::Arc, ops::Deref};
@@ -103,10 +103,14 @@ impl<'res> ResourceRegistry<'res> {
 pub trait Task {
 
     ///Gets called right before building the execution graph. Allows access to the Resources.
-    fn pre_record(&mut self, resources: &mut Resources){}
+    fn pre_record(&mut self, resources: &mut Resources, ctx: &CtxRmg) -> Result<(), RecordError>{
+        Ok(())
+    }
 
     ///Gets called right after executing the resource graph
-    fn post_execution(&mut self, resources: &mut Resources){}
+    fn post_execution(&mut self, resources: &mut Resources) -> Result<(), RecordError>{
+        Ok(())
+    }
 
     ///Gets called while building a execution graph. This function must register all resources that are
     /// needed for successfull execution.

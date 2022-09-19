@@ -1,6 +1,6 @@
 use marpii::{swapchain::{Swapchain, SwapchainImage}, ash::vk, context::Device, util::extent_to_offset};
 use std::sync::Arc;
-use crate::{Rmg, Task, ImageKey};
+use crate::{Rmg, Task, ImageKey, CtxRmg, RecordError};
 
 
 struct Blit{
@@ -29,18 +29,22 @@ impl SwapchainBlit{
 
 impl Task for SwapchainBlit {
 
-    fn pre_record(&mut self, resources: &mut crate::Resources) {
+    fn pre_record(&mut self, resources: &mut crate::Resources, ctx: &CtxRmg) -> Result<(), RecordError> {
         if let Some(blit) = &mut self.next_blit{
             blit.sw_image = Some(resources.get_next_swapchain_image().unwrap());
         }
+
+        Ok(())
     }
 
-    fn post_execution(&mut self, resources: &mut crate::Resources) {
+    fn post_execution(&mut self, resources: &mut crate::Resources)  -> Result<(), RecordError>{
         if let Some(mut blit) = self.next_blit.take(){
             if let Some(swimage) = blit.sw_image.take(){
                 resources.present_image(swimage);
             }
         }
+
+        Ok(())
     }
 
     fn name(&self) -> &'static str {
