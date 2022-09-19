@@ -27,6 +27,9 @@ pub enum ResourceError {
 
     #[error("Binding a resource failed")]
     BindingFailed,
+
+    #[error("Failed to get new swapchain image")]
+    SwapchainError,
 }
 
 pub struct Resources {
@@ -36,7 +39,9 @@ pub struct Resources {
     pub(crate) buffer: SlotMap<BufferKey, ResBuffer>,
     pub(crate) sampler: SlotMap<SamplerKey, ResSampler>,
 
-    pub(crate) swapchain: Swapchain
+    pub(crate) swapchain: Swapchain,
+    pub(crate) last_known_surface_extent: vk::Extent2D,
+
 }
 
 impl Resources {
@@ -56,7 +61,8 @@ impl Resources {
             buffer: SlotMap::with_key(),
             images: SlotMap::with_key(),
             sampler: SlotMap::with_key(),
-            swapchain
+            swapchain,
+            last_known_surface_extent: vk::Extent2D::default()
         })
     }
 
@@ -167,11 +173,23 @@ impl Resources {
     }
 
     pub fn get_next_swapchain_image(&mut self) -> Result<SwapchainImage, ResourceError>{
+        let surface_extent = self.swapchain.surface
+                                           .get_current_extent(&self.swapchain.device.physical_device)
+                                           .unwrap_or(self.last_known_surface_extent);
+        if self.swapchain.images[0].extent_2d() != surface_extent{
+            #[cfg(feature="logging")]
+            log::info!("Recreating swapchain with extent {:?}!", surface_extent);
+
+            self.swapchain.recreate(surface_extent)?;
+        }
+
         if let Ok(img) = self.swapchain.acquire_next_image(){
             Ok(img)
         }else{
             //try to recreate, otherwise panic.
-            todo!("Recreating swapchain needed")
+            #[cfg(feature="logging")]
+            log::info!("Failed to get new swapchain image!");
+            return Err(ResourceError::SwapchainError);
         }
     }
 

@@ -13,3 +13,4 @@ marpii = {path = "../../crates/marpii"}
 marpii-rmg = {path = "../../crates/marpii-rmg"}
 winit = "0.26.1"
 log = "*"
+image = "0.24.3"

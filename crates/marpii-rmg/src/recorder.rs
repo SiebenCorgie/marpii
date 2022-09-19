@@ -61,7 +61,7 @@ pub struct Recorder<'rmg> {
 }
 
 impl<'rmg> Recorder<'rmg> {
-    pub fn new(rmg: &'rmg mut Rmg) -> Self {
+    pub fn new(rmg: &'rmg mut Rmg, window_extent: vk::Extent2D) -> Self {
         let framebuffer_extent = rmg
             .res
             .swapchain
@@ -69,13 +69,10 @@ impl<'rmg> Recorder<'rmg> {
             .get_current_extent(&rmg.ctx.device.physical_device)
             .unwrap_or({
                 #[cfg(feature = "logging")]
-                log::error!("Failed to get surface extent, falling back to 1x1");
-
-                vk::Extent2D {
-                    width: 1,
-                    height: 1,
-                }
+                log::error!("Failed to get surface extent, falling back to window extent={:?}", window_extent);
+                window_extent
             });
+        rmg.res.last_known_surface_extent = framebuffer_extent;
 
         Recorder {
             rmg,
@@ -91,7 +88,7 @@ impl<'rmg> Recorder<'rmg> {
         attachment_names: &'rmg [&'rmg str],
     ) -> Result<Self, RecordError> {
 
-        task.pre_record(&mut self.rmg.res, &self.rmg.ctx);
+        task.pre_record(&mut self.rmg.res, &self.rmg.ctx)?;
         //build registry
         let mut registry = ResourceRegistry::new(attachment_names);
         task.register(&mut registry);

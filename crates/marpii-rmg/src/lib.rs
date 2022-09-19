@@ -168,13 +168,13 @@ impl Rmg {
         Ok(self.res.add_sampler(Arc::new(sampler))?)
     }
 
-    pub fn record<'rmg>(&'rmg mut self) -> Recorder<'rmg> {
+    pub fn record<'rmg>(&'rmg mut self, window_extent: vk::Extent2D) -> Recorder<'rmg> {
         //tick all tracks to free resources
         for (_k, t) in self.tracks.0.iter_mut(){
             t.tick_frame();
         }
 
-        Recorder::new(self)
+        Recorder::new(self, window_extent)
     }
 
     pub(crate) fn queue_idx_to_trackid(&self, idx: u32) -> Option<TrackId> {

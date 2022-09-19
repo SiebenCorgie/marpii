@@ -1,4 +1,5 @@
 use anyhow::Result;
+use image::EncodableLayout;
 use marpii::ash::vk::SamplerMipmapMode;
 use marpii::gpu_allocator::vulkan::Allocator;
 use marpii::resources::{ImgDesc, Sampler, ImageView, SafeImageView};
@@ -6,9 +7,10 @@ use marpii::{
     ash::{self, vk, vk::Extent2D},
     context::Ctx,
 };
-use marpii_rmg::tasks::SwapchainBlit;
+use marpii_rmg::tasks::{SwapchainBlit, UploadImage};
 use marpii_rmg::{Rmg, Task, ResourceRegistry, ImageKey, BufferKey, SamplerKey, Resources};
 use winit::event::{DeviceEvent, ElementState, KeyboardInput, VirtualKeyCode};
+use winit::window::Window;
 use winit::{
     event::{Event, WindowEvent},
     event_loop::ControlFlow,
@@ -95,49 +97,26 @@ fn main() -> Result<(), anyhow::Error> {
 
     let mut rmg = Rmg::new(context, &surface)?;
 
-    let mesh_buffer = rmg.new_buffer::<usize>(1024, Some("MeshBuffer"))?;
-    let param_buffer = rmg.new_buffer::<usize>(1024, Some("ParamBuffer"))?;
+
+    let image_data = image::open("test.png").unwrap();
+    let image_data = image_data.to_rgba8();
 
     let swimage_image = rmg.new_image_uninitialized(
-        ImgDesc::storage_image_2d(1024, 1024, vk::Format::R8G8B8A8_SNORM),
+        ImgDesc::storage_image_2d(image_data.width(), image_data.height(), vk::Format::R8G8B8A8_SNORM),
         false,
         Some("SwImage")
     )?;
-    let shadow_image = rmg.new_image_uninitialized(
-        ImgDesc::texture_2d(1024, 1024, vk::Format::R8G8B8A8_UINT),
-        false,
-        Some("ShadowImage")
-    )?;
-    let target_image = rmg.new_image_uninitialized(
-        ImgDesc::storage_image_2d(1024, 1024, vk::Format::R8G8B8A8_UINT),
-        false,
-        Some("TargetImage")
-    )?;
-    let sampled_image = rmg.new_image_uninitialized(
-        ImgDesc::texture_2d(1024, 1024, vk::Format::R8G8B8A8_UINT),
-        true,
-        Some("SampledImage")
-    )?;
 
-    let sampler = rmg.new_sampler(&vk::SamplerCreateInfo::builder())?;
+    let mut init_image = UploadImage::new(swimage_image, image_data.as_bytes());
 
-    let mut shadow_pass = ShadowPass{
-        shadow: shadow_image,
-        sampler,
-        param: param_buffer
-    };
+    //init upload
+    rmg.record(window_extent(&window))
+        .add_task(&mut init_image, &[])
+        .unwrap()
+        .execute()
+        .unwrap();
 
-    let mut forward = ForwardPass{
-        shadow: shadow_image,
-        target: target_image,
-        meshes: mesh_buffer
-    };
-
-    let mut post = PostPass{
-        src: target_image,
-        swimage: swimage_image
-    };
-
+    let mut swapchain_blit = SwapchainBlit::new();
 
     ev.run(move |ev, _, cf|{
         *cf = ControlFlow::Poll;
@@ -145,17 +124,22 @@ fn main() -> Result<(), anyhow::Error> {
         match ev {
             Event::MainEventsCleared => window.request_redraw(),
             Event::RedrawRequested(_) => {
-                let mut swapchain_blit = SwapchainBlit::new();
+                //setup src image and blit
                 swapchain_blit.next_blit(swimage_image);
 
-                rmg.record()
-                   .add_task(&mut shadow_pass, &["ShadowImg"]).unwrap()
-                   .add_task(&mut forward, &["ForwardImg"]).unwrap()
-                   .add_task(&mut post, &[]).unwrap()
+                rmg.record(window_extent(&window))
                    .add_task(&mut swapchain_blit, &[]).unwrap()
                    .execute().unwrap();
             },
             _ => {}
         }
     })
+}
+
+
+fn window_extent(window: &Window) -> vk::Extent2D{
+    vk::Extent2D{
+        width: window.inner_size().width,
+        height: window.inner_size().height
+    }
 }
