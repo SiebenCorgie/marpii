@@ -8,11 +8,12 @@ use marpii::{
 use std::{fmt::Display, sync::Arc};
 
 use crate::{
-    resources::res_states::{AnyRes, Guard},
+    resources::res_states::Guard,
     RecordError, recorder::executor::Execution,
 };
 
 ///Execution track. Basically a DeviceQueue and some associated data.
+#[allow(dead_code)]
 pub(crate) struct Track {
     pub(crate) queue_idx: u32,
     pub(crate) flags: vk::QueueFlags,
@@ -113,6 +114,8 @@ impl Tracks {
     );
 
     ///Returns true whenever the guard value was reached. Returns false if not, or the track doesn't exist.
+    ///
+    #[allow(dead_code)]
     pub fn guard_finished(&self, guard: &Guard) -> bool {
         if let Some(t) = self.0.get(&guard.track) {
             t.sem.get_value() >= guard.target_value

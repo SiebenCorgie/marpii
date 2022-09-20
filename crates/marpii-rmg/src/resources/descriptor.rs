@@ -2,7 +2,7 @@ use marpii::{
     ash::vk,
     context::Device,
     resources::{
-        Buffer, DescriptorPool, DescriptorSet, DescriptorSetLayout, Image, ImageView,
+        Buffer, DescriptorPool, DescriptorSet, DescriptorSetLayout, ImageView,
         PipelineLayout, Sampler,
     },
 };
@@ -443,6 +443,7 @@ impl Bindless {
     }
 
     ///Creates a new instance of the pipeline layout used for bindless descriptors.
+    #[allow(dead_code)]
     pub fn new_pipeline_layout(&self, push_constant_size: u32) -> PipelineLayout {
         //NOTE: This is the delicate part. We create a link between the descriptor set layouts and this pipeline layout. This is however *safe*
         //      since we keep the sets in memory together with the pipeline layout. On drop the pipeline layout is destried before the descriptorset layouts
@@ -576,6 +577,8 @@ impl Bindless {
         Ok(hdl) //wrap handle into correct type and exit
     }
 
+
+    #[allow(dead_code)]
     pub fn clone_descriptor_sets(
         &self,
     ) -> [Arc<DescriptorSet<Arc<DescriptorPool>>>; Self::NUM_SETS as usize] {

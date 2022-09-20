@@ -1,30 +1,32 @@
 use crate::{
     resources::{
         res_states::{
-            AnyRes, AnyResKey, BufferKey, ImageKey, ResBuffer, ResImage, ResSampler, SamplerKey,
+            AnyResKey, BufferKey, ImageKey, SamplerKey,
         },
         Resources,
     },
-    RecordError, Rmg, CtxRmg,
+    RecordError, CtxRmg,
 };
 use marpii::{
     ash::vk::{self, Extent2D},
-    context::{Device, Ctx}, gpu_allocator::vulkan::Allocator,
+    context::Device,
 };
-use slotmap::SlotMap;
 use std::{sync::Arc, ops::Deref};
 
+#[allow(dead_code)]
 pub struct AttachmentDescription {
     write: bool,
     format: vk::Format,
     extent: Extent2D,
 }
 
+#[allow(dead_code)]
 pub(crate) enum AttachmentDescState {
     Unresolved(AttachmentDescription),
     Resolved(ImageKey),
 }
 
+#[allow(dead_code)]
 pub struct ResourceRegistry<'res> {
     ///Current mapping used for attachments
     name_mapping: &'res [&'res str],
@@ -103,12 +105,12 @@ impl<'res> ResourceRegistry<'res> {
 pub trait Task {
 
     ///Gets called right before building the execution graph. Allows access to the Resources.
-    fn pre_record(&mut self, resources: &mut Resources, ctx: &CtxRmg) -> Result<(), RecordError>{
+    fn pre_record(&mut self, _resources: &mut Resources, _ctx: &CtxRmg) -> Result<(), RecordError>{
         Ok(())
     }
 
     ///Gets called right after executing the resource graph
-    fn post_execution(&mut self, resources: &mut Resources) -> Result<(), RecordError>{
+    fn post_execution(&mut self, _resources: &mut Resources) -> Result<(), RecordError>{
         Ok(())
     }
 

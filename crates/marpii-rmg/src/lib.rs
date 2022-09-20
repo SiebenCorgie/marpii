@@ -31,7 +31,7 @@ use marpii::{
     ash::vk,
     context::Ctx,
     gpu_allocator::vulkan::Allocator,
-    resources::{BufDesc, Buffer, Image, ImgDesc, Sampler, SharingMode}, swapchain::Swapchain, surface::Surface,
+    resources::{BufDesc, Buffer, Image, ImgDesc, Sampler, SharingMode}, surface::Surface,
 };
 use std::sync::Arc;
 use thiserror::Error;

@@ -12,7 +12,7 @@ use crate::{AnyResKey, Rmg, Task, ResourceError};
 
 use self::{
     executor::Executor,
-    scheduler::{ResLocation, Schedule},
+    scheduler::Schedule,
     task::ResourceRegistry,
 };
 
@@ -57,6 +57,7 @@ impl<'t> Debug for TaskRecord<'t> {
 pub struct Recorder<'rmg> {
     pub rmg: &'rmg mut Rmg,
     records: Vec<TaskRecord<'rmg>>,
+    #[allow(dead_code)]
     framebuffer_extent: vk::Extent2D,
 }
 

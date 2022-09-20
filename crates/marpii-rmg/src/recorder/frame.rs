@@ -1,7 +1,6 @@
-use fxhash::FxHashMap;
 use marpii::ash::vk;
 
-use crate::{AnyResKey, Rmg, resources::res_states::{Guard, QueueOwnership}, RecordError, track::TrackId};
+use crate::{AnyResKey, Rmg, resources::res_states::{Guard, QueueOwnership}, RecordError};
 
 use super::{scheduler::ResLocation, TaskRecord};
 
@@ -73,7 +72,7 @@ impl<'rmg> CmdFrame<'rmg> {
         guard_buffer: &mut Vec<Guard>,
     ) -> Result<(), RecordError> {
         //Add all acquire operations
-        for (res, from, to) in self
+        for (res, _from, to) in self
             .acquire
             .iter()
             .map(|acc| (acc.res, Some(acc.from), acc.to))

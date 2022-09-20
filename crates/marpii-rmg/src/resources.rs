@@ -1,7 +1,7 @@
 use marpii::{
     ash::vk,
     context::Device,
-    resources::{Buffer, CommandBufferAllocator, CommandPool, Image, SafeImageView, Sampler}, swapchain::{Swapchain, SwapchainImage}, surface::Surface,
+    resources::{Buffer, Image, SafeImageView, Sampler}, swapchain::{Swapchain, SwapchainImage}, surface::Surface,
 };
 use slotmap::SlotMap;
 use std::sync::Arc;
@@ -10,7 +10,7 @@ use thiserror::Error;
 use self::{
     descriptor::Bindless,
     res_states::{
-        AnyResKey, BufferKey, ImageKey, QueueOwnership, ResBuffer, ResImage, ResSampler, SamplerKey,
+        BufferKey, ImageKey, QueueOwnership, ResBuffer, ResImage, ResSampler, SamplerKey,
     },
 };
 
@@ -79,7 +79,7 @@ impl Resources {
             let handle = self
                 .bindless
                 .bind_sampled_image(image_view.clone())
-                .map_err(|e| {
+                .map_err(|_e| {
                     #[cfg(feature = "logging")]
                     log::error!("Binding sampled image failed");
 
@@ -93,7 +93,7 @@ impl Resources {
             let handle = self
                 .bindless
                 .bind_storage_image(image_view.clone())
-                .map_err(|e| {
+                .map_err(|_e| {
                     #[cfg(feature = "logging")]
                     log::error!("Binding storage image failed");
 
@@ -117,7 +117,7 @@ impl Resources {
     }
 
     pub fn add_sampler(&mut self, sampler: Arc<Sampler>) -> Result<SamplerKey, ResourceError> {
-        let handle = self.bindless.bind_sampler(sampler.clone()).map_err(|e| {
+        let handle = self.bindless.bind_sampler(sampler.clone()).map_err(|_e| {
             #[cfg(feature = "logging")]
             log::error!("Binding sampler failed");
 
@@ -136,7 +136,7 @@ impl Resources {
         let handle = self
             .bindless
             .bind_storage_buffer(buffer.clone())
-            .map_err(|e| {
+            .map_err(|_e| {
                 #[cfg(feature = "logging")]
                 log::error!("Binding storage buffer failed");
 
@@ -155,19 +155,19 @@ impl Resources {
     }
 
     ///Marks the image for removal. Is kept alive until all executions using the image have finished.
-    pub fn remove_image(&mut self, image: ImageKey) -> Result<(), ResourceError>{
+    pub fn remove_image(&mut self, _image: ImageKey) -> Result<(), ResourceError>{
         println!("Bufferremoval");
         Ok(())
     }
 
     ///Marks the sampler for removal. Is kept alive until all executions using the image have finished.
-    pub fn remove_sampler(&mut self, sampler: SamplerKey) -> Result<(), ResourceError>{
+    pub fn remove_sampler(&mut self, _sampler: SamplerKey) -> Result<(), ResourceError>{
         println!("Bufferremoval");
         Ok(())
     }
 
     ///Marks the buffer for removal. Is kept alive until all executions using the buffer have finished.
-    pub fn remove_buffer(&mut self, buffer: BufferKey) -> Result<(), ResourceError>{
+    pub fn remove_buffer(&mut self, _buffer: BufferKey) -> Result<(), ResourceError>{
         println!("Bufferremoval");
         Ok(())
     }

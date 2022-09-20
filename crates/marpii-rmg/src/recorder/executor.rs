@@ -1,12 +1,11 @@
 use crate::{
-    recorder::{task, frame::CmdFrame}, resources::res_states::Guard, track::TrackId, RecordError, Rmg, AnyResKey,
+    recorder::frame::CmdFrame, resources::res_states::Guard, track::TrackId, RecordError, Rmg, AnyResKey,
 };
 use fxhash::FxHashMap;
 use marpii::{
     ash::vk::{self, SemaphoreSubmitInfo},
     resources::{CommandBuffer, CommandPool},
 };
-use slotmap::SlotMap;
 use std::sync::Arc;
 
 use super::scheduler::{Schedule, SubmitFrame, TrackRecord};
@@ -53,6 +52,7 @@ pub struct Executor<'rmg> {
 
 pub struct Execution {
     ///The command buffer that is executed
+    #[allow(dead_code)]
     command_buffer: CommandBuffer<Arc<CommandPool>>,
     ///Until when it is guarded.
     pub(crate) guard: Guard,
@@ -126,6 +126,37 @@ impl<'rmg> Executor<'rmg> {
         Ok(executions)
     }
 
+
+    fn wait_info_from_guard_buffer(&self, rmg: &mut Rmg) -> Vec<SemaphoreSubmitInfo>{
+        self
+            .guard_buffer
+            .iter()
+            .fold(
+                FxHashMap::default(),
+                |mut map: FxHashMap<TrackId, u64>, exec_guard| {
+                    if let Some(val) = map.get_mut(&exec_guard.track) {
+                        *val = (*val).max(exec_guard.target_value);
+                    } else {
+                        map.insert(exec_guard.track, exec_guard.target_value);
+                    }
+
+                    map
+                },
+            )
+            .into_iter()
+            .map(
+                |(track_id, value)| {
+                    vk::SemaphoreSubmitInfo::builder()
+                        .semaphore(rmg.tracks.0.get(&track_id).unwrap().sem.inner)
+                        .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS) //TODO: make more percise
+                        .value(value)
+                        .build()
+                }, //TODO :(
+            )
+            .collect::<Vec<_>>()
+    }
+
+
     ///Schedules the release operations for the header track
     fn release_header_for_track(&mut self, rmg: &mut Rmg, track: TrackId) -> Result<Execution, RecordError>{
 
@@ -185,6 +216,8 @@ impl<'rmg> Executor<'rmg> {
         //we want to wait for any outstanding cb that uses any of the released resources,
         // therfor fill the buffer with all guards we can find, and build the wait info
         self.guard_buffer.clear();
+        //add general guard
+        self.guard_buffer.push(Guard { track, target_value: self.tracks.get(&track).unwrap().frame_header_wait_signal() });
         for rel in release_frame.release.iter(){
             let guard = match rel.res {
                 AnyResKey::Image(imgkey) => rmg.res.images.get_mut(imgkey).unwrap().guard.take(),
@@ -205,7 +238,7 @@ impl<'rmg> Executor<'rmg> {
         }
 
         let wait_info = self.wait_info_from_guard_buffer(rmg);
-        let mut signal_semaphore = vec![
+        let signal_semaphore = vec![
             vk::SemaphoreSubmitInfo::builder()
                 .semaphore(rmg.tracks.0.get(&track).unwrap().sem.inner)
                 .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
@@ -239,35 +272,6 @@ impl<'rmg> Executor<'rmg> {
             command_buffer: cb,
             guard: release_end_guard,
         })
-    }
-
-    fn wait_info_from_guard_buffer(&self, rmg: &mut Rmg) -> Vec<SemaphoreSubmitInfo>{
-        self
-            .guard_buffer
-            .iter()
-            .fold(
-                FxHashMap::default(),
-                |mut map: FxHashMap<TrackId, u64>, exec_guard| {
-                    if let Some(val) = map.get_mut(&exec_guard.track) {
-                        *val = (*val).max(exec_guard.target_value);
-                    } else {
-                        map.insert(exec_guard.track, exec_guard.target_value);
-                    }
-
-                    map
-                },
-            )
-            .into_iter()
-            .map(
-                |(track_id, value)| {
-                    vk::SemaphoreSubmitInfo::builder()
-                        .semaphore(rmg.tracks.0.get(&track_id).unwrap().sem.inner)
-                        .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS) //TODO: make more percise
-                        .value(value)
-                        .build()
-                }, //TODO :(
-            )
-            .collect::<Vec<_>>()
     }
 
     fn record_frame(
@@ -320,7 +324,7 @@ impl<'rmg> Executor<'rmg> {
                 &mut self.image_barrier_buffer,
                 &mut self.buffer_barrier_buffer,
                 &mut self.guard_buffer,
-            );
+            )?;
 
             rmg.ctx.device.inner.cmd_pipeline_barrier2(
                 cb.inner,

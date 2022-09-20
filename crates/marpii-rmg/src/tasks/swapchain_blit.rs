@@ -1,6 +1,5 @@
-use marpii::{swapchain::{Swapchain, SwapchainImage}, ash::vk, context::Device, util::extent_to_offset};
-use std::sync::Arc;
-use crate::{Rmg, Task, ImageKey, CtxRmg, RecordError};
+use marpii::{swapchain::SwapchainImage, ash::vk};
+use crate::{Task, ImageKey, CtxRmg, RecordError};
 
 
 struct Blit{
@@ -29,7 +28,7 @@ impl SwapchainBlit{
 
 impl Task for SwapchainBlit {
 
-    fn pre_record(&mut self, resources: &mut crate::Resources, ctx: &CtxRmg) -> Result<(), RecordError> {
+    fn pre_record(&mut self, resources: &mut crate::Resources, _ctx: &CtxRmg) -> Result<(), RecordError> {
         if let Some(blit) = &mut self.next_blit{
             blit.sw_image = Some(resources.get_next_swapchain_image().unwrap());
         }
@@ -73,7 +72,7 @@ impl Task for SwapchainBlit {
 
         if let Some(Blit { src_image, sw_image: Some(swimage) }) = &self.next_blit{
             //init our swapchain image to transfer-able, and move the src image to transfer
-            let (before_access, before_layout, img) = {
+            let (_before_access, before_layout, img) = {
                 let img_access = resources.images.get(*src_image).unwrap();
 
                 (img_access.mask, img_access.layout, img_access.image.clone())

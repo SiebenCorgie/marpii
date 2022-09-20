@@ -92,7 +92,7 @@ impl<'rmg> Schedule<'rmg> {
             .tracks
             .0
             .iter()
-            .map(|(id, track)| {
+            .map(|(id, _track)| {
                 (
                     *id,
                     TrackRecord {

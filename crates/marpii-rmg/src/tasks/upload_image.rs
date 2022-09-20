@@ -1,5 +1,5 @@
-use crate::{ImageKey, Task, CtxRmg, RecordError, BufferKey, ResourceError, AnyResKey};
-use marpii::{resources::{Image, ImgDesc, Buffer}, ash::vk, allocator::MemoryUsage};
+use crate::{ImageKey, Task, CtxRmg, RecordError, BufferKey, AnyResKey};
+use marpii::{resources::Buffer, ash::vk};
 use std::sync::Arc;
 
 ///Transfer pass that copies data to an image on the GPU.
@@ -37,7 +37,7 @@ impl<'dta> Task for UploadImage<'dta>{
         //create host image
         // TODO: Document that this is not free and should be done as early as possible
 
-        let mut desc = resources.images.get(self.target).unwrap().image.desc.clone();
+        let desc = resources.images.get(self.target).unwrap().image.desc.clone();
         if !desc.usage.contains(vk::ImageUsageFlags::TRANSFER_DST){
             #[cfg(feature="logging")]
             log::error!("Image used as upload target does not have TRANSFER_DST flag set!");

@@ -45,6 +45,7 @@ impl QueueOwnership {
 }
 
 ///Combined state of a single image.
+#[allow(dead_code)]
 pub struct ResImage {
     pub(crate) image: Arc<Image>,
     pub(crate) view: Arc<ImageView>,
@@ -66,6 +67,7 @@ impl ResImage {
 }
 
 ///Combined state of a single buffer,
+#[allow(dead_code)]
 pub struct ResBuffer {
     pub(crate) buffer: Arc<Buffer>,
     pub(crate) ownership: QueueOwnership,
@@ -83,6 +85,7 @@ impl ResBuffer {
     }
 }
 
+#[allow(dead_code)]
 pub struct ResSampler {
     pub(crate) sampler: Arc<Sampler>,
     ///Handle into bindless this is located at.
@@ -95,6 +98,7 @@ pub(crate) struct Guard {
     pub target_value: u64,
 }
 
+#[allow(dead_code)]
 pub(crate) enum AnyRes {
     Image(ResImage),
     Buffer(ResBuffer),
@@ -120,7 +124,7 @@ impl Display for AnyResKey {
 
 impl AnyResKey {
     ///Returns the currently owning track, or none if there is no owner. In that case the resource is probably
-    /// not initalised, released, or a sampler, which has no owner.
+    /// not initialised, released, or a sampler, which has no owner.
     pub fn current_owner(&self, rmg: &Rmg) -> Option<TrackId> {
         match self {
             AnyResKey::Image(imgkey) => {
