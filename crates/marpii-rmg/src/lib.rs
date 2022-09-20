@@ -31,7 +31,8 @@ use marpii::{
     ash::vk,
     context::Ctx,
     gpu_allocator::vulkan::Allocator,
-    resources::{BufDesc, Buffer, Image, ImgDesc, Sampler, SharingMode}, surface::Surface,
+    resources::{BufDesc, Buffer, Image, ImgDesc, Sampler, SharingMode},
+    surface::Surface,
 };
 use std::sync::Arc;
 use thiserror::Error;
@@ -53,7 +54,6 @@ pub enum RmgError {
     ResourceError(#[from] ResourceError),
 }
 
-
 pub type CtxRmg = Ctx<Allocator>;
 
 ///Main RMG interface.
@@ -68,10 +68,7 @@ pub struct Rmg {
 }
 
 impl Rmg {
-    pub fn new(
-        context: Ctx<Allocator>,
-        surface: &Arc<Surface>
-    ) -> Result<Self, RmgError> {
+    pub fn new(context: Ctx<Allocator>, surface: &Arc<Surface>) -> Result<Self, RmgError> {
         //Per definition we try to find at least one graphic, compute and transfer queue.
         // We then create the swapchain. It is used for image presentation and the start/end point for frame scheduling.
 
@@ -170,7 +167,7 @@ impl Rmg {
 
     pub fn record<'rmg>(&'rmg mut self, window_extent: vk::Extent2D) -> Recorder<'rmg> {
         //tick all tracks to free resources
-        for (_k, t) in self.tracks.0.iter_mut(){
+        for (_k, t) in self.tracks.0.iter_mut() {
             t.tick_frame();
         }
 
@@ -191,12 +188,11 @@ impl Rmg {
     }
 }
 
-
-impl Drop for Rmg{
+impl Drop for Rmg {
     fn drop(&mut self) {
         //make sure all executions have finished, otherwise we could destroy
         // referenced images etc.
-        for (_id, t) in self.tracks.0.iter_mut(){
+        for (_id, t) in self.tracks.0.iter_mut() {
             t.wait_for_inflights()
         }
     }

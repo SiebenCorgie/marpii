@@ -7,10 +7,7 @@ use marpii::{
 };
 use std::{fmt::Display, sync::Arc};
 
-use crate::{
-    resources::res_states::Guard,
-    RecordError, recorder::executor::Execution,
-};
+use crate::{recorder::executor::Execution, resources::res_states::Guard, RecordError};
 
 ///Execution track. Basically a DeviceQueue and some associated data.
 #[allow(dead_code)]
@@ -41,24 +38,30 @@ impl Track {
                 .expect("Failed to create command pool!"),
             ),
             inflight_executions: Vec::with_capacity(10),
-            latest_signaled_value: 0
+            latest_signaled_value: 0,
         }
     }
 
     ///Ticks the track. Triggers internal cleanup operations
-    pub fn tick_frame(&mut self){
+    pub fn tick_frame(&mut self) {
         let finished_till = self.sem.get_value();
         //Drop all executions (and therefore resources like buffers etc) that have finished till now
-        self.inflight_executions.retain(|exec| exec.guard.target_value >= finished_till);
+        self.inflight_executions
+            .retain(|exec| exec.guard.target_value >= finished_till);
     }
 
-    pub(crate) fn wait_for_inflights(&mut self){
+    pub(crate) fn wait_for_inflights(&mut self) {
         //we need to wait for all executions to finish
-        let max = self.inflight_executions.iter().fold(0, |max, inflight| max.max(inflight.guard.target_value));
+        let max = self
+            .inflight_executions
+            .iter()
+            .fold(0, |max, inflight| max.max(inflight.guard.target_value));
 
-        #[cfg(feature="logging")]
+        #[cfg(feature = "logging")]
         log::trace!("waiting track, waiting for {}", max);
-        self.sem.wait(max, u64::MAX).expect("Failed to wait for inflight execution");
+        self.sem
+            .wait(max, u64::MAX)
+            .expect("Failed to wait for inflight execution");
         self.inflight_executions.clear();
     }
 

@@ -2,8 +2,8 @@ use marpii::{
     ash::vk,
     context::Device,
     resources::{
-        Buffer, DescriptorPool, DescriptorSet, DescriptorSetLayout, ImageView,
-        PipelineLayout, Sampler,
+        Buffer, DescriptorPool, DescriptorSet, DescriptorSetLayout, ImageView, PipelineLayout,
+        Sampler,
     },
 };
 use std::{collections::VecDeque, sync::Arc};
@@ -147,7 +147,7 @@ impl<T> SetManager<T> {
             p_immutable_samplers: core::ptr::null(),
         };
 
-        #[cfg(feature="logging")]
+        #[cfg(feature = "logging")]
         log::trace!("Allocating @ {:?} size={}", ty, max_count);
 
         let flags = [vk::DescriptorBindingFlags::PARTIALLY_BOUND
@@ -157,7 +157,7 @@ impl<T> SetManager<T> {
         let mut ext_flags =
             vk::DescriptorSetLayoutBindingFlagsCreateInfo::builder().binding_flags(&flags);
 
-        #[cfg(feature="logging")]
+        #[cfg(feature = "logging")]
         log::trace!("    {:#?}", binding_layout);
 
         let layout = unsafe {
@@ -576,7 +576,6 @@ impl Bindless {
         let hdl = self.sampler.bind(sampler, write_instruction)?;
         Ok(hdl) //wrap handle into correct type and exit
     }
-
 
     #[allow(dead_code)]
     pub fn clone_descriptor_sets(

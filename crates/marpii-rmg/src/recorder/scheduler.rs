@@ -2,12 +2,13 @@ use fxhash::FxHashMap;
 use std::fmt::Display;
 
 use crate::{
+    recorder::frame::{Acquire, Init, Release},
     resources::res_states::AnyResKey,
     track::TrackId,
-    RecordError, Rmg, recorder::frame::{Release, Acquire, Init},
+    RecordError, Rmg,
 };
 
-use super::{TaskRecord, frame::CmdFrame};
+use super::{frame::CmdFrame, TaskRecord};
 
 ///Represents all frames for this specific track.
 #[derive(Debug)]
@@ -41,16 +42,16 @@ impl<'rmg> TrackRecord<'rmg> {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
-pub(crate) enum FrameLocation{
+pub(crate) enum FrameLocation {
     At(usize),
-    Header
+    Header,
 }
 
 impl FrameLocation {
-    pub fn unwrap_index(&self) -> usize{
-        if let FrameLocation::At(idx) = self{
+    pub fn unwrap_index(&self) -> usize {
+        if let FrameLocation::At(idx) = self {
             *idx
-        }else{
+        } else {
             panic!("Unwrap index on header location")
         }
     }
@@ -59,7 +60,7 @@ impl FrameLocation {
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Debug)]
 pub(crate) struct ResLocation {
     pub track: TrackId,
-    pub frame: FrameLocation
+    pub frame: FrameLocation,
 }
 
 impl Display for ResLocation {
@@ -103,7 +104,6 @@ impl<'rmg> Schedule<'rmg> {
                 )
             })
             .collect();
-
 
         let mut schedule = Schedule {
             submission_order: Vec::new(),
@@ -159,9 +159,10 @@ impl<'rmg> Schedule<'rmg> {
                 .current_frame()
                 == record_location.frame.unwrap_index()
         );
-        self.tracks.get_mut(&record_location.track).unwrap().frames[record_location.frame.unwrap_index()]
-            .tasks
-            .push(task);
+        self.tracks.get_mut(&record_location.track).unwrap().frames
+            [record_location.frame.unwrap_index()]
+        .tasks
+        .push(task);
 
         Ok(())
     }
@@ -207,7 +208,9 @@ impl<'rmg> Schedule<'rmg> {
                     });
 
                 //if we where on the same frame, finish
-                if src_loc.frame.unwrap_index() == self.tracks.get(&src_loc.track).unwrap().current_frame() {
+                if src_loc.frame.unwrap_index()
+                    == self.tracks.get(&src_loc.track).unwrap().current_frame()
+                {
                     #[cfg(feature = "logging")]
                     log::trace!("Finishing {:?}", src_loc);
 
@@ -220,13 +223,15 @@ impl<'rmg> Schedule<'rmg> {
                     );
                 } else {
                     debug_assert!(
-                        self.tracks.get(&src_loc.track).unwrap().current_frame() > src_loc.frame.unwrap_index()
+                        self.tracks.get(&src_loc.track).unwrap().current_frame()
+                            > src_loc.frame.unwrap_index()
                     )
                 }
 
                 //for sanity, if a transfer happened, the src_loc can't be the last frame on its track
                 debug_assert!(
-                    self.tracks.get(&src_loc.track).unwrap().current_frame() > src_loc.frame.unwrap_index()
+                    self.tracks.get(&src_loc.track).unwrap().current_frame()
+                        > src_loc.frame.unwrap_index()
                 );
             } else {
                 #[cfg(feature = "logging")]
@@ -257,19 +262,23 @@ impl<'rmg> Schedule<'rmg> {
                         frame: FrameLocation::Header,
                     };
 
-                    self.tracks.get_mut(&origin_track).unwrap().release_header
+                    self.tracks
+                        .get_mut(&origin_track)
+                        .unwrap()
+                        .release_header
                         .push(Release {
                             from: src_loc,
                             to: dst_loc,
                             res,
                         });
-                    self.tracks.get_mut(&dst_loc.track).unwrap().frames[dst_loc.frame.unwrap_index()]
-                        .acquire
-                        .push(Acquire {
-                            from: src_loc,
-                            to: dst_loc,
-                            res,
-                        });
+                    self.tracks.get_mut(&dst_loc.track).unwrap().frames
+                        [dst_loc.frame.unwrap_index()]
+                    .acquire
+                    .push(Acquire {
+                        from: src_loc,
+                        to: dst_loc,
+                        res,
+                    });
 
                     //update semaphore value on  track
                     self.tracks

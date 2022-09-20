@@ -1,17 +1,15 @@
 use crate::{
     resources::{
-        res_states::{
-            AnyResKey, BufferKey, ImageKey, SamplerKey,
-        },
+        res_states::{AnyResKey, BufferKey, ImageKey, SamplerKey},
         Resources,
     },
-    RecordError, CtxRmg,
+    CtxRmg, RecordError,
 };
 use marpii::{
     ash::vk::{self, Extent2D},
     context::Device,
 };
-use std::{sync::Arc, ops::Deref};
+use std::{ops::Deref, sync::Arc};
 
 #[allow(dead_code)]
 pub struct AttachmentDescription {
@@ -50,7 +48,7 @@ impl<'res> ResourceRegistry<'res> {
             buffers: Vec::new(),
             sampler: Vec::new(),
             attachments: Vec::new(),
-            foreign_sem: Vec::new()
+            foreign_sem: Vec::new(),
         }
     }
 
@@ -86,31 +84,24 @@ impl<'res> ResourceRegistry<'res> {
             .chain(self.sampler.iter().map(|sam| AnyResKey::Sampler(*sam)))
     }
 
-    pub fn append_foreign_signal_semaphores(&self, infos: &mut Vec<vk::SemaphoreSubmitInfo>){
-        for sem in self.foreign_sem.iter(){
-
-            #[cfg(feature="logging")]
+    pub fn append_foreign_signal_semaphores(&self, infos: &mut Vec<vk::SemaphoreSubmitInfo>) {
+        for sem in self.foreign_sem.iter() {
+            #[cfg(feature = "logging")]
             log::trace!("Registering foreign semaphore {:?}", sem.deref().deref());
 
-            infos.push(
-                vk::SemaphoreSubmitInfo::builder()
-                    .semaphore(**sem)
-                    .build()
-            );
+            infos.push(vk::SemaphoreSubmitInfo::builder().semaphore(**sem).build());
         }
-
     }
 }
 
 pub trait Task {
-
     ///Gets called right before building the execution graph. Allows access to the Resources.
-    fn pre_record(&mut self, _resources: &mut Resources, _ctx: &CtxRmg) -> Result<(), RecordError>{
+    fn pre_record(&mut self, _resources: &mut Resources, _ctx: &CtxRmg) -> Result<(), RecordError> {
         Ok(())
     }
 
     ///Gets called right after executing the resource graph
-    fn post_execution(&mut self, _resources: &mut Resources) -> Result<(), RecordError>{
+    fn post_execution(&mut self, _resources: &mut Resources) -> Result<(), RecordError> {
         Ok(())
     }
 

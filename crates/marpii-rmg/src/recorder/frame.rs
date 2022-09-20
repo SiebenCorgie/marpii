@@ -1,10 +1,11 @@
 use marpii::ash::vk;
 
-use crate::{AnyResKey, Rmg, resources::res_states::{Guard, QueueOwnership}, RecordError};
+use crate::{
+    resources::res_states::{Guard, QueueOwnership},
+    AnyResKey, RecordError, Rmg,
+};
 
 use super::{scheduler::ResLocation, TaskRecord};
-
-
 
 #[derive(Debug, Clone)]
 pub(crate) struct Acquire {

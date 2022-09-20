@@ -1,7 +1,9 @@
 use marpii::{
     ash::vk,
     context::Device,
-    resources::{Buffer, Image, SafeImageView, Sampler}, swapchain::{Swapchain, SwapchainImage}, surface::Surface,
+    resources::{Buffer, Image, SafeImageView, Sampler},
+    surface::Surface,
+    swapchain::{Swapchain, SwapchainImage},
 };
 use slotmap::SlotMap;
 use std::sync::Arc;
@@ -41,13 +43,11 @@ pub struct Resources {
 
     pub(crate) swapchain: Swapchain,
     pub(crate) last_known_surface_extent: vk::Extent2D,
-
 }
 
 impl Resources {
     pub fn new(device: &Arc<Device>, surface: &Arc<Surface>) -> Result<Self, ResourceError> {
         let bindless = Bindless::new_default(device)?;
-
 
         let swapchain = Swapchain::builder(device, surface)?
             .with(move |b| {
@@ -62,7 +62,7 @@ impl Resources {
             images: SlotMap::with_key(),
             sampler: SlotMap::with_key(),
             swapchain,
-            last_known_surface_extent: vk::Extent2D::default()
+            last_known_surface_extent: vk::Extent2D::default(),
         })
     }
 
@@ -155,47 +155,55 @@ impl Resources {
     }
 
     ///Marks the image for removal. Is kept alive until all executions using the image have finished.
-    pub fn remove_image(&mut self, _image: ImageKey) -> Result<(), ResourceError>{
+    pub fn remove_image(&mut self, _image: ImageKey) -> Result<(), ResourceError> {
         println!("Bufferremoval");
         Ok(())
     }
 
     ///Marks the sampler for removal. Is kept alive until all executions using the image have finished.
-    pub fn remove_sampler(&mut self, _sampler: SamplerKey) -> Result<(), ResourceError>{
+    pub fn remove_sampler(&mut self, _sampler: SamplerKey) -> Result<(), ResourceError> {
         println!("Bufferremoval");
         Ok(())
     }
 
     ///Marks the buffer for removal. Is kept alive until all executions using the buffer have finished.
-    pub fn remove_buffer(&mut self, _buffer: BufferKey) -> Result<(), ResourceError>{
+    pub fn remove_buffer(&mut self, _buffer: BufferKey) -> Result<(), ResourceError> {
         println!("Bufferremoval");
         Ok(())
     }
 
-    pub fn get_next_swapchain_image(&mut self) -> Result<SwapchainImage, ResourceError>{
-        let surface_extent = self.swapchain.surface
-                                           .get_current_extent(&self.swapchain.device.physical_device)
-                                           .unwrap_or(self.last_known_surface_extent);
-        if self.swapchain.images[0].extent_2d() != surface_extent{
-            #[cfg(feature="logging")]
+    pub fn get_next_swapchain_image(&mut self) -> Result<SwapchainImage, ResourceError> {
+        let surface_extent = self
+            .swapchain
+            .surface
+            .get_current_extent(&self.swapchain.device.physical_device)
+            .unwrap_or(self.last_known_surface_extent);
+        if self.swapchain.images[0].extent_2d() != surface_extent {
+            #[cfg(feature = "logging")]
             log::info!("Recreating swapchain with extent {:?}!", surface_extent);
 
             self.swapchain.recreate(surface_extent)?;
         }
 
-        if let Ok(img) = self.swapchain.acquire_next_image(){
+        if let Ok(img) = self.swapchain.acquire_next_image() {
             Ok(img)
-        }else{
+        } else {
             //try to recreate, otherwise panic.
-            #[cfg(feature="logging")]
+            #[cfg(feature = "logging")]
             log::info!("Failed to get new swapchain image!");
             return Err(ResourceError::SwapchainError);
         }
     }
 
     ///Schedules swapchain image for present
-    pub fn present_image(&mut self, image: SwapchainImage){
-        let queue = self.swapchain.device.first_queue_for_attribute(true, false, false).unwrap(); //FIXME use track instead
-        self.swapchain.present_image(image, &*queue.inner()).unwrap();
+    pub fn present_image(&mut self, image: SwapchainImage) {
+        let queue = self
+            .swapchain
+            .device
+            .first_queue_for_attribute(true, false, false)
+            .unwrap(); //FIXME use track instead
+        self.swapchain
+            .present_image(image, &*queue.inner())
+            .unwrap();
     }
 }

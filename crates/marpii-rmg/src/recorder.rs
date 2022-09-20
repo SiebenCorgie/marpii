@@ -1,20 +1,16 @@
 pub(crate) mod executor;
+pub(crate) mod frame;
 pub(crate) mod scheduler;
 pub(crate) mod task;
-pub(crate) mod frame;
 
 use std::fmt::Debug;
 
 use marpii::ash::vk;
 use thiserror::Error;
 
-use crate::{AnyResKey, Rmg, Task, ResourceError};
+use crate::{AnyResKey, ResourceError, Rmg, Task};
 
-use self::{
-    executor::Executor,
-    scheduler::Schedule,
-    task::ResourceRegistry,
-};
+use self::{executor::Executor, scheduler::Schedule, task::ResourceRegistry};
 
 #[derive(Debug, Error)]
 pub enum RecordError {
@@ -70,7 +66,10 @@ impl<'rmg> Recorder<'rmg> {
             .get_current_extent(&rmg.ctx.device.physical_device)
             .unwrap_or({
                 #[cfg(feature = "logging")]
-                log::error!("Failed to get surface extent, falling back to window extent={:?}", window_extent);
+                log::error!(
+                    "Failed to get surface extent, falling back to window extent={:?}",
+                    window_extent
+                );
                 window_extent
             });
         rmg.res.last_known_surface_extent = framebuffer_extent;
@@ -88,7 +87,6 @@ impl<'rmg> Recorder<'rmg> {
         task: &'rmg mut dyn Task,
         attachment_names: &'rmg [&'rmg str],
     ) -> Result<Self, RecordError> {
-
         task.pre_record(&mut self.rmg.res, &self.rmg.ctx)?;
         //build registry
         let mut registry = ResourceRegistry::new(attachment_names);
@@ -109,7 +107,7 @@ impl<'rmg> Recorder<'rmg> {
         schedule.print_schedule();
 
         let executions = Executor::exec(self.rmg, schedule)?;
-        for ex in executions{
+        for ex in executions {
             let mut track = self.rmg.tracks.0.get_mut(&ex.guard.track).unwrap();
             track.latest_signaled_value = track.latest_signaled_value.max(ex.guard.target_value);
             track.inflight_executions.push(ex);

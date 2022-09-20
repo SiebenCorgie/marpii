@@ -1,5 +1,6 @@
 use crate::{
-    recorder::frame::CmdFrame, resources::res_states::Guard, track::TrackId, RecordError, Rmg, AnyResKey,
+    recorder::frame::CmdFrame, resources::res_states::Guard, track::TrackId, AnyResKey,
+    RecordError, Rmg,
 };
 use fxhash::FxHashMap;
 use marpii::{
@@ -16,22 +17,21 @@ struct Exec<'rmg> {
 }
 
 impl<'rmg> Exec<'rmg> {
-
-    fn header_offset(&self) -> u64{
-        if self.record.release_header.is_empty(){
+    fn header_offset(&self) -> u64 {
+        if self.record.release_header.is_empty() {
             0
-        }else{
+        } else {
             1
         }
     }
-    fn frame_header_wait_signal(&self) -> u64{
+    fn frame_header_wait_signal(&self) -> u64 {
         self.semaphore_base_value
     }
-    fn frame_header_release_signal(&self) -> u64{
+    fn frame_header_release_signal(&self) -> u64 {
         self.semaphore_base_value + 1
     }
 
-    fn frame_wait_value(&self, frame_index: usize) -> u64{
+    fn frame_wait_value(&self, frame_index: usize) -> u64 {
         self.semaphore_base_value + self.header_offset() + frame_index as u64
     }
     fn frame_signal_value(&self, frame_index: usize) -> u64 {
@@ -86,13 +86,13 @@ impl<'rmg> Executor<'rmg> {
             tracks: tracks
                 .into_iter()
                 .map(|(k, v)| {
-
                     let max_guarded_value = v.latest_outside_sync;
                     (
                         k,
                         Exec {
                             record: v,
-                            semaphore_base_value: max_guarded_value.max(rmg.tracks.0.get(&k).unwrap().latest_signaled_value),
+                            semaphore_base_value: max_guarded_value
+                                .max(rmg.tracks.0.get(&k).unwrap().latest_signaled_value),
                         },
                     )
                 })
@@ -106,7 +106,7 @@ impl<'rmg> Executor<'rmg> {
 
         //Schedule all release headers first
         let trackids = exec.tracks.keys().map(|k| *k).collect::<Vec<_>>();
-        for track in trackids.into_iter(){
+        for track in trackids.into_iter() {
             executions.push(exec.release_header_for_track(rmg, track)?);
         }
 
@@ -114,11 +114,15 @@ impl<'rmg> Executor<'rmg> {
         // just the keys) we have to do that in order. Luckily we've written a submission/recording list while scheduling. So we can just
         // iterator over this.
         for sub in submission_order {
-            if let Some(exec) = exec.record_frame(rmg, sub)?{
+            if let Some(exec) = exec.record_frame(rmg, sub)? {
                 executions.push(exec);
             }
             //execute post execution step for each task of the current frame
-            for task in exec.tracks.get_mut(&sub.track).unwrap().record.frames[sub.frame.unwrap_index()].tasks.iter_mut(){
+            for task in exec.tracks.get_mut(&sub.track).unwrap().record.frames
+                [sub.frame.unwrap_index()]
+            .tasks
+            .iter_mut()
+            {
                 task.task.post_execution(&mut rmg.res)?;
             }
         }
@@ -126,10 +130,8 @@ impl<'rmg> Executor<'rmg> {
         Ok(executions)
     }
 
-
-    fn wait_info_from_guard_buffer(&self, rmg: &mut Rmg) -> Vec<SemaphoreSubmitInfo>{
-        self
-            .guard_buffer
+    fn wait_info_from_guard_buffer(&self, rmg: &mut Rmg) -> Vec<SemaphoreSubmitInfo> {
+        self.guard_buffer
             .iter()
             .fold(
                 FxHashMap::default(),
@@ -156,11 +158,20 @@ impl<'rmg> Executor<'rmg> {
             .collect::<Vec<_>>()
     }
 
-
     ///Schedules the release operations for the header track
-    fn release_header_for_track(&mut self, rmg: &mut Rmg, track: TrackId) -> Result<Execution, RecordError>{
-
-        if self.tracks.get(&track).unwrap().record.release_header.is_empty(){
+    fn release_header_for_track(
+        &mut self,
+        rmg: &mut Rmg,
+        track: TrackId,
+    ) -> Result<Execution, RecordError> {
+        if self
+            .tracks
+            .get(&track)
+            .unwrap()
+            .record
+            .release_header
+            .is_empty()
+        {
             #[cfg(feature = "logging")]
             log::trace!("Skiping header release for {:?}, was empty", track);
         }
@@ -168,23 +179,28 @@ impl<'rmg> Executor<'rmg> {
         //create this frame's guard
         let release_end_guard = Guard {
             track,
-            target_value: self.tracks.get(&track).unwrap().frame_header_release_signal(),
+            target_value: self
+                .tracks
+                .get(&track)
+                .unwrap()
+                .frame_header_release_signal(),
         };
 
         #[cfg(feature = "logging")]
         log::trace!("Recording release on guard {:?}", release_end_guard);
 
         //get us a new command buffer for the track
-        let cb = rmg
-            .tracks
-            .0
-            .get_mut(&track)
-            .unwrap()
-            .new_command_buffer()?;
+        let cb = rmg.tracks.0.get_mut(&track).unwrap().new_command_buffer()?;
 
         //issue all releases. We do this by constructing a frame and using its release function
         let mut release_frame = CmdFrame::new();
-        release_frame.release = self.tracks.get(&track).unwrap().record.release_header.clone();
+        release_frame.release = self
+            .tracks
+            .get(&track)
+            .unwrap()
+            .record
+            .release_header
+            .clone();
 
         unsafe {
             rmg.ctx.device.inner.begin_command_buffer(
@@ -217,36 +233,41 @@ impl<'rmg> Executor<'rmg> {
         // therfor fill the buffer with all guards we can find, and build the wait info
         self.guard_buffer.clear();
         //add general guard
-        self.guard_buffer.push(Guard { track, target_value: self.tracks.get(&track).unwrap().frame_header_wait_signal() });
-        for rel in release_frame.release.iter(){
+        self.guard_buffer.push(Guard {
+            track,
+            target_value: self.tracks.get(&track).unwrap().frame_header_wait_signal(),
+        });
+        for rel in release_frame.release.iter() {
             let guard = match rel.res {
                 AnyResKey::Image(imgkey) => rmg.res.images.get_mut(imgkey).unwrap().guard.take(),
                 AnyResKey::Buffer(bufkey) => rmg.res.buffer.get_mut(bufkey).unwrap().guard.take(),
                 AnyResKey::Sampler(_) => None,
             };
 
-            if let Some(g) = guard{
+            if let Some(g) = guard {
                 self.guard_buffer.push(g);
             }
 
             //and add our self as guard
             match rel.res {
-                AnyResKey::Image(imgkey) => rmg.res.images.get_mut(imgkey).unwrap().guard = Some(release_end_guard),
-                AnyResKey::Buffer(bufkey) => rmg.res.buffer.get_mut(bufkey).unwrap().guard = Some(release_end_guard),
+                AnyResKey::Image(imgkey) => {
+                    rmg.res.images.get_mut(imgkey).unwrap().guard = Some(release_end_guard)
+                }
+                AnyResKey::Buffer(bufkey) => {
+                    rmg.res.buffer.get_mut(bufkey).unwrap().guard = Some(release_end_guard)
+                }
                 AnyResKey::Sampler(_) => {}
             };
         }
 
         let wait_info = self.wait_info_from_guard_buffer(rmg);
-        let signal_semaphore = vec![
-            vk::SemaphoreSubmitInfo::builder()
-                .semaphore(rmg.tracks.0.get(&track).unwrap().sem.inner)
-                .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                .value(release_end_guard.target_value)
-                .build()
-        ];
+        let signal_semaphore = vec![vk::SemaphoreSubmitInfo::builder()
+            .semaphore(rmg.tracks.0.get(&track).unwrap().sem.inner)
+            .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
+            .value(release_end_guard.target_value)
+            .build()];
         //now end cb and submit
-        unsafe{
+        unsafe {
             rmg.ctx.device.inner.end_command_buffer(cb.inner)?;
             let queue_family = rmg.trackid_to_queue_idx(track);
             let queue = rmg
@@ -257,16 +278,15 @@ impl<'rmg> Executor<'rmg> {
             rmg.ctx.device.inner.queue_submit2(
                 *queue.inner(),
                 &[*vk::SubmitInfo2::builder()
-                  .command_buffer_infos(&[
-                      *vk::CommandBufferSubmitInfo::builder().command_buffer(cb.inner)
-                  ])
-                  .wait_semaphore_infos(&wait_info.as_slice())
-                  //Signal this tracks value uppon finish
-                  .signal_semaphore_infos(&signal_semaphore)],
+                    .command_buffer_infos(&[
+                        *vk::CommandBufferSubmitInfo::builder().command_buffer(cb.inner)
+                    ])
+                    .wait_semaphore_infos(&wait_info.as_slice())
+                    //Signal this tracks value uppon finish
+                    .signal_semaphore_infos(&signal_semaphore)],
                 vk::Fence::null(),
             )?;
         }
-
 
         Ok(Execution {
             command_buffer: cb,
@@ -279,8 +299,9 @@ impl<'rmg> Executor<'rmg> {
         rmg: &mut Rmg,
         frame: SubmitFrame,
     ) -> Result<Option<Execution>, RecordError> {
-
-        if self.tracks.get(&frame.track).unwrap().record.frames[frame.frame.unwrap_index()].is_empty(){
+        if self.tracks.get(&frame.track).unwrap().record.frames[frame.frame.unwrap_index()]
+            .is_empty()
+        {
             #[cfg(feature = "logging")]
             log::trace!("Frame {:?} is empty, not recording!", frame);
             return Ok(None);
@@ -289,7 +310,11 @@ impl<'rmg> Executor<'rmg> {
         //create this frame's guard
         let frame_end_guard = Guard {
             track: frame.track,
-            target_value: self.tracks.get(&frame.track).unwrap().frame_signal_value(frame.frame.unwrap_index()),
+            target_value: self
+                .tracks
+                .get(&frame.track)
+                .unwrap()
+                .frame_signal_value(frame.frame.unwrap_index()),
         };
 
         #[cfg(feature = "logging")]
@@ -318,13 +343,14 @@ impl<'rmg> Executor<'rmg> {
             self.guard_buffer.clear();
             self.image_barrier_buffer.clear();
             self.buffer_barrier_buffer.clear();
-            self.tracks.get(&frame.track).unwrap().record.frames[frame.frame.unwrap_index()].acquire_barriers(
-                rmg,
-                frame_end_guard,
-                &mut self.image_barrier_buffer,
-                &mut self.buffer_barrier_buffer,
-                &mut self.guard_buffer,
-            )?;
+            self.tracks.get(&frame.track).unwrap().record.frames[frame.frame.unwrap_index()]
+                .acquire_barriers(
+                    rmg,
+                    frame_end_guard,
+                    &mut self.image_barrier_buffer,
+                    &mut self.buffer_barrier_buffer,
+                    &mut self.guard_buffer,
+                )?;
 
             rmg.ctx.device.inner.cmd_pipeline_barrier2(
                 cb.inner,
@@ -342,9 +368,10 @@ impl<'rmg> Executor<'rmg> {
         log::trace!("Wait info: {:?}", wait_semaphores);
 
         //now all buffers/images are owned by this track. We therefore only have to
-        for task in self.tracks.get_mut(&frame.track).unwrap().record.frames[frame.frame.unwrap_index()]
-            .tasks
-            .iter_mut()
+        for task in self.tracks.get_mut(&frame.track).unwrap().record.frames
+            [frame.frame.unwrap_index()]
+        .tasks
+        .iter_mut()
         {
             task.task.record(&rmg.ctx.device, &cb.inner, &rmg.res);
             //add execution barrier afterwards
@@ -361,11 +388,12 @@ impl<'rmg> Executor<'rmg> {
         unsafe {
             self.image_barrier_buffer.clear();
             self.buffer_barrier_buffer.clear();
-            self.tracks.get(&frame.track).unwrap().record.frames[frame.frame.unwrap_index()].release_barriers(
-                rmg,
-                &mut self.image_barrier_buffer,
-                &mut self.buffer_barrier_buffer,
-            )?;
+            self.tracks.get(&frame.track).unwrap().record.frames[frame.frame.unwrap_index()]
+                .release_barriers(
+                    rmg,
+                    &mut self.image_barrier_buffer,
+                    &mut self.buffer_barrier_buffer,
+                )?;
 
             rmg.ctx.device.inner.cmd_pipeline_barrier2(
                 cb.inner,
@@ -375,17 +403,19 @@ impl<'rmg> Executor<'rmg> {
             );
         }
 
-        let mut signal_semaphore = vec![
-            vk::SemaphoreSubmitInfo::builder()
-                .semaphore(rmg.tracks.0.get(&frame.track).unwrap().sem.inner)
-                .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                .value(frame_end_guard.target_value)
-                .build()
-        ];
+        let mut signal_semaphore = vec![vk::SemaphoreSubmitInfo::builder()
+            .semaphore(rmg.tracks.0.get(&frame.track).unwrap().sem.inner)
+            .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
+            .value(frame_end_guard.target_value)
+            .build()];
 
         //if found, add all foreign semaphores
-        for task in self.tracks.get(&frame.track).unwrap().record.frames[frame.frame.unwrap_index()].tasks.iter(){
-            task.registry.append_foreign_signal_semaphores(&mut signal_semaphore);
+        for task in self.tracks.get(&frame.track).unwrap().record.frames[frame.frame.unwrap_index()]
+            .tasks
+            .iter()
+        {
+            task.registry
+                .append_foreign_signal_semaphores(&mut signal_semaphore);
         }
 
         //finally, when finished recording, execute by
