@@ -1,3 +1,5 @@
+#![feature(drain_filter)]
+
 //! # ResourceManagingGraph (RMG)
 //!
 //! The RMG is a big abstraction layer over raw vulkan. It is therefore much more opinionated then the rest of MarpII.
@@ -170,6 +172,8 @@ impl Rmg {
         for (_k, t) in self.tracks.0.iter_mut() {
             t.tick_frame();
         }
+        //tick resource manager as well
+        self.res.tick_record(&self.tracks);
 
         Recorder::new(self, window_extent)
     }

@@ -5,7 +5,7 @@ use marpii::{
     resources::{Buffer, Image, ImageView, Sampler},
 };
 
-use crate::{track::TrackId, Rmg};
+use crate::{track::{TrackId, Tracks}, Rmg, Resources};
 
 use super::descriptor::ResourceHandle;
 
@@ -98,6 +98,12 @@ pub(crate) struct Guard {
     pub target_value: u64,
 }
 
+impl Guard{
+    fn expired(&self, tracks: &Tracks) -> bool{
+        tracks.guard_finished(self)
+    }
+}
+
 #[allow(dead_code)]
 pub(crate) enum AnyRes {
     Image(ResImage),
@@ -119,6 +125,23 @@ impl Display for AnyResKey {
             AnyResKey::Buffer(bufk) => write!(f, "AnyResKey::Buffer({:?})", bufk),
             AnyResKey::Sampler(samk) => write!(f, "AnyResKey::Sampler({:?})", samk),
         }
+    }
+}
+
+impl From<ImageKey> for AnyResKey{
+    fn from(k: ImageKey) -> Self {
+        AnyResKey::Image(k)
+    }
+}
+
+impl From<BufferKey> for AnyResKey{
+    fn from(k: BufferKey) -> Self {
+        AnyResKey::Buffer(k)
+    }
+}
+impl From<SamplerKey> for AnyResKey{
+    fn from(k: SamplerKey) -> Self {
+        AnyResKey::Sampler(k)
     }
 }
 
@@ -193,6 +216,27 @@ impl AnyResKey {
                 }
             }
             AnyResKey::Sampler(_) => 0,
+        }
+    }
+
+    ///Returns true if either no guard is set, or if set the guard is expired.
+    pub(crate) fn guard_expired(&self, res: &Resources, tracks: &Tracks) -> bool{
+        match self {
+            AnyResKey::Image(imgkey) => {
+                if let Some(img) = res.images.get(*imgkey) {
+                    img.guard.map(|g| g.expired(&tracks)).unwrap_or(true)
+                } else {
+                    true
+                }
+            }
+            AnyResKey::Buffer(bufkey) => {
+                if let Some(buf) = res.buffer.get(*bufkey) {
+                    buf.guard.map(|g| g.expired(&tracks)).unwrap_or(true)
+                } else {
+                    true
+                }
+            }
+            AnyResKey::Sampler(_) => true,
         }
     }
 }

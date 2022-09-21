@@ -6,18 +6,21 @@ use marpii::{
     swapchain::{Swapchain, SwapchainImage},
 };
 use slotmap::SlotMap;
-use std::sync::Arc;
+use std::{sync::Arc, collections::{BTreeMap, LinkedList}};
 use thiserror::Error;
+
+use crate::{AnyResKey, CtxRmg, track::Tracks};
 
 use self::{
     descriptor::Bindless,
     res_states::{
         BufferKey, ImageKey, QueueOwnership, ResBuffer, ResImage, ResSampler, SamplerKey,
-    },
+    }, temporary::TempResources,
 };
 
 pub(crate) mod descriptor;
 pub(crate) mod res_states;
+mod temporary;
 
 #[derive(Debug, Error)]
 pub enum ResourceError {
@@ -26,6 +29,9 @@ pub enum ResourceError {
 
     #[error("anyhow")]
     Any(#[from] anyhow::Error),
+
+    #[error("Resource already existed")]
+    ResourceExists(AnyResKey),
 
     #[error("Binding a resource failed")]
     BindingFailed,
@@ -43,6 +49,12 @@ pub struct Resources {
 
     pub(crate) swapchain: Swapchain,
     pub(crate) last_known_surface_extent: vk::Extent2D,
+
+    ///Handles tracking of temporary resources. Basically a simple garbage collector.
+    temporary_resources: TempResources,
+
+    ///Keeps track of resources that are scheduled for removal.
+    remove_list: Vec<AnyResKey>,
 }
 
 impl Resources {
@@ -63,6 +75,8 @@ impl Resources {
             sampler: SlotMap::with_key(),
             swapchain,
             last_known_surface_extent: vk::Extent2D::default(),
+            temporary_resources: TempResources::new(),
+            remove_list: Vec::with_capacity(100),
         })
     }
 
@@ -154,23 +168,44 @@ impl Resources {
         Ok(key)
     }
 
-    ///Marks the image for removal. Is kept alive until all executions using the image have finished.
-    pub fn remove_image(&mut self, _image: ImageKey) -> Result<(), ResourceError> {
-        println!("Bufferremoval");
+    ///Marks the resource for removal. Is kept alive until all executions using the image have finished.
+    pub fn remove_resource(&mut self, res: impl Into<AnyResKey>) -> Result<(), ResourceError> {
+        self.remove_list.push(res.into());
         Ok(())
     }
 
-    ///Marks the sampler for removal. Is kept alive until all executions using the image have finished.
-    pub fn remove_sampler(&mut self, _sampler: SamplerKey) -> Result<(), ResourceError> {
-        println!("Bufferremoval");
-        Ok(())
+    ///Tick the resource manager that a new frame has started
+    //TODO: Currently we use the rendering frame to do all the cleanup. In a perfect world we'd use
+    //      another thread for that to not stall the recording process
+    pub(crate) fn tick_record(&mut self, tracks: &Tracks){
+        //checkout the removals
+        self.temporary_resources.tick(&mut self.remove_list);
+
+        //now check all resources that are marked for removal if they can be dropped.
+        let remove_mask = self.remove_list.iter().map(|k| k.guard_expired(&self, tracks)).collect::<Vec<_>>(); //FIXME: its late :(
+        for (idx, is_removable) in remove_mask.into_iter().enumerate().rev(){
+            if is_removable{
+                let res = self.remove_list.remove(idx);
+                #[cfg(feature="logging")]
+                log::trace!("Dropping {:?}", res);
+                match res {
+                    AnyResKey::Image(img) => if self.images.remove(img).is_none(){
+                        #[cfg(feature="logging")]
+                        log::error!("Tried removing {:?}, but was already removed", img)
+                    }
+                    AnyResKey::Buffer(buf) => if self.buffer.remove(buf).is_none(){
+                        #[cfg(feature="logging")]
+                        log::error!("Tried removing {:?}, but was already removed", buf)
+                    }
+                    AnyResKey::Sampler(sam) => if self.sampler.remove(sam).is_none(){
+                        #[cfg(feature="logging")]
+                        log::error!("Tried removing {:?}, but was already removed", sam)
+                    }
+                }
+            }
+        }
     }
 
-    ///Marks the buffer for removal. Is kept alive until all executions using the buffer have finished.
-    pub fn remove_buffer(&mut self, _buffer: BufferKey) -> Result<(), ResourceError> {
-        println!("Bufferremoval");
-        Ok(())
-    }
 
     pub fn get_next_swapchain_image(&mut self) -> Result<SwapchainImage, ResourceError> {
         let surface_extent = self
