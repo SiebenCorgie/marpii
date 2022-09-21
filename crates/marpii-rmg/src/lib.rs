@@ -103,15 +103,13 @@ impl Rmg {
 
     pub fn new_image_uninitialized(
         &mut self,
-        mut description: ImgDesc,
-        is_sampled: bool,
+        description: ImgDesc,
         name: Option<&str>,
     ) -> Result<ImageKey, RmgError> {
         //patch usage bits
-        if is_sampled {
-            description.usage |= vk::ImageUsageFlags::SAMPLED;
-        } else {
-            description.usage |= vk::ImageUsageFlags::STORAGE;
+
+        if !description.usage.contains(vk::ImageUsageFlags::SAMPLED) && !description.usage.contains(vk::ImageUsageFlags::STORAGE){
+            return Err(RmgError::from(ResourceError::ImageNoUsageFlags));
         }
 
         let image = Arc::new(Image::new(
@@ -123,7 +121,7 @@ impl Rmg {
             None,
         )?);
 
-        Ok(self.res.add_image(image, is_sampled)?)
+        Ok(self.res.add_image(image)?)
     }
 
     pub fn new_buffer_uninitialized(
@@ -176,6 +174,10 @@ impl Rmg {
         self.res.tick_record(&self.tracks);
 
         Recorder::new(self, window_extent)
+    }
+
+    pub fn delete(&mut self, res: impl Into<AnyResKey>) -> Result<(), ResourceError>{
+        self.res.remove_resource(res)
     }
 
     pub(crate) fn queue_idx_to_trackid(&self, idx: u32) -> Option<TrackId> {

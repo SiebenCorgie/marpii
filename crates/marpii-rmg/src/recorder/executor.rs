@@ -262,7 +262,7 @@ impl<'rmg> Executor<'rmg> {
 
         let wait_info = self.wait_info_from_guard_buffer(rmg);
         let signal_semaphore = vec![vk::SemaphoreSubmitInfo::builder()
-            .semaphore(rmg.tracks.0.get(&track).unwrap().sem.inner)
+            .semaphore(rmg.tracks.0.get(&release_end_guard.track).unwrap().sem.inner)
             .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
             .value(release_end_guard.target_value)
             .build()];
@@ -328,6 +328,12 @@ impl<'rmg> Executor<'rmg> {
             .unwrap()
             .new_command_buffer()?;
 
+        //clear tmp buffers
+        self.guard_buffer.clear();
+        self.image_barrier_buffer.clear();
+        self.buffer_barrier_buffer.clear();
+
+
         //start recording
         unsafe {
             rmg.ctx.device.inner.begin_command_buffer(
@@ -340,9 +346,6 @@ impl<'rmg> Executor<'rmg> {
         //As outlined we start out by building the acquire list (or not, if there is nothing to acquire/Inuit).
         // This barrier is immediately added to the cb we started above
         unsafe {
-            self.guard_buffer.clear();
-            self.image_barrier_buffer.clear();
-            self.buffer_barrier_buffer.clear();
             self.tracks.get(&frame.track).unwrap().record.frames[frame.frame.unwrap_index()]
                 .acquire_barriers(
                     rmg,
@@ -359,6 +362,11 @@ impl<'rmg> Executor<'rmg> {
                     .buffer_memory_barriers(&self.buffer_barrier_buffer),
             );
         }
+        //add general guard
+        self.guard_buffer.push(Guard {
+            track: frame.track,
+            target_value: self.tracks.get(&frame.track).unwrap().frame_wait_value(frame.frame.unwrap_index()),
+        });
 
         //FIXME: make fast :)
         // Finds the maximum guard value per track id. Since we have to wait at least until the last known
@@ -404,7 +412,7 @@ impl<'rmg> Executor<'rmg> {
         }
 
         let mut signal_semaphore = vec![vk::SemaphoreSubmitInfo::builder()
-            .semaphore(rmg.tracks.0.get(&frame.track).unwrap().sem.inner)
+            .semaphore(rmg.tracks.0.get(&frame_end_guard.track).unwrap().sem.inner)
             .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
             .value(frame_end_guard.target_value)
             .build()];
@@ -417,6 +425,10 @@ impl<'rmg> Executor<'rmg> {
             task.registry
                 .append_foreign_signal_semaphores(&mut signal_semaphore);
         }
+
+        #[cfg(feature = "logging")]
+        log::trace!("Signal info: {:?}", signal_semaphore);
+
 
         //finally, when finished recording, execute by
         unsafe {

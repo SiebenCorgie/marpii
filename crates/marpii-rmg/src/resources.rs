@@ -6,13 +6,13 @@ use marpii::{
     swapchain::{Swapchain, SwapchainImage},
 };
 use slotmap::SlotMap;
-use std::{sync::Arc, collections::{BTreeMap, LinkedList}};
+use std::sync::Arc;
 use thiserror::Error;
 
-use crate::{AnyResKey, CtxRmg, track::Tracks};
+use crate::{AnyResKey, track::Tracks};
 
 use self::{
-    descriptor::Bindless,
+    descriptor::{Bindless, ResourceHandle},
     res_states::{
         BufferKey, ImageKey, QueueOwnership, ResBuffer, ResImage, ResSampler, SamplerKey,
     }, temporary::TempResources,
@@ -32,6 +32,16 @@ pub enum ResourceError {
 
     #[error("Resource already existed")]
     ResourceExists(AnyResKey),
+
+    #[error("Resource {0:?} was already bound to {1:?}")]
+    AlreadyBound(AnyResKey, ResourceHandle),
+
+    #[error("Image has both, SAMPLED and STORAGE flags set")]
+    ImageIntersectingUsageFlags,
+
+    #[error("Image has none of SAMPLED and STORAGE flags set. Can't decide which to use")]
+    ImageNoUsageFlags,
+
 
     #[error("Binding a resource failed")]
     BindingFailed,
@@ -80,66 +90,66 @@ impl Resources {
         })
     }
 
+    ///Binds the resource for use on the gpu.
+    fn bind(&mut self, res: impl Into<AnyResKey>) -> Result<ResourceHandle,  ResourceError>{
+        let res = res.into();
+        match res {
+            AnyResKey::Buffer(buf) => {
+                let mut buffer = self.buffer.get_mut(buf).unwrap();
+                if let Some(hdl) = &buffer.descriptor_handle{
+                    return Err(ResourceError::AlreadyBound(res, *hdl));
+                }
+                buffer.descriptor_handle = Some(self.bindless.bind_storage_buffer(buffer.buffer.clone()).map_err(|_| ResourceError::BindingFailed)?);
+                Ok(buffer.descriptor_handle.unwrap())
+            },
+            AnyResKey::Image(img) => {
+                let mut image = self.images.get_mut(img).unwrap();
+                if let Some(hdl) = &image.descriptor_handle{
+                    return Err(ResourceError::AlreadyBound(res, *hdl));
+                }
+                if image.is_sampled_image(){
+                    image.descriptor_handle = Some(self.bindless.bind_sampled_image(image.view.clone()).map_err(|_| ResourceError::BindingFailed)?);
+                }else{
+                    image.descriptor_handle = Some(self.bindless.bind_storage_image(image.view.clone()).map_err(|_| ResourceError::BindingFailed)?);
+                }
+                Ok(image.descriptor_handle.unwrap())
+            },
+            AnyResKey::Sampler(sam) => {
+                let mut sampler = self.sampler.get_mut(sam).unwrap();
+                if let Some(hdl) = &sampler.descriptor_handle{
+                    return Err(ResourceError::AlreadyBound(res, *hdl));
+                }
+                sampler.descriptor_handle = Some(self.bindless.bind_sampler(sampler.sampler.clone()).map_err(|_| ResourceError::BindingFailed)?);
+                Ok(sampler.descriptor_handle.unwrap())
+            }
+        }
+    }
+
     pub fn add_image(
         &mut self,
         image: Arc<Image>,
-        is_sampled: bool,
     ) -> Result<ImageKey, ResourceError> {
+
         let image_view_desc = image.view_all();
 
-        let (handle, view) = if is_sampled {
-            let image_view = Arc::new(image.view(&image.device, image_view_desc)?);
-
-            let handle = self
-                .bindless
-                .bind_sampled_image(image_view.clone())
-                .map_err(|_e| {
-                    #[cfg(feature = "logging")]
-                    log::error!("Binding sampled image failed");
-
-                    ResourceError::BindingFailed
-                })?;
-
-            (handle, image_view)
-        } else {
-            let image_view = Arc::new(image.view(&image.device, image_view_desc)?);
-
-            let handle = self
-                .bindless
-                .bind_storage_image(image_view.clone())
-                .map_err(|_e| {
-                    #[cfg(feature = "logging")]
-                    log::error!("Binding storage image failed");
-
-                    ResourceError::BindingFailed
-                })?;
-
-            (handle, image_view)
-        };
+        let image_view = Arc::new(image.view(&image.device, image_view_desc)?);
 
         let key = self.images.insert(ResImage {
             image,
-            view,
+            view: image_view,
             ownership: QueueOwnership::Uninitialized,
             mask: vk::AccessFlags2::empty(),
             layout: vk::ImageLayout::UNDEFINED,
             guard: None,
-            descriptor_handle: handle,
+            descriptor_handle: None,
         });
 
         Ok(key)
     }
 
     pub fn add_sampler(&mut self, sampler: Arc<Sampler>) -> Result<SamplerKey, ResourceError> {
-        let handle = self.bindless.bind_sampler(sampler.clone()).map_err(|_e| {
-            #[cfg(feature = "logging")]
-            log::error!("Binding sampler failed");
-
-            ResourceError::BindingFailed
-        })?;
-
         let key = self.sampler.insert(ResSampler {
-            descriptor_handle: handle,
+            descriptor_handle: None,
             sampler,
         });
 
@@ -147,22 +157,13 @@ impl Resources {
     }
 
     pub fn add_buffer(&mut self, buffer: Arc<Buffer>) -> Result<BufferKey, ResourceError> {
-        let handle = self
-            .bindless
-            .bind_storage_buffer(buffer.clone())
-            .map_err(|_e| {
-                #[cfg(feature = "logging")]
-                log::error!("Binding storage buffer failed");
-
-                ResourceError::BindingFailed
-            })?;
 
         let key = self.buffer.insert(ResBuffer {
             buffer,
             ownership: QueueOwnership::Uninitialized,
             mask: vk::AccessFlags2::empty(),
             guard: None,
-            descriptor_handle: handle,
+            descriptor_handle: None,
         });
 
         Ok(key)
@@ -174,6 +175,23 @@ impl Resources {
         Ok(())
     }
 
+    ///Tries to get the resource's bindless handle. If not already bound, tries to bind the resource
+    pub fn get_resource_handle(&mut self, res: impl Into<AnyResKey>) -> Result<ResourceHandle, ResourceError>{
+        let res = res.into();
+        let hdl = match res{
+            AnyResKey::Buffer(buf) => self.buffer.get(buf).unwrap().descriptor_handle,
+            AnyResKey::Image(img) => self.images.get(img).unwrap().descriptor_handle,
+            AnyResKey::Sampler(sam) => self.sampler.get(sam).unwrap().descriptor_handle
+        };
+
+        if let Some(hdl) = hdl{
+            return Ok(hdl);
+        }else{
+            //have to bind, try that
+            Ok(self.bind(res)?)
+        }
+    }
+
     ///Tick the resource manager that a new frame has started
     //TODO: Currently we use the rendering frame to do all the cleanup. In a perfect world we'd use
     //      another thread for that to not stall the recording process
@@ -181,27 +199,66 @@ impl Resources {
         //checkout the removals
         self.temporary_resources.tick(&mut self.remove_list);
 
+        for (tid, t) in tracks.0.iter(){
+            println!("{:?}: sem({:?})={}", tid, t.sem, t.sem.get_value());
+        }
+
         //now check all resources that are marked for removal if they can be dropped.
-        let remove_mask = self.remove_list.iter().map(|k| k.guard_expired(&self, tracks)).collect::<Vec<_>>(); //FIXME: its late :(
+        let remove_mask = self.remove_list.iter().map(|k| {
+
+
+            let is = k.guard_expired(&self, tracks);
+            println!("k={}: {}", k, is);
+            is
+        }).collect::<Vec<_>>(); //FIXME: its late :(
+        println!("{:?}", remove_mask);
         for (idx, is_removable) in remove_mask.into_iter().enumerate().rev(){
             if is_removable{
                 let res = self.remove_list.remove(idx);
                 #[cfg(feature="logging")]
                 log::trace!("Dropping {:?}", res);
+
+                //remove from bindless and the key-value-store
+
                 match res {
-                    AnyResKey::Image(img) => if self.images.remove(img).is_none(){
-                        #[cfg(feature="logging")]
-                        log::error!("Tried removing {:?}, but was already removed", img)
-                    }
-                    AnyResKey::Buffer(buf) => if self.buffer.remove(buf).is_none(){
-                        #[cfg(feature="logging")]
-                        log::error!("Tried removing {:?}, but was already removed", buf)
-                    }
-                    AnyResKey::Sampler(sam) => if self.sampler.remove(sam).is_none(){
-                        #[cfg(feature="logging")]
-                        log::error!("Tried removing {:?}, but was already removed", sam)
-                    }
+                    AnyResKey::Image(img) => {
+                        if let Some(image) = self.images.remove(img){
+                            //If bound, unbind
+                            if let Some(hdl) = image.descriptor_handle{
+                                if image.is_sampled_image(){
+                                    self.bindless.remove_sampled_image(hdl);
+                                }else{
+                                    self.bindless.remove_storage_image(hdl);
+                                }
+                            }
+                        }else{
+                            #[cfg(feature="logging")]
+                            log::error!("Tried removing {:?}, but was already removed", img)
+                        }
+                    },
+                    AnyResKey::Buffer(buf) => {
+                        if let Some(buffer) = self.buffer.remove(buf){
+                            if let Some(hdl) = buffer.descriptor_handle{
+                                self.bindless.remove_storage_buffer(hdl);
+                            }
+                        }else{
+                            #[cfg(feature="logging")]
+                            log::error!("Tried removing {:?}, but was already removed", buf)
+                        }
+                    },
+                    AnyResKey::Sampler(sam) => {
+                        if let Some(sampler) = self.sampler.remove(sam){
+                            if let Some(hdl) = sampler.descriptor_handle{
+                                self.bindless.remove_sampler(hdl);
+                            }
+                        }else{
+                            #[cfg(feature="logging")]
+                            log::error!("Tried removing {:?}, but was already removed", sam)
+                        }
+                    },
                 }
+            }else{
+                println!("{:?} not yet ", self.remove_list[idx]);
             }
         }
     }

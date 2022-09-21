@@ -49,6 +49,8 @@ unsafe extern "system" fn vulkan_debug_callback(
             log::warn!("[{}: {:?}]: {:?}", id, idname, msg);
         } else if message_severity.contains(ash::vk::DebugUtilsMessageSeverityFlagsEXT::INFO) {
             log::info!("[{}: {:?}]: {:?}", id, idname, msg);
+        }else{
+            log::trace!("[{}: {:?}]: {:?}", id, idname, msg);
         }
     }
 

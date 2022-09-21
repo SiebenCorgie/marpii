@@ -58,7 +58,7 @@ impl Track {
             .fold(0, |max, inflight| max.max(inflight.guard.target_value));
 
         #[cfg(feature = "logging")]
-        log::trace!("waiting track, waiting for {}", max);
+        log::trace!("waiting track, waiting for {} on sem={:?}", max, self.sem);
         self.sem
             .wait(max, u64::MAX)
             .expect("Failed to wait for inflight execution");
@@ -116,14 +116,13 @@ impl Tracks {
             | vk::QueueFlags::VIDEO_ENCODE_KHR.as_raw(),
     );
 
-    ///Returns true whenever the guard value was reached. Returns false if not, or the track doesn't exist.
-    ///
-    #[allow(dead_code)]
+    ///Returns true whenever the guard value was reached or the track doesn't exist (anymore). Returns false if not.
     pub fn guard_finished(&self, guard: &Guard) -> bool {
         if let Some(t) = self.0.get(&guard.track) {
+            println!("Is: {} on {:?} @ {:?}, waiting for {}", t.sem.get_value(), guard.track, t.sem, guard.target_value);
             t.sem.get_value() >= guard.target_value
         } else {
-            false
+            true
         }
     }
 

@@ -57,12 +57,12 @@ pub struct ResImage {
     pub(crate) guard: Option<Guard>,
 
     ///Handle into bindless this is located at.
-    pub descriptor_handle: ResourceHandle,
+    pub descriptor_handle: Option<ResourceHandle>,
 }
 
 impl ResImage {
     pub fn is_sampled_image(&self) -> bool {
-        self.descriptor_handle.handle_type() == ResourceHandle::TYPE_SAMPLED_IMAGE
+        self.image.desc.usage.contains(vk::ImageUsageFlags::SAMPLED)
     }
 }
 
@@ -76,12 +76,12 @@ pub struct ResBuffer {
     ///Some if the buffer is currently guarded by some execution. None if either the resource has just been created, or all operations have finished.
     pub(crate) guard: Option<Guard>,
     ///Handle into bindless this is located at.
-    pub descriptor_handle: ResourceHandle,
+    pub descriptor_handle: Option<ResourceHandle>,
 }
 
 impl ResBuffer {
     pub fn is_storage_buffer(&self) -> bool {
-        self.descriptor_handle.handle_type() == ResourceHandle::TYPE_STORAGE_BUFFER
+        self.buffer.desc.usage.contains(vk::BufferUsageFlags::STORAGE_BUFFER)
     }
 }
 
@@ -89,7 +89,7 @@ impl ResBuffer {
 pub struct ResSampler {
     pub(crate) sampler: Arc<Sampler>,
     ///Handle into bindless this is located at.
-    pub descriptor_handle: ResourceHandle,
+    pub descriptor_handle: Option<ResourceHandle>,
 }
 
 #[derive(Debug, Clone, Copy)]

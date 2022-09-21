@@ -9,7 +9,7 @@ edition = "2021"
 simple_logger = "2.1.0"
 anyhow = "1.0.56"
 
-marpii = {path = "../../crates/marpii"}
+marpii = {path = "../../crates/marpii", features=["logging"]}
 marpii-rmg = {path = "../../crates/marpii-rmg"}
 winit = "0.26.1"
 log = "*"

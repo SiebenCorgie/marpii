@@ -66,7 +66,8 @@ impl<'dta> Task for UploadImage<'dta> {
         Ok(())
     }
     fn register(&self, registry: &mut crate::ResourceRegistry) {
-        registry.request_image(self.target)
+        registry.request_image(self.target);
+        registry.request_buffer(self.host_image.unwrap());
     }
     fn record(
         &mut self,

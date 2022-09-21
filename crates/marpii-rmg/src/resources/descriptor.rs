@@ -259,8 +259,7 @@ impl<T> SetManager<T> {
         Ok(hdl)
     }
 
-    #[allow(dead_code)]
-    fn free_binding(&mut self, hdl: ResourceHandle) -> Option<T> {
+    fn unbind_handle(&mut self, hdl: ResourceHandle) -> Option<T> {
         if let Some(res) = self.stored.remove(&hdl) {
             self.free_handle(hdl); //free handle since we are safely removing
                                    //TODO do we need to unsubscribe in the descriptor set?
@@ -511,6 +510,10 @@ impl Bindless {
         Ok(hdl) //wrap handle into correct type and exit
     }
 
+    pub fn remove_storage_buffer(&mut self, handle: ResourceHandle){
+        assert!(self.stbuffer.unbind_handle(handle).is_some());
+    }
+
     pub fn bind_storage_image(
         &mut self,
         image: Arc<ImageView>,
@@ -537,6 +540,11 @@ impl Bindless {
         let hdl = self.stimage.bind(image, write_instruction)?;
         Ok(hdl) //wrap handle into correct type and exit
     }
+
+    pub fn remove_storage_image(&mut self, handle: ResourceHandle){
+        assert!(self.stimage.unbind_handle(handle).is_some());
+    }
+
 
     ///Tries to bind the image. On success returns the handle, on error the data is not bound and returned back to the caller.
     pub fn bind_sampled_image(
@@ -566,6 +574,10 @@ impl Bindless {
         Ok(hdl) //wrap handle into correct type and exit
     }
 
+    pub fn remove_sampled_image(&mut self, handle: ResourceHandle){
+        assert!(self.saimage.unbind_handle(handle).is_some());
+    }
+
     pub fn bind_sampler(&mut self, sampler: Arc<Sampler>) -> Result<ResourceHandle, Arc<Sampler>> {
         //prepare our write instruction, then submit
         let image_info = vk::DescriptorImageInfo::builder().sampler(sampler.inner);
@@ -576,6 +588,11 @@ impl Bindless {
         let hdl = self.sampler.bind(sampler, write_instruction)?;
         Ok(hdl) //wrap handle into correct type and exit
     }
+
+    pub fn remove_sampler(&mut self, handle: ResourceHandle){
+        assert!(self.sampler.unbind_handle(handle).is_some());
+    }
+
 
     #[allow(dead_code)]
     pub fn clone_descriptor_sets(

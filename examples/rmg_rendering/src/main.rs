@@ -113,41 +113,45 @@ fn main() -> Result<(), anyhow::Error> {
     let image_data = image::open("test.png").unwrap();
     let image_data = image_data.to_rgba32f();
 
-    let swimage_image = rmg.new_image_uninitialized(
-        ImgDesc::storage_image_2d(
-            image_data.width(),
-            image_data.height(),
-            vk::Format::R32G32B32A32_SFLOAT,
-        ),
-        false,
-        Some("SwImage"),
-    )?;
 
-    let mut init_image = UploadImage::new(swimage_image, image_data.as_bytes());
-
-    //init upload
-    rmg.record(window_extent(&window))
-        .add_task(&mut init_image, &[])
-        .unwrap()
-        .execute()
-        .unwrap();
 
     let mut swapchain_blit = SwapchainBlit::new();
 
+    let mut counter = 0;
     ev.run(move |ev, _, cf| {
         *cf = ControlFlow::Poll;
 
         match ev {
             Event::MainEventsCleared => window.request_redraw(),
             Event::RedrawRequested(_) => {
+
+                counter += 1;
+
+                if counter > 10{
+                    *cf = ControlFlow::Exit;
+                }
+
+                let swimage_image = rmg.new_image_uninitialized(
+                    ImgDesc::storage_image_2d(
+                        image_data.width(),
+                        image_data.height(),
+                        vk::Format::R32G32B32A32_SFLOAT,
+                    ),
+                    Some("SwImage"),
+                ).unwrap();
+                let mut init_image = UploadImage::new(swimage_image, image_data.as_bytes());
+
                 //setup src image and blit
                 swapchain_blit.next_blit(swimage_image);
 
                 rmg.record(window_extent(&window))
-                    .add_task(&mut swapchain_blit, &[])
-                    .unwrap()
-                    .execute()
-                    .unwrap();
+                   .add_task(&mut init_image, &[]).unwrap()
+                   .add_task(&mut swapchain_blit, &[])
+                   .unwrap()
+                   .execute()
+                   .unwrap();
+
+                rmg.delete(swimage_image).unwrap();
             }
             _ => {}
         }
