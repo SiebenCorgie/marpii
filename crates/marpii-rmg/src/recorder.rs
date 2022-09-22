@@ -10,7 +10,7 @@ use thiserror::Error;
 
 use crate::{AnyResKey, ResourceError, Rmg, Task};
 
-use self::{executor::Executor, scheduler::Schedule, task::ResourceRegistry};
+use self::{executor::Executor, scheduler::Schedule, task::{ResourceRegistry, AttachmentDescState}};
 
 #[derive(Debug, Error)]
 pub enum RecordError {
@@ -92,7 +92,17 @@ impl<'rmg> Recorder<'rmg> {
         let mut registry = ResourceRegistry::new(attachment_names);
         task.register(&mut registry);
 
-        println!("resolve attachments to actual ids and register name->key mapping for pass");
+        //Now we know all resources needed, time to resolve the requested attachments into actual images.
+        for atta in registry.attachments.iter_mut(){
+            if let AttachmentDescState::Unresolved(desc) = atta{
+                let img = self.rmg.res.request_attachment(&self.rmg.ctx, &self.rmg.tracks, desc)?;
+                *atta = AttachmentDescState::Resolved(img);
+            }else{
+                #[cfg(feature="logging")]
+                log::warn!("Attachment was already resolved!");
+            }
+        }
+
 
         let record = TaskRecord { task, registry };
 

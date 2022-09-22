@@ -1,6 +1,7 @@
 use fxhash::FxHashMap;
+use slotmap::SlotMap;
 
-use crate::{AnyResKey, ResourceError, recorder::task::AttachmentDescription, ImageKey};
+use crate::{AnyResKey, ResourceError, recorder::task::AttachmentDescription, ImageKey, track::Tracks, ResImage};
 
 
 struct RuntimeInfo{
@@ -47,8 +48,24 @@ impl TempResources {
         }
     }
 
-    pub fn get_image(&mut self, des: AttachmentDescription) -> Option<ImageKey>{
-        todo!();
+    pub(crate) fn get_image(&mut self, images: &SlotMap<ImageKey, ResImage>, tracks: &Tracks, des: &AttachmentDescription) -> Option<ImageKey>{
+        //FIXME: make fast.
+        for (k, res) in &self.res_map{
+            if let AnyResKey::Image(img) = k{
+                let image = images.get(*img).unwrap();
+                if image.image.desc == des.to_image_desciption(){
+                    if image.guard.map(|g| g.expired(tracks)).unwrap_or(true){
+                        #[cfg(feature="logging")]
+                        log::trace!("Reusing image {:?}, as attachment!", img);
+                        return Some(*img);
+                    }
+                }
+            }
+        }
+
+        #[cfg(feature="logging")]
+        log::trace!("Could not find cached attachment with properties {:?}", des);
+
         None
     }
 

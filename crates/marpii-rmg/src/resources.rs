@@ -3,13 +3,13 @@ use marpii::{
     context::Device,
     resources::{Buffer, Image, SafeImageView, Sampler},
     surface::Surface,
-    swapchain::{Swapchain, SwapchainImage},
+    swapchain::{Swapchain, SwapchainImage}, allocator::MemoryUsage,
 };
 use slotmap::SlotMap;
 use std::sync::Arc;
 use thiserror::Error;
 
-use crate::{AnyResKey, track::Tracks};
+use crate::{AnyResKey, track::Tracks, recorder::task::AttachmentDescription, CtxRmg};
 
 use self::{
     descriptor::{Bindless, ResourceHandle},
@@ -173,6 +173,28 @@ impl Resources {
     pub fn remove_resource(&mut self, res: impl Into<AnyResKey>) -> Result<(), ResourceError> {
         self.remove_list.push(res.into());
         Ok(())
+    }
+
+    ///Returns an key to an image fulfilling the requested  description.
+    pub(crate) fn request_attachment(&mut self, ctx: &CtxRmg, tracks: &Tracks, desc: &AttachmentDescription) -> Result<ImageKey, ResourceError>{
+        if let Some(img) = self.temporary_resources.get_image(&self.images, tracks, desc){
+            Ok(img)
+        }else{
+            //could not find, create, register with tmp and return
+            let image = Arc::new(Image::new(
+                &ctx.device,
+                &ctx.allocator,
+                desc.to_image_desciption(),
+                MemoryUsage::GpuOnly,
+                None,
+                None
+            )?);
+
+            let key = self.add_image(image)?;
+            self.temporary_resources.register(key.into(), TempResources::DEFAULT_TIMEOUT)?;
+            Ok(key)
+        }
+
     }
 
     ///Tries to get the resource's bindless handle. If not already bound, tries to bind the resource

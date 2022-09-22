@@ -7,18 +7,49 @@ use crate::{
 };
 use marpii::{
     ash::vk::{self, Extent2D},
-    context::Device,
+    context::Device, resources::{ImgDesc, ImageType, SharingMode},
 };
 use std::{ops::Deref, sync::Arc};
 
-#[allow(dead_code)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum AttachmentType{
+    Color,
+    Depth
+}
+
+impl Into<vk::ImageUsageFlags> for AttachmentType{
+    fn into(self) -> vk::ImageUsageFlags {
+        match self {
+            AttachmentType::Color => vk::ImageUsageFlags::COLOR_ATTACHMENT |vk::ImageUsageFlags::TRANSFER_SRC | vk::ImageUsageFlags::STORAGE,
+            AttachmentType::Depth => vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT |vk::ImageUsageFlags::TRANSFER_SRC | vk::ImageUsageFlags::STORAGE
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct AttachmentDescription {
     write: bool,
     format: vk::Format,
     extent: Extent2D,
+    attachment_type: AttachmentType,
 }
 
-#[allow(dead_code)]
+impl AttachmentDescription{
+    pub fn to_image_desciption(&self) -> ImgDesc{
+        ImgDesc {
+            img_type: ImageType::Tex2d,
+            format: self.format,
+            extent: vk::Extent3D { width: self.extent.width, height: self.extent.height, depth: 0 },
+            mip_levels: 1,
+            samples: vk::SampleCountFlags::TYPE_1,
+            tiling: vk::ImageTiling::OPTIMAL,
+            usage: self.attachment_type.into(),
+            sharing_mode: SharingMode::Exclusive
+        }
+    }
+}
+
+#[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub(crate) enum AttachmentDescState {
     Unresolved(AttachmentDescription),
     Resolved(ImageKey),
@@ -35,7 +66,7 @@ pub struct ResourceRegistry<'res> {
 
     //Attachment states, at some point they are resolved into an actual image that must be bound to
     // the attachment descriptor.
-    attachments: Vec<AttachmentDescState>,
+    pub(crate) attachments: Vec<AttachmentDescState>,
 
     foreign_sem: Vec<Arc<vk::Semaphore>>,
 }
@@ -84,7 +115,7 @@ impl<'res> ResourceRegistry<'res> {
             .chain(self.sampler.iter().map(|sam| AnyResKey::Sampler(*sam)))
     }
 
-    pub fn append_foreign_signal_semaphores(&self, infos: &mut Vec<vk::SemaphoreSubmitInfo>) {
+    pub(crate) fn append_foreign_signal_semaphores(&self, infos: &mut Vec<vk::SemaphoreSubmitInfo>) {
         for sem in self.foreign_sem.iter() {
             #[cfg(feature = "logging")]
             log::trace!("Registering foreign semaphore {:?}", sem.deref().deref());
