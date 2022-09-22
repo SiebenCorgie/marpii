@@ -1,11 +1,39 @@
+//! # Rmg Rendering example
+//!
+//! Showcases how the rendergraph library can be used to easily schedule tasks that make up
+//! a complex, async executed frame.
+//!
+//! The example uses a asynchronous "Simulation" task to *simulate* particle movement via a compute shader for
+//! frame N+1. Simultaneously the simulation result from N is used to render a objects using the "ForwardPass" which are
+//! then presented on screen.
+//!
+//! On GPUs that support async compute this is done in parallel.
+//!
+//! The number of object can be changed by changing the global constant "OBJECT_COUNT".
+//!
+//! The execution graph:
+//!
+//!  graphics |------------------------------|    |-------------------|
+//!  ---------| Forward render to attachment |----| Blit to swapchain |---------
+//!        /  |------------------------------|    |-------------------|
+//!    .../                                                              / ... (acquired in next frame by graphics)
+//!  compute  |------------------------|     |-------------------------|/
+//!  ---------| Compute Simulation N+1 |-----| Copy to graphics buffer |--------
+//!           |------------------------|     |-------------------------|
+//!
+//! NOTE: The execution is not perfect, for instance the copy to the buffer after the compute command is not necessarily needed.
+//!       Similarly the rendering could happen directly to the swapchain image. However, this example tries to showcase the scheduling as
+//!       simple as possible. So its left that way :) ... Also maybe we add a post progress pass later or something :D
+//!
+//!
+
+
+
 use anyhow::Result;
 use image::EncodableLayout;
-use marpii::ash::vk::SamplerMipmapMode;
-use marpii::gpu_allocator::vulkan::Allocator;
-use marpii::resources::{ImageView, ImgDesc, SafeImageView, Sampler};
+use marpii::resources::ImgDesc;
 use marpii::{
-    ash::{self, vk, vk::Extent2D},
-    sync::Semaphore,
+    ash::vk,
     context::Ctx,
 };
 use marpii_rmg::tasks::{SwapchainBlit, UploadImage};
@@ -17,87 +45,14 @@ use winit::{
     event_loop::ControlFlow,
 };
 
-struct ShadowPass {
-    shadow: ImageKey,
-    param: BufferKey,
-    sampler: SamplerKey,
-}
 
-impl Task for ShadowPass {
-    fn register(&self, registry: &mut ResourceRegistry) {
-        registry.request_image(self.shadow);
-        registry.request_buffer(self.param);
-        registry.request_sampler(self.sampler);
-    }
-    fn record(
-        &mut self,
-        device: &std::sync::Arc<marpii::context::Device>,
-        command_buffer: &vk::CommandBuffer,
-        resources: &Resources,
-    ) {
-        println!("Shadow pass")
-    }
-    fn queue_flags(&self) -> vk::QueueFlags {
-        vk::QueueFlags::COMPUTE
-    }
-    fn name(&self) -> &'static str {
-        "ShadowPass"
-    }
-}
+mod simulation;
+mod forward_pass;
+mod gltf_loader;
 
-struct ForwardPass {
-    shadow: ImageKey,
-    target: ImageKey,
-    meshes: BufferKey,
-}
 
-impl Task for ForwardPass {
-    fn register(&self, registry: &mut ResourceRegistry) {
-        registry.request_image(self.shadow);
-        registry.request_image(self.target);
-        registry.request_buffer(self.meshes);
-    }
+pub const OBJECT_COUNT: usize = 32;
 
-    fn record(
-        &mut self,
-        device: &std::sync::Arc<marpii::context::Device>,
-        command_buffer: &vk::CommandBuffer,
-        resources: &Resources,
-    ) {
-        println!("Forward pass")
-    }
-    fn queue_flags(&self) -> vk::QueueFlags {
-        vk::QueueFlags::GRAPHICS
-    }
-    fn name(&self) -> &'static str {
-        "ForwardPass"
-    }
-}
-struct PostPass {
-    swimage: ImageKey,
-    src: ImageKey,
-}
-
-impl Task for PostPass {
-    fn register(&self, registry: &mut ResourceRegistry) {
-        registry.request_image(self.swimage);
-        registry.request_image(self.src);
-    }
-    fn record(
-        &mut self,
-        device: &std::sync::Arc<marpii::context::Device>,
-        command_buffer: &vk::CommandBuffer,
-        resources: &Resources,
-    ) {
-        println!("Post pass")
-    }
-    fn queue_flags(&self) -> vk::QueueFlags {
-        vk::QueueFlags::GRAPHICS
-    }
-    fn name(&self) -> &'static str {
-        "PostPass"
-    }
-}
 fn main() -> Result<(), anyhow::Error> {
     simple_logger::SimpleLogger::new()
         .with_level(log::LevelFilter::Trace)

@@ -19,6 +19,7 @@ fxhash = "0.2.1"
 marpii = {path = "../../crates/marpii"}
 marpii-commands = {path = "../../crates/marpii-commands"}
 marpii-descriptor = {path = "../../crates/marpii-descriptor"}
+marpii-rmg-shared = {path = "../../crates/marpii-rmg-shared"}
 winit = "0.26.1"
 
 log = {version = "0.4.15", optional = true}

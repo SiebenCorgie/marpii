@@ -3,7 +3,7 @@ use std::sync::Arc;
 use marpii::{ash::vk, sync::Semaphore};
 
 use crate::{
-    graph::{ExecutionFence, PassSubmit},
+    graph::PassSubmit,
     graph_builder::{Dependee, Dependency, Segment, SegmentKey},
     pass::AssumedState,
     state::Transitions,

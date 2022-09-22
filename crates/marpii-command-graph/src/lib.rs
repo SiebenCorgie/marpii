@@ -17,7 +17,7 @@
 
 #![deny(warnings)]
 mod graph;
-pub use graph::{ExecutionFence, Graph};
+pub use graph::Graph;
 
 mod graph_builder;
 pub use graph_builder::{GraphBuilder, Resource};

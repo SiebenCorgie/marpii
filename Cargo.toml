@@ -3,6 +3,7 @@ members = [
 "crates/marpii",
 #"crates/marpii-command-graph",
 "crates/marpii-rmg",
+"crates/marpii-rmg-shared",
 "crates/marpii-commands",
 "crates/marpii-descriptor",
 
@@ -11,6 +12,8 @@ members = [
 "examples/rust_shader",
 "examples/shader_builder",
 "examples/rmg_rendering",
-#"examples/vertex_graphics_shader",
-#"examples/gltf_loading"
+"examples/vertex_graphics_shader",
+#"examples/gltf_loading",
+"examples/shared",
+"examples/rmg_shader"
 ]

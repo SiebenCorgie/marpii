@@ -1,21 +1,22 @@
+use marpii::{ash::vk, context::Device};
+use marpii_rmg::{ImageKey, ResourceRegistry, AttachmentDescription, Resources, Task, BufferKey};
+use std::sync::Arc;
 
 
 struct ForwardPass {
-    shadow: ImageKey,
-    target: ImageKey,
-    meshes: BufferKey,
+    attdesc: AttachmentDescription,
+    sim_src: BufferKey
 }
 
 impl Task for ForwardPass {
     fn register(&self, registry: &mut ResourceRegistry) {
-        registry.request_image(self.shadow);
-        registry.request_image(self.target);
-        registry.request_buffer(self.meshes);
+        //register the description we need
+        registry.request_attachment(self.attdesc.clone());
     }
 
     fn record(
         &mut self,
-        device: &std::sync::Arc<marpii::context::Device>,
+        device: &Arc<Device>,
         command_buffer: &vk::CommandBuffer,
         resources: &Resources,
     ) {

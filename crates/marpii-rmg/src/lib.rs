@@ -19,7 +19,7 @@ pub use resources::{
 
 mod recorder;
 pub use recorder::{
-    task::{ResourceRegistry, Task},
+    task::{ResourceRegistry, Task, AttachmentDescription, AttachmentType},
     RecordError,
 };
 
@@ -150,7 +150,7 @@ impl Rmg {
         let size = core::mem::size_of::<T>() * size;
         let description = BufDesc {
             size: size.try_into().unwrap(),
-            usage: vk::BufferUsageFlags::STORAGE_BUFFER,
+            usage: vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::TRANSFER_SRC | vk::BufferUsageFlags::TRANSFER_DST,
             sharing: SharingMode::Exclusive,
         };
         self.new_buffer_uninitialized(description, name)

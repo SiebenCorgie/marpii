@@ -11,6 +11,9 @@ pub fn compile_rust_shader(
     shader_crate: &str,
     destination_folder: &str,
 ) -> Result<(), SpirvBuilderError> {
+
+    println!("compile shader crate: {}", shader_crate);
+
     let shader_crate_location = Path::new(shader_crate).canonicalize().unwrap();
     if !shader_crate_location.exists() {
         println!("no crate at: {:?}", shader_crate_location);
@@ -69,9 +72,9 @@ pub fn compile_rust_shader(
         }
     };
 
+
     Ok(())
 }
-
 fn main() {
     compile_rust_shader("test_shader", "examples/rust_shader", "resources/")
         .expect("Failed to build shader");
@@ -79,6 +82,14 @@ fn main() {
     compile_rust_shader(
         "vertex_graphics_shader",
         "examples/vertex_graphics_shader",
+        "resources/",
+    )
+    .expect("Failed to build shader");
+
+
+    compile_rust_shader(
+        "rmg_shader",
+        "examples/rmg_shader",
         "resources/",
     )
     .expect("Failed to build shader");

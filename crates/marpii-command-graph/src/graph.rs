@@ -140,7 +140,7 @@ impl Graph {
         if let Some(sem) = self.recycled_semaphores.pop_back() {
             sem
         } else {
-            Semaphore::new(&self.device).unwrap()
+            Semaphore::new(&self.device, 0).unwrap()
         }
     }
 
