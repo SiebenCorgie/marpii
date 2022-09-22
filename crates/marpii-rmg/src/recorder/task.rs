@@ -89,7 +89,12 @@ impl<'res> ResourceRegistry<'res> {
             #[cfg(feature = "logging")]
             log::trace!("Registering foreign semaphore {:?}", sem.deref().deref());
 
-            infos.push(vk::SemaphoreSubmitInfo::builder().semaphore(**sem).build());
+            infos.push(
+                vk::SemaphoreSubmitInfo::builder()
+                    .semaphore(**sem)
+                    .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
+                    .build()
+            );
         }
     }
 }

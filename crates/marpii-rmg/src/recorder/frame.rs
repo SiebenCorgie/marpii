@@ -1,8 +1,8 @@
 use marpii::ash::vk;
 
 use crate::{
-    resources::res_states::{Guard, QueueOwnership},
-    AnyResKey, RecordError, Rmg,
+    resources::res_states::QueueOwnership,
+    AnyResKey, RecordError, Rmg, track::Guard,
 };
 
 use super::{scheduler::ResLocation, TaskRecord};

@@ -1,5 +1,5 @@
 use crate::{
-    recorder::frame::CmdFrame, resources::res_states::Guard, track::TrackId, AnyResKey,
+    recorder::frame::CmdFrame, track::{TrackId, Guard}, AnyResKey,
     RecordError, Rmg,
 };
 use fxhash::FxHashMap;
@@ -13,32 +13,7 @@ use super::scheduler::{Schedule, SubmitFrame, TrackRecord};
 
 struct Exec<'rmg> {
     record: TrackRecord<'rmg>,
-    semaphore_base_value: u64,
 }
-
-impl<'rmg> Exec<'rmg> {
-    fn header_offset(&self) -> u64 {
-        if self.record.release_header.is_empty() {
-            0
-        } else {
-            1
-        }
-    }
-    fn frame_header_wait_signal(&self) -> u64 {
-        self.semaphore_base_value
-    }
-    fn frame_header_release_signal(&self) -> u64 {
-        self.semaphore_base_value + 1
-    }
-
-    fn frame_wait_value(&self, frame_index: usize) -> u64 {
-        self.semaphore_base_value + self.header_offset() + frame_index as u64
-    }
-    fn frame_signal_value(&self, frame_index: usize) -> u64 {
-        self.frame_wait_value(frame_index) + 1
-    }
-}
-
 pub struct Executor<'rmg> {
     tracks: FxHashMap<TrackId, Exec<'rmg>>,
 
@@ -86,13 +61,10 @@ impl<'rmg> Executor<'rmg> {
             tracks: tracks
                 .into_iter()
                 .map(|(k, v)| {
-                    let max_guarded_value = v.latest_outside_sync;
                     (
                         k,
                         Exec {
                             record: v,
-                            semaphore_base_value: max_guarded_value
-                                .max(rmg.tracks.0.get(&k).unwrap().latest_signaled_value),
                         },
                     )
                 })
@@ -107,7 +79,9 @@ impl<'rmg> Executor<'rmg> {
         //Schedule all release headers first
         let trackids = exec.tracks.keys().map(|k| *k).collect::<Vec<_>>();
         for track in trackids.into_iter() {
-            executions.push(exec.release_header_for_track(rmg, track)?);
+            if let Some(exec) = exec.release_header_for_track(rmg, track)?{
+                executions.push(exec);
+            }
         }
 
         //now we start the actual recording / submission process. Since we give the tasks access to the actual resources (not
@@ -136,10 +110,10 @@ impl<'rmg> Executor<'rmg> {
             .fold(
                 FxHashMap::default(),
                 |mut map: FxHashMap<TrackId, u64>, exec_guard| {
-                    if let Some(val) = map.get_mut(&exec_guard.track) {
-                        *val = (*val).max(exec_guard.target_value);
+                    if let Some(val) = map.get_mut(exec_guard.as_ref()) {
+                        *val = (*val).max(exec_guard.wait_value());
                     } else {
-                        map.insert(exec_guard.track, exec_guard.target_value);
+                        map.insert((*exec_guard).into(), exec_guard.wait_value());
                     }
 
                     map
@@ -148,6 +122,10 @@ impl<'rmg> Executor<'rmg> {
             .into_iter()
             .map(
                 |(track_id, value)| {
+
+                    println!("wait for {}@{:?}", value, rmg.tracks.0.get(&track_id).unwrap().sem.inner);
+                    rmg.tracks.0.get(&track_id).unwrap().sem.wait(value, u64::MAX).unwrap();
+
                     vk::SemaphoreSubmitInfo::builder()
                         .semaphore(rmg.tracks.0.get(&track_id).unwrap().sem.inner)
                         .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS) //TODO: make more percise
@@ -163,7 +141,7 @@ impl<'rmg> Executor<'rmg> {
         &mut self,
         rmg: &mut Rmg,
         track: TrackId,
-    ) -> Result<Execution, RecordError> {
+    ) -> Result<Option<Execution>, RecordError> {
         if self
             .tracks
             .get(&track)
@@ -174,17 +152,11 @@ impl<'rmg> Executor<'rmg> {
         {
             #[cfg(feature = "logging")]
             log::trace!("Skiping header release for {:?}, was empty", track);
+            return Ok(None);
         }
 
         //create this frame's guard
-        let release_end_guard = Guard {
-            track,
-            target_value: self
-                .tracks
-                .get(&track)
-                .unwrap()
-                .frame_header_release_signal(),
-        };
+        let release_end_guard = rmg.tracks.0.get_mut(&track).unwrap().next_guard();
 
         #[cfg(feature = "logging")]
         log::trace!("Recording release on guard {:?}", release_end_guard);
@@ -230,13 +202,12 @@ impl<'rmg> Executor<'rmg> {
         }
 
         //we want to wait for any outstanding cb that uses any of the released resources,
-        // therfor fill the buffer with all guards we can find, and build the wait info
+        // therfore fill the buffer with all guards we can find, and build the wait info
         self.guard_buffer.clear();
-        //add general guard
-        self.guard_buffer.push(Guard {
-            track,
-            target_value: self.tracks.get(&track).unwrap().frame_header_wait_signal(),
-        });
+
+        //add general guard TODO: remove? all releases should be guarded by the resources if needed
+        self.guard_buffer.push(release_end_guard.guard_before());
+
         for rel in release_frame.release.iter() {
             let guard = match rel.res {
                 AnyResKey::Image(imgkey) => rmg.res.images.get_mut(imgkey).unwrap().guard.take(),
@@ -261,11 +232,17 @@ impl<'rmg> Executor<'rmg> {
         }
 
         let wait_info = self.wait_info_from_guard_buffer(rmg);
+
+        let wait_values = wait_info.iter().map(|wi| wi.value).collect::<Vec<_>>();
+        let wait_sems  = wait_info.iter().map(|wi| wi.semaphore).collect::<Vec<_>>();
+        let wait_masks  = wait_info.iter().map(|wi| vk::PipelineStageFlags::ALL_COMMANDS).collect::<Vec<_>>();
+
         let signal_semaphore = vec![vk::SemaphoreSubmitInfo::builder()
-            .semaphore(rmg.tracks.0.get(&release_end_guard.track).unwrap().sem.inner)
+            .semaphore(rmg.tracks.0.get(release_end_guard.as_ref()).unwrap().sem.inner)
             .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-            .value(release_end_guard.target_value)
+            .value(release_end_guard.wait_value())
             .build()];
+
         //now end cb and submit
         unsafe {
             rmg.ctx.device.inner.end_command_buffer(cb.inner)?;
@@ -275,6 +252,24 @@ impl<'rmg> Executor<'rmg> {
                 .device
                 .get_first_queue_for_family(queue_family)
                 .unwrap();
+/*
+            rmg.ctx.device.inner.queue_submit(
+                *queue.inner(),
+                &[
+                    *vk::SubmitInfo::builder()
+                        .command_buffers(&[cb.inner])
+                        .signal_semaphores(&[signal_semaphore[0].semaphore])
+                        .wait_semaphores(&wait_sems)
+                        .wait_dst_stage_mask(&wait_masks)
+                        .push_next(
+                            &mut vk::TimelineSemaphoreSubmitInfo::builder()
+                                .signal_semaphore_values(&[release_end_guard.target_value])
+                                .wait_semaphore_values(&wait_values)
+                        )
+                ],
+                vk::Fence::null()
+            )?;
+            */
             rmg.ctx.device.inner.queue_submit2(
                 *queue.inner(),
                 &[*vk::SubmitInfo2::builder()
@@ -288,10 +283,10 @@ impl<'rmg> Executor<'rmg> {
             )?;
         }
 
-        Ok(Execution {
+        Ok(Some(Execution {
             command_buffer: cb,
             guard: release_end_guard,
-        })
+        }))
     }
 
     fn record_frame(
@@ -308,14 +303,7 @@ impl<'rmg> Executor<'rmg> {
         }
 
         //create this frame's guard
-        let frame_end_guard = Guard {
-            track: frame.track,
-            target_value: self
-                .tracks
-                .get(&frame.track)
-                .unwrap()
-                .frame_signal_value(frame.frame.unwrap_index()),
-        };
+        let frame_end_guard = rmg.tracks.0.get_mut(&frame.track).unwrap().next_guard();
 
         #[cfg(feature = "logging")]
         log::trace!("Recording frame on guard {:?}", frame_end_guard);
@@ -362,18 +350,17 @@ impl<'rmg> Executor<'rmg> {
                     .buffer_memory_barriers(&self.buffer_barrier_buffer),
             );
         }
+
         //add general guard
-        self.guard_buffer.push(Guard {
-            track: frame.track,
-            target_value: self.tracks.get(&frame.track).unwrap().frame_wait_value(frame.frame.unwrap_index()),
-        });
+        // TODO remove? could be independent...
+        self.guard_buffer.push(frame_end_guard.guard_before());
 
         //FIXME: make fast :)
         // Finds the maximum guard value per track id. Since we have to wait at least until the last known
-        let wait_semaphores = self.wait_info_from_guard_buffer(rmg);
+        let wait_info = self.wait_info_from_guard_buffer(rmg);
 
         #[cfg(feature = "logging")]
-        log::trace!("Wait info: {:?}", wait_semaphores);
+        log::trace!("Wait info: {:?}", wait_info);
 
         //now all buffers/images are owned by this track. We therefore only have to
         for task in self.tracks.get_mut(&frame.track).unwrap().record.frames
@@ -412,9 +399,9 @@ impl<'rmg> Executor<'rmg> {
         }
 
         let mut signal_semaphore = vec![vk::SemaphoreSubmitInfo::builder()
-            .semaphore(rmg.tracks.0.get(&frame_end_guard.track).unwrap().sem.inner)
+            .semaphore(rmg.tracks.0.get(frame_end_guard.as_ref()).unwrap().sem.inner)
             .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-            .value(frame_end_guard.target_value)
+            .value(frame_end_guard.wait_value())
             .build()];
 
         //if found, add all foreign semaphores
@@ -429,6 +416,10 @@ impl<'rmg> Executor<'rmg> {
         #[cfg(feature = "logging")]
         log::trace!("Signal info: {:?}", signal_semaphore);
 
+        let wait_values = wait_info.iter().map(|wi| wi.value).collect::<Vec<_>>();
+        let wait_sems  = wait_info.iter().map(|wi| wi.semaphore).collect::<Vec<_>>();
+        let wait_masks  = wait_info.iter().map(|wi| vk::PipelineStageFlags::ALL_COMMANDS).collect::<Vec<_>>();
+
 
         //finally, when finished recording, execute by
         unsafe {
@@ -440,17 +431,36 @@ impl<'rmg> Executor<'rmg> {
                 .device
                 .get_first_queue_for_family(queue_family)
                 .unwrap();
+            /*
+            rmg.ctx.device.inner.queue_submit(
+                *queue.inner(),
+                &[
+                    *vk::SubmitInfo::builder()
+                        .command_buffers(&[cb.inner])
+                        .signal_semaphores(&[signal_semaphore[0].semaphore])
+                        .wait_semaphores(&wait_sems)
+                        .wait_dst_stage_mask(&wait_masks)
+                        .push_next(
+                            &mut vk::TimelineSemaphoreSubmitInfo::builder()
+                                .signal_semaphore_values(&[frame_end_guard.target_value])
+                                .wait_semaphore_values(&wait_values)
+                        )
+                ],
+                vk::Fence::null()
+            )?;
+            */
             rmg.ctx.device.inner.queue_submit2(
                 *queue.inner(),
                 &[*vk::SubmitInfo2::builder()
                     .command_buffer_infos(&[
                         *vk::CommandBufferSubmitInfo::builder().command_buffer(cb.inner)
                     ])
-                    .wait_semaphore_infos(wait_semaphores.as_slice())
+                    .wait_semaphore_infos(&wait_info)
                     //Signal this tracks value uppon finish
                     .signal_semaphore_infos(&signal_semaphore)],
                 vk::Fence::null(),
             )?;
+
         }
         Ok(Some(Execution {
             command_buffer: cb,

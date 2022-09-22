@@ -5,7 +5,7 @@ use marpii::{
     resources::{Buffer, Image, ImageView, Sampler},
 };
 
-use crate::{track::{TrackId, Tracks}, Rmg, Resources};
+use crate::{track::{TrackId, Tracks, Guard}, Rmg, Resources};
 
 use super::descriptor::ResourceHandle;
 
@@ -92,17 +92,6 @@ pub struct ResSampler {
     pub descriptor_handle: Option<ResourceHandle>,
 }
 
-#[derive(Debug, Clone, Copy)]
-pub(crate) struct Guard {
-    pub track: TrackId,
-    pub target_value: u64,
-}
-
-impl Guard{
-    fn expired(&self, tracks: &Tracks) -> bool{
-        tracks.guard_finished(self)
-    }
-}
 
 #[allow(dead_code)]
 pub(crate) enum AnyRes {
@@ -203,14 +192,14 @@ impl AnyResKey {
         match self {
             AnyResKey::Image(imgkey) => {
                 if let Some(img) = rmg.res.images.get(*imgkey) {
-                    img.guard.as_ref().map(|g| g.target_value).unwrap_or(0)
+                    img.guard.as_ref().map(|g| g.wait_value()).unwrap_or(0)
                 } else {
                     0
                 }
             }
             AnyResKey::Buffer(bufkey) => {
                 if let Some(buf) = rmg.res.buffer.get(*bufkey) {
-                    buf.guard.as_ref().map(|g| g.target_value).unwrap_or(0)
+                    buf.guard.as_ref().map(|g| g.wait_value()).unwrap_or(0)
                 } else {
                     0
                 }

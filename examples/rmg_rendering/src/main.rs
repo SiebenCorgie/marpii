@@ -5,6 +5,7 @@ use marpii::gpu_allocator::vulkan::Allocator;
 use marpii::resources::{ImageView, ImgDesc, SafeImageView, Sampler};
 use marpii::{
     ash::{self, vk, vk::Extent2D},
+    sync::Semaphore,
     context::Ctx,
 };
 use marpii_rmg::tasks::{SwapchainBlit, UploadImage};
@@ -110,10 +111,10 @@ fn main() -> Result<(), anyhow::Error> {
 
     let mut rmg = Rmg::new(context, &surface)?;
 
+
+
     let image_data = image::open("test.png").unwrap();
     let image_data = image_data.to_rgba32f();
-
-
 
     let mut swapchain_blit = SwapchainBlit::new();
 
@@ -127,7 +128,7 @@ fn main() -> Result<(), anyhow::Error> {
 
                 counter += 1;
 
-                if counter > 10{
+                if counter > 1024{
                     *cf = ControlFlow::Exit;
                 }
 

@@ -107,9 +107,9 @@ impl<'rmg> Recorder<'rmg> {
         schedule.print_schedule();
 
         let executions = Executor::exec(self.rmg, schedule)?;
+
         for ex in executions {
-            let mut track = self.rmg.tracks.0.get_mut(&ex.guard.track).unwrap();
-            track.latest_signaled_value = track.latest_signaled_value.max(ex.guard.target_value);
+            let mut track = self.rmg.tracks.0.get_mut(&ex.guard.into()).unwrap();
             track.inflight_executions.push(ex);
         }
 
