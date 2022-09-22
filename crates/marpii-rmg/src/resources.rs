@@ -227,8 +227,6 @@ impl Resources {
 
         //now check all resources that are marked for removal if they can be dropped.
         let remove_mask = self.remove_list.iter().map(|k| {
-
-
             let is = k.guard_expired(&self, tracks);
             println!("k={}: {}", k, is);
             is

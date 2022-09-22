@@ -41,7 +41,7 @@ impl TempResources {
     }
 
     pub fn register(&mut self, res: AnyResKey, timeout: u64) -> Result<(), ResourceError>{
-        if let Some(old) = self.res_map.insert(res, RuntimeInfo { last_use: self.epoch, timeout }){
+        if let Some(_old) = self.res_map.insert(res, RuntimeInfo { last_use: self.epoch, timeout }){
             Err(ResourceError::ResourceExists(res))
         }else{
             Ok(())
@@ -50,7 +50,7 @@ impl TempResources {
 
     pub(crate) fn get_image(&mut self, images: &SlotMap<ImageKey, ResImage>, tracks: &Tracks, des: &AttachmentDescription) -> Option<ImageKey>{
         //FIXME: make fast.
-        for (k, res) in &self.res_map{
+        for (k, _res) in &self.res_map{
             if let AnyResKey::Image(img) = k{
                 let image = images.get(*img).unwrap();
                 if image.image.desc == des.to_image_desciption(){
@@ -82,9 +82,10 @@ impl TempResources {
             }
         }
 
-        //remove all from tracking
+        //remove all from tracking, and schedule for acutal droping
         for rem in &self.remove_buffer{
             assert!(self.res_map.remove(rem).is_some());
+            drop_list.push(*rem);
         }
     }
 
