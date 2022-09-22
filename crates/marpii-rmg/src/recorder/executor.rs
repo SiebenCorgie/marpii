@@ -206,7 +206,7 @@ impl<'rmg> Executor<'rmg> {
         self.guard_buffer.clear();
 
         //add general guard TODO: remove? all releases should be guarded by the resources if needed
-        self.guard_buffer.push(release_end_guard.guard_before());
+        //self.guard_buffer.push(release_end_guard.guard_before());
 
         for rel in release_frame.release.iter() {
             let guard = match rel.res {
@@ -233,10 +233,6 @@ impl<'rmg> Executor<'rmg> {
 
         let wait_info = self.wait_info_from_guard_buffer(rmg);
 
-        let wait_values = wait_info.iter().map(|wi| wi.value).collect::<Vec<_>>();
-        let wait_sems  = wait_info.iter().map(|wi| wi.semaphore).collect::<Vec<_>>();
-        let wait_masks  = wait_info.iter().map(|wi| vk::PipelineStageFlags::ALL_COMMANDS).collect::<Vec<_>>();
-
         let signal_semaphore = vec![vk::SemaphoreSubmitInfo::builder()
             .semaphore(rmg.tracks.0.get(release_end_guard.as_ref()).unwrap().sem.inner)
             .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
@@ -252,24 +248,7 @@ impl<'rmg> Executor<'rmg> {
                 .device
                 .get_first_queue_for_family(queue_family)
                 .unwrap();
-/*
-            rmg.ctx.device.inner.queue_submit(
-                *queue.inner(),
-                &[
-                    *vk::SubmitInfo::builder()
-                        .command_buffers(&[cb.inner])
-                        .signal_semaphores(&[signal_semaphore[0].semaphore])
-                        .wait_semaphores(&wait_sems)
-                        .wait_dst_stage_mask(&wait_masks)
-                        .push_next(
-                            &mut vk::TimelineSemaphoreSubmitInfo::builder()
-                                .signal_semaphore_values(&[release_end_guard.target_value])
-                                .wait_semaphore_values(&wait_values)
-                        )
-                ],
-                vk::Fence::null()
-            )?;
-            */
+
             rmg.ctx.device.inner.queue_submit2(
                 *queue.inner(),
                 &[*vk::SubmitInfo2::builder()
@@ -353,7 +332,7 @@ impl<'rmg> Executor<'rmg> {
 
         //add general guard
         // TODO remove? could be independent...
-        self.guard_buffer.push(frame_end_guard.guard_before());
+        //self.guard_buffer.push(frame_end_guard.guard_before());
 
         //FIXME: make fast :)
         // Finds the maximum guard value per track id. Since we have to wait at least until the last known
@@ -416,11 +395,6 @@ impl<'rmg> Executor<'rmg> {
         #[cfg(feature = "logging")]
         log::trace!("Signal info: {:?}", signal_semaphore);
 
-        let wait_values = wait_info.iter().map(|wi| wi.value).collect::<Vec<_>>();
-        let wait_sems  = wait_info.iter().map(|wi| wi.semaphore).collect::<Vec<_>>();
-        let wait_masks  = wait_info.iter().map(|wi| vk::PipelineStageFlags::ALL_COMMANDS).collect::<Vec<_>>();
-
-
         //finally, when finished recording, execute by
         unsafe {
             rmg.ctx.device.inner.end_command_buffer(cb.inner)?;
@@ -431,24 +405,7 @@ impl<'rmg> Executor<'rmg> {
                 .device
                 .get_first_queue_for_family(queue_family)
                 .unwrap();
-            /*
-            rmg.ctx.device.inner.queue_submit(
-                *queue.inner(),
-                &[
-                    *vk::SubmitInfo::builder()
-                        .command_buffers(&[cb.inner])
-                        .signal_semaphores(&[signal_semaphore[0].semaphore])
-                        .wait_semaphores(&wait_sems)
-                        .wait_dst_stage_mask(&wait_masks)
-                        .push_next(
-                            &mut vk::TimelineSemaphoreSubmitInfo::builder()
-                                .signal_semaphore_values(&[frame_end_guard.target_value])
-                                .wait_semaphore_values(&wait_values)
-                        )
-                ],
-                vk::Fence::null()
-            )?;
-            */
+
             rmg.ctx.device.inner.queue_submit2(
                 *queue.inner(),
                 &[*vk::SubmitInfo2::builder()
