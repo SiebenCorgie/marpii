@@ -12,4 +12,4 @@ crate-type = ["lib", "dylib"]
 
 [dependencies]
 spirv-std = { git = "https://github.com/EmbarkStudios/rust-gpu", features = ["glam"], rev="a9a233eb80f6d5d512130f8c12469a1a74f58c65"}
-#shared = {path = "../shared"}
+shared = {path = "../shared"}

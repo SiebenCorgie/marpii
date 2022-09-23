@@ -1,8 +1,13 @@
-#![no_std]
-
+#![cfg_attr(
+    target_arch = "spirv",
+    no_std,
+    feature(register_attr),
+    register_attr(spirv)
+)]
 //! Shared objects between the exaples CPU side and GPU side code.
 
 use marpii_rmg_shared::ResourceHandle;
+
 
 //rmg rendering object type
 #[repr(C, align(16))]

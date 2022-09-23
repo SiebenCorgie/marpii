@@ -1,10 +1,12 @@
 #![no_std]
-
 //! Resources that are needed in multiple crates. Mostly RustGpu shader crates, and marpii-rmg itself.
 
 
-#[cfg(not(target_arch = "spirv"))]
+
+#[cfg(feature = "marpii")]
 use marpii::ash::vk;
+
+
 
 ///By definition when interpreted as big endian the highest byte is the handle type and the lower bytes are the actual index.
 ///
@@ -51,7 +53,7 @@ impl ResourceHandle {
     }
 
 
-    #[cfg(not(target_arch = "spirv"))]
+    #[cfg(feature = "marpii")]
     pub fn descriptor_ty(&self) -> vk::DescriptorType {
         match self.handle_type() {
             Self::TYPE_SAMPLED_IMAGE => vk::DescriptorType::SAMPLED_IMAGE,
@@ -69,7 +71,7 @@ impl ResourceHandle {
         }
     }
 
-    #[cfg(not(target_arch = "spirv"))]
+    #[cfg(feature = "marpii")]
     pub fn new_from_desc_ty(ty: vk::DescriptorType, index: u32) -> Self {
         let ty = match ty {
             vk::DescriptorType::SAMPLED_IMAGE => Self::TYPE_SAMPLED_IMAGE,
@@ -93,17 +95,6 @@ impl ResourceHandle {
 
 }
 
-
-//Macro that expands to the bindless descriptor sets
-macro_rules! bindless_sets {
-    () => {
-    #[spirv(descriptor_set = 0, binding = 0)] storage_buffer: &mut RuntimeArray<u32>,
-    #[spirv(descriptor_set = 1, binding = 0)] storage_images: &RuntimeArray<Image!(2D, type=f32, sampled=false)>,
-    #[spirv(descriptor_set = 2, binding = 0)] sampled_images: &RuntimeArray<SampledImage<Image!(2D, type=f32, sampled)>>,
-    #[spirv(descriptor_set = 3, binding = 0)] storage_buffer: &mut RuntimeArray<Sampler>,
-    #[spirv(descriptor_set = 4, binding = 0)] accel_structures: &RuntimeArray<Image!(2D, type=f32, sampled)>
-    };
-}
 
 #[cfg(test)]
 mod tests {
