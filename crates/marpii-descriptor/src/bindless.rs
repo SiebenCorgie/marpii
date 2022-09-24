@@ -3,7 +3,7 @@ use marpii::{
     context::Device,
     resources::{
         Buffer, DescriptorPool, DescriptorSet, DescriptorSetLayout, ImageView, PipelineLayout,
-        Sampler,
+        Sampler, PushConstant,
     },
 };
 use std::{collections::VecDeque, sync::Arc};
@@ -494,6 +494,7 @@ impl BindlessDescriptor {
             self.accel_structure_set.descriptor_set.clone(),
         ]
     }
+
 }
 
 #[cfg(test)]

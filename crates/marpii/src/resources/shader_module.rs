@@ -89,12 +89,12 @@ impl ShaderModule {
     pub fn into_shader_stage(
         self,
         stage: ash::vk::ShaderStageFlags,
-        entry_name: String,
+        entry_name: impl Into<String>,
     ) -> ShaderStage {
         ShaderStage {
             module: StageModule::Owned(self),
             stage,
-            entry_name: CString::new(entry_name).unwrap(),
+            entry_name: CString::new(entry_name.into()).unwrap(),
         }
     }
 }

@@ -38,6 +38,7 @@ use marpii::{
 };
 use marpii_rmg::tasks::{SwapchainBlit, UploadImage};
 use marpii_rmg::{BufferKey, ImageKey, ResourceRegistry, Resources, Rmg, SamplerKey, Task};
+use simulation::Simulation;
 use winit::event::{DeviceEvent, ElementState, KeyboardInput, VirtualKeyCode};
 use winit::window::Window;
 use winit::{
@@ -66,6 +67,8 @@ fn main() -> Result<(), anyhow::Error> {
 
     let mut rmg = Rmg::new(context, &surface)?;
 
+
+    let mut simulation = Simulation::new(&mut rmg)?;
 
 
     let image_data = image::open("test.png").unwrap();
@@ -101,7 +104,10 @@ fn main() -> Result<(), anyhow::Error> {
                 swapchain_blit.next_blit(swimage_image);
 
                 rmg.record(window_extent(&window))
-                   .add_task(&mut init_image, &[]).unwrap()
+                   .add_task(&mut init_image, &[])
+                   .unwrap()
+                   .add_task(&mut simulation, &[])
+                   .unwrap()
                    .add_task(&mut swapchain_blit, &[])
                    .unwrap()
                    .execute()

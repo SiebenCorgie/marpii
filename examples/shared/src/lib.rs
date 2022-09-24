@@ -6,7 +6,7 @@
 )]
 //! Shared objects between the exaples CPU side and GPU side code.
 
-use marpii_rmg_shared::ResourceHandle;
+pub use marpii_rmg_shared::ResourceHandle;
 
 
 //rmg rendering object type
@@ -20,7 +20,9 @@ pub struct SimObj{
 pub struct SimPush{
     pub sim_src_buffer: ResourceHandle,
     pub sim_dst_buffer: ResourceHandle,
-    pub is_init: u8,
+    pub is_init: u32,
+    pub buf_size: u32,
+    pub pad: [u32; 2]
 }
 
 

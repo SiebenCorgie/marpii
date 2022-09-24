@@ -1,0 +1,32 @@
+#version 460
+
+#extension GL_GOOGLE_include_directive : enable
+#extension GL_EXT_nonuniform_qualifier : require
+
+#include "shared.glsl"
+
+
+//push constants block
+layout( push_constant ) uniform constants{
+    ResHandle src;
+    ResHandle dst;
+    uint is_init;
+} Push;
+
+layout(set = 0, binding = 0) buffer SimObjects{
+    SimObject objects[];
+} global_buffers_objects[];
+layout(set = 1, binding = 0, rgba8) uniform image2D global_images_2d[];
+layout(set = 2, binding = 0) uniform sampler2D global_textures[];
+layout(set = 3, binding = 0) uniform sampler samplers[];
+
+
+layout (local_size_x = 64) in;
+void main(){
+     uint widx = gl_GlobalInvocationID.x;
+     SimObject src = global_buffers_objects[nonuniformEXT(get_index(Push.src))].objects[widx];
+
+     src.location += vec4(1.0);
+
+     global_buffers_objects[nonuniformEXT(get_index(Push.dst))].objects[widx] = src;
+}

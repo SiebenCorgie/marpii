@@ -369,19 +369,23 @@ impl Bindless {
         })
     }
 
-    ///Creates a new instance of the pipeline layout used for bindless descriptors.
-    #[allow(dead_code)]
-    pub fn new_pipeline_layout(&self, push_constant_size: u32) -> PipelineLayout {
+    ///Creates a new instance of the pipeline layout used for bindless descriptors. Note that bindless takes the sets 0..4, afterwards
+    /// the supplied additional sets can be added.
+    pub fn new_pipeline_layout(&self, push_constant_size: u32, additional_descriptor_sets: &[DescriptorSetLayout]) -> PipelineLayout {
         //NOTE: This is the delicate part. We create a link between the descriptor set layouts and this pipeline layout. This is however *safe*
         //      since we keep the sets in memory together with the pipeline layout. On drop the pipeline layout is destried before the descriptorset layouts
         //      which is again *safe*
-        let descset_layouts = &[
+        let mut descset_layouts = vec![
             self.stbuffer.layout.inner,
             self.stimage.layout.inner,
             self.saimage.layout.inner,
             self.sampler.layout.inner,
             self.accel.layout.inner,
         ];
+
+        for additional in additional_descriptor_sets{
+            descset_layouts.push(additional.inner)
+        }
 
         let push_range = vk::PushConstantRange {
             stage_flags: vk::ShaderStageFlags::ALL,
@@ -390,7 +394,7 @@ impl Bindless {
         };
 
         let pipeline_layout_create_info = vk::PipelineLayoutCreateInfo::builder()
-            .set_layouts(descset_layouts)
+            .set_layouts(&descset_layouts)
             .push_constant_ranges(core::slice::from_ref(&push_range));
 
         let pipeline_layout = unsafe {
@@ -522,7 +526,6 @@ impl Bindless {
     }
 
 
-    #[allow(dead_code)]
     pub fn clone_descriptor_sets(
         &self,
     ) -> [Arc<DescriptorSet<Arc<DescriptorPool>>>; Self::NUM_SETS as usize] {
@@ -532,6 +535,16 @@ impl Bindless {
             self.saimage.descriptor_set.clone(),
             self.sampler.descriptor_set.clone(),
             self.accel.descriptor_set.clone(),
+        ]
+    }
+
+    pub fn clone_raw_descriptor_sets(&self) -> [vk::DescriptorSet; Self::NUM_SETS as usize]{
+        [
+            self.stbuffer.descriptor_set.inner,
+            self.stimage.descriptor_set.inner,
+            self.saimage.descriptor_set.inner,
+            self.sampler.descriptor_set.inner,
+            self.accel.descriptor_set.inner,
         ]
     }
 }

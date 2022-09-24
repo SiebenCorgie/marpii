@@ -11,7 +11,7 @@
 // HACK(eddyb) can't easily see warnings otherwise from `spirv-builder` builds.
 //#![deny(warnings)]
 
-type SimPush = u32;
+use shared::SimPush;
 use spirv_std::{image::SampledImage, ByteAddressableBuffer};
 
 #[cfg(not(target_arch = "spirv"))]
@@ -85,7 +85,7 @@ pub fn forward_main_vs(
 #[spirv(compute(threads(64)))]
 pub fn simulation_main(
     #[spirv(push_constant)] push: &SimPush,
-    #[spirv(storage_buffer, descriptor_set = 0, binding = 0)] storage_buffer: &mut RuntimeArray<u32>,
+    //#[spirv(storage_buffer, descriptor_set = 0, binding = 0)] storage_buffer: &mut RuntimeArray<ByteAddressableBuffer>,
     #[spirv(descriptor_set = 1, binding = 0)] storage_images: &RuntimeArray<Image!(2D, type=f32, sampled=false)>,
     #[spirv(descriptor_set = 2, binding = 0)] sampled_images: &RuntimeArray<SampledImage<Image!(2D, type=f32, sampled)>>,
     #[spirv(descriptor_set = 3, binding = 0)] sampler: &mut RuntimeArray<Sampler>,

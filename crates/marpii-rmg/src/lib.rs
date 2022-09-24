@@ -180,6 +180,10 @@ impl Rmg {
         self.res.remove_resource(res)
     }
 
+    pub fn resources(&self) -> &Resources{
+        &self.res
+    }
+
     pub(crate) fn queue_idx_to_trackid(&self, idx: u32) -> Option<TrackId> {
         for t in self.tracks.0.iter() {
             if t.1.queue_idx == idx {

@@ -308,6 +308,29 @@ impl<'rmg> Executor<'rmg> {
                 &vk::CommandBufferBeginInfo::builder()
                     .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT),
             )?;
+
+            if frame.track.0.contains(vk::QueueFlags::COMPUTE){
+                rmg.ctx.device.inner.cmd_bind_descriptor_sets(
+                    cb.inner,
+                    vk::PipelineBindPoint::COMPUTE,
+                    rmg.res.bindless_layout.layout,
+                    0,
+                    &rmg.res.bindless.clone_raw_descriptor_sets(),
+                    &[]
+                );
+            }
+
+            if frame.track.0.contains(vk::QueueFlags::GRAPHICS){
+                rmg.ctx.device.inner.cmd_bind_descriptor_sets(
+                    cb.inner,
+                    vk::PipelineBindPoint::GRAPHICS,
+                    rmg.res.bindless_layout.layout,
+                    0,
+                    &rmg.res.bindless.clone_raw_descriptor_sets(),
+                    &[]
+                );
+            }
+
         }
 
         //As outlined we start out by building the acquire list (or not, if there is nothing to acquire/Inuit).

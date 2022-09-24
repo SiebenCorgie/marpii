@@ -1,7 +1,7 @@
 use marpii::{
     ash::vk,
     context::Device,
-    resources::{Buffer, Image, SafeImageView, Sampler},
+    resources::{Buffer, Image, SafeImageView, Sampler, DescriptorSetLayout, PipelineLayout},
     surface::Surface,
     swapchain::{Swapchain, SwapchainImage}, allocator::MemoryUsage,
 };
@@ -51,7 +51,8 @@ pub enum ResourceError {
 }
 
 pub struct Resources {
-    bindless: Bindless,
+    pub(crate) bindless: Bindless,
+    pub(crate) bindless_layout: Arc<PipelineLayout>,
 
     pub(crate) images: SlotMap<ImageKey, ResImage>,
     pub(crate) buffer: SlotMap<BufferKey, ResBuffer>,
@@ -70,6 +71,7 @@ pub struct Resources {
 impl Resources {
     pub fn new(device: &Arc<Device>, surface: &Arc<Surface>) -> Result<Self, ResourceError> {
         let bindless = Bindless::new_default(device)?;
+        let bindless_layout = Arc::new(bindless.new_pipeline_layout(Bindless::MAX_PUSH_CONSTANT_SIZE, &[]));
 
         let swapchain = Swapchain::builder(device, surface)?
             .with(move |b| {
@@ -80,6 +82,7 @@ impl Resources {
 
         Ok(Resources {
             bindless,
+            bindless_layout,
             buffer: SlotMap::with_key(),
             images: SlotMap::with_key(),
             sampler: SlotMap::with_key(),
@@ -88,6 +91,18 @@ impl Resources {
             temporary_resources: TempResources::new(),
             remove_list: Vec::with_capacity(100),
         })
+    }
+
+    ///creates an additional pipeline layout, compatible with bindless, where each additional
+    /// set is bound starting at descriptor_set index 5.
+    ///
+    //TODO expose "bind" function?
+    pub fn bindless_pipeline_layout(&self, additional_descriptor_sets: &[DescriptorSetLayout]) -> PipelineLayout{
+        self.bindless.new_pipeline_layout(Bindless::MAX_PUSH_CONSTANT_SIZE, additional_descriptor_sets)
+    }
+
+    pub fn bindless_layout(&self) -> Arc<PipelineLayout>{
+        self.bindless_layout.clone()
     }
 
     ///Binds the resource for use on the gpu.
