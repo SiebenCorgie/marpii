@@ -277,12 +277,20 @@ impl<'rmg> CmdFrame<'rmg> {
                             .ownership
                     } {
                         QueueOwnership::Owned(owner) => {
-                            #[cfg(feature = "logging")]
-                            log::trace!("Release Image: {:?}", imgkey);
 
                             let src_family = owner;
                             let dst_family = rmg.trackid_to_queue_idx(to.track);
                             debug_assert!(rmg.trackid_to_queue_idx(from.track) == owner);
+
+
+                            if src_family == dst_family{
+                                #[cfg(feature = "logging")]
+                                log::trace!("Ignoring release, src/dst are both {} for: {:?}", src_family, imgkey);
+                                continue;
+                            }
+
+                            #[cfg(feature = "logging")]
+                            log::trace!("Release Image: {:?}", imgkey);
 
                             let mut img = rmg.res.images.get_mut(*imgkey).ok_or_else(|| {
                                 RecordError::NoSuchResource(AnyResKey::Image(*imgkey))
@@ -341,12 +349,19 @@ impl<'rmg> CmdFrame<'rmg> {
                             .ownership
                     } {
                         QueueOwnership::Owned(owner) => {
-                            #[cfg(feature = "logging")]
-                            log::trace!("Release Buffer: {:?}", bufkey);
 
                             let src_family = owner;
                             let dst_family = rmg.trackid_to_queue_idx(to.track);
                             debug_assert!(rmg.trackid_to_queue_idx(from.track) == owner);
+
+                            if src_family == dst_family{
+                                #[cfg(feature = "logging")]
+                                log::trace!("Ignoring release, src/dst are both {} for: {:?}", src_family, bufkey);
+                                continue;
+                            }
+
+                            #[cfg(feature = "logging")]
+                            log::trace!("Release Buffer: {:?}", bufkey);
 
                             let mut buf = rmg.res.buffer.get_mut(*bufkey).ok_or_else(|| {
                                 RecordError::NoSuchResource(AnyResKey::Buffer(*bufkey))
@@ -374,10 +389,10 @@ impl<'rmg> CmdFrame<'rmg> {
                         } => {
                             #[cfg(feature = "logging")]
                             log::error!(
-                                "Image {} was already released from {} to {}",
+                                "Buffer {} was already released from {} to {}",
                                 res,
-                                from,
-                                to
+                                src_family,
+                                dst_family
                             );
                             return Err(RecordError::ReleaseRecord(*res, src_family, dst_family));
                         }

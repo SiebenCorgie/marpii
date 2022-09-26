@@ -23,7 +23,7 @@ impl Simulation{
     pub const SUBGROUP_COUNT: u32 = 64;
 
     pub fn new(rmg: &mut Rmg) -> Result<Self, RmgError>{
-
+        println!("Setup Simulation");
         let push = PushConstant::new(
             shared::SimPush{
                 sim_src_buffer: shared::ResourceHandle::new(shared::ResourceHandle::TYPE_STORAGE_BUFFER, 0),
@@ -34,10 +34,10 @@ impl Simulation{
             },
             vk::ShaderStageFlags::COMPUTE
         );
-        let shader_module = ShaderModule::new_from_file(&rmg.ctx.device, "resources/rmg_shader.spv")?;
+        let shader_module = ShaderModule::new_from_file(&rmg.ctx.device, "resources/simulation.spv")?;
         let shader_stage = shader_module.into_shader_stage(
             vk::ShaderStageFlags::COMPUTE,
-            "simulation_main"
+            "main"
         );
         //No additional descriptors for us
         let layout = rmg.resources().bindless_pipeline_layout(&[]);
@@ -59,7 +59,7 @@ impl Simulation{
         self.sim_buffer[self.current % 2]
     }
 
-    fn dst_buffer(&self) -> BufferKey{
+    pub fn dst_buffer(&self) -> BufferKey{
         self.sim_buffer[(self.current + 1) % 2]
     }
 

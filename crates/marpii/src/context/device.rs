@@ -194,11 +194,10 @@ impl Device {
         device_create_info: &ash::vk::DeviceCreateInfo,
         queue_builder: &[QueueBuilder],
     ) -> Result<Arc<Self>, anyhow::Error> {
-        //finally create the queues and devic
+        //finally create the queues and device
         let device = instance
             .inner
             .create_device(physical_device, &device_create_info, None)?;
-
         //now setup the queues for the infos we prepared before
         let queues = queue_builder
             .into_iter()

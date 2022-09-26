@@ -76,7 +76,7 @@ impl Resources {
         let swapchain = Swapchain::builder(device, surface)?
             .with(move |b| {
                 b.create_info.usage =
-                    vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::TRANSFER_DST
+                    vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::TRANSFER_DST;
             })
             .build()?;
 
@@ -329,8 +329,11 @@ impl Resources {
             .device
             .first_queue_for_attribute(true, false, false)
             .unwrap(); //FIXME use track instead
-        self.swapchain
-            .present_image(image, &*queue.inner())
-            .unwrap();
+        if let Err(e) = self.swapchain
+            .present_image(image, &*queue.inner()){
+                #[cfg(feature="logging")]
+                log::error!("present failed with: {}, recreating swapchain", e);
+            }
+
     }
 }

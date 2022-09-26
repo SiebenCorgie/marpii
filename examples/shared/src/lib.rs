@@ -4,19 +4,19 @@
     feature(register_attr),
     register_attr(spirv)
 )]
-//! Shared objects between the exaples CPU side and GPU side code.
+//! Shared objects between the example's CPU side and GPU side code.
 
 pub use marpii_rmg_shared::ResourceHandle;
 
 
 //rmg rendering object type
-#[repr(C, align(16))]
+#[repr(C)]
 pub struct SimObj{
     pub location: [f32; 4],
     pub velocity: [f32; 4]
 }
 
-#[repr(C, align(16))]
+#[repr(C)]
 pub struct SimPush{
     pub sim_src_buffer: ResourceHandle,
     pub sim_dst_buffer: ResourceHandle,
@@ -26,8 +26,13 @@ pub struct SimPush{
 }
 
 
-#[repr(C, align(16))]
+#[cfg_attr(not(target_arch="spirv"), derive(Debug))]
+#[repr(C)]
 pub struct ForwardPush{
-    pub rotation: [f32; 4],
-    pub location_aspect: [f32; 4],
+    pub buf: ResourceHandle,
+    pub target_img: ResourceHandle,
+    pub width: u32,
+    pub height: u32,
+    pub buffer_size: u32,
+    pub pad: u32
 }

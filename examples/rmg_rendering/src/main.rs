@@ -30,6 +30,7 @@
 
 
 use anyhow::Result;
+use forward_pass::ForwardPass;
 use image::EncodableLayout;
 use marpii::resources::ImgDesc;
 use marpii::{
@@ -38,6 +39,7 @@ use marpii::{
 };
 use marpii_rmg::tasks::{SwapchainBlit, UploadImage};
 use marpii_rmg::{BufferKey, ImageKey, ResourceRegistry, Resources, Rmg, SamplerKey, Task};
+use shared::ForwardPush;
 use simulation::Simulation;
 use winit::event::{DeviceEvent, ElementState, KeyboardInput, VirtualKeyCode};
 use winit::window::Window;
@@ -69,7 +71,7 @@ fn main() -> Result<(), anyhow::Error> {
 
 
     let mut simulation = Simulation::new(&mut rmg)?;
-
+    let mut forward = ForwardPass::new(&mut rmg)?;
 
     let image_data = image::open("test.png").unwrap();
     let image_data = image_data.to_rgba32f();
@@ -85,35 +87,26 @@ fn main() -> Result<(), anyhow::Error> {
             Event::RedrawRequested(_) => {
 
                 counter += 1;
-
+/*
                 if counter > 1024{
                     *cf = ControlFlow::Exit;
                 }
+                 */
 
-                let swimage_image = rmg.new_image_uninitialized(
-                    ImgDesc::storage_image_2d(
-                        image_data.width(),
-                        image_data.height(),
-                        vk::Format::R32G32B32A32_SFLOAT,
-                    ),
-                    Some("SwImage"),
-                ).unwrap();
-                let mut init_image = UploadImage::new(swimage_image, image_data.as_bytes());
+                forward.sim_src = Some(simulation.dst_buffer());
 
                 //setup src image and blit
-                swapchain_blit.next_blit(swimage_image);
+                swapchain_blit.next_blit(forward.dst_img);
 
                 rmg.record(window_extent(&window))
-                   .add_task(&mut init_image, &[])
-                   .unwrap()
-                   .add_task(&mut simulation, &[])
+                   //.add_task(&mut simulation, &[])
+                   //.unwrap()
+                   .add_task(&mut forward, &[])
                    .unwrap()
                    .add_task(&mut swapchain_blit, &[])
                    .unwrap()
                    .execute()
                    .unwrap();
-
-                rmg.delete(swimage_image).unwrap();
             }
             _ => {}
         }

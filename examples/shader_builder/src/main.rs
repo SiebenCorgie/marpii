@@ -81,6 +81,7 @@ fn build_glsl(path: &str, target: &str) {
     }
 
     let command = std::process::Command::new("glslangValidator")
+        .arg("-g")
         .arg("-V")
         .arg(path)
         .arg("-o")
@@ -116,5 +117,9 @@ fn main() {
     build_glsl(
         "examples/rmg_shader/glsl/simulation.comp",
         "resources/simulation.spv",
+    );
+    build_glsl(
+        "examples/rmg_shader/glsl/forward_test.comp",
+        "resources/forward_test.spv",
     );
 }

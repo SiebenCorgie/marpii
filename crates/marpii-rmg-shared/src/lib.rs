@@ -98,10 +98,20 @@ impl ResourceHandle {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::ResourceHandle;
+
 
     #[test]
+    fn jee(){
+        let res = ResourceHandle::new(ResourceHandle::TYPE_SAMPLER, 42);
+        assert!(res.index() == 42);
+        assert!(res.handle_type() == ResourceHandle::TYPE_SAMPLER);
+    }
+
+    #[cfg(feature = "marpii")]
+    #[test]
     fn resource_handle_access() {
+        use super::{ResourceHandle, vk};
         let sa_img = ResourceHandle::new_from_desc_ty(vk::DescriptorType::SAMPLED_IMAGE, 42);
         let st_img = ResourceHandle::new_from_desc_ty(vk::DescriptorType::STORAGE_IMAGE, 43);
         let st_buf = ResourceHandle::new_from_desc_ty(vk::DescriptorType::STORAGE_BUFFER, 44);

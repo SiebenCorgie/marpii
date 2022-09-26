@@ -11,6 +11,8 @@ layout( push_constant ) uniform constants{
     ResHandle src;
     ResHandle dst;
     uint is_init;
+    uint buf_size;
+    uvec2 pad;
 } Push;
 
 layout(set = 0, binding = 0) buffer SimObjects{
@@ -23,10 +25,16 @@ layout(set = 3, binding = 0) uniform sampler samplers[];
 
 layout (local_size_x = 64) in;
 void main(){
-     uint widx = gl_GlobalInvocationID.x;
-     SimObject src = global_buffers_objects[nonuniformEXT(get_index(Push.src))].objects[widx];
+  uint widx = gl_GlobalInvocationID.x;
 
-     src.location += vec4(1.0);
+  SimObject src;
+  if (Push.is_init > 0){
+    src = global_buffers_objects[nonuniformEXT(get_index(Push.src))].objects[widx];
+  }else{
+    src = SimObject(vec4(1.0), vec4(1.0));
+  }
 
-     global_buffers_objects[nonuniformEXT(get_index(Push.dst))].objects[widx] = src;
+  src.location += vec4(1.0);
+
+  global_buffers_objects[nonuniformEXT(get_index(Push.dst))].objects[widx] = src;
 }

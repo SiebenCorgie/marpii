@@ -40,6 +40,8 @@ pub use physical_device::{PhyDeviceProperties, PhysicalDeviceFilter};
 
 use crate::{allocator::Allocator, surface::Surface};
 
+use self::instance::ValidationFeatures;
+
 ///Context related errors. Can occur either while creating the context, or when using one of the high level
 /// functions.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -78,7 +80,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
     pub fn new_headless(use_validation: bool) -> Result<Self, anyhow::Error> {
         let mut instance_builder = Instance::linked()?;
         if use_validation {
-            instance_builder = instance_builder.enable_validation();
+            instance_builder = instance_builder.enable_validation(ValidationFeatures::all());
         }
         let instance = instance_builder.build()?;
 
@@ -138,7 +140,8 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
         //when creating the default context we do not enable anything else, therfore
         //instance creation should be fine and we can "create"
         if use_validation {
-            instance_builder = instance_builder.enable_validation();
+            instance_builder = instance_builder.enable_validation(ValidationFeatures::all());
+            //instance_builder = instance_builder.with_layer(CString::new("VK_VALIDATION_FEATURE_ENABLE_GPU_ASSISTED_EXT").unwrap())?;
         }
         let instance = instance_builder.build()?;
 
@@ -165,6 +168,9 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
             .descriptor_binding_storage_buffer_update_after_bind(true)
             .descriptor_binding_partially_bound(true)
             .descriptor_binding_variable_descriptor_count(true)
+            .shader_storage_buffer_array_non_uniform_indexing(true)
+            .shader_storage_image_array_non_uniform_indexing(true)
+            .shader_sampled_image_array_non_uniform_indexing(true)
             .vulkan_memory_model(true);
 
         let features13 = ash::vk::PhysicalDeviceVulkan13Features::builder()
@@ -229,7 +235,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
         //when creating the default context we do not enable anything else, therfore
         //instance creation should be fine and we can "create"
         if use_validation {
-            instance_builder = instance_builder.enable_validation();
+            instance_builder = instance_builder.enable_validation(ValidationFeatures::all());
         }
         let instance = instance_builder.build()?;
 
