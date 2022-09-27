@@ -179,10 +179,11 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
             .synchronization2(true);
 
         //Acceleration structure support
+        /*
         let accel_structure = ash::vk::PhysicalDeviceAccelerationStructureFeaturesKHR::builder()
             .acceleration_structure(true)
             .descriptor_binding_acceleration_structure_update_after_bind(true);
-
+        */
         let device = device_candidates
             .remove(0)
             .into_device_builder(instance.clone())?
@@ -198,7 +199,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
             })
             .with_additional_feature(features12)
             .with_additional_feature(features13)
-            .with_additional_feature(accel_structure)
+            //.with_additional_feature(accel_structure)
             .build()?;
 
         //create allocator for device

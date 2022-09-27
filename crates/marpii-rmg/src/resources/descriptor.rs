@@ -184,6 +184,12 @@ impl<T> SetManager<T> {
 
         assert!(write_instruction.descriptor_count == 1);
 
+        assert!(
+            write_instruction.p_buffer_info != core::ptr::null() ||
+            write_instruction.p_image_info != core::ptr::null() ||
+            write_instruction.p_texel_buffer_view != core::ptr::null()
+        );
+
         //Manual write
         //FIXME: Make thread safe. Currently this could be unsafe...
         unsafe {
@@ -228,7 +234,7 @@ pub(crate) struct Bindless {
     stimage: SetManager<Arc<ImageView>>,
     saimage: SetManager<Arc<ImageView>>,
     sampler: SetManager<Arc<Sampler>>,
-    accel: SetManager<Arc<Buffer>>,
+    //accel: SetManager<Arc<Buffer>>,
 
     ///Safes the actual max push constant size, to verify bound push constants.
     #[allow(dead_code)]
@@ -248,9 +254,7 @@ sampled image:
 {:#?}
 sampler:
 {:#?}
-accel:
-{:#?}
-", self.stbuffer, self.stimage, self.saimage, self.sampler, self.accel)
+", self.stbuffer, self.stimage, self.saimage, self.sampler)
     }
 }
 
@@ -274,7 +278,7 @@ impl Bindless {
     const MAX_SLOT: u32 = 2u32.pow(24);
 
     ///Number of descriptor sets to cover each type
-    const NUM_SETS: u32 = 5;
+    const NUM_SETS: u32 = 4;
 
     ///Creates a new instance of a bindless descriptor set. The limits of max bound descriptors per descriptor type can be set. If you don't care, consider using the shorter
     /// [new_default](BindlessDescriptor::new_default) function.
@@ -337,10 +341,11 @@ impl Bindless {
                 ty: vk::DescriptorType::SAMPLER,
                 descriptor_count: max_sampler,
             },
+            /*
             vk::DescriptorPoolSize {
                 ty: vk::DescriptorType::ACCELERATION_STRUCTURE_KHR,
                 descriptor_count: max_acceleration_structure,
-            },
+            },*/
         ];
 
         let desc_pool = Arc::new(DescriptorPool::new(
@@ -378,19 +383,20 @@ impl Bindless {
         )?;
         let sampler =
             SetManager::new(device, &desc_pool, vk::DescriptorType::SAMPLER, max_sampler)?;
+/*
         let accel = SetManager::new(
             device,
             &desc_pool,
             vk::DescriptorType::ACCELERATION_STRUCTURE_KHR,
             max_acceleration_structure,
         )?;
-
+*/
         Ok(Bindless {
             stbuffer,
             stimage,
             saimage,
             sampler,
-            accel,
+            //accel,
 
             push_constant_size,
             device: device.clone(),
@@ -408,7 +414,7 @@ impl Bindless {
             self.stimage.layout.inner,
             self.saimage.layout.inner,
             self.sampler.layout.inner,
-            self.accel.layout.inner,
+            //self.accel.layout.inner,
         ];
 
         for additional in additional_descriptor_sets{
@@ -457,6 +463,9 @@ impl Bindless {
         &mut self,
         buffer: Arc<Buffer>,
     ) -> Result<ResourceHandle, Arc<Buffer>> {
+        #[cfg(feature = "logging")]
+        log::trace!("Binding storage buffer!");
+
         //prepare our write instruction, then submit
         let buffer_info = vk::DescriptorBufferInfo::builder()
             .buffer(buffer.inner)
@@ -488,6 +497,9 @@ impl Bindless {
             log::error!("Tried to bind as storage image, but has no storage usage!");
             return Err(image);
         }
+
+        #[cfg(feature = "logging")]
+        log::trace!("Binding storage image!");
 
         //prepare our write instruction, then submit
         let image_info = vk::DescriptorImageInfo::builder()
@@ -522,6 +534,10 @@ impl Bindless {
             return Err(image);
         }
 
+
+        #[cfg(feature = "logging")]
+        log::trace!("Binding sampled image!");
+
         //prepare our write instruction, then submit
         let image_info = vk::DescriptorImageInfo::builder()
             .image_layout(vk::ImageLayout::GENERAL) //FIXME: works but is suboptimal. Might tag images
@@ -539,6 +555,10 @@ impl Bindless {
     }
 
     pub fn bind_sampler(&mut self, sampler: Arc<Sampler>) -> Result<ResourceHandle, Arc<Sampler>> {
+
+        #[cfg(feature = "logging")]
+        log::trace!("Binding sampler!");
+
         //prepare our write instruction, then submit
         let image_info = vk::DescriptorImageInfo::builder().sampler(sampler.inner);
         let write_instruction = vk::WriteDescriptorSet::builder()
@@ -562,7 +582,7 @@ impl Bindless {
             self.stimage.descriptor_set.clone(),
             self.saimage.descriptor_set.clone(),
             self.sampler.descriptor_set.clone(),
-            self.accel.descriptor_set.clone(),
+            //self.accel.descriptor_set.clone(),
         ]
     }
 
@@ -572,7 +592,7 @@ impl Bindless {
             self.stimage.descriptor_set.inner,
             self.saimage.descriptor_set.inner,
             self.sampler.descriptor_set.inner,
-            self.accel.descriptor_set.inner,
+            //self.accel.descriptor_set.inner,
         ]
     }
 }

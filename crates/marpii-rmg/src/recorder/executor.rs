@@ -329,7 +329,7 @@ impl<'rmg> Executor<'rmg> {
                     &[]
                 );
             }
-
+        /*
             if frame.track.0.contains(vk::QueueFlags::GRAPHICS){
 
                 #[cfg(feature = "logging")]
@@ -344,7 +344,7 @@ impl<'rmg> Executor<'rmg> {
                     &[]
                 );
             }
-
+             */
         }
 
         //As outlined we start out by building the acquire list (or not, if there is nothing to acquire/Inuit).

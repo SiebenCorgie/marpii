@@ -35,10 +35,10 @@ impl ForwardPass {
             },
             vk::ShaderStageFlags::COMPUTE
         );
-        let shader_module = ShaderModule::new_from_file(&rmg.ctx.device, "resources/rmg_shader.spv")?;
+        let shader_module = ShaderModule::new_from_file(&rmg.ctx.device, "resources/forward_test.spv")?;
         let shader_stage = shader_module.into_shader_stage(
             vk::ShaderStageFlags::COMPUTE,
-            "forward_main"
+            "main"
         );
         //No additional descriptors for us
         let layout = rmg.resources().bindless_pipeline_layout(&[]);
@@ -67,8 +67,8 @@ impl ForwardPass {
     fn dispatch_count(&self) -> [u32; 2]{
 
         [
-            (self.target_img_ext.width as f32 / 64 as f32).ceil() as u32,
-            (self.target_img_ext.height as f32 / 64 as f32).ceil() as u32,
+            (self.target_img_ext.width as f32 / 8 as f32).ceil() as u32,
+            (self.target_img_ext.height as f32 / 8  as f32).ceil() as u32,
         ]
     }
 
@@ -144,7 +144,7 @@ impl Task for ForwardPass {
             );
             let disp = self.dispatch_count();
             println!("Dispatching for {:?} @ {:?}", disp, self.target_img_ext);
-            device.inner.cmd_dispatch(*command_buffer, disp[0], disp[1], 0);
+            device.inner.cmd_dispatch(*command_buffer, disp[0], disp[1], 1);
         }
     }
     fn queue_flags(&self) -> vk::QueueFlags {

@@ -82,7 +82,7 @@ pub fn forward_main_vs(
 }
 
 */
-#[spirv(compute(threads(64)))]
+#[spirv(compute(threads(8,8,1)))]
 pub fn forward_main(
     #[spirv(global_invocation_id)] id: UVec3,
     #[spirv(push_constant)] push: &ForwardPush,
@@ -94,6 +94,7 @@ pub fn forward_main(
 ){
 
     let img = unsafe { storage_images.index(push.target_img as usize) };
-
-    unsafe{img.write(id.xy(), Vec4::ONE)}
+    let a: Vec4 = img.read(id.xy());
+    let res = a.max(Vec4::ONE).min(Vec4::ONE);
+    unsafe{img.write(id.xy(), res)}
 }
