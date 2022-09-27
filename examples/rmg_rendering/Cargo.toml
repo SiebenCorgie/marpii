@@ -11,6 +11,7 @@ anyhow = "1.0.56"
 
 marpii = {path = "../../crates/marpii", features=["logging"]}
 marpii-rmg = {path = "../../crates/marpii-rmg"}
+marpii-descriptor = {path = "../../crates/marpii-descriptor"}
 winit = "0.26.1"
 log = "*"
 image = "0.24.3"

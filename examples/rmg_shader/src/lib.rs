@@ -12,94 +12,32 @@
 //#![deny(warnings)]
 
 use shared::{ForwardPush, SimPush};
-use spirv_std::{
-    glam::{UVec3, Vec3Swizzles, Vec4},
-    image::SampledImage,
-    ByteAddressableBuffer,
-};
+use spirv_std::glam::{Vec4, vec4, Vec3, Vec2};
 
 #[cfg(not(target_arch = "spirv"))]
 use spirv_std::macros::spirv;
 
-use spirv_std::{Image, RuntimeArray, Sampler};
 
-/*
 #[spirv(fragment)]
-pub fn forward_main_fs(
-    f_normal_world: Vec3,
-    f_texcoord: Vec2,
-    f_tangent_world: Vec4,
-    f_position_world: Vec3,
-    output: &mut Vec4,
-    #[spirv(descriptor_set = 0, binding = 0)] storage_buffer: &mut RuntimeArray<u32>,
-    #[spirv(descriptor_set = 1, binding = 0)] storage_images: &RuntimeArray<Image!(2D, type=f32, sampled=false)>,
-    #[spirv(descriptor_set = 2, binding = 0)] sampled_images: &RuntimeArray<SampledImage<Image!(2D, type=f32, sampled)>>,
-    #[spirv(descriptor_set = 3, binding = 0)] sampler: &mut RuntimeArray<Sampler>,
-    #[spirv(descriptor_set = 4, binding = 0)] accel_structures: &RuntimeArray<Image!(2D, type=f32, sampled)>
-) {
-
-    *output = Vec4::ONE;
+pub fn main_fs(output: &mut Vec4) {
+    *output = vec4(1.0, 0.0, 0.0, 1.0);
 }
-
 
 #[spirv(vertex)]
-pub fn forward_main_vs(
-    v_position_obj: Vec3,
-    v_normal_obj: Vec3,
-    v_tangent_obj: Vec4,
-    v_texcoord: Vec2,
-    #[spirv(push_constant)] push: &ForwardPush,
-    #[spirv(position)] a_position: &mut Vec4,
+pub fn main_vs(
+    //v_position_obj: Vec3,
+    //v_normal_obj: Vec3,
+    //v_texcoord: Vec2,
+    #[spirv(vertex_index)] vert_id: i32,
+    #[spirv(position, invariant)] out_pos: &mut Vec4,
 
-    a_normal_world: &mut Vec3,
-    a_texcoord: &mut Vec2,
-    a_tangent_world: &mut Vec4,
-    a_position_world: &mut Vec3,
 ) {
-    let transform = Mat4::from_rotation_translation(
-        Quat::from_array(push.rotation),
-        Vec3::new(
-            push.location_aspect[0],
-            push.location_aspect[1],
-            push.location_aspect[2],
-        ),
+    //let d = v_position_obj.x + v_normal_obj.x + v_texcoord.x;
+    //let d = d.min(0.0).max(0.0);
+    *out_pos = vec4(
+        (vert_id - 1) as f32,
+        ((vert_id & 1) * 2 - 1) as f32,
+        0.0,
+        1.0,
     );
-
-    //let transform = transform.inverse();
-
-    let perspective =
-        Mat4::perspective_lh(90.0f32.to_radians(), push.location_aspect[3], 0.001, 100.0);
-
-    let transform = perspective * transform;
-
-    let v_position_obj = v_position_obj * -1.0;
-    let pos: Vec3 = transform.transform_point3(v_position_obj);
-    let pos4 = transform * v_position_obj.extend(1.0);
-
-
-
-    *a_normal_world = v_normal_obj;
-    *a_texcoord = v_texcoord;
-    *a_tangent_world = v_tangent_obj;
-    *a_position_world = pos;
-    *a_position = pos4;
-}
-
-*/
-#[spirv(compute(threads(8, 8, 1)))]
-pub fn forward_main(
-    #[spirv(global_invocation_id)] id: UVec3,
-    #[spirv(push_constant)] push: &ForwardPush,
-    //#[spirv(storage_buffer, descriptor_set = 0, binding = 0)] storage_buffer: &mut RuntimeArray<ByteAddressableBuffer>,
-    #[spirv(descriptor_set = 1, binding = 0)] storage_images: &RuntimeArray<
-        Image!(2D, format=rgba32f, sampled=false),
-    >,
-    //#[spirv(descriptor_set = 2, binding = 0)] sampled_images: &RuntimeArray<SampledImage<Image!(2D, type=f32, sampled)>>,
-    //#[spirv(descriptor_set = 3, binding = 0)] sampler: &mut RuntimeArray<Sampler>,
-    //#[spirv(descriptor_set = 4, binding = 0)] accel_structures: &RuntimeArray<Image!(2D, type=f32, sampled)>
-) {
-    let img = unsafe { storage_images.index(push.target_img.index() as usize) };
-    let a: Vec4 = img.read(id.xy());
-    let res = a.max(Vec4::ONE).min(Vec4::ONE);
-    unsafe { img.write(id.xy(), res) }
 }

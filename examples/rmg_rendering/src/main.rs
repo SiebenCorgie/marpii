@@ -93,7 +93,7 @@ fn main() -> Result<(), anyhow::Error> {
                 forward.sim_src = Some(simulation.dst_buffer());
 
                 //setup src image and blit
-                swapchain_blit.next_blit(forward.dst_img);
+                swapchain_blit.next_blit(forward.color_image);
 
                 rmg.record(window_extent(&window))
                     .add_task(&mut simulation, &[])

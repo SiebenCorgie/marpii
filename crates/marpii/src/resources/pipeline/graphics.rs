@@ -4,6 +4,7 @@ use super::PipelineLayout;
 use crate::ash::vk;
 use crate::context::Device;
 use crate::resources::ShaderStage;
+use crate::util::OoS;
 
 ///Renderpass describing the order of shader invocation. Note that this is only a thin wrapper over the creation and destruction process. If possible try to use the dnamic_rendering extension which
 /// integrates much better with marpii.
@@ -37,7 +38,7 @@ impl Drop for RenderPass {
 pub struct GraphicsPipeline {
     pub device: Arc<Device>,
     pub pipeline: ash::vk::Pipeline,
-    pub layout: PipelineLayout,
+    pub layout: OoS<PipelineLayout>,
     /// if not using dynamic-rendering, this is some renderpass which is kept alive.
     //TODO: Change to marpii renderpass if such a thing is created at some point.
     pub renderpass: Option<RenderPass>,
@@ -49,9 +50,10 @@ impl GraphicsPipeline {
     pub fn new(
         device: &Arc<Device>,
         create_info: ash::vk::GraphicsPipelineCreateInfoBuilder,
-        layout: PipelineLayout,
+        layout: impl Into<OoS<PipelineLayout>>,
         renderpass: RenderPass,
     ) -> Result<Self, anyhow::Error> {
+        let layout = layout.into();
         let mut create_info = create_info.layout(layout.layout);
         create_info = create_info.render_pass(renderpass.inner);
 
@@ -82,14 +84,18 @@ impl GraphicsPipeline {
         })
     }
 
+    ///Creates a new `DynamicRendering` pipeline where the attachment images
+    /// are defined through the order in `color_formats` and `depth_format`.
     pub fn new_dynamic_pipeline(
         device: &Arc<Device>,
         create_info: ash::vk::GraphicsPipelineCreateInfoBuilder,
-        layout: PipelineLayout,
+        layout: impl Into<OoS<PipelineLayout>>,
         shader_stages: &[ShaderStage],
         color_formats: &[vk::Format],
         depth_format: vk::Format,
     ) -> Result<Self, anyhow::Error> {
+
+        let layout = layout.into();
         assert!(
             device.extension_enabled_cstr(ash::extensions::khr::DynamicRendering::name()),
             "DynamicRenderingKHR extension not activated!"

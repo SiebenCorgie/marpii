@@ -105,9 +105,10 @@ impl Resources {
     pub fn bindless_pipeline_layout(
         &self,
         additional_descriptor_sets: &[DescriptorSetLayout],
-    ) -> PipelineLayout {
-        self.bindless
-            .new_pipeline_layout(Bindless::MAX_PUSH_CONSTANT_SIZE, additional_descriptor_sets)
+    ) -> Arc<PipelineLayout> {
+        //TODO cache based on layout properties
+        Arc::new(self.bindless
+            .new_pipeline_layout(Bindless::MAX_PUSH_CONSTANT_SIZE, additional_descriptor_sets))
     }
 
     pub fn bindless_layout(&self) -> Arc<PipelineLayout> {
@@ -332,6 +333,36 @@ impl Resources {
     pub fn get_buffer_desc(&self, hdl: BufferKey) -> Option<&BufDesc> {
         self.buffer.get(hdl).map(|buf| &buf.buffer.desc)
     }
+
+    ///Returns the current state of the given image.
+    ///
+    /// # Safety
+    /// If a the state gets changed in a command buffer, make sure that the final state is the
+    /// same as the initial state reported by this function. Otherwise scheduling might produce a
+    /// wrong value.
+    pub fn get_image_state(&self, hdl: ImageKey) -> Option<&ResImage>{
+        self.images.get(hdl)
+    }
+
+    ///Returns the current state of the given buffer.
+    ///
+    /// # Safety
+    /// If a the state gets changed in a command buffer, make sure that the final state is the
+    /// same as the initial state reported by this function. Otherwise scheduling might produce a
+    /// wrong value.
+    pub fn get_buffer_state(&self, hdl: BufferKey) -> Option<&ResBuffer>{
+        self.buffer.get(hdl)
+    }
+    ///Returns the current state of the given sampler.
+    ///
+    /// # Safety
+    /// If a the state gets changed in a command buffer, make sure that the final state is the
+    /// same as the initial state reported by this function. Otherwise scheduling might produce a
+    /// wrong value.
+    pub fn get_sampler_state(&self, hdl: SamplerKey) -> Option<&ResSampler>{
+        self.sampler.get(hdl)
+    }
+
     pub fn get_next_swapchain_image(&mut self) -> Result<SwapchainImage, ResourceError> {
         let surface_extent = self
             .swapchain

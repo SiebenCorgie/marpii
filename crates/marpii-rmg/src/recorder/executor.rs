@@ -211,7 +211,7 @@ impl<'rmg> Executor<'rmg> {
         self.guard_buffer.clear();
 
         //add general guard TODO: remove? all releases should be guarded by the resources if needed
-        self.guard_buffer.push(release_end_guard.guard_before());
+        //self.guard_buffer.push(release_end_guard.guard_before());
 
         for rel in release_frame.release.iter() {
             let guard = match rel.res {
@@ -333,7 +333,6 @@ impl<'rmg> Executor<'rmg> {
                     &[],
                 );
             }
-            /*
             if frame.track.0.contains(vk::QueueFlags::GRAPHICS){
 
                 #[cfg(feature = "logging")]
@@ -348,7 +347,6 @@ impl<'rmg> Executor<'rmg> {
                     &[]
                 );
             }
-             */
         }
 
         //As outlined we start out by building the acquire list (or not, if there is nothing to acquire/Inuit).
@@ -373,7 +371,7 @@ impl<'rmg> Executor<'rmg> {
 
         //add general guard
         // TODO remove? could be independent...
-        self.guard_buffer.push(frame_end_guard.guard_before());
+        //self.guard_buffer.push(frame_end_guard.guard_before());
 
         //FIXME: make fast :)
         // Finds the maximum guard value per track id. Since we have to wait at least until the last known
