@@ -8,8 +8,8 @@
 
 //push constants block
 layout( push_constant ) uniform constants{
-  uint buf;
-  uint target_img;
+  ResHandle buf;
+  ResHandle target_img;
   uint width;
   uint height;
   uint buffer_size;
@@ -39,7 +39,7 @@ void main(){
 
 
   imageStore(
-             global_images_2d[Push.target_img],
+             global_images_2d[get_index(Push.target_img)],
              ivec2(invoc_idx),
              vec4(vec2(invoc_idx) / vec2(Push.width, Push.height), 0.0, 1.0)
              //vec4(1.0)

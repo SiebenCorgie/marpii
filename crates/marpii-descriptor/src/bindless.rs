@@ -3,7 +3,7 @@ use marpii::{
     context::Device,
     resources::{
         Buffer, DescriptorPool, DescriptorSet, DescriptorSetLayout, ImageView, PipelineLayout,
-        Sampler, PushConstant,
+        Sampler
     },
 };
 use std::{collections::VecDeque, sync::Arc};
@@ -134,7 +134,8 @@ impl<T> SetManagment<T> {
             p_immutable_samplers: core::ptr::null(),
         };
 
-        println!("Allocating @ {} {:?} size={}", binding_id, ty, max_count);
+        #[cfg(feature="logging")]
+        log::info!("Allocating @ {} {:?} size={}", binding_id, ty, max_count);
 
         let flags = [vk::DescriptorBindingFlags::PARTIALLY_BOUND
             | vk::DescriptorBindingFlags::VARIABLE_DESCRIPTOR_COUNT
@@ -143,7 +144,8 @@ impl<T> SetManagment<T> {
         let mut ext_flags =
             vk::DescriptorSetLayoutBindingFlagsCreateInfo::builder().binding_flags(&flags);
 
-        println!("    {:#?}", binding_layout);
+        #[cfg(feature="logging")]
+        log::info!("    {:#?}", binding_layout);
         let layout = unsafe {
             device.inner.create_descriptor_set_layout(
                 &vk::DescriptorSetLayoutCreateInfo::builder()

@@ -1,5 +1,5 @@
 use marpii::{ash::vk, context::Device, resources::{ComputePipeline, PushConstant, ShaderModule, ImgDesc, Image}, allocator::MemoryUsage};
-use marpii_rmg::{ImageKey, ResourceRegistry, AttachmentDescription, Resources, Task, BufferKey, Rmg, RmgError, CtxRmg};
+use marpii_rmg::{ImageKey, ResourceRegistry, Resources, Task, BufferKey, Rmg, RmgError, CtxRmg};
 use shared::ResourceHandle;
 use std::sync::Arc;
 
@@ -18,16 +18,14 @@ pub struct ForwardPass {
 }
 
 impl ForwardPass {
-
-    pub const SUBGROUP_COUNT: u32 = 64;
     pub const FORMAT: vk::Format = vk::Format::R32G32B32A32_SFLOAT;
 
     pub fn new(rmg: &mut Rmg) -> Result<Self, RmgError>{
         println!("Setup Forward");
         let push = PushConstant::new(
             shared::ForwardPush{
-                buf: 0,
-                target_img: 0,
+                buf: ResourceHandle::new(0, 0),
+                target_img: ResourceHandle::new(0,0),
                 width: 1,
                 height: 1,
                 buffer_size: OBJECT_COUNT as u32,
@@ -113,13 +111,13 @@ impl Task for ForwardPass {
             self.flip_target_buffer(resources, ctx)?;
         }
 
-        self.push.get_content_mut().buf = resources.get_resource_handle(self.sim_src.unwrap())?.index();
-        self.push.get_content_mut().target_img = resources.get_resource_handle(self.dst_img)?.index();
+        self.push.get_content_mut().buf = resources.get_resource_handle(self.sim_src.unwrap())?;
+        self.push.get_content_mut().target_img = resources.get_resource_handle(self.dst_img)?;
         self.push.get_content_mut().width = self.target_img_ext.width;
         self.push.get_content_mut().height = self.target_img_ext.height;
 
-        println!("Push: buf: {:x}", self.push.get_content().buf);
-        println!("Push: img: {:x}", self.push.get_content().target_img);
+        println!("Push: buf: {:x}", self.push.get_content().buf.index());
+        println!("Push: img: {:x}", self.push.get_content().target_img.index());
         Ok(())
     }
 

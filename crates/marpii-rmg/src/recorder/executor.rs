@@ -30,6 +30,7 @@ pub struct Executor<'rmg> {
 
 pub struct Execution {
     ///All resources that need to be kept alive until the execution finishes
+    #[allow(dead_code)]
     resources: Vec<Box<dyn Any + Send>>,
     ///The command buffer that is executed
     #[allow(dead_code)]
@@ -132,7 +133,6 @@ impl<'rmg> Executor<'rmg> {
             .map(
                 |(track_id, value)| {
 
-                    println!("wait for {}@{:?}", value, rmg.tracks.0.get(&track_id).unwrap().sem.inner);
                     rmg.tracks.0.get(&track_id).unwrap().sem.wait(value, u64::MAX).unwrap();
 
                     vk::SemaphoreSubmitInfo::builder()
@@ -318,9 +318,6 @@ impl<'rmg> Executor<'rmg> {
                 &vk::CommandBufferBeginInfo::builder()
                     .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT),
             )?;
-
-            println!("Binding {:#?}", rmg.res.bindless);
-
             if frame.track.0.contains(vk::QueueFlags::COMPUTE){
 
                 #[cfg(feature = "logging")]

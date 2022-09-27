@@ -29,8 +29,8 @@ pub struct SimPush{
 #[cfg_attr(not(target_arch="spirv"), derive(Debug))]
 #[repr(C)]
 pub struct ForwardPush{
-    pub buf: u32,
-    pub target_img: u32,
+    pub buf: ResourceHandle,
+    pub target_img: ResourceHandle,
     pub width: u32,
     pub height: u32,
     pub buffer_size: u32,

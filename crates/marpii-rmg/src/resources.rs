@@ -236,17 +236,12 @@ impl Resources {
         //checkout the removals
         self.temporary_resources.tick(&mut self.remove_list);
 
-        for (tid, t) in tracks.0.iter(){
-            println!("{:?}: sem({:?})={}", tid, t.sem, t.sem.get_value());
-        }
 
         //now check all resources that are marked for removal if they can be dropped.
         let remove_mask = self.remove_list.iter().map(|k| {
             let is = k.guard_expired(&self, tracks);
-            println!("k={}: {}", k, is);
             is
         }).collect::<Vec<_>>(); //FIXME: its late :(
-        println!("{:?}", remove_mask);
         for (idx, is_removable) in remove_mask.into_iter().enumerate().rev(){
             if is_removable{
                 let res = self.remove_list.remove(idx);
@@ -292,8 +287,6 @@ impl Resources {
                         }
                     },
                 }
-            }else{
-                println!("{:?} not yet ", self.remove_list[idx]);
             }
         }
     }

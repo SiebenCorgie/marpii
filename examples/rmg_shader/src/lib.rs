@@ -93,7 +93,7 @@ pub fn forward_main(
     //#[spirv(descriptor_set = 4, binding = 0)] accel_structures: &RuntimeArray<Image!(2D, type=f32, sampled)>
 ){
 
-    let img = unsafe { storage_images.index(push.target_img as usize) };
+    let img = unsafe { storage_images.index(push.target_img.index()as usize) };
     let a: Vec4 = img.read(id.xy());
     let res = a.max(Vec4::ONE).min(Vec4::ONE);
     unsafe{img.write(id.xy(), res)}

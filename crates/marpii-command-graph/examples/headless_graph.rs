@@ -139,7 +139,4 @@ fn main() {
         .finish()
         .execute()
         .unwrap();
-
-    println!("Blub");
-    println!("Bye bye");
 }

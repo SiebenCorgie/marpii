@@ -269,6 +269,7 @@ impl Bindless {
     ///Default maximum number of bound samplers.
     pub const MAX_BOUND_SAMPLER: u32 = 128;
     ///Default maximum number of bound acceleration structures.
+    #[cfg(feature="ray-tracing")]
     pub const MAX_BOUND_ACCELERATION_STRUCTURE: u32 = 128;
 
     ///Default maximum size of a push constant
@@ -598,7 +599,7 @@ impl Bindless {
         assert!(self.sampler.unbind_handle(handle).is_some());
     }
 
-
+    #[allow(dead_code)]
     pub fn clone_descriptor_sets(
         &self,
     ) -> [Arc<DescriptorSet<Arc<DescriptorPool>>>; Self::NUM_SETS as usize] {

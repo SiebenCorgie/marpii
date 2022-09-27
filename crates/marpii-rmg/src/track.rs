@@ -64,9 +64,6 @@ impl Track {
         let sem = Semaphore::new(device, 0).expect("Could not create Track's semaphore");
         //sem.set_value(42).unwrap();
         //assert!(sem.get_value() == 42);
-
-        println!("{:?} = {}", sem.inner, sem.get_value());
-
         Track {
             queue_idx,
             flags,
@@ -168,7 +165,6 @@ impl Tracks {
     ///Returns true whenever the guard value was reached or the track doesn't exist (anymore). Returns false if not.
     pub fn guard_finished(&self, guard: &Guard) -> bool {
         if let Some(t) = self.0.get(&guard.track) {
-            println!("Is: {} on {:?} @ {:?}, waiting for {}", t.sem.get_value(), guard.track, t.sem, guard.target_value);
             t.sem.get_value() >= guard.target_value
         } else {
             true

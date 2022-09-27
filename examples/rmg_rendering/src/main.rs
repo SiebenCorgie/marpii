@@ -38,10 +38,9 @@ use marpii::{
     context::Ctx,
 };
 use marpii_rmg::tasks::{SwapchainBlit, UploadImage};
-use marpii_rmg::{BufferKey, ImageKey, ResourceRegistry, Resources, Rmg, SamplerKey, Task};
-use shared::ForwardPush;
+use marpii_rmg::Rmg;
 use simulation::Simulation;
-use winit::event::{DeviceEvent, ElementState, KeyboardInput, VirtualKeyCode};
+use winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
 use winit::window::Window;
 use winit::{
     event::{Event, WindowEvent},
@@ -84,9 +83,6 @@ fn main() -> Result<(), anyhow::Error> {
         .execute()?;
 
     let mut swapchain_blit = SwapchainBlit::new();
-
-    let mut counter = 0;
-
     let mut forward = ForwardPass::new(&mut rmg).unwrap();
 
     ev.run(move |ev, _, cf| {
@@ -96,25 +92,14 @@ fn main() -> Result<(), anyhow::Error> {
             Event::MainEventsCleared => window.request_redraw(),
             Event::RedrawRequested(_) => {
 
-                counter += 1;
-/*
-                if counter > 1024{
-                    *cf = ControlFlow::Exit;
-                }
-                 */
-
                 forward.sim_src = Some(simulation.dst_buffer());
 
                 //setup src image and blit
                 swapchain_blit.next_blit(forward.dst_img);
 
-                let mut init = UploadImage::new(forward.dst_img, image_data.as_bytes());
-
                 rmg.record(window_extent(&window))
-                   //.add_task(&mut simulation, &[])
-                   //.unwrap()
-                   //.add_task(&mut init, &[])
-                   //.unwrap()
+                   .add_task(&mut simulation, &[])
+                   .unwrap()
                    .add_task(&mut forward, &[])
                    .unwrap()
                    .add_task(&mut swapchain_blit, &[])

@@ -1,7 +1,6 @@
-use marpii::{resources::{BufDesc, SharingMode, ComputePipeline, ShaderModule, PushConstant}, ash::vk};
+use marpii::{resources::{ComputePipeline, ShaderModule, PushConstant}, ash::vk};
 use marpii_rmg::{Rmg, BufferKey, RmgError, Task};
 use shared::SimObj;
-use std::sync::Arc;
 
 use crate::OBJECT_COUNT;
 
@@ -108,10 +107,9 @@ impl Task for Simulation {
         &mut self,
         device: &std::sync::Arc<marpii::context::Device>,
         command_buffer: &vk::CommandBuffer,
-        resources: &marpii_rmg::Resources,
+        _resources: &marpii_rmg::Resources,
     ) {
 
-        const BUF: [u8; 128] = [0; 128];
         //bind commandbuffer, setup push constant and execute
         unsafe{
             device.inner.cmd_bind_pipeline(*command_buffer, vk::PipelineBindPoint::COMPUTE, self.pipeline.pipeline);

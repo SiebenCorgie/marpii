@@ -32,8 +32,6 @@ impl Task for SwapchainBlit {
     ) -> Result<(), RecordError> {
         if let Some(blit) = &mut self.next_blit {
             blit.sw_image = Some(resources.get_next_swapchain_image().unwrap());
-
-            println!("src_img_hdl = {}", resources.get_resource_handle(blit.src_image)?.index());
         }
 
         Ok(())
@@ -61,7 +59,6 @@ impl Task for SwapchainBlit {
             sw_image: Some(swimage),
         }) = &self.next_blit
         {
-            println!("Blitting {:?} to swapchain", src_image);
             registry.request_image(*src_image);
             registry.register_foreign_semaphore(swimage.sem_present.clone())
         } else {
