@@ -9,38 +9,39 @@ use std::{fmt::Display, sync::Arc};
 
 use crate::{recorder::executor::Execution, RecordError};
 
-
-
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Guard {
     track: TrackId,
     target_value: u64,
 }
 
-impl From<Guard> for TrackId{
+impl From<Guard> for TrackId {
     fn from(g: Guard) -> Self {
         g.track
     }
 }
 
-impl AsRef<TrackId> for Guard{
+impl AsRef<TrackId> for Guard {
     fn as_ref(&self) -> &TrackId {
         &self.track
     }
 }
 
-impl Guard{
-    pub fn wait_value(&self) -> u64{
+impl Guard {
+    pub fn wait_value(&self) -> u64 {
         self.target_value
     }
 
-    pub fn expired(&self, tracks: &Tracks) -> bool{
+    pub fn expired(&self, tracks: &Tracks) -> bool {
         tracks.guard_finished(self)
     }
 
     ///Returns guard, that guards the execution before this one
-    pub fn guard_before(&self) -> Guard{
-        Guard { track: self.track, target_value: self.target_value.checked_sub(1).unwrap_or(0) }
+    pub fn guard_before(&self) -> Guard {
+        Guard {
+            track: self.track,
+            target_value: self.target_value.checked_sub(1).unwrap_or(0),
+        }
     }
 }
 
@@ -60,7 +61,6 @@ pub(crate) struct Track {
 
 impl Track {
     pub fn new(device: &Arc<Device>, queue_idx: u32, flags: vk::QueueFlags) -> Self {
-
         let sem = Semaphore::new(device, 0).expect("Could not create Track's semaphore");
         //sem.set_value(42).unwrap();
         //assert!(sem.get_value() == 42);
@@ -90,9 +90,12 @@ impl Track {
     }
 
     ///Allocates the next guard for this track.
-    pub fn next_guard(&mut self) -> Guard{
+    pub fn next_guard(&mut self) -> Guard {
         self.latest_signaled_value += 1;
-        let g = Guard { track: TrackId(self.flags) , target_value: self.latest_signaled_value };
+        let g = Guard {
+            track: TrackId(self.flags),
+            target_value: self.latest_signaled_value,
+        };
         g
     }
 

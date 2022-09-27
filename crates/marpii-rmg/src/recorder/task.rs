@@ -7,21 +7,30 @@ use crate::{
 };
 use marpii::{
     ash::vk::{self, Extent2D},
-    context::Device, resources::{ImgDesc, ImageType, SharingMode},
+    context::Device,
+    resources::{ImageType, ImgDesc, SharingMode},
 };
 use std::{ops::Deref, sync::Arc};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum AttachmentType{
+pub enum AttachmentType {
     Color,
-    Depth
+    Depth,
 }
 
-impl Into<vk::ImageUsageFlags> for AttachmentType{
+impl Into<vk::ImageUsageFlags> for AttachmentType {
     fn into(self) -> vk::ImageUsageFlags {
         match self {
-            AttachmentType::Color => vk::ImageUsageFlags::COLOR_ATTACHMENT |vk::ImageUsageFlags::TRANSFER_SRC | vk::ImageUsageFlags::STORAGE,
-            AttachmentType::Depth => vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT |vk::ImageUsageFlags::TRANSFER_SRC | vk::ImageUsageFlags::STORAGE
+            AttachmentType::Color => {
+                vk::ImageUsageFlags::COLOR_ATTACHMENT
+                    | vk::ImageUsageFlags::TRANSFER_SRC
+                    | vk::ImageUsageFlags::STORAGE
+            }
+            AttachmentType::Depth => {
+                vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT
+                    | vk::ImageUsageFlags::TRANSFER_SRC
+                    | vk::ImageUsageFlags::STORAGE
+            }
         }
     }
 }
@@ -34,17 +43,21 @@ pub struct AttachmentDescription {
     attachment_type: AttachmentType,
 }
 
-impl AttachmentDescription{
-    pub fn to_image_desciption(&self) -> ImgDesc{
+impl AttachmentDescription {
+    pub fn to_image_desciption(&self) -> ImgDesc {
         ImgDesc {
             img_type: ImageType::Tex2d,
             format: self.format,
-            extent: vk::Extent3D { width: self.extent.width, height: self.extent.height, depth: 0 },
+            extent: vk::Extent3D {
+                width: self.extent.width,
+                height: self.extent.height,
+                depth: 0,
+            },
             mip_levels: 1,
             samples: vk::SampleCountFlags::TYPE_1,
             tiling: vk::ImageTiling::OPTIMAL,
             usage: self.attachment_type.into(),
-            sharing_mode: SharingMode::Exclusive
+            sharing_mode: SharingMode::Exclusive,
         }
     }
 }
@@ -115,7 +128,10 @@ impl<'res> ResourceRegistry<'res> {
             .chain(self.sampler.iter().map(|sam| AnyResKey::Sampler(*sam)))
     }
 
-    pub(crate) fn append_foreign_signal_semaphores(&self, infos: &mut Vec<vk::SemaphoreSubmitInfo>) {
+    pub(crate) fn append_foreign_signal_semaphores(
+        &self,
+        infos: &mut Vec<vk::SemaphoreSubmitInfo>,
+    ) {
         for sem in self.foreign_sem.iter() {
             #[cfg(feature = "logging")]
             log::trace!("Registering foreign semaphore {:?}", sem.deref().deref());
@@ -124,7 +140,7 @@ impl<'res> ResourceRegistry<'res> {
                 vk::SemaphoreSubmitInfo::builder()
                     .semaphore(**sem)
                     .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                    .build()
+                    .build(),
             );
         }
     }
@@ -137,7 +153,11 @@ pub trait Task {
     }
 
     ///Gets called right after executing the resource graph
-    fn post_execution(&mut self, _resources: &mut Resources, _ctx: &CtxRmg) -> Result<(), RecordError> {
+    fn post_execution(
+        &mut self,
+        _resources: &mut Resources,
+        _ctx: &CtxRmg,
+    ) -> Result<(), RecordError> {
         Ok(())
     }
 

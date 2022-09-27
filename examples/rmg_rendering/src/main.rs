@@ -27,16 +27,11 @@
 //!
 //!
 
-
-
 use anyhow::Result;
 use forward_pass::ForwardPass;
 use image::EncodableLayout;
 use marpii::resources::ImgDesc;
-use marpii::{
-    ash::vk,
-    context::Ctx,
-};
+use marpii::{ash::vk, context::Ctx};
 use marpii_rmg::tasks::{SwapchainBlit, UploadImage};
 use marpii_rmg::Rmg;
 use simulation::Simulation;
@@ -47,11 +42,9 @@ use winit::{
     event_loop::ControlFlow,
 };
 
-
-mod simulation;
 mod forward_pass;
 mod gltf_loader;
-
+mod simulation;
 
 pub const OBJECT_COUNT: usize = 32;
 
@@ -68,13 +61,19 @@ fn main() -> Result<(), anyhow::Error> {
 
     let mut rmg = Rmg::new(context, &surface)?;
 
-
     let mut simulation = Simulation::new(&mut rmg)?;
 
     let image_data = image::open("test.png").unwrap();
     let image_data = image_data.to_rgba32f();
 
-    let img = rmg.new_image_uninitialized(ImgDesc::storage_image_2d(image_data.width(), image_data.height(), vk::Format::R32G32B32A32_SFLOAT), None)?;
+    let img = rmg.new_image_uninitialized(
+        ImgDesc::storage_image_2d(
+            image_data.width(),
+            image_data.height(),
+            vk::Format::R32G32B32A32_SFLOAT,
+        ),
+        None,
+    )?;
     let mut image_init = UploadImage::new(img, image_data.as_bytes());
 
     rmg.record(window_extent(&window))
@@ -91,32 +90,34 @@ fn main() -> Result<(), anyhow::Error> {
         match ev {
             Event::MainEventsCleared => window.request_redraw(),
             Event::RedrawRequested(_) => {
-
                 forward.sim_src = Some(simulation.dst_buffer());
 
                 //setup src image and blit
                 swapchain_blit.next_blit(forward.dst_img);
 
                 rmg.record(window_extent(&window))
-                   .add_task(&mut simulation, &[])
-                   .unwrap()
-                   .add_task(&mut forward, &[])
-                   .unwrap()
-                   .add_task(&mut swapchain_blit, &[])
-                   .unwrap()
-                   .execute()
-                   .unwrap();
-            },
-            Event::WindowEvent {
-                event: WindowEvent::KeyboardInput {
-                    input: KeyboardInput {
-                        state: ElementState::Pressed,
-                        virtual_keycode: Some(VirtualKeyCode::Escape),
-                        .. },
-                    .. },
-                .. } =>{
-                *cf = ControlFlow::Exit
+                    .add_task(&mut simulation, &[])
+                    .unwrap()
+                    .add_task(&mut forward, &[])
+                    .unwrap()
+                    .add_task(&mut swapchain_blit, &[])
+                    .unwrap()
+                    .execute()
+                    .unwrap();
             }
+            Event::WindowEvent {
+                event:
+                    WindowEvent::KeyboardInput {
+                        input:
+                            KeyboardInput {
+                                state: ElementState::Pressed,
+                                virtual_keycode: Some(VirtualKeyCode::Escape),
+                                ..
+                            },
+                        ..
+                    },
+                ..
+            } => *cf = ControlFlow::Exit,
             _ => {}
         }
     })

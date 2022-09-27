@@ -37,7 +37,11 @@ impl Task for SwapchainBlit {
         Ok(())
     }
 
-    fn post_execution(&mut self, resources: &mut crate::Resources, _ctx: &CtxRmg) -> Result<(), RecordError> {
+    fn post_execution(
+        &mut self,
+        resources: &mut crate::Resources,
+        _ctx: &CtxRmg,
+    ) -> Result<(), RecordError> {
         if let Some(mut blit) = self.next_blit.take() {
             if let Some(swimage) = blit.sw_image.take() {
                 resources.present_image(swimage);

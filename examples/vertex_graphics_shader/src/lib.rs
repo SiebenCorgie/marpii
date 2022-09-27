@@ -14,9 +14,8 @@ use spirv_std::image::SampledImage;
 #[cfg(not(target_arch = "spirv"))]
 use spirv_std::macros::spirv;
 
-use spirv_std::glam::{vec4, Mat4, Quat, Vec2, Vec3, Vec4, Mat3, const_vec3, Vec4Swizzles};
-use spirv_std::{RuntimeArray, Image, Sampler};
-
+use spirv_std::glam::{const_vec3, vec4, Mat3, Mat4, Quat, Vec2, Vec3, Vec4, Vec4Swizzles};
+use spirv_std::{Image, RuntimeArray, Sampler};
 
 pub const UNDEFINED_HANDLE: u32 = 0xff_ff_ff_ff;
 
@@ -37,23 +36,25 @@ pub fn main_fs(
     f_position_world: Vec3,
     output: &mut Vec4,
     #[spirv(push_constant)] push: &ForwardPush,
-    #[spirv(descriptor_set = 0, binding = 0)] sampled_images: &RuntimeArray<SampledImage<Image!(2D, type=f32, sampled)>>,
-    #[spirv(descriptor_set = 1, binding = 0)] storage_images: &RuntimeArray<Image!(2D, type=f32, sampled=false)>,
+    #[spirv(descriptor_set = 0, binding = 0)] sampled_images: &RuntimeArray<
+        SampledImage<Image!(2D, type=f32, sampled)>,
+    >,
+    #[spirv(descriptor_set = 1, binding = 0)] storage_images: &RuntimeArray<
+        Image!(2D, type=f32, sampled=false),
+    >,
     //#[spirv(descriptor_set = 2, binding = 0)] storage_buffer: &mut RuntimeArray<u32>,
     //#[spirv(descriptor_set = 3, binding = 0)] accel_structures: &RuntimeArray<Image!(2D, type=f32, sampled)>, TODO: bind accell structures if needed
 ) {
-
     let tmpoutput = (f_normal_world.x + f_tangent_world.y + f_texcoord.x + f_position_world.z)
         .min(f_normal_world.z);
 
     //if the handle is defined, access
-    let albedo = if push.texture_indices[0] != UNDEFINED_HANDLE{
-
+    let albedo = if push.texture_indices[0] != UNDEFINED_HANDLE {
         let img = unsafe { sampled_images.index(push.texture_indices[0] as usize) };
 
-        let color: Vec4 = unsafe{img.sample(f_texcoord)};
+        let color: Vec4 = unsafe { img.sample(f_texcoord) };
         color.xyz()
-    }else{
+    } else {
         Vec3::new(push.texture_indices[0] as f32 / 10.0, 0.2, 0.0)
     };
 
@@ -62,7 +63,6 @@ pub fn main_fs(
 
     *output = shaded.extend(1.0) + tmpoutput.clamp(0.0, 0.001);
 }
-
 
 #[spirv(vertex)]
 pub fn main_vs(
@@ -97,8 +97,6 @@ pub fn main_vs(
     let v_position_obj = v_position_obj * -1.0;
     let pos: Vec3 = transform.transform_point3(v_position_obj);
     let pos4 = transform * v_position_obj.extend(1.0);
-
-
 
     *a_normal_world = v_normal_obj;
     *a_texcoord = v_texcoord;

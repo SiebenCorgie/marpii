@@ -19,7 +19,7 @@ pub use resources::{
 
 mod recorder;
 pub use recorder::{
-    task::{ResourceRegistry, Task, AttachmentDescription, AttachmentType},
+    task::{AttachmentDescription, AttachmentType, ResourceRegistry, Task},
     RecordError,
 };
 
@@ -108,7 +108,9 @@ impl Rmg {
     ) -> Result<ImageKey, RmgError> {
         //patch usage bits
 
-        if !description.usage.contains(vk::ImageUsageFlags::SAMPLED) && !description.usage.contains(vk::ImageUsageFlags::STORAGE){
+        if !description.usage.contains(vk::ImageUsageFlags::SAMPLED)
+            && !description.usage.contains(vk::ImageUsageFlags::STORAGE)
+        {
             return Err(RmgError::from(ResourceError::ImageNoUsageFlags));
         }
 
@@ -150,7 +152,9 @@ impl Rmg {
         let size = core::mem::size_of::<T>() * size;
         let description = BufDesc {
             size: size.try_into().unwrap(),
-            usage: vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::TRANSFER_SRC | vk::BufferUsageFlags::TRANSFER_DST,
+            usage: vk::BufferUsageFlags::STORAGE_BUFFER
+                | vk::BufferUsageFlags::TRANSFER_SRC
+                | vk::BufferUsageFlags::TRANSFER_DST,
             sharing: SharingMode::Exclusive,
         };
         self.new_buffer_uninitialized(description, name)
@@ -176,11 +180,11 @@ impl Rmg {
         Recorder::new(self, window_extent)
     }
 
-    pub fn delete(&mut self, res: impl Into<AnyResKey>) -> Result<(), ResourceError>{
+    pub fn delete(&mut self, res: impl Into<AnyResKey>) -> Result<(), ResourceError> {
         self.res.remove_resource(res)
     }
 
-    pub fn resources(&self) -> &Resources{
+    pub fn resources(&self) -> &Resources {
         &self.res
     }
 

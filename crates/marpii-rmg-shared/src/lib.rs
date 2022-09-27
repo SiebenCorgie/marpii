@@ -1,18 +1,17 @@
 #![no_std]
 //! Resources that are needed in multiple crates. Mostly RustGpu shader crates, and marpii-rmg itself.
 
-
-
 #[cfg(feature = "marpii")]
 use marpii::ash::vk;
-
-
 
 ///By definition when interpreted as big endian the highest byte is the handle type and the lower bytes are the actual index.
 ///
 /// Note that the descriptor set index is the same as the type
 //NOTE: Only derive Hash, Debug etc, on non-shader target. Otherwise panics the compiler atm.
-#[cfg_attr(not(target_arch = "spirv"), derive(Clone, Copy, Hash, PartialEq, PartialOrd, Eq, Debug))]
+#[cfg_attr(
+    not(target_arch = "spirv"),
+    derive(Clone, Copy, Hash, PartialEq, PartialOrd, Eq, Debug)
+)]
 //#[cfg_attr(target_arch = "spirv", derive(PartialEq, Eq))]
 pub struct ResourceHandle(u32);
 
@@ -29,10 +28,8 @@ impl ResourceHandle {
         self.0 as u8
     }
 
-
     ///Returns the index of this handle into its own descriptor.
     pub fn index(&self) -> u32 {
-
         //lowest byte is type, rest is index, therfore move 8bit, that should be it
         self.0 >> 8
         /*
@@ -51,7 +48,6 @@ impl ResourceHandle {
 
         ResourceHandle(bytes)
     }
-
 
     #[cfg(feature = "marpii")]
     pub fn descriptor_ty(&self) -> vk::DescriptorType {
@@ -92,17 +88,14 @@ impl ResourceHandle {
 
         Self::new(ty, index)
     }
-
 }
-
 
 #[cfg(test)]
 mod tests {
     use crate::ResourceHandle;
 
-
     #[test]
-    fn jee(){
+    fn jee() {
         let res = ResourceHandle::new(ResourceHandle::TYPE_SAMPLER, 42);
         assert!(res.index() == 42);
         assert!(res.handle_type() == ResourceHandle::TYPE_SAMPLER);
@@ -111,7 +104,7 @@ mod tests {
     #[cfg(feature = "marpii")]
     #[test]
     fn resource_handle_access() {
-        use super::{ResourceHandle, vk};
+        use super::{vk, ResourceHandle};
         let sa_img = ResourceHandle::new_from_desc_ty(vk::DescriptorType::SAMPLED_IMAGE, 42);
         let st_img = ResourceHandle::new_from_desc_ty(vk::DescriptorType::STORAGE_IMAGE, 43);
         let st_buf = ResourceHandle::new_from_desc_ty(vk::DescriptorType::STORAGE_BUFFER, 44);

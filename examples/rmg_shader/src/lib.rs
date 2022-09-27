@@ -11,13 +11,17 @@
 // HACK(eddyb) can't easily see warnings otherwise from `spirv-builder` builds.
 //#![deny(warnings)]
 
-use shared::{SimPush, ForwardPush};
-use spirv_std::{image::SampledImage, ByteAddressableBuffer, glam::{Vec4, UVec3, Vec3Swizzles}};
+use shared::{ForwardPush, SimPush};
+use spirv_std::{
+    glam::{UVec3, Vec3Swizzles, Vec4},
+    image::SampledImage,
+    ByteAddressableBuffer,
+};
 
 #[cfg(not(target_arch = "spirv"))]
 use spirv_std::macros::spirv;
 
-use spirv_std::{RuntimeArray, Image, Sampler};
+use spirv_std::{Image, RuntimeArray, Sampler};
 
 /*
 #[spirv(fragment)]
@@ -82,19 +86,20 @@ pub fn forward_main_vs(
 }
 
 */
-#[spirv(compute(threads(8,8,1)))]
+#[spirv(compute(threads(8, 8, 1)))]
 pub fn forward_main(
     #[spirv(global_invocation_id)] id: UVec3,
     #[spirv(push_constant)] push: &ForwardPush,
     //#[spirv(storage_buffer, descriptor_set = 0, binding = 0)] storage_buffer: &mut RuntimeArray<ByteAddressableBuffer>,
-    #[spirv(descriptor_set = 1, binding = 0)] storage_images: &RuntimeArray<Image!(2D, format=rgba32f, sampled=false)>,
+    #[spirv(descriptor_set = 1, binding = 0)] storage_images: &RuntimeArray<
+        Image!(2D, format=rgba32f, sampled=false),
+    >,
     //#[spirv(descriptor_set = 2, binding = 0)] sampled_images: &RuntimeArray<SampledImage<Image!(2D, type=f32, sampled)>>,
     //#[spirv(descriptor_set = 3, binding = 0)] sampler: &mut RuntimeArray<Sampler>,
     //#[spirv(descriptor_set = 4, binding = 0)] accel_structures: &RuntimeArray<Image!(2D, type=f32, sampled)>
-){
-
-    let img = unsafe { storage_images.index(push.target_img.index()as usize) };
+) {
+    let img = unsafe { storage_images.index(push.target_img.index() as usize) };
     let a: Vec4 = img.read(id.xy());
     let res = a.max(Vec4::ONE).min(Vec4::ONE);
-    unsafe{img.write(id.xy(), res)}
+    unsafe { img.write(id.xy(), res) }
 }

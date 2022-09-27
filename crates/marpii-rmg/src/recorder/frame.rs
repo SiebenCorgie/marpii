@@ -1,9 +1,6 @@
 use marpii::ash::vk;
 
-use crate::{
-    resources::res_states::QueueOwnership,
-    AnyResKey, RecordError, Rmg, track::Guard,
-};
+use crate::{resources::res_states::QueueOwnership, track::Guard, AnyResKey, RecordError, Rmg};
 
 use super::{scheduler::ResLocation, TaskRecord};
 
@@ -149,8 +146,14 @@ impl<'rmg> CmdFrame<'rmg> {
                                     .new_layout(vk::ImageLayout::GENERAL)
                                     .src_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS) //FIXME optimise
                                     .dst_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                                    .src_access_mask(vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::SHADER_WRITE)
-                                    .dst_access_mask(vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::SHADER_WRITE)
+                                    .src_access_mask(
+                                        vk::AccessFlags2::SHADER_READ
+                                            | vk::AccessFlags2::SHADER_WRITE,
+                                    )
+                                    .dst_access_mask(
+                                        vk::AccessFlags2::SHADER_READ
+                                            | vk::AccessFlags2::SHADER_WRITE,
+                                    )
                                     .build(),
                             );
 
@@ -279,15 +282,17 @@ impl<'rmg> CmdFrame<'rmg> {
                             .ownership
                     } {
                         QueueOwnership::Owned(owner) => {
-
                             let src_family = owner;
                             let dst_family = rmg.trackid_to_queue_idx(to.track);
                             debug_assert!(rmg.trackid_to_queue_idx(from.track) == owner);
 
-
-                            if src_family == dst_family{
+                            if src_family == dst_family {
                                 #[cfg(feature = "logging")]
-                                log::trace!("Ignoring release, src/dst are both {} for: {:?}", src_family, imgkey);
+                                log::trace!(
+                                    "Ignoring release, src/dst are both {} for: {:?}",
+                                    src_family,
+                                    imgkey
+                                );
                                 continue;
                             }
 
@@ -351,14 +356,17 @@ impl<'rmg> CmdFrame<'rmg> {
                             .ownership
                     } {
                         QueueOwnership::Owned(owner) => {
-
                             let src_family = owner;
                             let dst_family = rmg.trackid_to_queue_idx(to.track);
                             debug_assert!(rmg.trackid_to_queue_idx(from.track) == owner);
 
-                            if src_family == dst_family{
+                            if src_family == dst_family {
                                 #[cfg(feature = "logging")]
-                                log::trace!("Ignoring release, src/dst are both {} for: {:?}", src_family, bufkey);
+                                log::trace!(
+                                    "Ignoring release, src/dst are both {} for: {:?}",
+                                    src_family,
+                                    bufkey
+                                );
                                 continue;
                             }
 

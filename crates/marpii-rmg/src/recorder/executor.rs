@@ -1,6 +1,7 @@
 use crate::{
-    recorder::frame::CmdFrame, track::{TrackId, Guard}, AnyResKey,
-    RecordError, Rmg,
+    recorder::frame::CmdFrame,
+    track::{Guard, TrackId},
+    AnyResKey, RecordError, Rmg,
 };
 use fxhash::FxHashMap;
 use marpii::{
@@ -24,9 +25,6 @@ pub struct Executor<'rmg> {
     ///buffer that holds guards while collecting acquire barriers
     guard_buffer: Vec<Guard>,
 }
-
-
-
 
 pub struct Execution {
     ///All resources that need to be kept alive until the execution finishes
@@ -66,14 +64,7 @@ impl<'rmg> Executor<'rmg> {
         let mut exec = Executor {
             tracks: tracks
                 .into_iter()
-                .map(|(k, v)| {
-                    (
-                        k,
-                        Exec {
-                            record: v,
-                        },
-                    )
-                })
+                .map(|(k, v)| (k, Exec { record: v }))
                 .collect(),
             image_barrier_buffer: Vec::with_capacity(10),
             buffer_barrier_buffer: Vec::with_capacity(10),
@@ -85,7 +76,7 @@ impl<'rmg> Executor<'rmg> {
         //Schedule all release headers first
         let trackids = exec.tracks.keys().map(|k| *k).collect::<Vec<_>>();
         for track in trackids.into_iter() {
-            if let Some(exec) = exec.release_header_for_track(rmg, track)?{
+            if let Some(exec) = exec.release_header_for_track(rmg, track)? {
                 executions.push(exec);
             }
         }
@@ -97,15 +88,15 @@ impl<'rmg> Executor<'rmg> {
             if let Some(exec) = exec.record_frame(rmg, &sub)? {
                 executions.push(exec);
             }
-
         }
 
         //Finally, trigger post execution
-        for sub in submission_order{
+        for sub in submission_order {
             //execute post execution step for each task of the current frame
-            for task in exec.tracks.get_mut(&sub.track).unwrap().record.frames[sub.frame.unwrap_index()]
-                .tasks
-                .iter_mut()
+            for task in exec.tracks.get_mut(&sub.track).unwrap().record.frames
+                [sub.frame.unwrap_index()]
+            .tasks
+            .iter_mut()
             {
                 task.task.post_execution(&mut rmg.res, &rmg.ctx)?;
             }
@@ -132,8 +123,13 @@ impl<'rmg> Executor<'rmg> {
             .into_iter()
             .map(
                 |(track_id, value)| {
-
-                    rmg.tracks.0.get(&track_id).unwrap().sem.wait(value, u64::MAX).unwrap();
+                    rmg.tracks
+                        .0
+                        .get(&track_id)
+                        .unwrap()
+                        .sem
+                        .wait(value, u64::MAX)
+                        .unwrap();
 
                     vk::SemaphoreSubmitInfo::builder()
                         .semaphore(rmg.tracks.0.get(&track_id).unwrap().sem.inner)
@@ -243,7 +239,14 @@ impl<'rmg> Executor<'rmg> {
         let wait_info = self.wait_info_from_guard_buffer(rmg);
 
         let signal_semaphore = vec![vk::SemaphoreSubmitInfo::builder()
-            .semaphore(rmg.tracks.0.get(release_end_guard.as_ref()).unwrap().sem.inner)
+            .semaphore(
+                rmg.tracks
+                    .0
+                    .get(release_end_guard.as_ref())
+                    .unwrap()
+                    .sem
+                    .inner,
+            )
             .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
             .value(release_end_guard.wait_value())
             .build()];
@@ -310,7 +313,6 @@ impl<'rmg> Executor<'rmg> {
         self.image_barrier_buffer.clear();
         self.buffer_barrier_buffer.clear();
 
-
         //start recording
         unsafe {
             rmg.ctx.device.inner.begin_command_buffer(
@@ -318,8 +320,7 @@ impl<'rmg> Executor<'rmg> {
                 &vk::CommandBufferBeginInfo::builder()
                     .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT),
             )?;
-            if frame.track.0.contains(vk::QueueFlags::COMPUTE){
-
+            if frame.track.0.contains(vk::QueueFlags::COMPUTE) {
                 #[cfg(feature = "logging")]
                 log::trace!("Binding to Compute");
 
@@ -329,10 +330,10 @@ impl<'rmg> Executor<'rmg> {
                     rmg.res.bindless_layout.layout,
                     0,
                     &rmg.res.bindless.clone_raw_descriptor_sets(),
-                    &[]
+                    &[],
                 );
             }
-        /*
+            /*
             if frame.track.0.contains(vk::QueueFlags::GRAPHICS){
 
                 #[cfg(feature = "logging")]
@@ -418,7 +419,14 @@ impl<'rmg> Executor<'rmg> {
         }
 
         let mut signal_semaphore = vec![vk::SemaphoreSubmitInfo::builder()
-            .semaphore(rmg.tracks.0.get(frame_end_guard.as_ref()).unwrap().sem.inner)
+            .semaphore(
+                rmg.tracks
+                    .0
+                    .get(frame_end_guard.as_ref())
+                    .unwrap()
+                    .sem
+                    .inner,
+            )
             .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
             .value(frame_end_guard.wait_value())
             .build()];
@@ -457,7 +465,6 @@ impl<'rmg> Executor<'rmg> {
                     .signal_semaphore_infos(&signal_semaphore)],
                 vk::Fence::null(),
             )?;
-
         }
         Ok(Some(Execution {
             resources: Vec::new(), //FIXME: collect

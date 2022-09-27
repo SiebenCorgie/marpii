@@ -6,7 +6,7 @@ use marpii::{
         Sampler,
     },
 };
-use std::{collections::VecDeque, sync::Arc, fmt::Debug};
+use std::{collections::VecDeque, fmt::Debug, sync::Arc};
 
 //Re-export of the handle type.
 pub use marpii_rmg_shared::ResourceHandle;
@@ -25,10 +25,10 @@ struct SetManager<T> {
     descriptor_set: Arc<DescriptorSet<Arc<DescriptorPool>>>,
 }
 
-impl<T> Debug for SetManager<T>{
+impl<T> Debug for SetManager<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "SetManager:")?;
-        for k in self.stored.keys(){
+        for k in self.stored.keys() {
             writeln!(f, "    {}@{}", k.index(), k.handle_type())?
         }
 
@@ -185,9 +185,9 @@ impl<T> SetManager<T> {
         assert!(write_instruction.descriptor_count == 1);
 
         assert!(
-            write_instruction.p_buffer_info != core::ptr::null() ||
-            write_instruction.p_image_info != core::ptr::null() ||
-            write_instruction.p_texel_buffer_view != core::ptr::null()
+            write_instruction.p_buffer_info != core::ptr::null()
+                || write_instruction.p_image_info != core::ptr::null()
+                || write_instruction.p_texel_buffer_view != core::ptr::null()
         );
 
         //Manual write
@@ -234,7 +234,7 @@ pub(crate) struct Bindless {
     stimage: SetManager<Arc<ImageView>>,
     saimage: SetManager<Arc<ImageView>>,
     sampler: SetManager<Arc<Sampler>>,
-    #[cfg(feature="ray-tracing")]
+    #[cfg(feature = "ray-tracing")]
     accel: SetManager<Arc<Buffer>>,
 
     ///Safes the actual max push constant size, to verify bound push constants.
@@ -246,7 +246,9 @@ pub(crate) struct Bindless {
 
 impl Debug for Bindless {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f,"
+        write!(
+            f,
+            "
 storage buffer:
 {:#?}
 storage image:
@@ -255,7 +257,9 @@ sampled image:
 {:#?}
 sampler:
 {:#?}
-", self.stbuffer, self.stimage, self.saimage, self.sampler)
+",
+            self.stbuffer, self.stimage, self.saimage, self.sampler
+        )
     }
 }
 
@@ -269,7 +273,7 @@ impl Bindless {
     ///Default maximum number of bound samplers.
     pub const MAX_BOUND_SAMPLER: u32 = 128;
     ///Default maximum number of bound acceleration structures.
-    #[cfg(feature="ray-tracing")]
+    #[cfg(feature = "ray-tracing")]
     pub const MAX_BOUND_ACCELERATION_STRUCTURE: u32 = 128;
 
     ///Default maximum size of a push constant
@@ -280,10 +284,10 @@ impl Bindless {
     const MAX_SLOT: u32 = 2u32.pow(24);
 
     ///Number of descriptor sets to cover each type
-    #[cfg(not(feature="ray-tracing"))]
+    #[cfg(not(feature = "ray-tracing"))]
     const NUM_SETS: u32 = 4;
 
-    #[cfg(feature="ray-tracing")]
+    #[cfg(feature = "ray-tracing")]
     const NUM_SETS: u32 = 5;
 
     ///Creates a new instance of a bindless descriptor set. The limits of max bound descriptors per descriptor type can be set. If you don't care, consider using the shorter
@@ -299,8 +303,7 @@ impl Bindless {
         max_storage_image: u32,
         max_storage_buffer: u32,
         max_sampler: u32,
-        #[cfg(feature="ray-tracing")]
-        max_acceleration_structure: u32,
+        #[cfg(feature = "ray-tracing")] max_acceleration_structure: u32,
         push_constant_size: u32,
     ) -> Result<Self, anyhow::Error> {
         //TODO - check that all flags are set
@@ -348,8 +351,7 @@ impl Bindless {
                 ty: vk::DescriptorType::SAMPLER,
                 descriptor_count: max_sampler,
             },
-
-            #[cfg(feature="ray-tracing")]
+            #[cfg(feature = "ray-tracing")]
             vk::DescriptorPoolSize {
                 ty: vk::DescriptorType::ACCELERATION_STRUCTURE_KHR,
                 descriptor_count: max_acceleration_structure,
@@ -392,7 +394,7 @@ impl Bindless {
         let sampler =
             SetManager::new(device, &desc_pool, vk::DescriptorType::SAMPLER, max_sampler)?;
 
-        #[cfg(feature="ray-tracing")]
+        #[cfg(feature = "ray-tracing")]
         let accel = SetManager::new(
             device,
             &desc_pool,
@@ -405,7 +407,7 @@ impl Bindless {
             stimage,
             saimage,
             sampler,
-            #[cfg(feature="ray-tracing")]
+            #[cfg(feature = "ray-tracing")]
             accel,
 
             push_constant_size,
@@ -415,7 +417,11 @@ impl Bindless {
 
     ///Creates a new instance of the pipeline layout used for bindless descriptors. Note that bindless takes the sets 0..4, afterwards
     /// the supplied additional sets can be added.
-    pub fn new_pipeline_layout(&self, push_constant_size: u32, additional_descriptor_sets: &[DescriptorSetLayout]) -> PipelineLayout {
+    pub fn new_pipeline_layout(
+        &self,
+        push_constant_size: u32,
+        additional_descriptor_sets: &[DescriptorSetLayout],
+    ) -> PipelineLayout {
         //NOTE: This is the delicate part. We create a link between the descriptor set layouts and this pipeline layout. This is however *safe*
         //      since we keep the sets in memory together with the pipeline layout. On drop the pipeline layout is destried before the descriptorset layouts
         //      which is again *safe*
@@ -424,12 +430,11 @@ impl Bindless {
             self.stimage.layout.inner,
             self.saimage.layout.inner,
             self.sampler.layout.inner,
-
-            #[cfg(feature="ray-tracing")]
+            #[cfg(feature = "ray-tracing")]
             self.accel.layout.inner,
         ];
 
-        for additional in additional_descriptor_sets{
+        for additional in additional_descriptor_sets {
             descset_layouts.push(additional.inner)
         }
 
@@ -456,7 +461,7 @@ impl Bindless {
     }
 
     ///Creates a `BindlessDescriptor` where the maximum numbers of bound descriptors is a sane minimum of the `MAX_*` constants, and the reported upper limits of the device.
-    #[cfg(feature="ray-tracing")]
+    #[cfg(feature = "ray-tracing")]
     pub fn new_default(device: &Arc<Device>) -> Result<Self, anyhow::Error> {
         let limits = device.get_device_properties().properties.limits;
         Self::new(
@@ -472,7 +477,7 @@ impl Bindless {
     }
 
     ///Creates a `BindlessDescriptor` where the maximum numbers of bound descriptors is a sane minimum of the `MAX_*` constants, and the reported upper limits of the device.
-    #[cfg(not(feature="ray-tracing"))]
+    #[cfg(not(feature = "ray-tracing"))]
     pub fn new_default(device: &Arc<Device>) -> Result<Self, anyhow::Error> {
         let limits = device.get_device_properties().properties.limits;
         Self::new(
@@ -505,7 +510,7 @@ impl Bindless {
         Ok(hdl) //wrap handle into correct type and exit
     }
 
-    pub fn remove_storage_buffer(&mut self, handle: ResourceHandle){
+    pub fn remove_storage_buffer(&mut self, handle: ResourceHandle) {
         assert!(self.stbuffer.unbind_handle(handle).is_some());
     }
 
@@ -539,10 +544,9 @@ impl Bindless {
         Ok(hdl) //wrap handle into correct type and exit
     }
 
-    pub fn remove_storage_image(&mut self, handle: ResourceHandle){
+    pub fn remove_storage_image(&mut self, handle: ResourceHandle) {
         assert!(self.stimage.unbind_handle(handle).is_some());
     }
-
 
     ///Tries to bind the image. On success returns the handle, on error the data is not bound and returned back to the caller.
     pub fn bind_sampled_image(
@@ -560,7 +564,6 @@ impl Bindless {
             return Err(image);
         }
 
-
         #[cfg(feature = "logging")]
         log::trace!("Binding sampled image!");
 
@@ -576,12 +579,11 @@ impl Bindless {
         Ok(hdl) //wrap handle into correct type and exit
     }
 
-    pub fn remove_sampled_image(&mut self, handle: ResourceHandle){
+    pub fn remove_sampled_image(&mut self, handle: ResourceHandle) {
         assert!(self.saimage.unbind_handle(handle).is_some());
     }
 
     pub fn bind_sampler(&mut self, sampler: Arc<Sampler>) -> Result<ResourceHandle, Arc<Sampler>> {
-
         #[cfg(feature = "logging")]
         log::trace!("Binding sampler!");
 
@@ -595,7 +597,7 @@ impl Bindless {
         Ok(hdl) //wrap handle into correct type and exit
     }
 
-    pub fn remove_sampler(&mut self, handle: ResourceHandle){
+    pub fn remove_sampler(&mut self, handle: ResourceHandle) {
         assert!(self.sampler.unbind_handle(handle).is_some());
     }
 
@@ -608,20 +610,19 @@ impl Bindless {
             self.stimage.descriptor_set.clone(),
             self.saimage.descriptor_set.clone(),
             self.sampler.descriptor_set.clone(),
-            #[cfg(feature="ray-tracing")]
+            #[cfg(feature = "ray-tracing")]
             self.accel.descriptor_set.clone(),
         ]
     }
 
-    pub fn clone_raw_descriptor_sets(&self) -> [vk::DescriptorSet; Self::NUM_SETS as usize]{
+    pub fn clone_raw_descriptor_sets(&self) -> [vk::DescriptorSet; Self::NUM_SETS as usize] {
         [
             self.stbuffer.descriptor_set.inner,
             self.stimage.descriptor_set.inner,
             self.saimage.descriptor_set.inner,
             self.sampler.descriptor_set.inner,
-            #[cfg(feature="ray-tracing")]
+            #[cfg(feature = "ray-tracing")]
             self.accel.descriptor_set.inner,
         ]
     }
 }
-

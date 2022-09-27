@@ -1,4 +1,4 @@
-use std::{sync::Arc, ffi::CString};
+use std::{ffi::CString, sync::Arc};
 
 use ash::vk;
 use const_cstr::const_cstr;
@@ -50,7 +50,7 @@ unsafe extern "system" fn vulkan_debug_callback(
             log::warn!("[{}: {:?}]: {:?}", id, idname, msg);
         } else if message_severity.contains(ash::vk::DebugUtilsMessageSeverityFlagsEXT::INFO) {
             log::info!("[{}: {:?}]: {:?}", id, idname, msg);
-        }else{
+        } else {
             log::trace!("[{}: {:?}]: {:?}", id, idname, msg);
         }
     }
@@ -90,27 +90,29 @@ pub struct Debugger {
 
 ///Signales enabled and disabled validation layer features
 #[allow(dead_code)]
-pub struct ValidationFeatures{
+pub struct ValidationFeatures {
     enabled: Vec<vk::ValidationFeatureEnableEXT>,
-    disabled: Vec<vk::ValidationFeatureDisableEXT>
+    disabled: Vec<vk::ValidationFeatureDisableEXT>,
 }
 
 impl ValidationFeatures {
-
-    pub fn none() -> Self{
-        ValidationFeatures{
+    pub fn none() -> Self {
+        ValidationFeatures {
             enabled: Vec::new(),
-            disabled: Vec::new()
+            disabled: Vec::new(),
         }
     }
 
     ///enables only debug printf
-    pub fn gpu_printf() -> Self{
-        ValidationFeatures { enabled: vec![vk::ValidationFeatureEnableEXT::DEBUG_PRINTF], disabled: Vec::new() }
+    pub fn gpu_printf() -> Self {
+        ValidationFeatures {
+            enabled: vec![vk::ValidationFeatureEnableEXT::DEBUG_PRINTF],
+            disabled: Vec::new(),
+        }
     }
 
     ///Enables all debug features
-    pub fn all() -> Self{
+    pub fn all() -> Self {
         ValidationFeatures {
             enabled: vec![
                 vk::ValidationFeatureEnableEXT::GPU_ASSISTED,
@@ -118,7 +120,7 @@ impl ValidationFeatures {
                 vk::ValidationFeatureEnableEXT::BEST_PRACTICES,
                 vk::ValidationFeatureEnableEXT::SYNCHRONIZATION_VALIDATION,
             ],
-            disabled: Vec::new()
+            disabled: Vec::new(),
         }
     }
 }
@@ -138,8 +140,7 @@ impl InstanceBuilder {
         //check if validation is enabled, in that case push the validation layers
         let has_val_layers = self.validation_layers.is_some();
         if has_val_layers {
-            self =
-                self.with_layer(CString::new("VK_LAYER_KHRONOS_validation").unwrap())?;
+            self = self.with_layer(CString::new("VK_LAYER_KHRONOS_validation").unwrap())?;
             self = self.with_extension(ash::extensions::ext::DebugUtils::name().to_owned())?;
         }
 
@@ -149,13 +150,13 @@ impl InstanceBuilder {
             enabled_layers,
             enabled_extensions,
         } = self;
-/*
-        let validation_features = if let Some(f) = validation_layers{
-            f
-        }else{
-            ValidationFeatures::none()
-        };
-*/
+        /*
+                let validation_features = if let Some(f) = validation_layers{
+                    f
+                }else{
+                    ValidationFeatures::none()
+                };
+        */
         let app_desc = ash::vk::ApplicationInfo::builder().api_version(ash::vk::make_api_version(
             0,
             Instance::API_VERSION_MAJOR,
@@ -199,7 +200,7 @@ impl InstanceBuilder {
             .application_info(&app_desc)
             .enabled_extension_names(&enabled_extensions)
             .enabled_layer_names(&enabled_layers);
-/*
+        /*
         let mut valext = vk::ValidationFeaturesEXT::builder()
             .enabled_validation_features(&validation_features.enabled)
             .disabled_validation_features(&validation_features.disabled);
@@ -210,7 +211,6 @@ impl InstanceBuilder {
         }
         */
         let instance = unsafe { entry.create_instance(&create_info, None)? };
-
 
         //if validation is enabled, either unwrap the debugger, of create the new one
         let debugger = if has_val_layers {

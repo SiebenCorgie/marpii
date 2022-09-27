@@ -1,6 +1,10 @@
 //!simple shader building utility. Usually hooked into the build script of the examples.
 
-use std::{fs::create_dir_all, path::{Path, PathBuf}, io::{Read, Write}};
+use std::{
+    fs::create_dir_all,
+    io::{Read, Write},
+    path::{Path, PathBuf},
+};
 
 use spirv_builder::{
     Capability, MetadataPrintout, ModuleResult, SpirvBuilder, SpirvBuilderError, SpirvMetadata,
@@ -11,7 +15,6 @@ pub fn compile_rust_shader(
     shader_crate: &str,
     destination_folder: &str,
 ) -> Result<(), SpirvBuilderError> {
-
     println!("compile shader crate: {}", shader_crate);
 
     let shader_crate_location = Path::new(shader_crate).canonicalize().unwrap();
@@ -75,8 +78,7 @@ pub fn compile_rust_shader(
 }
 
 fn build_glsl(path: &str, target: &str) {
-
-    if PathBuf::from(target).exists(){
+    if PathBuf::from(target).exists() {
         std::fs::remove_file(target).unwrap();
     }
 
@@ -89,7 +91,7 @@ fn build_glsl(path: &str, target: &str) {
         .output()
         .unwrap();
 
-    if !command.status.success(){
+    if !command.status.success() {
         println!("Out: {}", std::str::from_utf8(&command.stdout).unwrap());
         println!("Err: {}", std::str::from_utf8(&command.stderr).unwrap());
     }
@@ -106,13 +108,8 @@ fn main() {
     )
     .expect("Failed to build shader");
 
-
-    compile_rust_shader(
-        "rmg_shader",
-        "examples/rmg_shader",
-        "resources/",
-    )
-    .expect("Failed to build shader");
+    compile_rust_shader("rmg_shader", "examples/rmg_shader", "resources/")
+        .expect("Failed to build shader");
 
     build_glsl(
         "examples/rmg_shader/glsl/simulation.comp",

@@ -139,7 +139,8 @@ impl Buffer {
         //FIXME: Check that out. Until now it worked... If it didn't also fix the upload helper passes.
         let buffer_size = core::mem::size_of::<T>() * data.len();
         //TODO: related to above: we go to the next atom for now
-        let buffer_size = device.offset_to_next_higher_coherent_atom_size(buffer_size as DeviceSize);
+        let buffer_size =
+            device.offset_to_next_higher_coherent_atom_size(buffer_size as DeviceSize);
 
         //build the buffer description, as well as the staging buffer. Map data to staging buffer, then upload
         let desc = BufDesc {
@@ -150,9 +151,7 @@ impl Buffer {
 
         let mut buffer = Buffer::new(device, allocator, desc, MemoryUsage::CpuToGpu, name, None)?;
         //write data to transfer buffer
-        let data: &[u8] = unsafe{
-            core::mem::transmute::<_, _>(data)
-        };
+        let data: &[u8] = unsafe { core::mem::transmute::<_, _>(data) };
         buffer.write(0, data)?;
         //Make sure the data is written
         buffer.flush_range();
@@ -165,11 +164,7 @@ impl Buffer {
     ///
     ///If the buffer is not mapable by the host (usually if the buffer us created with MemoryUsage::GpuOnly) nothing is
     /// written and an error is returned.
-    pub fn write(
-        &mut self,
-        offset: usize,
-        data: &[u8],
-    ) -> Result<(), BufferMapError> {
+    pub fn write(&mut self, offset: usize, data: &[u8]) -> Result<(), BufferMapError> {
         //Check that we have a chance for mapping
         match &self.usage {
             MemoryUsage::GpuOnly | MemoryUsage::Unknown => {
@@ -229,15 +224,15 @@ impl Buffer {
         }
 
         let range = self.allocation.as_memory_range().unwrap();
-    /*
-        //update range's offer and size to be in Device limits
-        range.offset = self
-            .device
-            .offset_to_next_lower_coherent_atom_size(range.offset);
-        range.size = self
-            .device
-            .offset_to_next_higher_coherent_atom_size(range.size);
-    */
+        /*
+            //update range's offer and size to be in Device limits
+            range.offset = self
+                .device
+                .offset_to_next_lower_coherent_atom_size(range.offset);
+            range.size = self
+                .device
+                .offset_to_next_higher_coherent_atom_size(range.size);
+        */
         unsafe {
             if let Err(e) = self.device.inner.flush_mapped_memory_ranges(&[range]) {
                 #[cfg(feature = "logging")]
