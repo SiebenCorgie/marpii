@@ -9,6 +9,8 @@ default = ["logging"]
 # if enabled, uses the log crate for messages. Note that the graph prints reasoning of decissions into the tracing level
 logging = ["log"]
 
+# if enabled, enables rmg to bind and build acceleration structures.
+ray-tracing = []
 
 [dependencies]
 anyhow = "1.0.56"

@@ -7,7 +7,7 @@ use marpii::{
     ash::vk::{self, SemaphoreSubmitInfo},
     resources::{CommandBuffer, CommandPool},
 };
-use std::sync::Arc;
+use std::{any::Any, sync::Arc};
 
 use super::scheduler::{Schedule, SubmitFrame, TrackRecord};
 
@@ -25,7 +25,12 @@ pub struct Executor<'rmg> {
     guard_buffer: Vec<Guard>,
 }
 
+
+
+
 pub struct Execution {
+    ///All resources that need to be kept alive until the execution finishes
+    resources: Vec<Box<dyn Any + Send>>,
     ///The command buffer that is executed
     #[allow(dead_code)]
     command_buffer: CommandBuffer<Arc<CommandPool>>,
@@ -267,6 +272,7 @@ impl<'rmg> Executor<'rmg> {
         }
 
         Ok(Some(Execution {
+            resources: Vec::new(), //FIXME: collect
             command_buffer: cb,
             guard: release_end_guard,
         }))
@@ -457,6 +463,7 @@ impl<'rmg> Executor<'rmg> {
 
         }
         Ok(Some(Execution {
+            resources: Vec::new(), //FIXME: collect
             command_buffer: cb,
             guard: frame_end_guard,
         }))

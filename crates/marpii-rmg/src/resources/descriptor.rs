@@ -234,7 +234,8 @@ pub(crate) struct Bindless {
     stimage: SetManager<Arc<ImageView>>,
     saimage: SetManager<Arc<ImageView>>,
     sampler: SetManager<Arc<Sampler>>,
-    //accel: SetManager<Arc<Buffer>>,
+    #[cfg(feature="ray-tracing")]
+    accel: SetManager<Arc<Buffer>>,
 
     ///Safes the actual max push constant size, to verify bound push constants.
     #[allow(dead_code)]
@@ -278,7 +279,11 @@ impl Bindless {
     const MAX_SLOT: u32 = 2u32.pow(24);
 
     ///Number of descriptor sets to cover each type
+    #[cfg(not(feature="ray-tracing"))]
     const NUM_SETS: u32 = 4;
+
+    #[cfg(feature="ray-tracing")]
+    const NUM_SETS: u32 = 5;
 
     ///Creates a new instance of a bindless descriptor set. The limits of max bound descriptors per descriptor type can be set. If you don't care, consider using the shorter
     /// [new_default](BindlessDescriptor::new_default) function.
@@ -293,6 +298,7 @@ impl Bindless {
         max_storage_image: u32,
         max_storage_buffer: u32,
         max_sampler: u32,
+        #[cfg(feature="ray-tracing")]
         max_acceleration_structure: u32,
         push_constant_size: u32,
     ) -> Result<Self, anyhow::Error> {
@@ -341,11 +347,12 @@ impl Bindless {
                 ty: vk::DescriptorType::SAMPLER,
                 descriptor_count: max_sampler,
             },
-            /*
+
+            #[cfg(feature="ray-tracing")]
             vk::DescriptorPoolSize {
                 ty: vk::DescriptorType::ACCELERATION_STRUCTURE_KHR,
                 descriptor_count: max_acceleration_structure,
-            },*/
+            },
         ];
 
         let desc_pool = Arc::new(DescriptorPool::new(
@@ -383,20 +390,22 @@ impl Bindless {
         )?;
         let sampler =
             SetManager::new(device, &desc_pool, vk::DescriptorType::SAMPLER, max_sampler)?;
-/*
+
+        #[cfg(feature="ray-tracing")]
         let accel = SetManager::new(
             device,
             &desc_pool,
             vk::DescriptorType::ACCELERATION_STRUCTURE_KHR,
             max_acceleration_structure,
         )?;
-*/
+
         Ok(Bindless {
             stbuffer,
             stimage,
             saimage,
             sampler,
-            //accel,
+            #[cfg(feature="ray-tracing")]
+            accel,
 
             push_constant_size,
             device: device.clone(),
@@ -414,7 +423,9 @@ impl Bindless {
             self.stimage.layout.inner,
             self.saimage.layout.inner,
             self.sampler.layout.inner,
-            //self.accel.layout.inner,
+
+            #[cfg(feature="ray-tracing")]
+            self.accel.layout.inner,
         ];
 
         for additional in additional_descriptor_sets{
@@ -444,9 +455,9 @@ impl Bindless {
     }
 
     ///Creates a `BindlessDescriptor` where the maximum numbers of bound descriptors is a sane minimum of the `MAX_*` constants, and the reported upper limits of the device.
+    #[cfg(feature="ray-tracing")]
     pub fn new_default(device: &Arc<Device>) -> Result<Self, anyhow::Error> {
         let limits = device.get_device_properties().properties.limits;
-
         Self::new(
             device,
             Self::MAX_BOUND_SAMPLED_IMAGES.min(limits.max_descriptor_set_sampled_images),
@@ -455,6 +466,20 @@ impl Bindless {
             Self::MAX_BOUND_SAMPLER.min(limits.max_descriptor_set_samplers),
             Self::MAX_BOUND_ACCELERATION_STRUCTURE
                 .min(limits.max_descriptor_set_storage_buffers_dynamic), //FIXME: not really the correct one...
+            Self::MAX_PUSH_CONSTANT_SIZE,
+        )
+    }
+
+    ///Creates a `BindlessDescriptor` where the maximum numbers of bound descriptors is a sane minimum of the `MAX_*` constants, and the reported upper limits of the device.
+    #[cfg(not(feature="ray-tracing"))]
+    pub fn new_default(device: &Arc<Device>) -> Result<Self, anyhow::Error> {
+        let limits = device.get_device_properties().properties.limits;
+        Self::new(
+            device,
+            Self::MAX_BOUND_SAMPLED_IMAGES.min(limits.max_descriptor_set_sampled_images),
+            Self::MAX_BOUND_STORAGE_IMAGES.min(limits.max_descriptor_set_storage_images),
+            Self::MAX_BOUND_STORAGE_BUFFER.min(limits.max_descriptor_set_storage_buffers),
+            Self::MAX_BOUND_SAMPLER.min(limits.max_descriptor_set_samplers),
             Self::MAX_PUSH_CONSTANT_SIZE,
         )
     }
@@ -582,7 +607,8 @@ impl Bindless {
             self.stimage.descriptor_set.clone(),
             self.saimage.descriptor_set.clone(),
             self.sampler.descriptor_set.clone(),
-            //self.accel.descriptor_set.clone(),
+            #[cfg(feature="ray-tracing")]
+            self.accel.descriptor_set.clone(),
         ]
     }
 
@@ -592,7 +618,8 @@ impl Bindless {
             self.stimage.descriptor_set.inner,
             self.saimage.descriptor_set.inner,
             self.sampler.descriptor_set.inner,
-            //self.accel.descriptor_set.inner,
+            #[cfg(feature="ray-tracing")]
+            self.accel.descriptor_set.inner,
         ]
     }
 }
