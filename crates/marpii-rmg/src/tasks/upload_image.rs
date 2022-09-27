@@ -133,7 +133,7 @@ impl<'dta> Task for UploadImage<'dta> {
         }
     }
 
-    fn post_execution(&mut self, resources: &mut crate::Resources) -> Result<(), RecordError> {
+    fn post_execution(&mut self, resources: &mut crate::Resources, _ctx: &CtxRmg) -> Result<(), RecordError> {
         //mark for removal
         if let Some(buf) = self.host_image.take() {
             resources.remove_resource(buf)?;

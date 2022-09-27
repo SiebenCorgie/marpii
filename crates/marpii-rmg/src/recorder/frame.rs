@@ -149,6 +149,8 @@ impl<'rmg> CmdFrame<'rmg> {
                                     .new_layout(vk::ImageLayout::GENERAL)
                                     .src_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS) //FIXME optimise
                                     .dst_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
+                                    .src_access_mask(vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::SHADER_WRITE)
+                                    .dst_access_mask(vk::AccessFlags2::SHADER_READ | vk::AccessFlags2::SHADER_WRITE)
                                     .build(),
                             );
 

@@ -32,12 +32,14 @@ impl Task for SwapchainBlit {
     ) -> Result<(), RecordError> {
         if let Some(blit) = &mut self.next_blit {
             blit.sw_image = Some(resources.get_next_swapchain_image().unwrap());
+
+            println!("src_img_hdl = {}", resources.get_resource_handle(blit.src_image)?.index());
         }
 
         Ok(())
     }
 
-    fn post_execution(&mut self, resources: &mut crate::Resources) -> Result<(), RecordError> {
+    fn post_execution(&mut self, resources: &mut crate::Resources, _ctx: &CtxRmg) -> Result<(), RecordError> {
         if let Some(mut blit) = self.next_blit.take() {
             if let Some(swimage) = blit.sw_image.take() {
                 resources.present_image(swimage);
@@ -59,6 +61,7 @@ impl Task for SwapchainBlit {
             sw_image: Some(swimage),
         }) = &self.next_blit
         {
+            println!("Blitting {:?} to swapchain", src_image);
             registry.request_image(*src_image);
             registry.register_foreign_semaphore(swimage.sem_present.clone())
         } else {
@@ -82,7 +85,7 @@ impl Task for SwapchainBlit {
         }) = &self.next_blit
         {
             //init our swapchain image to transfer-able, and move the src image to transfer
-            let (_before_access, before_layout, img) = {
+            let (before_access, before_layout, img) = {
                 let img_access = resources.images.get(*src_image).unwrap();
 
                 (img_access.mask, img_access.layout, img_access.image.clone())
@@ -95,16 +98,20 @@ impl Task for SwapchainBlit {
                         //src image
                         *vk::ImageMemoryBarrier2::builder()
                             .image(img.inner)
-                            //.src_access_mask(before_access)
-                            //.dst_access_mask(vk::AccessFlags2::TRANSFER_READ)
+                            .src_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
+                            .dst_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
+                            .src_access_mask(before_access)
+                            .dst_access_mask(vk::AccessFlags2::TRANSFER_READ)
                             .subresource_range(img.subresource_all())
                             .old_layout(before_layout)
                             .new_layout(vk::ImageLayout::TRANSFER_SRC_OPTIMAL),
                         //swapchain image
                         *vk::ImageMemoryBarrier2::builder()
                             .image(swimage.image.inner)
+                            .src_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
+                            .dst_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
                             //.src_access_mask(vk::AccessFlags2::NONE)
-                            //.dst_access_mask(vk::AccessFlags2::TRANSFER_WRITE)
+                            .dst_access_mask(vk::AccessFlags2::TRANSFER_WRITE)
                             .subresource_range(swimage.image.subresource_all())
                             .old_layout(vk::ImageLayout::UNDEFINED)
                             .new_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL),
@@ -141,16 +148,20 @@ impl Task for SwapchainBlit {
                         //src image
                         *vk::ImageMemoryBarrier2::builder()
                             .image(img.inner)
-                            //.src_access_mask(vk::AccessFlags2::TRANSFER_READ)
-                            //.dst_access_mask(before_access)
+                            .src_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
+                            .dst_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
+                            .src_access_mask(vk::AccessFlags2::TRANSFER_READ)
+                            .dst_access_mask(before_access)
                             .subresource_range(img.subresource_all())
                             .old_layout(vk::ImageLayout::TRANSFER_SRC_OPTIMAL)
                             .new_layout(before_layout),
                         //swapchain image
                         *vk::ImageMemoryBarrier2::builder()
                             .image(swimage.image.inner)
-                            //.src_access_mask(vk::AccessFlags2::TRANSFER_WRITE)
-                            //.dst_access_mask(vk::AccessFlags2::empty())
+                            .src_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
+                            .dst_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
+                            .src_access_mask(vk::AccessFlags2::TRANSFER_WRITE)
+                            .dst_access_mask(vk::AccessFlags2::empty())
                             .subresource_range(swimage.image.subresource_all())
                             .old_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
                             .new_layout(vk::ImageLayout::PRESENT_SRC_KHR),

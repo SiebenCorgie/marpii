@@ -137,7 +137,7 @@ pub trait Task {
     }
 
     ///Gets called right after executing the resource graph
-    fn post_execution(&mut self, _resources: &mut Resources) -> Result<(), RecordError> {
+    fn post_execution(&mut self, _resources: &mut Resources, _ctx: &CtxRmg) -> Result<(), RecordError> {
         Ok(())
     }
 

@@ -6,7 +6,7 @@ use marpii::{
         Sampler,
     },
 };
-use std::{collections::VecDeque, sync::Arc};
+use std::{collections::VecDeque, sync::Arc, fmt::Debug};
 
 //Re-export of the handle type.
 pub use marpii_rmg_shared::ResourceHandle;
@@ -23,6 +23,17 @@ struct SetManager<T> {
     ty: vk::DescriptorType,
     layout: DescriptorSetLayout,
     descriptor_set: Arc<DescriptorSet<Arc<DescriptorPool>>>,
+}
+
+impl<T> Debug for SetManager<T>{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "SetManager:")?;
+        for k in self.stored.keys(){
+            writeln!(f, "    {}@{}", k.index(), k.handle_type())?
+        }
+
+        Ok(())
+    }
 }
 
 impl<T> SetManager<T> {
@@ -224,6 +235,23 @@ pub(crate) struct Bindless {
     push_constant_size: u32,
 
     device: Arc<Device>,
+}
+
+impl Debug for Bindless {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f,"
+storage buffer:
+{:#?}
+storage image:
+{:#?}
+sampled image:
+{:#?}
+sampler:
+{:#?}
+accel:
+{:#?}
+", self.stbuffer, self.stimage, self.saimage, self.sampler, self.accel)
+    }
 }
 
 impl Bindless {

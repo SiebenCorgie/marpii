@@ -163,6 +163,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
             .shader_int8(true)
             .runtime_descriptor_array(true)
             .timeline_semaphore(true)
+            .descriptor_indexing(true)
             .descriptor_binding_sampled_image_update_after_bind(true)
             .descriptor_binding_storage_image_update_after_bind(true)
             .descriptor_binding_storage_buffer_update_after_bind(true)
@@ -188,7 +189,13 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
             .push_extensions(ash::extensions::khr::Swapchain::name())
             .push_extensions(ash::vk::KhrVulkanMemoryModelFn::name())
             .push_extensions(ash::extensions::khr::DynamicRendering::name())
-            .with(|b| b.features.shader_int16 = 1)
+            .with(|b| {
+                b.features.shader_int16 = 1;
+                b.features.shader_storage_buffer_array_dynamic_indexing = 1;
+                b.features.shader_storage_image_array_dynamic_indexing = 1;
+                b.features.shader_uniform_buffer_array_dynamic_indexing = 1;
+                b.features.shader_sampled_image_array_dynamic_indexing = 1;
+            })
             .with_additional_feature(features12)
             .with_additional_feature(features13)
             .with_additional_feature(accel_structure)

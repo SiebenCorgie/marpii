@@ -87,17 +87,21 @@ impl<'rmg> Executor<'rmg> {
         //now we start the actual recording / submission process. Since we give the tasks access to the actual resources (not
         // just the keys) we have to do that in order. Luckily we've written a submission/recording list while scheduling. So we can just
         // iterator over this.
-        for sub in submission_order {
-            if let Some(exec) = exec.record_frame(rmg, sub)? {
+        for sub in &submission_order {
+            if let Some(exec) = exec.record_frame(rmg, &sub)? {
                 executions.push(exec);
             }
+
+        }
+
+        //Finally, trigger post execution
+        for sub in submission_order{
             //execute post execution step for each task of the current frame
-            for task in exec.tracks.get_mut(&sub.track).unwrap().record.frames
-                [sub.frame.unwrap_index()]
-            .tasks
-            .iter_mut()
+            for task in exec.tracks.get_mut(&sub.track).unwrap().record.frames[sub.frame.unwrap_index()]
+                .tasks
+                .iter_mut()
             {
-                task.task.post_execution(&mut rmg.res)?;
+                task.task.post_execution(&mut rmg.res, &rmg.ctx)?;
             }
         }
 
@@ -206,7 +210,7 @@ impl<'rmg> Executor<'rmg> {
         self.guard_buffer.clear();
 
         //add general guard TODO: remove? all releases should be guarded by the resources if needed
-        //self.guard_buffer.push(release_end_guard.guard_before());
+        self.guard_buffer.push(release_end_guard.guard_before());
 
         for rel in release_frame.release.iter() {
             let guard = match rel.res {
@@ -271,7 +275,7 @@ impl<'rmg> Executor<'rmg> {
     fn record_frame(
         &mut self,
         rmg: &mut Rmg,
-        frame: SubmitFrame,
+        frame: &SubmitFrame,
     ) -> Result<Option<Execution>, RecordError> {
         if self.tracks.get(&frame.track).unwrap().record.frames[frame.frame.unwrap_index()]
             .is_empty()
@@ -309,7 +313,13 @@ impl<'rmg> Executor<'rmg> {
                     .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT),
             )?;
 
+            println!("Binding {:#?}", rmg.res.bindless);
+
             if frame.track.0.contains(vk::QueueFlags::COMPUTE){
+
+                #[cfg(feature = "logging")]
+                log::trace!("Binding to Compute");
+
                 rmg.ctx.device.inner.cmd_bind_descriptor_sets(
                     cb.inner,
                     vk::PipelineBindPoint::COMPUTE,
@@ -321,6 +331,10 @@ impl<'rmg> Executor<'rmg> {
             }
 
             if frame.track.0.contains(vk::QueueFlags::GRAPHICS){
+
+                #[cfg(feature = "logging")]
+                log::trace!("Binding to Graphics");
+
                 rmg.ctx.device.inner.cmd_bind_descriptor_sets(
                     cb.inner,
                     vk::PipelineBindPoint::GRAPHICS,
@@ -355,7 +369,7 @@ impl<'rmg> Executor<'rmg> {
 
         //add general guard
         // TODO remove? could be independent...
-        //self.guard_buffer.push(frame_end_guard.guard_before());
+        self.guard_buffer.push(frame_end_guard.guard_before());
 
         //FIXME: make fast :)
         // Finds the maximum guard value per track id. Since we have to wait at least until the last known

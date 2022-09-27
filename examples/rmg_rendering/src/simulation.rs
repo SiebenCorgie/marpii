@@ -78,7 +78,7 @@ impl Task for Simulation {
         "Simulation"
     }
 
-    fn post_execution(&mut self, _resources: &mut marpii_rmg::Resources) -> Result<(), marpii_rmg::RecordError> {
+    fn post_execution(&mut self, _resources: &mut marpii_rmg::Resources, _ctx: &marpii_rmg::CtxRmg) -> Result<(), marpii_rmg::RecordError> {
         self.switch();
         Ok(())
     }

@@ -1,5 +1,5 @@
-use marpii::{ash::vk, context::Device, resources::{ComputePipeline, PushConstant, ShaderModule, ImgDesc}};
-use marpii_rmg::{ImageKey, ResourceRegistry, AttachmentDescription, Resources, Task, BufferKey, Rmg, RmgError};
+use marpii::{ash::vk, context::Device, resources::{ComputePipeline, PushConstant, ShaderModule, ImgDesc, Image}, allocator::MemoryUsage};
+use marpii_rmg::{ImageKey, ResourceRegistry, AttachmentDescription, Resources, Task, BufferKey, Rmg, RmgError, CtxRmg};
 use shared::ResourceHandle;
 use std::sync::Arc;
 
@@ -11,6 +11,8 @@ pub struct ForwardPass {
     pub dst_img: ImageKey,
     pub sim_src: Option<BufferKey>,
 
+    target_img_ext: vk::Extent2D,
+
     pipeline: ComputePipeline,
     push: PushConstant<shared::ForwardPush>,
 }
@@ -18,28 +20,25 @@ pub struct ForwardPass {
 impl ForwardPass {
 
     pub const SUBGROUP_COUNT: u32 = 64;
-    pub const EXT: vk::Extent2D = vk::Extent2D{
-        width: 1024,
-        height: 1024
-    };
+    pub const FORMAT: vk::Format = vk::Format::R32G32B32A32_SFLOAT;
 
     pub fn new(rmg: &mut Rmg) -> Result<Self, RmgError>{
         println!("Setup Forward");
         let push = PushConstant::new(
             shared::ForwardPush{
-                buf: ResourceHandle::new(0, 0),
-                target_img: ResourceHandle::new(0, 0),
-                width: Self::EXT.width,
-                height: Self::EXT.height,
+                buf: 0,
+                target_img: 0,
+                width: 1,
+                height: 1,
                 buffer_size: OBJECT_COUNT as u32,
-                pad: 0
+                pad: [0; 3]
             },
             vk::ShaderStageFlags::COMPUTE
         );
-        let shader_module = ShaderModule::new_from_file(&rmg.ctx.device, "resources/forward_test.spv")?;
+        let shader_module = ShaderModule::new_from_file(&rmg.ctx.device, "resources/rmg_shader.spv")?;
         let shader_stage = shader_module.into_shader_stage(
             vk::ShaderStageFlags::COMPUTE,
-            "main"
+            "forward_main"
         );
         //No additional descriptors for us
         let layout = rmg.resources().bindless_pipeline_layout(&[]);
@@ -47,9 +46,9 @@ impl ForwardPass {
 
         let target_img = rmg.new_image_uninitialized(
             ImgDesc::storage_image_2d(
-                Self::EXT.width,
-                Self::EXT.height,
-                vk::Format::R32G32B32A32_SFLOAT
+                1,
+                1,
+                Self::FORMAT
             ),
             Some("target img")
         )?;
@@ -58,14 +57,36 @@ impl ForwardPass {
         Ok(ForwardPass {
             dst_img: target_img,
             sim_src: None,
+            target_img_ext: vk::Extent2D::default(),
 
             pipeline,
             push
         })
     }
 
-    fn dispatch_count() -> u32{
-        (((Self::EXT.width * Self::EXT.height) as f32) / Self::SUBGROUP_COUNT as f32).ceil() as u32
+    fn dispatch_count(&self) -> [u32; 2]{
+
+        [
+            (self.target_img_ext.width as f32 / 64 as f32).ceil() as u32,
+            (self.target_img_ext.height as f32 / 64 as f32).ceil() as u32,
+        ]
+    }
+
+    fn flip_target_buffer(&mut self, resources: &mut Resources, ctx: &CtxRmg) -> Result<(), marpii_rmg::RecordError> {
+        println!("Renewing target image for -> {:?}!", resources.get_surface_extent());
+        resources.remove_resource(self.dst_img)?;
+        self.dst_img = resources.add_image(Arc::new(
+            Image::new(
+                &ctx.device,
+                &ctx.allocator,
+                ImgDesc::storage_image_2d(self.target_img_ext.width, self.target_img_ext.height, vk::Format::R32G32B32A32_SFLOAT),
+                MemoryUsage::GpuOnly,
+                None,
+                None
+            )?
+        ))?;
+
+        Ok(())
     }
 }
 
@@ -78,13 +99,32 @@ impl Task for ForwardPass {
 
     }
 
-    fn pre_record(&mut self, resources: &mut Resources, _ctx: &marpii_rmg::CtxRmg) -> Result<(), marpii_rmg::RecordError> {
-        self.push.get_content_mut().buf = resources.get_resource_handle(self.sim_src.unwrap())?;
-        self.push.get_content_mut().target_img = resources.get_resource_handle(self.dst_img)?;
+    fn pre_record(&mut self, resources: &mut Resources, ctx: &marpii_rmg::CtxRmg) -> Result<(), marpii_rmg::RecordError> {
 
-        println!("Push: buf: {:x}, {:x}", self.push.get_content().buf.index(), self.push.get_content().buf.handle_type());
-        println!("Push: img: {:x}, {:x}", self.push.get_content().target_img.index(), self.push.get_content().target_img.handle_type());
+        let img_ext = {
+            let desc = resources.get_image_desc(self.dst_img).unwrap();
+            vk::Extent2D{
+                width: desc.extent.width,
+                height: desc.extent.height
+            }
+        };
+        if resources.get_surface_extent() != img_ext{
+            self.target_img_ext = resources.get_surface_extent();
+            self.flip_target_buffer(resources, ctx)?;
+        }
+
+        self.push.get_content_mut().buf = resources.get_resource_handle(self.sim_src.unwrap())?.index();
+        self.push.get_content_mut().target_img = resources.get_resource_handle(self.dst_img)?.index();
+        self.push.get_content_mut().width = self.target_img_ext.width;
+        self.push.get_content_mut().height = self.target_img_ext.height;
+
+        println!("Push: buf: {:x}", self.push.get_content().buf);
+        println!("Push: img: {:x}", self.push.get_content().target_img);
         Ok(())
+    }
+
+    fn post_execution(&mut self, resources: &mut Resources, ctx: &CtxRmg) -> Result<(), marpii_rmg::RecordError> {
+        self.flip_target_buffer(resources, ctx)
     }
 
     fn record(
@@ -102,8 +142,9 @@ impl Task for ForwardPass {
                 0,
                 self.push.content_as_bytes()
             );
-            println!("Dispatching {}", Self::dispatch_count());
-            device.inner.cmd_dispatch(*command_buffer, Self::dispatch_count(), 0, 0);
+            let disp = self.dispatch_count();
+            println!("Dispatching for {:?} @ {:?}", disp, self.target_img_ext);
+            device.inner.cmd_dispatch(*command_buffer, disp[0], disp[1], 0);
         }
     }
     fn queue_flags(&self) -> vk::QueueFlags {

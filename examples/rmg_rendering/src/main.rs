@@ -71,14 +71,24 @@ fn main() -> Result<(), anyhow::Error> {
 
 
     let mut simulation = Simulation::new(&mut rmg)?;
-    let mut forward = ForwardPass::new(&mut rmg)?;
 
     let image_data = image::open("test.png").unwrap();
     let image_data = image_data.to_rgba32f();
 
+    let img = rmg.new_image_uninitialized(ImgDesc::storage_image_2d(image_data.width(), image_data.height(), vk::Format::R32G32B32A32_SFLOAT), None)?;
+    let mut image_init = UploadImage::new(img, image_data.as_bytes());
+
+    rmg.record(window_extent(&window))
+        .add_task(&mut image_init, &[])
+        .unwrap()
+        .execute()?;
+
     let mut swapchain_blit = SwapchainBlit::new();
 
     let mut counter = 0;
+
+    let mut forward = ForwardPass::new(&mut rmg).unwrap();
+
     ev.run(move |ev, _, cf| {
         *cf = ControlFlow::Poll;
 
@@ -98,8 +108,12 @@ fn main() -> Result<(), anyhow::Error> {
                 //setup src image and blit
                 swapchain_blit.next_blit(forward.dst_img);
 
+                let mut init = UploadImage::new(forward.dst_img, image_data.as_bytes());
+
                 rmg.record(window_extent(&window))
                    //.add_task(&mut simulation, &[])
+                   //.unwrap()
+                   //.add_task(&mut init, &[])
                    //.unwrap()
                    .add_task(&mut forward, &[])
                    .unwrap()
@@ -107,6 +121,16 @@ fn main() -> Result<(), anyhow::Error> {
                    .unwrap()
                    .execute()
                    .unwrap();
+            },
+            Event::WindowEvent {
+                event: WindowEvent::KeyboardInput {
+                    input: KeyboardInput {
+                        state: ElementState::Pressed,
+                        virtual_keycode: Some(VirtualKeyCode::Escape),
+                        .. },
+                    .. },
+                .. } =>{
+                *cf = ControlFlow::Exit
             }
             _ => {}
         }

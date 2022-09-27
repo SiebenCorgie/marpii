@@ -1,7 +1,7 @@
 use marpii::{
     ash::vk,
     context::Device,
-    resources::{Buffer, Image, SafeImageView, Sampler, DescriptorSetLayout, PipelineLayout},
+    resources::{Buffer, Image, SafeImageView, Sampler, DescriptorSetLayout, PipelineLayout, ImgDesc, BufDesc},
     surface::Surface,
     swapchain::{Swapchain, SwapchainImage}, allocator::MemoryUsage,
 };
@@ -298,7 +298,13 @@ impl Resources {
         }
     }
 
+    pub fn get_image_desc(&self, hdl: ImageKey) -> Option<&ImgDesc>{
+        self.images.get(hdl).map(|img| &img.image.desc)
+    }
 
+    pub fn get_buffer_desc(&self, hdl: BufferKey) -> Option<&BufDesc>{
+        self.buffer.get(hdl).map(|buf| &buf.buffer.desc)
+    }
     pub fn get_next_swapchain_image(&mut self) -> Result<SwapchainImage, ResourceError> {
         let surface_extent = self
             .swapchain
@@ -310,6 +316,10 @@ impl Resources {
             log::info!("Recreating swapchain with extent {:?}!", surface_extent);
 
             self.swapchain.recreate(surface_extent)?;
+            self.last_known_surface_extent = vk::Extent2D{
+                width: self.swapchain.images[0].desc.extent.width,
+                height: self.swapchain.images[0].desc.extent.height
+            };
         }
 
         if let Ok(img) = self.swapchain.acquire_next_image() {
@@ -320,6 +330,10 @@ impl Resources {
             log::info!("Failed to get new swapchain image!");
             return Err(ResourceError::SwapchainError);
         }
+    }
+
+    pub fn get_surface_extent(&self) -> vk::Extent2D{
+        self.last_known_surface_extent
     }
 
     ///Schedules swapchain image for present
