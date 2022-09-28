@@ -70,10 +70,8 @@ pub struct Resources {
     pub(crate) last_known_surface_extent: vk::Extent2D,
 
     ///Channel used by the handles to signal their drop.
+    #[allow(dead_code)]
     pub(crate) handle_drop_channel: (Sender<AnyResKey>, Receiver<AnyResKey>),
-
-    ///Keeps track of resources that are scheduled for removal.
-    remove_list: Vec<AnyResKey>,
 }
 
 impl Resources {
@@ -100,7 +98,6 @@ impl Resources {
             swapchain,
             last_known_surface_extent: vk::Extent2D::default(),
             handle_drop_channel,
-            remove_list: Vec::with_capacity(100),
         })
     }
 
@@ -239,62 +236,52 @@ impl Resources {
     //      another thread for that to not stall the recording process
     pub(crate) fn tick_record(&mut self, tracks: &Tracks) {
 
-        //now check all resources that are marked for removal if they can be dropped.
-        let remove_mask = self
-            .remove_list
-            .iter()
-            .map(|k| {
-                let is = k.guard_expired(&self, tracks);
-                is
-            })
-            .collect::<Vec<_>>(); //FIXME: its late :(
-        for (idx, is_removable) in remove_mask.into_iter().enumerate().rev() {
-            if is_removable {
-                let res = self.remove_list.remove(idx);
-                #[cfg(feature = "logging")]
-                log::trace!("Dropping {:?}", res);
 
-                //remove from bindless and the key-value-store
+        self.images.retain(|key, img| {
+            if img.is_orphaned() && img.guard.map(|g| g.expired(tracks)).unwrap_or(true){
+                #[cfg(feature="logging")]
+                log::info!("Dropping {:?}", key);
 
-                match res {
-                    AnyResKey::Image(img) => {
-                        if let Some(image) = self.images.remove(img) {
-                            //If bound, unbind
-                            if let Some(hdl) = image.descriptor_handle {
-                                if image.is_sampled_image() {
-                                    self.bindless.remove_sampled_image(hdl);
-                                } else {
-                                    self.bindless.remove_storage_image(hdl);
-                                }
-                            }
-                        } else {
-                            #[cfg(feature = "logging")]
-                            log::error!("Tried removing {:?}, but was already removed", img)
-                        }
-                    }
-                    AnyResKey::Buffer(buf) => {
-                        if let Some(buffer) = self.buffer.remove(buf) {
-                            if let Some(hdl) = buffer.descriptor_handle {
-                                self.bindless.remove_storage_buffer(hdl);
-                            }
-                        } else {
-                            #[cfg(feature = "logging")]
-                            log::error!("Tried removing {:?}, but was already removed", buf)
-                        }
-                    }
-                    AnyResKey::Sampler(sam) => {
-                        if let Some(sampler) = self.sampler.remove(sam) {
-                            if let Some(hdl) = sampler.descriptor_handle {
-                                self.bindless.remove_sampler(hdl);
-                            }
-                        } else {
-                            #[cfg(feature = "logging")]
-                            log::error!("Tried removing {:?}, but was already removed", sam)
-                        }
+                if let Some(hdl) = img.descriptor_handle {
+                    if img.is_sampled_image() {
+                        self.bindless.remove_sampled_image(hdl);
+                    } else {
+                        self.bindless.remove_storage_image(hdl);
                     }
                 }
+                false
+            }else{
+                true
             }
-        }
+        });
+
+        self.buffer.retain(|key, buffer| {
+            if buffer.is_orphaned() && buffer.guard.map(|g| g.expired(tracks)).unwrap_or(true){
+                #[cfg(feature="logging")]
+                log::info!("Dropping {:?}", key);
+
+                if let Some(hdl) = buffer.descriptor_handle {
+                    self.bindless.remove_storage_buffer(hdl);
+                }
+                false
+            }else{
+                true
+            }
+        });
+
+        self.sampler.retain(|key, sampler| {
+            if sampler.is_orphaned(){
+                #[cfg(feature="logging")]
+                log::info!("Dropping {:?}", key);
+
+                if let Some(hdl) = sampler.descriptor_handle {
+                    self.bindless.remove_sampler(hdl);
+                }
+                false
+            }else{
+                true
+            }
+        });
     }
 
     pub fn get_image_desc(&self, hdl: &ImageHandle) -> &ImgDesc {

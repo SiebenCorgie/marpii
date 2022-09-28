@@ -6,7 +6,7 @@ use crate::{
     CtxRmg, RecordError, ImageHandle, BufferHandle, SamplerHandle,
 };
 use marpii::{ash::vk, context::Device};
-use std::{ops::Deref, sync::Arc};
+use std::{any::Any, ops::Deref, sync::Arc};
 
 pub struct ResourceRegistry {
     images: Vec<ImageKey>,
@@ -14,6 +14,9 @@ pub struct ResourceRegistry {
     sampler: Vec<SamplerKey>,
 
     foreign_sem: Vec<Arc<vk::Semaphore>>,
+    ///Collects all resources handle used in the registry
+    /// is later used to move them into an executions collector
+    pub(crate) resource_collection: Vec<Box<dyn Any + Send>>,
 }
 
 impl ResourceRegistry {
@@ -23,27 +26,32 @@ impl ResourceRegistry {
             buffers: Vec::new(),
             sampler: Vec::new(),
             foreign_sem: Vec::new(),
+            resource_collection: Vec::new(),
         }
     }
 
     ///Registers `image` as needed storage image.
     pub fn request_image(&mut self, image: &ImageHandle) {
         self.images.push(image.key);
+        self.resource_collection.push(Box::new(image.imgref.clone()));
     }
 
     ///Registers `buffer` as needed storage buffer.
     pub fn request_buffer<T: 'static>(&mut self, buffer: &BufferHandle<T>) {
         self.buffers.push(buffer.key);
+        self.resource_collection.push(Box::new(buffer.bufref.clone()));
     }
 
     ///Registers `sampler` as needed sampler.
     pub fn request_sampler(&mut self, sampler: &SamplerHandle) {
         self.sampler.push(sampler.key);
+        self.resource_collection.push(Box::new(sampler.samref.clone()));
     }
 
     ///Registers that this foreign semaphore must be signaled after execution. Needed for swapchain stuff.
     pub(crate) fn register_foreign_semaphore(&mut self, semaphore: Arc<vk::Semaphore>) {
-        self.foreign_sem.push(semaphore);
+        self.foreign_sem.push(semaphore.clone());
+        self.resource_collection.push(Box::new(semaphore))
     }
 
     pub(crate) fn any_res_iter<'a>(&'a self) -> impl Iterator<Item = AnyResKey> + 'a {

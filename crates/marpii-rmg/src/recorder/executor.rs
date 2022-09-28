@@ -274,6 +274,7 @@ impl<'rmg> Executor<'rmg> {
             )?;
         }
 
+
         Ok(Some(Execution {
             resources: Vec::new(), //FIXME: collect
             command_buffer: cb,
@@ -293,6 +294,9 @@ impl<'rmg> Executor<'rmg> {
             log::trace!("Frame {:?} is empty, not recording!", frame);
             return Ok(None);
         }
+
+        let num_res = self.tracks.get(&frame.track).unwrap().record.frames[frame.frame.unwrap_index()].tasks.iter().fold(0, |res, rec| res + rec.registry.resource_collection.len());
+        let mut used_resources = Vec::with_capacity(num_res);
 
         //create this frame's guard
         let frame_end_guard = rmg.tracks.0.get_mut(&frame.track).unwrap().next_guard();
@@ -463,8 +467,13 @@ impl<'rmg> Executor<'rmg> {
                 vk::Fence::null(),
             )?;
         }
+
+        for rec in self.tracks.get_mut(&frame.track).unwrap().record.frames[frame.frame.unwrap_index()].tasks.iter_mut(){
+            used_resources.append(&mut rec.registry.resource_collection);
+        }
+
         Ok(Some(Execution {
-            resources: Vec::new(), //FIXME: collect
+            resources: used_resources, //FIXME: collect
             command_buffer: cb,
             guard: frame_end_guard,
         }))

@@ -48,7 +48,6 @@ impl QueueOwnership {
 }
 
 ///Combined state of a single image.
-#[allow(dead_code)]
 pub struct ResImage {
     pub image: Arc<Image>,
     pub view: Arc<ImageView>,
@@ -67,10 +66,29 @@ impl ResImage {
     pub fn is_sampled_image(&self) -> bool {
         self.image.desc.usage.contains(vk::ImageUsageFlags::SAMPLED)
     }
+
+    ///Check if there are no public references anymore to this image
+    pub fn is_orphaned(&self) -> bool{
+        //We check by summing the maximum number of inner strong references in
+        // rmg. There are three possible places:
+        // 1. self.image
+        // 2. if bound: the descriptor set
+        // 3. if in flight: in the execution guarded by self.guard
+
+        //for self
+        let mut max_strong = 1;
+        if self.descriptor_handle.is_some(){
+            max_strong += 1;
+        }
+        if self.guard.is_some(){
+            max_strong += 1;
+        }
+        //if the strong count is higher, somewhere referenced
+        Arc::strong_count(&self.image) <= max_strong
+    }
 }
 
 ///Combined state of a single buffer,
-#[allow(dead_code)]
 pub struct ResBuffer {
     pub buffer: Arc<Buffer>,
     pub ownership: QueueOwnership,
@@ -89,13 +107,50 @@ impl ResBuffer {
             .usage
             .contains(vk::BufferUsageFlags::STORAGE_BUFFER)
     }
+
+    ///Check if there are no public references anymore to this buffer
+    pub fn is_orphaned(&self) -> bool{
+        //We check by summing the maximum number of inner strong references in
+        // rmg. There are three possible places:
+        // 1. self.buffer
+        // 2. if bound: the descriptor set
+        // 3. if in flight: in the execution guarded by self.guard
+
+        //for self
+        let mut max_strong = 1;
+        if self.descriptor_handle.is_some(){
+            max_strong += 1;
+        }
+        if self.guard.is_some(){
+            max_strong += 1;
+        }
+        //if the strong count is higher, somewhere referenced
+        Arc::strong_count(&self.buffer) <= max_strong
+    }
 }
 
-#[allow(dead_code)]
 pub struct ResSampler {
     pub sampler: Arc<Sampler>,
     ///Handle into bindless this is located at.
     pub descriptor_handle: Option<ResourceHandle>,
+}
+
+impl ResSampler {
+    ///Check if there are no public references anymore to this image
+    pub fn is_orphaned(&self) -> bool{
+        //We check by summing the maximum number of inner strong references in
+        // rmg. There are two possible places:
+        // 1. self.sampler
+        // 2. if bound: the descriptor set
+
+        //for self
+        let mut max_strong = 1;
+        if self.descriptor_handle.is_some(){
+            max_strong += 1;
+        }
+        //if the strong count is higher, somewhere referenced
+        Arc::strong_count(&self.sampler) <= max_strong
+    }
 }
 
 #[allow(dead_code)]
@@ -214,6 +269,7 @@ impl AnyResKey {
     }
 
     ///Returns true if either no guard is set, or if set the guard is expired.
+    #[allow(dead_code)]
     pub(crate) fn guard_expired(&self, res: &Resources, tracks: &Tracks) -> bool {
         match self {
             AnyResKey::Image(imgkey) => {

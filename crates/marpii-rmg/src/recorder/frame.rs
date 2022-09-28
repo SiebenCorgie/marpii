@@ -1,5 +1,3 @@
-use std::ops::Deref;
-
 use marpii::ash::vk;
 
 use crate::{resources::res_states::{QueueOwnership, AnyResKey}, track::Guard, RecordError, Rmg};
