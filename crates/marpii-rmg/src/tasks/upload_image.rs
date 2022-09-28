@@ -1,20 +1,20 @@
-use crate::{AnyResKey, BufferKey, CtxRmg, ImageKey, RecordError, Task};
+use crate::{CtxRmg, RecordError, Task, ImageHandle, BufferHandle};
 use marpii::{ash::vk, resources::Buffer};
 use std::sync::Arc;
 
 ///Transfer pass that copies data to an image on the GPU.
 /// perfect if you need to initialise textures for instance.
 pub struct UploadImage<'dta> {
-    target: ImageKey,
+    target: ImageHandle,
     src: &'dta [u8],
-    host_image: Option<BufferKey>,
+    host_image: Option<BufferHandle<u8>>,
 }
 
 impl<'dta> UploadImage<'dta> {
     ///Creates the upload task. Note that data is interpreted as whatever `target`'s format is.
     /// If this is wrong you will get artefacts. Use a format convertion before (on CPU), or a chained GPU based
     /// convertion task otherwise.
-    pub fn new(target: ImageKey, data: &'dta [u8]) -> Self {
+    pub fn new(target: ImageHandle, data: &'dta [u8]) -> Self {
         Self {
             target,
             src: data,
@@ -37,13 +37,8 @@ impl<'dta> Task for UploadImage<'dta> {
     ) -> Result<(), RecordError> {
         //create host image
         // TODO: Document that this is not free and should be done as early as possible
-
         let desc = resources
-            .images
-            .get(self.target)
-            .unwrap()
-            .image
-            .desc
+            .get_image_desc(&self.target)
             .clone();
         if !desc.usage.contains(vk::ImageUsageFlags::TRANSFER_DST) {
             #[cfg(feature = "logging")]
@@ -66,8 +61,8 @@ impl<'dta> Task for UploadImage<'dta> {
         Ok(())
     }
     fn register(&self, registry: &mut crate::ResourceRegistry) {
-        registry.request_image(self.target);
-        registry.request_buffer(self.host_image.unwrap());
+        registry.request_image(&self.target);
+        registry.request_buffer(&self.host_image.clone().unwrap());
     }
     fn record(
         &mut self,
@@ -75,17 +70,11 @@ impl<'dta> Task for UploadImage<'dta> {
         command_buffer: &vk::CommandBuffer,
         resources: &crate::Resources,
     ) {
-        if let Some(bufkey) = self.host_image {
+        if let Some(bufkey) = &self.host_image {
             let buffer = resources
-                .buffer
-                .get(bufkey)
-                .ok_or(RecordError::NoSuchResource(AnyResKey::Buffer(bufkey)))
-                .unwrap();
+                .get_buffer_state(&bufkey);
             let img = resources
-                .images
-                .get(self.target)
-                .ok_or(RecordError::NoSuchResource(AnyResKey::Image(self.target)))
-                .unwrap();
+                .get_image_state(&self.target);
 
             //copy over by moving to right layout, issue copy and moving back to _old_ layout
 
@@ -135,13 +124,11 @@ impl<'dta> Task for UploadImage<'dta> {
 
     fn post_execution(
         &mut self,
-        resources: &mut crate::Resources,
+        _resources: &mut crate::Resources,
         _ctx: &CtxRmg,
     ) -> Result<(), RecordError> {
-        //mark for removal
-        if let Some(buf) = self.host_image.take() {
-            resources.remove_resource(buf)?;
-        }
+        //remove temporary buffer
+        let _ = self.host_image.take();
 
         Ok(())
     }

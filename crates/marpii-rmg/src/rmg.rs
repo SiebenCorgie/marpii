@@ -11,7 +11,11 @@ use marpii::{
 use std::sync::Arc;
 use thiserror::Error;
 
-use crate::{RecordError, ResourceError, Resources, track::{Tracks, TrackId, Track}, ImageKey, BufferKey, SamplerKey, recorder::Recorder, AnyResKey};
+use crate::{
+    recorder::Recorder,
+    track::{Track, TrackId, Tracks},
+    RecordError, ResourceError, Resources, ImageHandle, BufferHandle, SamplerHandle,
+};
 
 ///Top level Error structure.
 #[derive(Debug, Error)]
@@ -78,7 +82,7 @@ impl Rmg {
         &mut self,
         description: ImgDesc,
         name: Option<&str>,
-    ) -> Result<ImageKey, RmgError> {
+    ) -> Result<ImageHandle, RmgError> {
         //patch usage bits
 
         if !description.usage.contains(vk::ImageUsageFlags::SAMPLED)
@@ -99,11 +103,12 @@ impl Rmg {
         Ok(self.res.add_image(image)?)
     }
 
-    pub fn new_buffer_uninitialized(
+    ///Creates a buffer that holds `n`-times data of type `T`. Where `n = buffer.size / size_of::<T>()`.
+    pub fn new_buffer_uninitialized<T: 'static>(
         &mut self,
         description: BufDesc,
         name: Option<&str>,
-    ) -> Result<BufferKey, RmgError> {
+    ) -> Result<BufferHandle<T>, RmgError> {
         let buffer = Arc::new(Buffer::new(
             &self.ctx.device,
             &self.ctx.allocator,
@@ -121,7 +126,7 @@ impl Rmg {
         &mut self,
         size: usize,
         name: Option<&str>,
-    ) -> Result<BufferKey, RmgError> {
+    ) -> Result<BufferHandle<T>, RmgError> {
         let size = core::mem::size_of::<T>() * size;
         let description = BufDesc {
             size: size.try_into().unwrap(),
@@ -136,7 +141,7 @@ impl Rmg {
     pub fn new_sampler(
         &mut self,
         description: &vk::SamplerCreateInfoBuilder<'_>,
-    ) -> Result<SamplerKey, RmgError> {
+    ) -> Result<SamplerHandle, RmgError> {
         let sampler = Sampler::new(&self.ctx.device, description)?;
 
         Ok(self.res.add_sampler(Arc::new(sampler))?)
@@ -151,10 +156,6 @@ impl Rmg {
         self.res.tick_record(&self.tracks);
 
         Recorder::new(self, window_extent)
-    }
-
-    pub fn delete(&mut self, res: impl Into<AnyResKey>) -> Result<(), ResourceError> {
-        self.res.remove_resource(res)
     }
 
     pub fn resources(&self) -> &Resources {

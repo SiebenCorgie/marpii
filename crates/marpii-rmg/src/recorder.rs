@@ -8,13 +8,9 @@ use std::fmt::Debug;
 use marpii::ash::vk;
 use thiserror::Error;
 
-use crate::{AnyResKey, ResourceError, Rmg, Task};
+use crate::{ResourceError, Rmg, Task, resources::handle::AnyHandle};
 
-use self::{
-    executor::Executor,
-    scheduler::Schedule,
-    task::ResourceRegistry,
-};
+use self::{executor::Executor, scheduler::Schedule, task::ResourceRegistry};
 
 #[derive(Debug, Error)]
 pub enum RecordError {
@@ -22,15 +18,15 @@ pub enum RecordError {
     NoFittingTrack(vk::QueueFlags),
 
     #[error("No such resource found")]
-    NoSuchResource(AnyResKey),
+    NoSuchResource(AnyHandle),
 
     #[error("Resource {0} was owned still owned by {1} while trying to acquire.")]
-    AcquireRecord(AnyResKey, u32),
+    AcquireRecord(AnyHandle, u32),
     #[error("Resource {0} was already released from {1} to {2} while trying to release.")]
-    ReleaseRecord(AnyResKey, u32, u32),
+    ReleaseRecord(AnyHandle, u32, u32),
 
     #[error("Resource {0} was not owned while trying to release.")]
-    ReleaseUninitialised(AnyResKey),
+    ReleaseUninitialised(AnyHandle),
 
     #[error("Vulkan recording error")]
     VkError(#[from] vk::Result),
@@ -86,10 +82,7 @@ impl<'rmg> Recorder<'rmg> {
     }
 
     ///Adds `task` to the execution plan. Optionally naming the task's attachments (in order of definition) with the given names.
-    pub fn add_task(
-        mut self,
-        task: &'rmg mut dyn Task,
-    ) -> Result<Self, RecordError> {
+    pub fn add_task(mut self, task: &'rmg mut dyn Task) -> Result<Self, RecordError> {
         task.pre_record(&mut self.rmg.res, &self.rmg.ctx)?;
         //build registry
         let mut registry = ResourceRegistry::new();

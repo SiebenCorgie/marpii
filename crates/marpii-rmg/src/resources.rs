@@ -1,3 +1,4 @@
+use crossbeam_channel::{Receiver, Sender};
 use marpii::{
     ash::vk,
     context::Device,
@@ -9,17 +10,22 @@ use marpii::{
     swapchain::{Swapchain, SwapchainImage},
 };
 use slotmap::SlotMap;
-use std::sync::Arc;
+use std::{sync::Arc, marker::PhantomData};
 use thiserror::Error;
 
-use crate::{track::Tracks, AnyResKey};
 
-use self::{
-    descriptor::{Bindless, ResourceHandle},
-    res_states::{
-        BufferKey, ImageKey, QueueOwnership, ResBuffer, ResImage, ResSampler, SamplerKey,
-    },
+use crate::{
+    track::Tracks,
+    resources::{
+        res_states::{
+            BufferKey, ImageKey, QueueOwnership, ResBuffer, ResImage, ResSampler, SamplerKey,
+        },
+        descriptor::{Bindless, ResourceHandle}
+    }, ImageHandle, SamplerHandle, BufferHandle,
+
 };
+
+use self::{res_states::AnyResKey, handle::AnyHandle};
 
 pub(crate) mod descriptor;
 pub(crate) mod res_states;
@@ -34,10 +40,10 @@ pub enum ResourceError {
     Any(#[from] anyhow::Error),
 
     #[error("Resource already existed")]
-    ResourceExists(AnyResKey),
+    ResourceExists(AnyHandle),
 
     #[error("Resource {0:?} was already bound to {1:?}")]
-    AlreadyBound(AnyResKey, ResourceHandle),
+    AlreadyBound(AnyHandle, ResourceHandle),
 
     #[error("Image has both, SAMPLED and STORAGE flags set")]
     ImageIntersectingUsageFlags,
@@ -63,6 +69,9 @@ pub struct Resources {
     pub(crate) swapchain: Swapchain,
     pub(crate) last_known_surface_extent: vk::Extent2D,
 
+    ///Channel used by the handles to signal their drop.
+    pub(crate) handle_drop_channel: (Sender<AnyResKey>, Receiver<AnyResKey>),
+
     ///Keeps track of resources that are scheduled for removal.
     remove_list: Vec<AnyResKey>,
 }
@@ -80,6 +89,8 @@ impl Resources {
             })
             .build()?;
 
+        let handle_drop_channel = crossbeam_channel::unbounded();
+
         Ok(Resources {
             bindless,
             bindless_layout,
@@ -88,6 +99,7 @@ impl Resources {
             sampler: SlotMap::with_key(),
             swapchain,
             last_known_surface_extent: vk::Extent2D::default(),
+            handle_drop_channel,
             remove_list: Vec::with_capacity(100),
         })
     }
@@ -116,7 +128,7 @@ impl Resources {
             AnyResKey::Buffer(buf) => {
                 let mut buffer = self.buffer.get_mut(buf).unwrap();
                 if let Some(hdl) = &buffer.descriptor_handle {
-                    return Err(ResourceError::AlreadyBound(res, *hdl));
+                    return Err(ResourceError::AlreadyBound(res.into(), *hdl));
                 }
                 buffer.descriptor_handle = Some(
                     self.bindless
@@ -128,7 +140,7 @@ impl Resources {
             AnyResKey::Image(img) => {
                 let mut image = self.images.get_mut(img).unwrap();
                 if let Some(hdl) = &image.descriptor_handle {
-                    return Err(ResourceError::AlreadyBound(res, *hdl));
+                    return Err(ResourceError::AlreadyBound(res.into(), *hdl));
                 }
                 if image.is_sampled_image() {
                     image.descriptor_handle = Some(
@@ -148,7 +160,7 @@ impl Resources {
             AnyResKey::Sampler(sam) => {
                 let mut sampler = self.sampler.get_mut(sam).unwrap();
                 if let Some(hdl) = &sampler.descriptor_handle {
-                    return Err(ResourceError::AlreadyBound(res, *hdl));
+                    return Err(ResourceError::AlreadyBound(res.into(), *hdl));
                 }
                 sampler.descriptor_handle = Some(
                     self.bindless
@@ -160,13 +172,13 @@ impl Resources {
         }
     }
 
-    pub fn add_image(&mut self, image: Arc<Image>) -> Result<ImageKey, ResourceError> {
+    pub fn add_image(&mut self, image: Arc<Image>) -> Result<ImageHandle, ResourceError> {
         let image_view_desc = image.view_all();
 
         let image_view = Arc::new(image.view(&image.device, image_view_desc)?);
 
         let key = self.images.insert(ResImage {
-            image,
+            image: image.clone(),
             view: image_view,
             ownership: QueueOwnership::Uninitialized,
             mask: vk::AccessFlags2::empty(),
@@ -175,43 +187,40 @@ impl Resources {
             descriptor_handle: None,
         });
 
-        Ok(key)
+        Ok(ImageHandle{
+            key,
+            imgref: image
+        })
     }
 
-    pub fn add_sampler(&mut self, sampler: Arc<Sampler>) -> Result<SamplerKey, ResourceError> {
+    pub fn add_sampler(&mut self, sampler: Arc<Sampler>) -> Result<SamplerHandle, ResourceError> {
         let key = self.sampler.insert(ResSampler {
             descriptor_handle: None,
-            sampler,
+            sampler: sampler.clone(),
         });
 
-        Ok(key)
+        Ok(SamplerHandle { key, samref: sampler })
     }
 
-    pub fn add_buffer(&mut self, buffer: Arc<Buffer>) -> Result<BufferKey, ResourceError> {
+    pub fn add_buffer<T: 'static>(&mut self, buffer: Arc<Buffer>) -> Result<BufferHandle<T>, ResourceError> {
         let key = self.buffer.insert(ResBuffer {
-            buffer,
+            buffer: buffer.clone(),
             ownership: QueueOwnership::Uninitialized,
             mask: vk::AccessFlags2::empty(),
             guard: None,
             descriptor_handle: None,
         });
 
-        Ok(key)
-    }
-
-    ///Marks the resource for removal. Is kept alive until all executions using the image have finished.
-    pub fn remove_resource(&mut self, res: impl Into<AnyResKey>) -> Result<(), ResourceError> {
-        self.remove_list.push(res.into());
-        Ok(())
+        Ok(BufferHandle { key, bufref: buffer, data_type: PhantomData })
     }
 
     ///Tries to get the resource's bindless handle. If not already bound, tries to bind the resource
     pub fn get_resource_handle(
         &mut self,
-        res: impl Into<AnyResKey>,
+        res: impl Into<AnyHandle>,
     ) -> Result<ResourceHandle, ResourceError> {
         let res = res.into();
-        let hdl = match res {
+        let hdl = match res.key {
             AnyResKey::Buffer(buf) => self.buffer.get(buf).unwrap().descriptor_handle,
             AnyResKey::Image(img) => self.images.get(img).unwrap().descriptor_handle,
             AnyResKey::Sampler(sam) => self.sampler.get(sam).unwrap().descriptor_handle,
@@ -221,7 +230,7 @@ impl Resources {
             return Ok(hdl);
         } else {
             //have to bind, try that
-            Ok(self.bind(res)?)
+            Ok(self.bind(res.key)?)
         }
     }
 
@@ -288,12 +297,18 @@ impl Resources {
         }
     }
 
-    pub fn get_image_desc(&self, hdl: ImageKey) -> Option<&ImgDesc> {
-        self.images.get(hdl).map(|img| &img.image.desc)
+    pub fn get_image_desc(&self, hdl: &ImageHandle) -> &ImgDesc {
+        //Safety: expect is ok since we controll handle creation, and based on that resource
+        //        destruction. In theory it is not possible to own a handle to an destroyed
+        //        resource.
+        &self.images.get(hdl.key).as_ref().expect("Used invalid image handle").image.desc
     }
 
-    pub fn get_buffer_desc(&self, hdl: BufferKey) -> Option<&BufDesc> {
-        self.buffer.get(hdl).map(|buf| &buf.buffer.desc)
+    pub fn get_buffer_desc<T: 'static>(&self, hdl: &BufferHandle<T>) -> &BufDesc {
+        //Safety: expect is ok since we controll handle creation, and based on that resource
+        //        destruction. In theory it is not possible to own a handle to an destroyed
+        //        resource.
+        &self.buffer.get(hdl.key).as_ref().expect("Used invalid buffer handle").buffer.desc
     }
 
     ///Returns the current state of the given image.
@@ -302,8 +317,11 @@ impl Resources {
     /// If a the state gets changed in a command buffer, make sure that the final state is the
     /// same as the initial state reported by this function. Otherwise scheduling might produce a
     /// wrong value.
-    pub fn get_image_state(&self, hdl: ImageKey) -> Option<&ResImage>{
-        self.images.get(hdl)
+    pub fn get_image_state(&self, hdl: &ImageHandle) -> &ResImage{
+        //Safety: expect is ok since we controll handle creation, and based on that resource
+        //        destruction. In theory it is not possible to own a handle to an destroyed
+        //        resource.
+        self.images.get(hdl.key).as_ref().expect("Used invalid ImageHandle")
     }
 
     ///Returns the current state of the given buffer.
@@ -312,8 +330,11 @@ impl Resources {
     /// If a the state gets changed in a command buffer, make sure that the final state is the
     /// same as the initial state reported by this function. Otherwise scheduling might produce a
     /// wrong value.
-    pub fn get_buffer_state(&self, hdl: BufferKey) -> Option<&ResBuffer>{
-        self.buffer.get(hdl)
+    pub fn get_buffer_state<T: 'static>(&self, hdl: &BufferHandle<T>) -> &ResBuffer{
+        //Safety: expect is ok since we controll handle creation, and based on that resource
+        //        destruction. In theory it is not possible to own a handle to an destroyed
+        //        resource.
+        self.buffer.get(hdl.key).as_ref().expect("Used invalid BufferHandle")
     }
     ///Returns the current state of the given sampler.
     ///
@@ -321,8 +342,11 @@ impl Resources {
     /// If a the state gets changed in a command buffer, make sure that the final state is the
     /// same as the initial state reported by this function. Otherwise scheduling might produce a
     /// wrong value.
-    pub fn get_sampler_state(&self, hdl: SamplerKey) -> Option<&ResSampler>{
-        self.sampler.get(hdl)
+    pub fn get_sampler_state(&self, hdl: &SamplerHandle) -> &ResSampler{
+        //Safety: expect is ok since we controll handle creation, and based on that resource
+        //        destruction. In theory it is not possible to own a handle to an destroyed
+        //        resource.
+        self.sampler.get(hdl.key).as_ref().expect("Used invalid Sampler Handle")
     }
 
     pub fn get_next_swapchain_image(&mut self) -> Result<SwapchainImage, ResourceError> {

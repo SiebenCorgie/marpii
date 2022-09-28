@@ -2,7 +2,7 @@ use marpii::{
     ash::vk,
     resources::{ComputePipeline, PushConstant, ShaderModule},
 };
-use marpii_rmg::{BufferKey, Rmg, RmgError, Task};
+use marpii_rmg::{Rmg, RmgError, Task, BufferHandle};
 use shared::SimObj;
 
 use crate::OBJECT_COUNT;
@@ -10,7 +10,7 @@ use crate::OBJECT_COUNT;
 pub struct Simulation {
     ///Simulation buffer where one is *src* and the other is *dst*
     /// with alternating keys.
-    sim_buffer: [BufferKey; 2],
+    sim_buffer: [BufferHandle<SimObj>; 2],
     ///Points to the current *src* buffer. Switches after each execution.
     current: usize,
 
@@ -60,12 +60,12 @@ impl Simulation {
         })
     }
 
-    fn src_buffer(&self) -> BufferKey {
-        self.sim_buffer[self.current % 2]
+    fn src_buffer(&self) -> &BufferHandle<SimObj> {
+        &self.sim_buffer[self.current % 2]
     }
 
-    pub fn dst_buffer(&self) -> BufferKey {
-        self.sim_buffer[(self.current + 1) % 2]
+    pub fn dst_buffer(&self) -> &BufferHandle<SimObj> {
+        &self.sim_buffer[(self.current + 1) % 2]
     }
 
     fn switch(&mut self) {
@@ -101,9 +101,9 @@ impl Task for Simulation {
         _ctx: &marpii_rmg::CtxRmg,
     ) -> Result<(), marpii_rmg::RecordError> {
         self.push.get_content_mut().sim_src_buffer =
-            resources.get_resource_handle(self.src_buffer())?;
+            resources.get_resource_handle(self.src_buffer().clone())?;
         self.push.get_content_mut().sim_dst_buffer =
-            resources.get_resource_handle(self.dst_buffer())?;
+            resources.get_resource_handle(self.dst_buffer().clone())?;
         self.push.get_content_mut().is_init = self.is_init.into();
 
         if !self.is_init {
@@ -114,8 +114,8 @@ impl Task for Simulation {
     }
 
     fn register(&self, registry: &mut marpii_rmg::ResourceRegistry) {
-        registry.request_buffer(self.dst_buffer());
-        registry.request_buffer(self.src_buffer());
+        registry.request_buffer(&self.dst_buffer());
+        registry.request_buffer(&self.src_buffer());
     }
 
     fn record(

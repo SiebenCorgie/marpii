@@ -10,6 +10,7 @@ pub use marpii_rmg_shared::ResourceHandle;
 
 //rmg rendering object type
 #[repr(C)]
+#[derive(Clone, Copy)]
 pub struct SimObj {
     pub location: [f32; 4],
     pub velocity: [f32; 4],

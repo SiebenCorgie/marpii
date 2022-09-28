@@ -2,11 +2,10 @@ use marpii::{
     allocator::MemoryUsage,
     ash::vk,
     context::Device,
-    resources::{ComputePipeline, Image, ImgDesc, PushConstant, ShaderModule, DescriptorSet, DescriptorPool, PipelineLayout, ShaderStage, GraphicsPipeline, ImageType}, offset_of, util::OoS,
+    resources::{Image, ImgDesc, PushConstant, ShaderModule, PipelineLayout, ShaderStage, GraphicsPipeline, ImageType}, util::OoS,
 };
-use marpii_descriptor::managed_descriptor::ManagedDescriptorSet;
-use marpii_rmg::{BufferKey, CtxRmg, ImageKey, ResourceRegistry, Resources, Rmg, RmgError, Task};
-use shared::ResourceHandle;
+use marpii_rmg::{CtxRmg, ResourceRegistry, Resources, Rmg, RmgError, Task, BufferHandle, ImageHandle};
+use shared::{ResourceHandle, SimObj};
 use std::sync::Arc;
 
 use crate::OBJECT_COUNT;
@@ -14,10 +13,10 @@ use crate::OBJECT_COUNT;
 pub struct ForwardPass {
     //    attdesc: AttachmentDescription,
 
-    pub color_image: ImageKey,
-    depth_image: ImageKey,
+    pub color_image: ImageHandle,
+    depth_image: ImageHandle,
 
-    pub sim_src: Option<BufferKey>,
+    pub sim_src: Option<BufferHandle<SimObj>>,
 
     target_img_ext: vk::Extent2D,
 
@@ -25,9 +24,8 @@ pub struct ForwardPass {
     push: PushConstant<shared::ForwardPush>,
 }
 
-impl ForwardPass {
-    pub const FORMAT: vk::Format = vk::Format::R32G32B32A32_SFLOAT;
 
+impl ForwardPass {
     pub fn new(rmg: &mut Rmg) -> Result<Self, RmgError> {
         println!("Setup Forward");
         let push = PushConstant::new(
@@ -248,11 +246,8 @@ impl ForwardPass {
             "Renewing target image for -> {:?}!",
             resources.get_surface_extent()
         );
-        let color_format = resources.get_image_desc(self.color_image).unwrap().format;
-        let depth_format = resources.get_image_desc(self.depth_image).unwrap().format;
-
-        resources.remove_resource(self.color_image)?;
-        resources.remove_resource(self.depth_image)?;
+        let color_format = resources.get_image_desc(&self.color_image).format;
+        let depth_format = resources.get_image_desc(&self.depth_image).format;
 
         self.color_image = resources.add_image(Arc::new(Image::new(
             &ctx.device,
@@ -288,11 +283,11 @@ impl ForwardPass {
 
 impl Task for ForwardPass {
     fn register(&self, registry: &mut ResourceRegistry) {
-        if let Some(buf) = self.sim_src {
+        if let Some(buf) = &self.sim_src {
             registry.request_buffer(buf);
         }
-        registry.request_image(self.color_image);
-        registry.request_image(self.depth_image);
+        registry.request_image(&self.color_image);
+        registry.request_image(&self.depth_image);
     }
 
     fn pre_record(
@@ -301,7 +296,7 @@ impl Task for ForwardPass {
         ctx: &marpii_rmg::CtxRmg,
     ) -> Result<(), marpii_rmg::RecordError> {
         let img_ext = {
-            let desc = resources.get_image_desc(self.color_image).unwrap();
+            let desc = resources.get_image_desc(&self.color_image);
             vk::Extent2D {
                 width: desc.extent.width,
                 height: desc.extent.height,
@@ -312,7 +307,7 @@ impl Task for ForwardPass {
             self.flip_target_buffer(resources, ctx)?;
         }
 
-        self.push.get_content_mut().buf = resources.get_resource_handle(self.sim_src.unwrap())?;
+        self.push.get_content_mut().buf = resources.get_resource_handle(self.sim_src.as_ref().unwrap())?;
         Ok(())
     }
 
@@ -336,12 +331,12 @@ impl Task for ForwardPass {
         //3. transform attachments back
 
         let (color_before_access, color_before_layout, colorimg, colorview) = {
-            let img_access = resources.get_image_state(self.color_image).unwrap();
+            let img_access = resources.get_image_state(&self.color_image);
             (img_access.mask, img_access.layout, img_access.image.clone(), img_access.view.clone())
         };
 
         let (depth_before_access, depth_before_layout, depthimg, depthview) = {
-            let img_access = resources.get_image_state(self.depth_image).unwrap();
+            let img_access = resources.get_image_state(&self.depth_image);
             (img_access.mask, img_access.layout, img_access.image.clone(), img_access.view.clone() )
         };
 

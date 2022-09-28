@@ -164,8 +164,9 @@
 //!
 mod resources;
 pub use resources::{
-    res_states::{AnyResKey, BufferKey, ImageKey, ResBuffer, ResImage, ResSampler, SamplerKey},
+    res_states::{ResBuffer, ResImage, ResSampler},
     ResourceError, Resources,
+    handle::{BufferHandle, ImageHandle, SamplerHandle}
 };
 
 mod recorder;

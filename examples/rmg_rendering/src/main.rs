@@ -86,14 +86,13 @@ fn main() -> Result<(), anyhow::Error> {
 
     ev.run(move |ev, _, cf| {
         *cf = ControlFlow::Poll;
-
         match ev {
             Event::MainEventsCleared => window.request_redraw(),
             Event::RedrawRequested(_) => {
-                forward.sim_src = Some(simulation.dst_buffer());
+                forward.sim_src = Some(simulation.dst_buffer().clone());
 
                 //setup src image and blit
-                swapchain_blit.next_blit(forward.color_image);
+                swapchain_blit.next_blit(forward.color_image.clone());
 
                 rmg.record(window_extent(&window))
                     .add_task(&mut simulation)

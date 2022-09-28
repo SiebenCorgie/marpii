@@ -1,6 +1,8 @@
+use std::ops::Deref;
+
 use marpii::ash::vk;
 
-use crate::{resources::res_states::QueueOwnership, track::Guard, AnyResKey, RecordError, Rmg};
+use crate::{resources::res_states::{QueueOwnership, AnyResKey}, track::Guard, RecordError, Rmg};
 
 use super::{scheduler::ResLocation, TaskRecord};
 
@@ -86,7 +88,7 @@ impl<'rmg> CmdFrame<'rmg> {
                         rmg.res
                             .images
                             .get_mut(imgkey)
-                            .ok_or_else(|| RecordError::NoSuchResource(AnyResKey::Image(imgkey)))?
+                            .ok_or_else(|| RecordError::NoSuchResource(AnyResKey::Image(imgkey).into()))?
                             .ownership
                     } {
                         QueueOwnership::Owned(owner) => {
@@ -96,7 +98,7 @@ impl<'rmg> CmdFrame<'rmg> {
                                 res,
                                 rmg.queue_idx_to_trackid(owner).unwrap()
                             );
-                            return Err(RecordError::AcquireRecord(res, owner));
+                            return Err(RecordError::AcquireRecord(res.into(), owner));
                         }
                         QueueOwnership::Released {
                             src_family,
@@ -106,7 +108,7 @@ impl<'rmg> CmdFrame<'rmg> {
                             log::trace!("Acquire Image: {:?}", imgkey);
 
                             let mut img = rmg.res.images.get_mut(imgkey).ok_or_else(|| {
-                                RecordError::NoSuchResource(AnyResKey::Image(imgkey))
+                                RecordError::NoSuchResource(AnyResKey::Image(imgkey).into())
                             })?;
                             image_barrier_buffer.push(
                                 vk::ImageMemoryBarrier2::builder()
@@ -133,7 +135,7 @@ impl<'rmg> CmdFrame<'rmg> {
 
                             let dst_family = rmg.trackid_to_queue_idx(to.track);
                             let mut img = rmg.res.images.get_mut(imgkey).ok_or_else(|| {
-                                RecordError::NoSuchResource(AnyResKey::Image(imgkey))
+                                RecordError::NoSuchResource(AnyResKey::Image(imgkey).into())
                             })?;
                             //is a init
                             image_barrier_buffer.push(
@@ -178,7 +180,7 @@ impl<'rmg> CmdFrame<'rmg> {
                         rmg.res
                             .buffer
                             .get_mut(bufkey)
-                            .ok_or_else(|| RecordError::NoSuchResource(AnyResKey::Buffer(bufkey)))?
+                            .ok_or_else(|| RecordError::NoSuchResource(AnyResKey::Buffer(bufkey).into()))?
                             .ownership
                     } {
                         QueueOwnership::Owned(owner) => {
@@ -188,7 +190,7 @@ impl<'rmg> CmdFrame<'rmg> {
                                 res,
                                 owner
                             );
-                            return Err(RecordError::AcquireRecord(res, owner));
+                            return Err(RecordError::AcquireRecord(res.into(), owner));
                         }
                         QueueOwnership::Released {
                             src_family,
@@ -197,7 +199,7 @@ impl<'rmg> CmdFrame<'rmg> {
                             #[cfg(feature = "logging")]
                             log::trace!("Acquire Buffer: {:?}", bufkey);
                             let mut buf = rmg.res.buffer.get_mut(bufkey).ok_or_else(|| {
-                                RecordError::NoSuchResource(AnyResKey::Buffer(bufkey))
+                                RecordError::NoSuchResource(AnyResKey::Buffer(bufkey).into())
                             })?;
                             buffer_barrier_buffer.push(
                                 vk::BufferMemoryBarrier2::builder()
@@ -225,7 +227,7 @@ impl<'rmg> CmdFrame<'rmg> {
 
                             let dst_family = rmg.trackid_to_queue_idx(to.track);
                             let mut buf = rmg.res.buffer.get_mut(bufkey).ok_or_else(|| {
-                                RecordError::NoSuchResource(AnyResKey::Buffer(bufkey))
+                                RecordError::NoSuchResource(AnyResKey::Buffer(bufkey).into())
                             })?;
                             buffer_barrier_buffer.push(
                                 vk::BufferMemoryBarrier2::builder()
@@ -278,7 +280,7 @@ impl<'rmg> CmdFrame<'rmg> {
                         rmg.res
                             .images
                             .get_mut(*imgkey)
-                            .ok_or_else(|| RecordError::NoSuchResource(AnyResKey::Image(*imgkey)))?
+                            .ok_or_else(|| RecordError::NoSuchResource(AnyResKey::Image(*imgkey).into()))?
                             .ownership
                     } {
                         QueueOwnership::Owned(owner) => {
@@ -300,7 +302,7 @@ impl<'rmg> CmdFrame<'rmg> {
                             log::trace!("Release Image: {:?}", imgkey);
 
                             let mut img = rmg.res.images.get_mut(*imgkey).ok_or_else(|| {
-                                RecordError::NoSuchResource(AnyResKey::Image(*imgkey))
+                                RecordError::NoSuchResource(AnyResKey::Image(*imgkey).into())
                             })?;
                             image_barrier_buffer.push(
                                 vk::ImageMemoryBarrier2::builder()
@@ -329,7 +331,7 @@ impl<'rmg> CmdFrame<'rmg> {
                                 from,
                                 to
                             );
-                            return Err(RecordError::ReleaseRecord(*res, src_family, dst_family));
+                            return Err(RecordError::ReleaseRecord((*res).into(), src_family, dst_family));
                         }
                         QueueOwnership::Uninitialized => {
                             #[cfg(feature = "logging")]
@@ -339,7 +341,7 @@ impl<'rmg> CmdFrame<'rmg> {
                                 from,
                                 to
                             );
-                            return Err(RecordError::ReleaseUninitialised(*res));
+                            return Err(RecordError::ReleaseUninitialised((*res).into()));
                         }
                     };
                 }
@@ -352,7 +354,7 @@ impl<'rmg> CmdFrame<'rmg> {
                         rmg.res
                             .buffer
                             .get_mut(*bufkey)
-                            .ok_or_else(|| RecordError::NoSuchResource(AnyResKey::Buffer(*bufkey)))?
+                            .ok_or_else(|| RecordError::NoSuchResource(AnyResKey::Buffer(*bufkey).into()))?
                             .ownership
                     } {
                         QueueOwnership::Owned(owner) => {
@@ -374,7 +376,7 @@ impl<'rmg> CmdFrame<'rmg> {
                             log::trace!("Release Buffer: {:?}", bufkey);
 
                             let mut buf = rmg.res.buffer.get_mut(*bufkey).ok_or_else(|| {
-                                RecordError::NoSuchResource(AnyResKey::Buffer(*bufkey))
+                                RecordError::NoSuchResource(AnyResKey::Buffer(*bufkey).into())
                             })?;
                             buffer_barrier_buffer.push(
                                 vk::BufferMemoryBarrier2::builder()
@@ -404,7 +406,7 @@ impl<'rmg> CmdFrame<'rmg> {
                                 src_family,
                                 dst_family
                             );
-                            return Err(RecordError::ReleaseRecord(*res, src_family, dst_family));
+                            return Err(RecordError::ReleaseRecord((*res).into(), src_family, dst_family));
                         }
                         QueueOwnership::Uninitialized => {
                             #[cfg(feature = "logging")]
@@ -414,7 +416,7 @@ impl<'rmg> CmdFrame<'rmg> {
                                 from,
                                 to
                             );
-                            return Err(RecordError::ReleaseUninitialised(*res));
+                            return Err(RecordError::ReleaseUninitialised((*res).into()));
                         }
                     };
                 }

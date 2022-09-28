@@ -3,12 +3,9 @@ use crate::{
         res_states::{AnyResKey, BufferKey, ImageKey, SamplerKey},
         Resources,
     },
-    CtxRmg, RecordError,
+    CtxRmg, RecordError, ImageHandle, BufferHandle, SamplerHandle,
 };
-use marpii::{
-    ash::vk,
-    context::Device,
-};
+use marpii::{ash::vk, context::Device};
 use std::{ops::Deref, sync::Arc};
 
 pub struct ResourceRegistry {
@@ -30,18 +27,18 @@ impl ResourceRegistry {
     }
 
     ///Registers `image` as needed storage image.
-    pub fn request_image(&mut self, image: ImageKey) {
-        self.images.push(image);
+    pub fn request_image(&mut self, image: &ImageHandle) {
+        self.images.push(image.key);
     }
 
     ///Registers `buffer` as needed storage buffer.
-    pub fn request_buffer(&mut self, buffer: BufferKey) {
-        self.buffers.push(buffer);
+    pub fn request_buffer<T: 'static>(&mut self, buffer: &BufferHandle<T>) {
+        self.buffers.push(buffer.key);
     }
 
     ///Registers `sampler` as needed sampler.
-    pub fn request_sampler(&mut self, sampler: SamplerKey) {
-        self.sampler.push(sampler);
+    pub fn request_sampler(&mut self, sampler: &SamplerHandle) {
+        self.sampler.push(sampler.key);
     }
 
     ///Registers that this foreign semaphore must be signaled after execution. Needed for swapchain stuff.
@@ -49,7 +46,7 @@ impl ResourceRegistry {
         self.foreign_sem.push(semaphore);
     }
 
-    pub fn any_res_iter<'a>(&'a self) -> impl Iterator<Item = AnyResKey> + 'a {
+    pub(crate) fn any_res_iter<'a>(&'a self) -> impl Iterator<Item = AnyResKey> + 'a {
         self.images
             .iter()
             .map(|img| AnyResKey::Image(*img))

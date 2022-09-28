@@ -14,15 +14,15 @@ use super::descriptor::ResourceHandle;
 
 slotmap::new_key_type!(
     ///exposed keys used to reference internal data from externally. Try to use `BufferHdl<T>` and `ImageHdl` for user facing API.
-    pub struct BufferKey;
+    pub(crate) struct BufferKey;
 );
 slotmap::new_key_type!(
     ///exposed keys used to reference internal data from externally. Try to use `BufferHdl<T>` and `ImageHdl` for user facing API.
-    pub struct ImageKey;
+    pub(crate) struct ImageKey;
 );
 slotmap::new_key_type!(
     ///exposed keys used to reference internal data from externally. Try to use `SamplerHdl` user facing API.
-    pub struct SamplerKey;
+    pub(crate) struct SamplerKey;
 );
 
 #[derive(PartialEq, Hash, Debug, Clone, Copy)]
@@ -106,7 +106,7 @@ pub(crate) enum AnyRes {
 }
 
 #[derive(Clone, Copy, Hash, PartialEq, PartialOrd, Eq, Debug)]
-pub enum AnyResKey {
+pub(crate) enum AnyResKey {
     Image(ImageKey),
     Buffer(BufferKey),
     Sampler(SamplerKey),

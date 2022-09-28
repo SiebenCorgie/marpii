@@ -1,8 +1,8 @@
-use crate::{CtxRmg, ImageKey, RecordError, Task};
+use crate::{CtxRmg, RecordError, Task, ImageHandle};
 use marpii::{ash::vk, swapchain::SwapchainImage};
 
 struct Blit {
-    src_image: ImageKey,
+    src_image: ImageHandle,
     sw_image: Option<SwapchainImage>,
 }
 
@@ -16,7 +16,7 @@ impl SwapchainBlit {
         SwapchainBlit { next_blit: None }
     }
 
-    pub fn next_blit(&mut self, img: ImageKey) {
+    pub fn next_blit(&mut self, img: ImageHandle) {
         self.next_blit = Some(Blit {
             src_image: img,
             sw_image: None,
@@ -63,7 +63,7 @@ impl Task for SwapchainBlit {
             sw_image: Some(swimage),
         }) = &self.next_blit
         {
-            registry.request_image(*src_image);
+            registry.request_image(&src_image);
             registry.register_foreign_semaphore(swimage.sem_present.clone())
         } else {
             #[cfg(feature = "logging")]
@@ -87,7 +87,7 @@ impl Task for SwapchainBlit {
         {
             //init our swapchain image to transfer-able, and move the src image to transfer
             let (before_access, before_layout, img) = {
-                let img_access = resources.images.get(*src_image).unwrap();
+                let img_access = resources.get_image_state(src_image);
 
                 (img_access.mask, img_access.layout, img_access.image.clone())
             };

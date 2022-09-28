@@ -1,7 +1,7 @@
 use crate::{
     recorder::frame::CmdFrame,
     track::{Guard, TrackId},
-    AnyResKey, RecordError, Rmg,
+    RecordError, Rmg, resources::res_states::AnyResKey,
 };
 use fxhash::FxHashMap;
 use marpii::{
@@ -333,8 +333,7 @@ impl<'rmg> Executor<'rmg> {
                     &[],
                 );
             }
-            if frame.track.0.contains(vk::QueueFlags::GRAPHICS){
-
+            if frame.track.0.contains(vk::QueueFlags::GRAPHICS) {
                 #[cfg(feature = "logging")]
                 log::trace!("Binding to Graphics");
 
@@ -344,7 +343,7 @@ impl<'rmg> Executor<'rmg> {
                     rmg.res.bindless_layout.layout,
                     0,
                     &rmg.res.bindless.clone_raw_descriptor_sets(),
-                    &[]
+                    &[],
                 );
             }
         }
