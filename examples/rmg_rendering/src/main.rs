@@ -77,7 +77,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut image_init = UploadImage::new(img, image_data.as_bytes());
 
     rmg.record(window_extent(&window))
-        .add_task(&mut image_init, &[])
+        .add_task(&mut image_init)
         .unwrap()
         .execute()?;
 
@@ -96,11 +96,11 @@ fn main() -> Result<(), anyhow::Error> {
                 swapchain_blit.next_blit(forward.color_image);
 
                 rmg.record(window_extent(&window))
-                    .add_task(&mut simulation, &[])
+                    .add_task(&mut simulation)
                     .unwrap()
-                    .add_task(&mut forward, &[])
+                    .add_task(&mut forward)
                     .unwrap()
-                    .add_task(&mut swapchain_blit, &[])
+                    .add_task(&mut swapchain_blit)
                     .unwrap()
                     .execute()
                     .unwrap();

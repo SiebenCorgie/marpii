@@ -158,7 +158,7 @@ impl<T> SetManager<T> {
     fn bind(
         &mut self,
         dta: T,
-        mut write_instruction: vk::WriteDescriptorSetBuilder,
+        mut write_instruction: vk::WriteDescriptorSetBuilder<'_>,
     ) -> Result<ResourceHandle, T> {
         let hdl = if let Some(hdl) = self.allocate_handle() {
             hdl

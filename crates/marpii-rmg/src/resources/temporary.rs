@@ -2,7 +2,7 @@ use fxhash::FxHashMap;
 use slotmap::SlotMap;
 
 use crate::{
-    recorder::task::AttachmentDescription, track::Tracks, AnyResKey, ImageKey, ResImage,
+    track::Tracks, AnyResKey, ImageKey, ResImage,
     ResourceError,
 };
 

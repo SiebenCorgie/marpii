@@ -13,7 +13,7 @@ use crate::{AnyResKey, ResourceError, Rmg, Task};
 use self::{
     executor::Executor,
     scheduler::Schedule,
-    task::{AttachmentDescState, ResourceRegistry},
+    task::ResourceRegistry,
 };
 
 #[derive(Debug, Error)]
@@ -44,7 +44,7 @@ pub enum RecordError {
 
 pub(crate) struct TaskRecord<'t> {
     task: &'t mut dyn Task,
-    registry: ResourceRegistry<'t>,
+    registry: ResourceRegistry,
 }
 
 impl<'t> Debug for TaskRecord<'t> {
@@ -89,26 +89,11 @@ impl<'rmg> Recorder<'rmg> {
     pub fn add_task(
         mut self,
         task: &'rmg mut dyn Task,
-        attachment_names: &'rmg [&'rmg str],
     ) -> Result<Self, RecordError> {
         task.pre_record(&mut self.rmg.res, &self.rmg.ctx)?;
         //build registry
-        let mut registry = ResourceRegistry::new(attachment_names);
+        let mut registry = ResourceRegistry::new();
         task.register(&mut registry);
-
-        //Now we know all resources needed, time to resolve the requested attachments into actual images.
-        for atta in registry.attachments.iter_mut() {
-            if let AttachmentDescState::Unresolved(desc) = atta {
-                let img = self
-                    .rmg
-                    .res
-                    .request_attachment(&self.rmg.ctx, &self.rmg.tracks, desc)?;
-                *atta = AttachmentDescState::Resolved(img);
-            } else {
-                #[cfg(feature = "logging")]
-                log::warn!("Attachment was already resolved!");
-            }
-        }
 
         let record = TaskRecord { task, registry };
 

@@ -1,5 +1,4 @@
 use marpii::{
-    allocator::MemoryUsage,
     ash::vk,
     context::Device,
     resources::{
@@ -13,19 +12,17 @@ use slotmap::SlotMap;
 use std::sync::Arc;
 use thiserror::Error;
 
-use crate::{recorder::task::AttachmentDescription, track::Tracks, AnyResKey, CtxRmg};
+use crate::{track::Tracks, AnyResKey};
 
 use self::{
     descriptor::{Bindless, ResourceHandle},
     res_states::{
         BufferKey, ImageKey, QueueOwnership, ResBuffer, ResImage, ResSampler, SamplerKey,
     },
-    temporary::TempResources,
 };
 
 pub(crate) mod descriptor;
 pub(crate) mod res_states;
-mod temporary;
 
 #[derive(Debug, Error)]
 pub enum ResourceError {
@@ -65,9 +62,6 @@ pub struct Resources {
     pub(crate) swapchain: Swapchain,
     pub(crate) last_known_surface_extent: vk::Extent2D,
 
-    ///Handles tracking of temporary resources. Basically a simple garbage collector.
-    temporary_resources: TempResources,
-
     ///Keeps track of resources that are scheduled for removal.
     remove_list: Vec<AnyResKey>,
 }
@@ -93,7 +87,6 @@ impl Resources {
             sampler: SlotMap::with_key(),
             swapchain,
             last_known_surface_extent: vk::Extent2D::default(),
-            temporary_resources: TempResources::new(),
             remove_list: Vec::with_capacity(100),
         })
     }
@@ -211,36 +204,6 @@ impl Resources {
         Ok(())
     }
 
-    ///Returns an key to an image fulfilling the requested  description.
-    pub(crate) fn request_attachment(
-        &mut self,
-        ctx: &CtxRmg,
-        tracks: &Tracks,
-        desc: &AttachmentDescription,
-    ) -> Result<ImageKey, ResourceError> {
-        if let Some(img) = self
-            .temporary_resources
-            .get_image(&self.images, tracks, desc)
-        {
-            Ok(img)
-        } else {
-            //could not find, create, register with tmp and return
-            let image = Arc::new(Image::new(
-                &ctx.device,
-                &ctx.allocator,
-                desc.to_image_desciption(),
-                MemoryUsage::GpuOnly,
-                None,
-                None,
-            )?);
-
-            let key = self.add_image(image)?;
-            self.temporary_resources
-                .register(key.into(), TempResources::DEFAULT_TIMEOUT)?;
-            Ok(key)
-        }
-    }
-
     ///Tries to get the resource's bindless handle. If not already bound, tries to bind the resource
     pub fn get_resource_handle(
         &mut self,
@@ -265,8 +228,6 @@ impl Resources {
     //TODO: Currently we use the rendering frame to do all the cleanup. In a perfect world we'd use
     //      another thread for that to not stall the recording process
     pub(crate) fn tick_record(&mut self, tracks: &Tracks) {
-        //checkout the removals
-        self.temporary_resources.tick(&mut self.remove_list);
 
         //now check all resources that are marked for removal if they can be dropped.
         let remove_mask = self

@@ -37,6 +37,7 @@ impl Guard {
     }
 
     ///Returns guard, that guards the execution before this one
+    #[allow(dead_code)]
     pub fn guard_before(&self) -> Guard {
         Guard {
             track: self.track,
