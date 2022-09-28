@@ -62,7 +62,7 @@ impl ImageRegion {
     /// The depth range is set to 0..1 by default.
     ///
     ///# Hint
-    /// If you use this function in your shader the clip space will reach from [x,y] till [width,height].
+    /// If you use this function in your shader the clip space will reach from (x,y) till (width,height).
     /// A more common convention is to use a range from 0..1 for x/y or -1..1 .
     pub fn as_viewport(&self) -> vk::Viewport {
         vk::Viewport {

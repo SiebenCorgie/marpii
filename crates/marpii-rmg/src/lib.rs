@@ -83,11 +83,85 @@
 //!
 //! The RMG is a big abstraction layer over raw vulkan. It is therefore much more opinionated then the rest of MarpII.
 //!
-//! It handles the context creation as well as resource creation and binding. The user (you) primarily interacts in the form of [Task](recorder::Task)s. They can be scheduled
-//! in an execution Graph using a [Recorder](recorder::Recorder). The tasks implementation is up to you and has full access to all resources and the Vulkan context.
+//! It handles the context creation as well as resource creation and binding. The user (you) primarily interacts in the form of [Task](Task)s. They can be scheduled
+//! in an execution Graph using a [Recorder](Recorder). The tasks implementation is up to you and has full access to all resources and the Vulkan context.
 //!
-//! TODO: more docs on how to get started etc.
-
+//! Apart from the task all execution related tracking of resources and executions is done by RMG.
+//!
+//! The architecture looks like this:
+//!
+//! ```ignore
+//!
+//! |-----------------|
+//! |  Application    | <- User defined
+//! |-----------------|
+//! |  RMG runtime    | <- RMG
+//! |--|              |
+//! |  |   Recording  | <- RMG
+//! |  |---|          |
+//! |  |   |  Task    | <- User defined
+//! |  |   |  Task    |
+//! |  |   |  ...     |
+//! |  |   |          |
+//! |  |   execution  | <- RMG
+//! |  |              |
+//! |  |-Vulkan       | <- RMG(MarpII)
+//! |-----------------|
+//! |   Hardware      |
+//! |-----------------|
+//! ```
+//!
+//!
+//! ## Using resources
+//! Since RMG handles all resources direct access is only possible from within a [Task](Task). To still reference resources (and defining data flow between tasks)
+//! ResourceHandles are used. They behave as if they where the resources. This means if all handles to a resource are dropped, the resource itself is dropped.
+//!
+//! ## Performance, blocking and multithreading
+//!
+//! RMG occasionally spawns threads for tasks like garbage collection. Operations like the recording and execution can block for some time (as specially if a swapchain
+//! present operation is involved).
+//!
+//! Therefore RMG should usually run parallel to other (gameplay/application) code.
+//!
+//! # Example
+//!
+//! ## Copying a texture to the GPU
+//!
+//! ```rust, ignore
+//!
+//! let ev = winit::event_loop::EventLoop::new();
+//! let window = winit::window::Window::new(&ev).unwrap();
+//!
+//! let (context, surface) = Ctx::default_with_surface(&window, true)?;
+//!
+//! let mut rmg = Rmg::new(context, &surface)?;
+//! //The texture data we want to upload, usually loaded from a file
+//! let texture_data = [0u8; 1024];
+//!
+//! //creating an GPU local image
+//! let img = rmg.new_image_uninitialized(
+//!     ImgDesc::storage_image_2d(
+//!         image_data.width(),
+//!         image_data.height(),
+//!         vk::Format::R32G32B32A32_SFLOAT,
+//!     ),
+//!     None,
+//! )?;
+//!
+//! //Creating the upload task
+//! let mut image_init = UploadImage::new(img, &texture_data);
+//!
+//! //And executing it
+//! rmg.record(window_extent(&window))
+//!     .add_task(&mut image_init)
+//!     .unwrap()
+//!     .execute()?;
+//!
+//! //If you use `img` anywhere after this you can be sure that the upload has finished
+//! //before any access happens
+//! ```
+//!
+//!
 mod resources;
 pub use resources::{
     res_states::{AnyResKey, BufferKey, ImageKey, ResBuffer, ResImage, ResSampler, SamplerKey},
@@ -96,6 +170,7 @@ pub use resources::{
 
 mod recorder;
 pub use recorder::{
+    Recorder,
     task::{ResourceRegistry, Task},
     RecordError,
 };

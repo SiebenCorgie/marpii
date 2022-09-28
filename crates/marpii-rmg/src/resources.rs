@@ -23,6 +23,7 @@ use self::{
 
 pub(crate) mod descriptor;
 pub(crate) mod res_states;
+pub(crate) mod handle;
 
 #[derive(Debug, Error)]
 pub enum ResourceError {
