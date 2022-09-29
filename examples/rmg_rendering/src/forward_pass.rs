@@ -20,7 +20,7 @@ pub struct ForwardPass {
 
     target_img_ext: vk::Extent2D,
 
-    pipeline: GraphicsPipeline,
+    pipeline: Arc<GraphicsPipeline>,
     push: PushConstant<shared::ForwardPush>,
 }
 
@@ -104,14 +104,14 @@ impl ForwardPass {
             "main_fs".to_owned(),
         );
 
-        let pipeline = Self::forward_pipeline(
+        let pipeline = Arc::new(Self::forward_pipeline(
             &rmg.ctx.device,
             layout,
             &[vertex_shader_stage, fragment_shader_stage],
             &[color_format],
             depth_format,
         )
-            .unwrap();
+            .unwrap());
 
         Ok(ForwardPass {
             color_image,
@@ -288,6 +288,7 @@ impl Task for ForwardPass {
         }
         registry.request_image(&self.color_image);
         registry.request_image(&self.depth_image);
+        registry.register_asset(self.pipeline.clone());
     }
 
     fn pre_record(

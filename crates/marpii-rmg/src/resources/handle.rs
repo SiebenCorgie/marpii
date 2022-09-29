@@ -31,7 +31,7 @@ pub struct SamplerHandle {
 
 pub struct AnyHandle{
     ///Keeps the atomic reference to *something* alive. Used internally to
-    /// verify if there are oweners *outside* of rmg.
+    /// verify if there are owners *outside* of rmg.
     #[allow(dead_code)]
     pub(crate) atomic_ref: Option<Arc<dyn Any + Send + Sync + 'static>>,
     pub(crate) key: AnyResKey

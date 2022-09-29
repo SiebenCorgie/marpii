@@ -98,7 +98,7 @@ impl<'rmg> Recorder<'rmg> {
     ///Schedules everything for execution
     pub fn execute(self) -> Result<(), RecordError> {
         let schedule = Schedule::from_tasks(self.rmg, self.records)?;
-        schedule.print_schedule();
+        //schedule.print_schedule();
 
         let executions = Executor::exec(self.rmg, schedule)?;
 

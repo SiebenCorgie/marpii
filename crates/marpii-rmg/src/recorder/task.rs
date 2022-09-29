@@ -48,6 +48,11 @@ impl ResourceRegistry {
         self.resource_collection.push(Box::new(sampler.samref.clone()));
     }
 
+    ///Registers *any*thing to be kept alive until the task finishes its execution.
+    pub fn register_asset<T: Any + Send + 'static>(&mut self, asset: T){
+        self.resource_collection.push(Box::new(asset));
+    }
+
     ///Registers that this foreign semaphore must be signaled after execution. Needed for swapchain stuff.
     pub(crate) fn register_foreign_semaphore(&mut self, semaphore: Arc<vk::Semaphore>) {
         self.foreign_sem.push(semaphore.clone());

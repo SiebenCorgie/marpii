@@ -4,6 +4,7 @@ use marpii::{
 };
 use marpii_rmg::{Rmg, RmgError, Task, BufferHandle};
 use shared::SimObj;
+use std::sync::Arc;
 
 use crate::OBJECT_COUNT;
 
@@ -16,7 +17,7 @@ pub struct Simulation {
 
     is_init: bool,
 
-    pipeline: ComputePipeline,
+    pipeline: Arc<ComputePipeline>,
     push: PushConstant<shared::SimPush>,
 }
 
@@ -46,7 +47,7 @@ impl Simulation {
         let shader_stage = shader_module.into_shader_stage(vk::ShaderStageFlags::COMPUTE, "main");
         //No additional descriptors for us
         let layout = rmg.resources().bindless_pipeline_layout(&[]);
-        let pipeline = ComputePipeline::new(&rmg.ctx.device, &shader_stage, None, layout)?;
+        let pipeline = Arc::new(ComputePipeline::new(&rmg.ctx.device, &shader_stage, None, layout)?);
 
         Ok(Simulation {
             sim_buffer: [
@@ -116,6 +117,7 @@ impl Task for Simulation {
     fn register(&self, registry: &mut marpii_rmg::ResourceRegistry) {
         registry.request_buffer(&self.dst_buffer());
         registry.request_buffer(&self.src_buffer());
+        registry.register_asset(self.pipeline.clone());
     }
 
     fn record(
