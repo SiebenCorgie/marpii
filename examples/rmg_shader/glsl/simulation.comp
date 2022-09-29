@@ -5,6 +5,7 @@
 
 #include "shared.glsl"
 
+#define BOUNDS 20.0f
 
 //push constants block
 layout( push_constant ) uniform constants{
@@ -23,18 +24,51 @@ layout(set = 2, binding = 0) uniform sampler2D global_textures[];
 layout(set = 3, binding = 0) uniform sampler samplers[];
 
 
-layout (local_size_x = 64) in;
+//src: https://stackoverflow.com/questions/4200224/random-noise-functions-for-glsl
+float rand(vec2 co){
+    return fract(sin(dot(co, vec2(12.9898, 78.233))) * 43758.5453);
+}
+
+layout (local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 void main(){
   uint widx = gl_GlobalInvocationID.x;
+
+  if (widx >= Push.buf_size){
+      return;
+  }
 
   SimObject src;
   if (Push.is_init > 0){
     src = global_buffers_objects[nonuniformEXT(get_index(Push.src))].objects[widx];
   }else{
-    src = SimObject(vec4(1.0), vec4(1.0));
+
+    vec4 rand = vec4(
+                     rand(vec2(uvec2(widx, widx))),
+                     rand(vec2(uvec2(widx+1, widx+1))),
+                     rand(vec2(uvec2(widx+1, widx+1))),
+                     rand(vec2(uvec2(widx+1, widx+1)))
+                     );
+
+    //Init to some random location and velocity
+    src = SimObject(
+                    rand.xyzw,
+                    rand.wzyx
+                    );
   }
 
-  src.location += vec4(1.0);
+  //"simulation step"
+  src.location.xyz += src.velocity.xyz;
+
+  //flip velocity if we exceed the bounds
+  if (abs(src.location.x) > BOUNDS){
+    src.velocity.x *= -1.0;
+  }
+  if (abs(src.location.y) > BOUNDS){
+    src.velocity.y *= -1.0;
+  }
+  if (abs(src.location.z) > BOUNDS){
+    src.velocity.z *= -1.0;
+  }
 
   global_buffers_objects[nonuniformEXT(get_index(Push.dst))].objects[widx] = src;
 }

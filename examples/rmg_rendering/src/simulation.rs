@@ -143,7 +143,7 @@ impl Task for Simulation {
 
             device
                 .inner
-                .cmd_dispatch(*command_buffer, Self::dispatch_count(), 0, 0);
+                .cmd_dispatch(*command_buffer, Self::dispatch_count(), 1, 1);
         }
     }
 }

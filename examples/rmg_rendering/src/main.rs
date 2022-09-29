@@ -46,7 +46,7 @@ mod forward_pass;
 mod gltf_loader;
 mod simulation;
 
-pub const OBJECT_COUNT: usize = 32;
+pub const OBJECT_COUNT: usize = 64;
 
 fn main() -> Result<(), anyhow::Error> {
     simple_logger::SimpleLogger::new()
