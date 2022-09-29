@@ -20,7 +20,6 @@ use crate::context::Device;
 
 ///Types of memory usage. Make sure to use GpuOnly wherever it applies to get optimal performance.
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-#[allow(dead_code)]
 pub enum MemoryUsage {
     Unknown,
     GpuOnly,

@@ -138,6 +138,11 @@ impl Rmg {
         self.new_buffer_uninitialized(description, name)
     }
 
+    ///Imports the buffer with the given state. Returns an error if a given queue_family index has no internal TrackId.
+    pub fn import_buffer<T: 'static>(&mut self, buffer: Arc<Buffer>, queue_family: Option<u32>, access_flags: Option<vk::AccessFlags2>) -> Result<BufferHandle<T>, ResourceError>{
+        self.res.import_buffer(&self.tracks, buffer, queue_family, access_flags)
+    }
+
     pub fn new_sampler(
         &mut self,
         description: &vk::SamplerCreateInfoBuilder<'_>,

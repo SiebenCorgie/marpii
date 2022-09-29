@@ -7,3 +7,6 @@ pub use upload_image::UploadImage;
 
 mod upload_buffer;
 pub use upload_buffer::UploadBuffer;
+
+mod dynamic_buffer;
+pub use dynamic_buffer::DynamicBuffer;

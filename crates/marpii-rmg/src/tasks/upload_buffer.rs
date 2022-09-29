@@ -1,5 +1,5 @@
 use crate::{Rmg, RmgError, BufferHandle, Task};
-use marpii::{resources::{Buffer, BufDesc}, ash::vk};
+use marpii::{resources::Buffer, ash::vk};
 use std::sync::Arc;
 
 ///Uploads a number of elements of type `T`.
@@ -70,7 +70,7 @@ impl<T: Copy + 'static> Task for UploadBuffer<T>{
                             .dst_offset(0)
                             .size(copy_size)
                     ])
-            )
+            );
         }
     }
 }

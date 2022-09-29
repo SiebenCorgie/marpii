@@ -56,6 +56,9 @@ pub enum ResourceError {
 
     #[error("Failed to get new swapchain image")]
     SwapchainError,
+
+    #[error("There is no Track for queue family {0}")]
+    NoTrackForQueueFamily(u32)
 }
 
 pub struct Resources {
@@ -169,6 +172,8 @@ impl Resources {
         }
     }
 
+    ///Adds an image, assuming it is uninitialised. If the image is initialised, owned by a queue or similar,
+    /// use the [import](Self::import_image) function instead.
     pub fn add_image(&mut self, image: Arc<Image>) -> Result<ImageHandle, ResourceError> {
         let image_view_desc = image.view_all();
 
@@ -199,11 +204,39 @@ impl Resources {
         Ok(SamplerHandle { key, samref: sampler })
     }
 
+    ///Adds an buffer, assuming it is uninitialised. If the buffer is initialised, owned by a queue or similar,
+    /// use the [import](Rmg::import_buffer) function instead.
     pub fn add_buffer<T: 'static>(&mut self, buffer: Arc<Buffer>) -> Result<BufferHandle<T>, ResourceError> {
         let key = self.buffer.insert(ResBuffer {
             buffer: buffer.clone(),
             ownership: QueueOwnership::Uninitialized,
             mask: vk::AccessFlags2::empty(),
+            guard: None,
+            descriptor_handle: None,
+        });
+
+        Ok(BufferHandle { key, bufref: buffer, data_type: PhantomData })
+    }
+
+    ///Imports the buffer with the given state. Returns an error if a given queue_family index has no internal TrackId.
+    pub(crate) fn import_buffer<T: 'static>(&mut self, tracks: &Tracks, buffer: Arc<Buffer>, queue_family: Option<u32>, access_flags: Option<vk::AccessFlags2>) -> Result<BufferHandle<T>, ResourceError>{
+        let owner = if let Some(fam) = queue_family{
+            let track = tracks.0.iter().find_map(|(track_id, track)| if track.queue_idx == fam{Some(track_id)}else{None});
+            if let Some(_t) = track{
+                QueueOwnership::Owned(fam)
+            }else{
+                return Err(ResourceError::NoTrackForQueueFamily(fam));
+            }
+        }else{
+            QueueOwnership::Uninitialized
+        };
+
+        let access = access_flags.unwrap_or(vk::AccessFlags2::NONE);
+
+        let key = self.buffer.insert(ResBuffer {
+            buffer: buffer.clone(),
+            ownership: owner,
+            mask: access,
             guard: None,
             descriptor_handle: None,
         });
