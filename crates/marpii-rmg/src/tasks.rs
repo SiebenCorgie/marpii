@@ -4,3 +4,6 @@ pub use swapchain_blit::SwapchainBlit;
 
 pub(crate) mod upload_image;
 pub use upload_image::UploadImage;
+
+mod upload_buffer;
+pub use upload_buffer::UploadBuffer;

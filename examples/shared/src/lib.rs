@@ -27,11 +27,10 @@ pub struct Vertex {
 
 #[repr(C)]
 pub struct SimPush {
-    pub sim_src_buffer: ResourceHandle,
-    pub sim_dst_buffer: ResourceHandle,
+    pub sim_buffer: ResourceHandle,
     pub is_init: u32,
     pub buf_size: u32,
-    pub pad: [u32; 2],
+    pub pad: [u32; 1],
 }
 
 #[cfg_attr(not(target_arch = "spirv"), derive(Debug))]

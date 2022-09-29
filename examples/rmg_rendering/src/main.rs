@@ -28,6 +28,7 @@
 //!
 
 use anyhow::Result;
+use copy_buffer::CopyToGraphicsBuffer;
 use forward_pass::ForwardPass;
 use image::EncodableLayout;
 use marpii::resources::ImgDesc;
@@ -45,6 +46,7 @@ use winit::{
 mod forward_pass;
 mod gltf_loader;
 mod simulation;
+mod copy_buffer;
 
 pub const OBJECT_COUNT: usize = 64;
 
@@ -62,40 +64,26 @@ fn main() -> Result<(), anyhow::Error> {
     let mut rmg = Rmg::new(context, &surface)?;
 
     let mut simulation = Simulation::new(&mut rmg)?;
-
-    let image_data = image::open("test.png").unwrap();
-    let image_data = image_data.to_rgba32f();
-
-    let img = rmg.new_image_uninitialized(
-        ImgDesc::storage_image_2d(
-            image_data.width(),
-            image_data.height(),
-            vk::Format::R32G32B32A32_SFLOAT,
-        ),
-        None,
-    )?;
-    let mut image_init = UploadImage::new(img, image_data.as_bytes());
-
-    rmg.record(window_extent(&window))
-        .add_task(&mut image_init)
-        .unwrap()
-        .execute()?;
-
-    let mut swapchain_blit = SwapchainBlit::new();
+    let mut buffer_copy = CopyToGraphicsBuffer::new(&mut rmg, simulation.sim_buffer.clone())?;
     let mut forward = ForwardPass::new(&mut rmg).unwrap();
+    let mut swapchain_blit = SwapchainBlit::new();
 
     ev.run(move |ev, _, cf| {
         *cf = ControlFlow::Poll;
         match ev {
             Event::MainEventsCleared => window.request_redraw(),
             Event::RedrawRequested(_) => {
-                forward.sim_src = Some(simulation.dst_buffer().clone());
+
+                //set the *oldest* valid simulatio src for the forward pass
+                forward.sim_src = Some(buffer_copy.last_buffer());
 
                 //setup src image and blit
                 swapchain_blit.next_blit(forward.color_image.clone());
 
                 rmg.record(window_extent(&window))
                     .add_task(&mut simulation)
+                    .unwrap()
+                    .add_task(&mut buffer_copy)
                     .unwrap()
                     .add_task(&mut forward)
                     .unwrap()

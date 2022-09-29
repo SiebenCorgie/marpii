@@ -419,7 +419,7 @@ impl Task for ForwardPass {
             device.inner.cmd_set_viewport(*command_buffer, 0, &[viewport]);
             device.inner.cmd_set_scissor(*command_buffer, 0, &[scissors]);
 
-            device.inner.cmd_draw(*command_buffer, 3, 1, 0, 0);
+            device.inner.cmd_draw(*command_buffer, 3, OBJECT_COUNT as u32, 0, 0);
 
             device.inner.cmd_end_rendering(*command_buffer);
 

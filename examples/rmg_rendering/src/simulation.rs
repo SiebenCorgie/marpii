@@ -9,11 +9,8 @@ use std::sync::Arc;
 use crate::OBJECT_COUNT;
 
 pub struct Simulation {
-    ///Simulation buffer where one is *src* and the other is *dst*
-    /// with alternating keys.
-    sim_buffer: [BufferHandle<SimObj>; 2],
-    ///Points to the current *src* buffer. Switches after each execution.
-    current: usize,
+    ///Simulation buffer
+    pub sim_buffer: BufferHandle<SimObj>,
 
     is_init: bool,
 
@@ -28,17 +25,13 @@ impl Simulation {
         println!("Setup Simulation");
         let push = PushConstant::new(
             shared::SimPush {
-                sim_src_buffer: shared::ResourceHandle::new(
-                    shared::ResourceHandle::TYPE_STORAGE_BUFFER,
-                    0,
-                ),
-                sim_dst_buffer: shared::ResourceHandle::new(
+                sim_buffer: shared::ResourceHandle::new(
                     shared::ResourceHandle::TYPE_STORAGE_BUFFER,
                     0,
                 ),
                 is_init: 0,
                 buf_size: OBJECT_COUNT as u32,
-                pad: [0u32; 2],
+                pad: [0u32; 1],
             },
             vk::ShaderStageFlags::COMPUTE,
         );
@@ -50,27 +43,11 @@ impl Simulation {
         let pipeline = Arc::new(ComputePipeline::new(&rmg.ctx.device, &shader_stage, None, layout)?);
 
         Ok(Simulation {
-            sim_buffer: [
-                rmg.new_buffer::<SimObj>(OBJECT_COUNT, Some("SimBuffer 1"))?,
-                rmg.new_buffer::<SimObj>(OBJECT_COUNT, Some("SimBuffer 2"))?,
-            ],
-            current: 0,
+            sim_buffer: rmg.new_buffer::<SimObj>(OBJECT_COUNT, Some("SimBuffer 1"))?,
             is_init: false,
             pipeline,
             push,
         })
-    }
-
-    fn src_buffer(&self) -> &BufferHandle<SimObj> {
-        &self.sim_buffer[self.current % 2]
-    }
-
-    pub fn dst_buffer(&self) -> &BufferHandle<SimObj> {
-        &self.sim_buffer[(self.current + 1) % 2]
-    }
-
-    fn switch(&mut self) {
-        self.current = (self.current + 1) % 2;
     }
 
     fn dispatch_count() -> u32 {
@@ -83,15 +60,6 @@ impl Task for Simulation {
         "Simulation"
     }
 
-    fn post_execution(
-        &mut self,
-        _resources: &mut marpii_rmg::Resources,
-        _ctx: &marpii_rmg::CtxRmg,
-    ) -> Result<(), marpii_rmg::RecordError> {
-        self.switch();
-        Ok(())
-    }
-
     fn queue_flags(&self) -> vk::QueueFlags {
         vk::QueueFlags::COMPUTE
     }
@@ -101,10 +69,8 @@ impl Task for Simulation {
         resources: &mut marpii_rmg::Resources,
         _ctx: &marpii_rmg::CtxRmg,
     ) -> Result<(), marpii_rmg::RecordError> {
-        self.push.get_content_mut().sim_src_buffer =
-            resources.get_resource_handle(self.src_buffer().clone())?;
-        self.push.get_content_mut().sim_dst_buffer =
-            resources.get_resource_handle(self.dst_buffer().clone())?;
+        self.push.get_content_mut().sim_buffer =
+            resources.get_resource_handle(&self.sim_buffer)?;
         self.push.get_content_mut().is_init = self.is_init.into();
 
         if !self.is_init {
@@ -115,8 +81,7 @@ impl Task for Simulation {
     }
 
     fn register(&self, registry: &mut marpii_rmg::ResourceRegistry) {
-        registry.request_buffer(&self.dst_buffer());
-        registry.request_buffer(&self.src_buffer());
+        registry.request_buffer(&self.sim_buffer);
         registry.register_asset(self.pipeline.clone());
     }
 

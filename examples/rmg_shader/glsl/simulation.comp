@@ -9,11 +9,10 @@
 
 //push constants block
 layout( push_constant ) uniform constants{
-    ResHandle src;
-    ResHandle dst;
+    ResHandle sim;
     uint is_init;
     uint buf_size;
-    uvec2 pad;
+    uint pad;
 } Push;
 
 layout(set = 0, binding = 0) buffer SimObjects{
@@ -39,7 +38,7 @@ void main(){
 
   SimObject src;
   if (Push.is_init > 0){
-    src = global_buffers_objects[nonuniformEXT(get_index(Push.src))].objects[widx];
+    src = global_buffers_objects[nonuniformEXT(get_index(Push.sim))].objects[widx];
   }else{
 
     vec4 rand = vec4(
@@ -70,5 +69,5 @@ void main(){
     src.velocity.z *= -1.0;
   }
 
-  global_buffers_objects[nonuniformEXT(get_index(Push.dst))].objects[widx] = src;
+  global_buffers_objects[nonuniformEXT(get_index(Push.sim))].objects[widx] = src;
 }
