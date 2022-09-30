@@ -28,13 +28,13 @@
 //!
 
 use anyhow::Result;
+use camera_controller::Camera;
 use copy_buffer::CopyToGraphicsBuffer;
 use forward_pass::ForwardPass;
-use image::EncodableLayout;
-use marpii::resources::ImgDesc;
 use marpii::{ash::vk, context::Ctx};
-use marpii_rmg::tasks::{SwapchainBlit, UploadImage};
+use marpii_rmg::tasks::{SwapchainBlit, DynamicBuffer};
 use marpii_rmg::Rmg;
+use shared::Ubo;
 use simulation::Simulation;
 use winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
 use winit::window::Window;
@@ -47,8 +47,10 @@ mod forward_pass;
 mod gltf_loader;
 mod simulation;
 mod copy_buffer;
+mod model_loading;
+mod camera_controller;
 
-pub const OBJECT_COUNT: usize = 64;
+pub const OBJECT_COUNT: usize = 256;
 
 fn main() -> Result<(), anyhow::Error> {
     simple_logger::SimpleLogger::new()
@@ -58,29 +60,42 @@ fn main() -> Result<(), anyhow::Error> {
 
     let ev = winit::event_loop::EventLoop::new();
     let window = winit::window::Window::new(&ev).unwrap();
-
     let (context, surface) = Ctx::default_with_surface(&window, true)?;
-
     let mut rmg = Rmg::new(context, &surface)?;
 
+    let mut camera = Camera::default();
+    let mut ubo_update = DynamicBuffer::new(&mut rmg, &[camera.to_ubo(&window)])?;
     let mut simulation = Simulation::new(&mut rmg)?;
     let mut buffer_copy = CopyToGraphicsBuffer::new(&mut rmg, simulation.sim_buffer.clone())?;
-    let mut forward = ForwardPass::new(&mut rmg).unwrap();
+    let mut forward = ForwardPass::new(
+        &mut rmg,
+        ubo_update.buffer_handle().clone() //the ubo keeps the same every frame
+    ).unwrap();
     let mut swapchain_blit = SwapchainBlit::new();
 
     ev.run(move |ev, _, cf| {
         *cf = ControlFlow::Poll;
+
+        camera.on_event(&ev);
+
         match ev {
             Event::MainEventsCleared => window.request_redraw(),
             Event::RedrawRequested(_) => {
 
-                //set the *oldest* valid simulatio src for the forward pass
+                camera.tick();
+
+                //update camera
+                ubo_update.write(&[camera.to_ubo(&window)], 0).unwrap();
+
+                //set the *oldest* valid simulation src for the forward pass
                 forward.sim_src = Some(buffer_copy.last_buffer());
 
                 //setup src image and blit
                 swapchain_blit.next_blit(forward.color_image.clone());
 
                 rmg.record(window_extent(&window))
+                    .add_task(&mut ubo_update)
+                    .unwrap()
                     .add_task(&mut simulation)
                     .unwrap()
                     .add_task(&mut buffer_copy)
@@ -116,3 +131,4 @@ fn window_extent(window: &Window) -> vk::Extent2D {
         height: window.inner_size().height,
     }
 }
+

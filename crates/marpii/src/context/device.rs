@@ -161,12 +161,12 @@ impl DeviceBuilder {
     }
 }
 
-///Thin device abstraction that keeps the underlying instance (and therfore entrypoint) alive.
+///Thin device abstraction that keeps the underlying instance (and therefore entrypoint) alive.
 /// and takes care of device destruction once its dropped.
 ///
 /// # Safety and self creation
-/// Since the struct is compleatly public it is possible to create a device "on your own". In that case you'll have to make sure
-/// that the instance is assosiated with the device and the queues actually exist.
+/// Since the struct is completely public it is possible to create a device "on your own". In that case you'll have to make sure
+/// that the instance is associated with the device and the queues actually exist.
 pub struct Device {
     ///The raw ash device
     pub inner: ash::Device,

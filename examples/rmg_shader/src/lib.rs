@@ -11,8 +11,7 @@
 // HACK(eddyb) can't easily see warnings otherwise from `spirv-builder` builds.
 //#![deny(warnings)]
 
-use shared::{ForwardPush, SimPush};
-use spirv_std::glam::{Vec4, vec4, Vec3, Vec2};
+use spirv_std::glam::{Vec4, vec4};
 
 #[cfg(not(target_arch = "spirv"))]
 use spirv_std::macros::spirv;

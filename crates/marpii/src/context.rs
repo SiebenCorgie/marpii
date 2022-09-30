@@ -196,6 +196,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
                 b.features.shader_storage_image_array_dynamic_indexing = 1;
                 b.features.shader_uniform_buffer_array_dynamic_indexing = 1;
                 b.features.shader_sampled_image_array_dynamic_indexing = 1;
+                b.features.robust_buffer_access = 1;
             })
             .with_additional_feature(features12)
             .with_additional_feature(features13)

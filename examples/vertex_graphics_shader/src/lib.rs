@@ -14,8 +14,8 @@ use spirv_std::image::SampledImage;
 #[cfg(not(target_arch = "spirv"))]
 use spirv_std::macros::spirv;
 
-use spirv_std::glam::{const_vec3, vec4, Mat3, Mat4, Quat, Vec2, Vec3, Vec4, Vec4Swizzles};
-use spirv_std::{Image, RuntimeArray, Sampler};
+use spirv_std::glam::{const_vec3, Mat4, Quat, Vec2, Vec3, Vec4, Vec4Swizzles};
+use spirv_std::{Image, RuntimeArray,};
 
 pub const UNDEFINED_HANDLE: u32 = 0xff_ff_ff_ff;
 
@@ -39,7 +39,7 @@ pub fn main_fs(
     #[spirv(descriptor_set = 0, binding = 0)] sampled_images: &RuntimeArray<
         SampledImage<Image!(2D, type=f32, sampled)>,
     >,
-    #[spirv(descriptor_set = 1, binding = 0)] storage_images: &RuntimeArray<
+    #[spirv(descriptor_set = 1, binding = 0)] _storage_images: &RuntimeArray<
         Image!(2D, type=f32, sampled=false),
     >,
     //#[spirv(descriptor_set = 2, binding = 0)] storage_buffer: &mut RuntimeArray<u32>,

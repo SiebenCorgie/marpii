@@ -1,5 +1,5 @@
 use crate::{Rmg, RmgError, BufferHandle, Task};
-use marpii::{resources::Buffer, ash::vk};
+use marpii::{resources::{Buffer, BufDesc}, ash::vk};
 use std::sync::Arc;
 
 ///Uploads a number of elements of type `T`.
@@ -11,8 +11,15 @@ pub struct UploadBuffer<T: Copy + 'static>{
     src_buffer:  BufferHandle<T>,
 }
 
-impl<T: Copy + 'static> UploadBuffer<T> {
+impl<T:Copy + 'static> UploadBuffer<T> {
+
+    ///Creates a new storage buffer for the given data. If the buffer needs to be configured, for instance
+    /// as vertex buffer, use [new_with_buffer](Self::new_with_buffer).
     pub fn new<'src>(rmg: &mut Rmg, data: &'src [T]) -> Result<Self, RmgError>{
+        Self::new_with_buffer(rmg, data, BufDesc::storage_buffer::<T>(data.len()))
+    }
+
+    pub fn new_with_buffer<'src>(rmg: &mut Rmg, data: &'src [T], mut desc: BufDesc) -> Result<Self, RmgError>{
 
         let staging = Buffer::new_staging_for_data(
             &rmg.ctx.device,
@@ -21,9 +28,16 @@ impl<T: Copy + 'static> UploadBuffer<T> {
             data
         )?;
 
-        let staging = rmg.res.add_buffer(Arc::new(staging))?;
+        staging.flush_range();
 
-        let dst_buffer = rmg.new_buffer(data.len(), None)?;
+        if !desc.usage.contains(vk::BufferUsageFlags::TRANSFER_DST){
+            #[cfg(feature="logging")]
+            log::warn!("Upload buffer had TRANSEFER_DST not set, adding to usage...");
+            desc.usage |= vk::BufferUsageFlags::TRANSFER_DST;
+        }
+
+        let staging = rmg.import_buffer(Arc::new(staging), None, None)?;
+        let dst_buffer = rmg.new_buffer_uninitialized(desc, None)?;
 
         Ok(UploadBuffer { buffer: dst_buffer, src_buffer: staging })
     }
@@ -37,7 +51,7 @@ impl<T: Copy + 'static> Task for UploadBuffer<T>{
 
     fn register(&self, registry: &mut crate::ResourceRegistry) {
         registry.request_buffer(&self.buffer);
-        registry.request_buffer(&self.src_buffer);
+        registry.request_buffer(&self.src_buffer)
     }
 
     fn queue_flags(&self) -> marpii::ash::vk::QueueFlags {

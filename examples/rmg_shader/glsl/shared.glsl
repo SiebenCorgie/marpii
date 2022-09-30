@@ -13,7 +13,7 @@ uint get_index(ResHandle res){
 }
 
 struct ForwardPush{
-  ResHandle buf;
-  uint buffer_size;
+  ResHandle ubo;
+  ResHandle sim;
   uvec2 pad;
 };

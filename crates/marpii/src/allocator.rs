@@ -13,7 +13,7 @@ mod gpu_allocator;
 mod unallocated;
 use std::{ffi::c_void, ptr::NonNull};
 
-use ash::vk::MappedMemoryRange;
+use ash::vk::{MappedMemoryRange, self};
 pub use unallocated::{UnamanagedAllocationError, UnmanagedAllocation, UnmanagedAllocator};
 
 use crate::context::Device;
@@ -35,6 +35,8 @@ pub trait AnonymAllocation {
     fn as_slice_ref(&self) -> Option<&[u8]>;
     ///Returns the memory as host read/write-able slice, or none if this is not possible.
     fn as_slice_mut(&mut self) -> Option<&mut [u8]>;
+    ///Returns the memory properties of the allocation
+    fn memory_properties(&self) -> Option<vk::MemoryPropertyFlags>;
 }
 
 impl<A: Allocator + Send + Sync + 'static> AnonymAllocation for ManagedAllocation<A> {
@@ -59,6 +61,14 @@ impl<A: Allocator + Send + Sync + 'static> AnonymAllocation for ManagedAllocatio
     fn as_slice_mut(&mut self) -> Option<&mut [u8]> {
         if let Some(alloc) = &mut self.allocation {
             alloc.as_slice_mut()
+        } else {
+            None
+        }
+    }
+
+    fn memory_properties(&self) -> Option<vk::MemoryPropertyFlags> {
+        if let Some(alloc) = &self.allocation {
+            Some(alloc.memory_properties())
         } else {
             None
         }
@@ -117,6 +127,8 @@ pub trait Allocation {
     fn as_slice_ref(&self) -> Option<&[u8]>;
     ///Returns the memory as host read/write-able slice, or none if this is not possible.
     fn as_slice_mut(&mut self) -> Option<&mut [u8]>;
+    ///Returns the memory properties of the allocation
+    fn memory_properties(&self) -> vk::MemoryPropertyFlags;
 }
 
 ///Trait that can be implemented by anything that can handle allocation for a initialized [ash::Device](ash::Device).

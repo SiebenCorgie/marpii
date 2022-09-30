@@ -1,6 +1,6 @@
 use std::{
     hash::{Hash, Hasher},
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex}, mem::size_of,
 };
 
 use crate::{
@@ -23,32 +23,48 @@ pub enum BufferMapError {
 }
 
 pub struct BufDesc {
-    pub size: ash::vk::DeviceSize,
-    pub usage: ash::vk::BufferUsageFlags,
-    pub sharing: super::SharingMode,
+    pub size: vk::DeviceSize,
+    pub usage: vk::BufferUsageFlags,
+    pub sharing: SharingMode,
 }
 
 impl BufDesc {
     pub fn set_on_builder<'a>(
         &'a self,
-        mut builder: ash::vk::BufferCreateInfoBuilder<'a>,
-    ) -> ash::vk::BufferCreateInfoBuilder<'a> {
+        mut builder: vk::BufferCreateInfoBuilder<'a>,
+    ) -> vk::BufferCreateInfoBuilder<'a> {
         builder = builder.size(self.size).usage(self.usage);
 
         match &self.sharing {
             super::SharingMode::Exclusive => {
-                builder = builder.sharing_mode(ash::vk::SharingMode::EXCLUSIVE)
+                builder = builder.sharing_mode(vk::SharingMode::EXCLUSIVE)
             }
             super::SharingMode::Concurrent {
                 queue_family_indices,
             } => {
                 builder = builder
-                    .sharing_mode(ash::vk::SharingMode::CONCURRENT)
+                    .sharing_mode(vk::SharingMode::CONCURRENT)
                     .queue_family_indices(queue_family_indices)
             }
         }
 
         builder
+    }
+
+    pub fn with(mut self, op: impl FnOnce(&mut Self)) -> Self{
+        op(&mut self);
+        self
+    }
+
+    ///Creates a buffer description that could hold `size` elements of type `T`. Note that no usage is set.
+    pub fn for_data<T: 'static>(size: usize) -> Self{
+        let size = (core::mem::size_of::<T>() * size) as u64;
+        BufDesc { size, usage: vk::BufferUsageFlags::empty(), sharing: SharingMode::Exclusive }
+    }
+
+    ///Creates a storage buffer description that could hold `size` elements of type `T`
+    pub fn storage_buffer<T: 'static>(size: usize) -> Self{
+        Self::for_data::<T>(size).with(|b| b.usage = vk::BufferUsageFlags::STORAGE_BUFFER)
     }
 }
 
@@ -125,7 +141,7 @@ impl Buffer {
         })
     }
 
-    ///A staging buffer is a host visible, mapable buffer. Those are usually used to either copy data (from them) to the GPU, or from the GPU back to
+    ///A staging buffer is a host visible, mappable buffer. Those are usually used to either copy data (from them) to the GPU, or from the GPU back to
     /// the staging buffer to read the data.
     ///
     /// Buffers created by this function are initalized to `data` and can be used as transfer source and destination. Have a look at the code for more information.
@@ -138,20 +154,16 @@ impl Buffer {
         //TODO:  Do we need alignment padding? But usually we can start at 0 can't we?
         //FIXME: Check that out. Until now it worked... If it didn't also fix the upload helper passes.
         let buffer_size = core::mem::size_of::<T>() * data.len();
-        //TODO: related to above: we go to the next atom for now
-        let buffer_size =
-            device.offset_to_next_higher_coherent_atom_size(buffer_size as DeviceSize);
 
         //build the buffer description, as well as the staging buffer. Map data to staging buffer, then upload
         let desc = BufDesc {
             sharing: SharingMode::Exclusive,
-            size: buffer_size,
+            size: buffer_size as DeviceSize,
             usage: vk::BufferUsageFlags::TRANSFER_SRC | vk::BufferUsageFlags::TRANSFER_DST, //make sure copy works
         };
 
         let mut buffer = Buffer::new(device, allocator, desc, MemoryUsage::CpuToGpu, name, None)?;
         //write data to transfer buffer
-        let data: &[u8] = unsafe { core::mem::transmute::<_, _>(data) };
         buffer.write(0, data)?;
         //Make sure the data is written
         buffer.flush_range();
@@ -164,19 +176,23 @@ impl Buffer {
     ///
     ///If the buffer is not mapable by the host (usually if the buffer us created with MemoryUsage::GpuOnly) nothing is
     /// written and an error is returned.
-    pub fn write(&mut self, offset: usize, data: &[u8]) -> Result<(), BufferMapError> {
+    pub fn write<T: Copy + Sized + 'static>(
+        &mut self,
+        offset: usize,
+        data: &[T],
+    ) -> Result<(), BufferMapError> {
         //Check that we have a chance for mapping
         match &self.usage {
             MemoryUsage::GpuOnly | MemoryUsage::Unknown => {
                 #[cfg(feature = "logging")]
-                log::error!("Tried to map buffer that has usage: {:?}", self.usage);
+                log::error!("Tried to map buffe that has usage: {:?}", self.usage);
                 return Err(BufferMapError::NotMapable);
             }
             _ => {}
         }
 
         //Test region of write and shrink if necessary
-        let write_size = if (offset + data.len()) > (self.desc.size as usize) {
+        let write_size = if (offset + (data.len() * size_of::<T>())) > (self.desc.size as usize) {
             //edge case where the offset is too big, in that case the subtraction below would underflow
             if offset > (self.desc.size as usize) {
                 #[cfg(feature = "logging")]
@@ -190,19 +206,27 @@ impl Buffer {
 
             (self.desc.size as usize) - offset
         } else {
-            data.len()
+            data.len() * size_of::<T>()
         };
 
         //since we sanitized the write, try to map the pointer and write the actual slice
-        if let Some(ptr) = self.allocation.as_slice_mut() {
+        if let Some(mut ptr) = self.allocation.mapped_ptr() {
             #[cfg(feature = "logging")]
             log::info!("writing to mapped buffer[{:?}] of size {} with offset={}, data_size={}, write_size={}", self.inner, self.desc.size, offset, data.len(), write_size);
-            ptr[0..write_size].copy_from_slice(data);
+
+            unsafe {
+                ash::util::Align::new(
+                    ptr.as_mut(),
+                    std::mem::align_of::<T>() as u64,
+                    write_size as u64,
+                )
+                .copy_from_slice(data);
+            }
         } else {
             return Err(BufferMapError::NotMapable);
         }
 
-        if write_size < data.len() {
+        if write_size < (data.len() * size_of::<T>()) {
             Err(BufferMapError::PartialyWritten {
                 written: write_size,
                 size: data.len(),
@@ -223,16 +247,16 @@ impl Buffer {
             _ => {}
         }
 
-        let range = self.allocation.as_memory_range().unwrap();
-        /*
-            //update range's offer and size to be in Device limits
-            range.offset = self
-                .device
-                .offset_to_next_lower_coherent_atom_size(range.offset);
-            range.size = self
-                .device
-                .offset_to_next_higher_coherent_atom_size(range.size);
-        */
+        let mut range = self.allocation.as_memory_range().unwrap();
+
+        //update range's offet and size to be in Device limits
+        range.offset = self
+            .device
+            .offset_to_next_lower_coherent_atom_size(range.offset);
+        range.size = self
+            .device
+            .offset_to_next_higher_coherent_atom_size(range.size);
+
         unsafe {
             if let Err(e) = self.device.inner.flush_mapped_memory_ranges(&[range]) {
                 #[cfg(feature = "logging")]
@@ -241,6 +265,7 @@ impl Buffer {
             }
         }
     }
+
 
     ///Returns (if possible) a reference to the buffers data. Note that the data might be aligned, or not even be of one type. Turning this data into actual types should probably be implemented
     /// by whoever knows the actual data layout.

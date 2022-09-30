@@ -42,16 +42,16 @@ void main(){
   }else{
 
     vec4 rand = vec4(
-                     rand(vec2(uvec2(widx, widx))),
-                     rand(vec2(uvec2(widx+1, widx+1))),
-                     rand(vec2(uvec2(widx+1, widx+1))),
-                     rand(vec2(uvec2(widx+1, widx+1)))
+                     rand(vec2(uvec2(widx * 13, widx * 13))),
+                     rand(vec2(uvec2(widx * 17, widx * 17))),
+                     rand(vec2(uvec2(widx * 23, widx * 23))),
+                     rand(vec2(uvec2(widx * 27, widx * 27)))
                      );
 
     //Init to some random location and velocity
     src = SimObject(
                     rand.xyzw,
-                    rand.wzyx
+                    rand.wzyx / 100.0
                     );
   }
 

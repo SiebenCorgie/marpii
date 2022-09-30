@@ -168,7 +168,6 @@ pub use resources::{
     ResourceError, Resources,
     handle::{BufferHandle, ImageHandle, SamplerHandle}
 };
-
 mod recorder;
 pub use recorder::{
     Recorder,

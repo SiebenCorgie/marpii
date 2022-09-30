@@ -354,7 +354,7 @@ impl Resources {
         //Safety: expect is ok since we controll handle creation, and based on that resource
         //        destruction. In theory it is not possible to own a handle to an destroyed
         //        resource.
-        self.buffer.get(hdl.key).as_ref().expect("Used invalid BufferHandle")
+        self.buffer.get(hdl.key).as_ref().expect(&format!("Used invalid BufferHandle {:?}", hdl.key))
     }
     ///Returns the current state of the given sampler.
     ///

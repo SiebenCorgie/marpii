@@ -12,6 +12,12 @@ pub struct ImageHandle {
     pub(crate) imgref: Arc<Image>,
 }
 
+impl Debug for ImageHandle{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "ImageHandle({:?})", self.key)
+    }
+}
+
 #[derive(Clone)]
 pub struct BufferHandle<T: 'static> {
     //reference to the key. The arc signals the garbage collector when we
@@ -21,12 +27,24 @@ pub struct BufferHandle<T: 'static> {
     pub(crate) data_type: PhantomData<T>,
 }
 
+impl<T: 'static> Debug for BufferHandle<T>{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "BufferHandle({:?})", self.key)
+    }
+}
+
 #[derive(Clone)]
 pub struct SamplerHandle {
     //reference to the key. The arc signals the garbage collector when we
     // dropped
     pub(crate) key: SamplerKey,
     pub(crate) samref: Arc<Sampler>
+}
+
+impl Debug for SamplerHandle{
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SamplerHandle({:?})", self.key)
+    }
 }
 
 pub struct AnyHandle{

@@ -115,7 +115,11 @@ fn main() {
         "resources/simulation.spv",
     );
     build_glsl(
-        "examples/rmg_shader/glsl/forward_test.comp",
-        "resources/forward_test.spv",
+        "examples/rmg_shader/glsl/forward.vert",
+        "resources/forward_vs.spv",
+    );
+    build_glsl(
+        "examples/rmg_shader/glsl/forward.frag",
+        "resources/forward_fs.spv",
     );
 }

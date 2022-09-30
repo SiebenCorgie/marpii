@@ -257,9 +257,9 @@ impl<'rmg> Executor<'rmg> {
             let queue_family = rmg.trackid_to_queue_idx(track);
             let queue = rmg
                 .ctx
-                .device
-                .get_first_queue_for_family(queue_family)
+                .device.get_first_queue_for_family(queue_family)
                 .unwrap();
+            assert!(queue.family_index == queue_family);
 
             rmg.ctx.device.inner.queue_submit2(
                 *queue.inner(),
@@ -441,9 +441,6 @@ impl<'rmg> Executor<'rmg> {
                 .append_foreign_signal_semaphores(&mut signal_semaphore);
         }
 
-        #[cfg(feature = "logging")]
-        log::trace!("Signal info: {:?}", signal_semaphore);
-
         //finally, when finished recording, execute by
         unsafe {
             rmg.ctx.device.inner.end_command_buffer(cb.inner)?;
@@ -454,6 +451,13 @@ impl<'rmg> Executor<'rmg> {
                 .device
                 .get_first_queue_for_family(queue_family)
                 .unwrap();
+
+
+            #[cfg(feature = "logging")]
+            log::trace!("Signal info: {:?}\nFamily: {}, index: {}", signal_semaphore, queue.family_index, 0);
+
+
+            assert!(queue.family_index == queue_family);
 
             rmg.ctx.device.inner.queue_submit2(
                 *queue.inner(),

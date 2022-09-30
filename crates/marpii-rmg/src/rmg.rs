@@ -52,16 +52,16 @@ impl Rmg {
         // We then create the swapchain. It is used for image presentation and the start/end point for frame scheduling.
 
         //TODO: make the iterator return an error. Currently if track creation fails, everything fails
-        let tracks = context.device.queues.iter().enumerate().fold(
+        let tracks = context.device.queues.iter().fold(
             FxHashMap::default(),
-            |mut set: FxHashMap<TrackId, Track>, (idx, q)| {
+            |mut set: FxHashMap<TrackId, Track>, q| {
                 #[cfg(feature = "logging")]
                 log::info!("QueueType: {:#?}", q.properties.queue_flags);
                 //Make sure to only add queue, if we don't have a queue with those capabilities yet.
                 if !set.contains_key(&TrackId(q.properties.queue_flags)) {
                     set.insert(
                         TrackId(q.properties.queue_flags),
-                        Track::new(&context.device, idx as u32, q.properties.queue_flags),
+                        Track::new(&context.device, q.family_index, q.properties.queue_flags),
                     );
                 }
 

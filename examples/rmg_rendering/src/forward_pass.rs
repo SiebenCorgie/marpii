@@ -2,13 +2,14 @@ use marpii::{
     allocator::MemoryUsage,
     ash::vk,
     context::Device,
-    resources::{Image, ImgDesc, PushConstant, ShaderModule, PipelineLayout, ShaderStage, GraphicsPipeline, ImageType}, util::OoS,
+    resources::{Image, ImgDesc, PushConstant, ShaderModule, PipelineLayout, ShaderStage, GraphicsPipeline, ImageType, BufDesc}, util::OoS, offset_of,
 };
-use marpii_rmg::{CtxRmg, ResourceRegistry, Resources, Rmg, RmgError, Task, BufferHandle, ImageHandle};
-use shared::{ResourceHandle, SimObj};
+use marpii_rmg::{CtxRmg, ResourceRegistry, Resources, Rmg, RmgError, Task, BufferHandle, ImageHandle, tasks::UploadBuffer};
+use shared::{ResourceHandle, SimObj, Vertex, Ubo};
 use std::sync::Arc;
 
-use crate::OBJECT_COUNT;
+use crate::{OBJECT_COUNT, model_loading::load_model};
+
 
 pub struct ForwardPass {
     //    attdesc: AttachmentDescription,
@@ -22,20 +23,60 @@ pub struct ForwardPass {
 
     pipeline: Arc<GraphicsPipeline>,
     push: PushConstant<shared::ForwardPush>,
+
+    ///VertexBuffer we are using to draw objects
+    vertex_buffer: BufferHandle<Vertex>,
+    index_buffer: BufferHandle<u32>,
+    index_buffer_size: u32,
+
+    //Camera data used
+    ubo_buffer: BufferHandle<Ubo>,
 }
 
 
 impl ForwardPass {
-    pub fn new(rmg: &mut Rmg) -> Result<Self, RmgError> {
-        println!("Setup Forward");
+    pub fn new(rmg: &mut Rmg, ubo: BufferHandle<Ubo>) -> Result<Self, RmgError> {
+
         let push = PushConstant::new(
             shared::ForwardPush {
-                buf: ResourceHandle::new(0, 0),
-                buffer_size: OBJECT_COUNT as u32,
-                pad: [0; 2],
+                ubo: ResourceHandle::new(0, 0),
+                sim: ResourceHandle::new(0, 0),
+                pad: [0u32; 2]
             },
             vk::ShaderStageFlags::COMPUTE,
         );
+
+
+        let (vertex_buffer_data, index_buffer_data) = load_model();
+
+        println!("{:?}", index_buffer_data);
+
+        let index_buffer_size = index_buffer_data.len() as u32;
+
+        let mut ver_upload = UploadBuffer::new_with_buffer(
+            rmg,
+            &vertex_buffer_data,
+            BufDesc::for_data::<Vertex>(vertex_buffer_data.len())
+                .with(|b| b.usage = vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::TRANSFER_DST |vk::BufferUsageFlags::VERTEX_BUFFER)
+        )?;
+        let mut ind_upload = UploadBuffer::new_with_buffer(
+            rmg,
+            &index_buffer_data,
+            BufDesc::for_data::<u32>(index_buffer_data.len())
+                .with(|b| b.usage = vk::BufferUsageFlags::STORAGE_BUFFER | vk::BufferUsageFlags::TRANSFER_DST |vk::BufferUsageFlags::INDEX_BUFFER)
+        )?;
+        rmg.record(vk::Extent2D { width: 1, height: 1 })
+            .add_task(&mut ver_upload)
+            .unwrap()
+            .add_task(&mut ind_upload)
+            .unwrap()
+            .execute()?;
+
+        let vertex_buffer = ver_upload.buffer;
+        let index_buffer = ind_upload.buffer;
+
+        println!("VertexBuffer as {:?} ", vertex_buffer);
+        println!("IndexBuffer as {:?} ", index_buffer);
 
         let color_format = rmg
             .ctx
@@ -88,20 +129,25 @@ impl ForwardPass {
         //No additional descriptors for us
         let layout = rmg.resources().bindless_pipeline_layout(&[]);
 
-        let shader_module = Arc::new(
-            ShaderModule::new_from_file(&rmg.ctx.device, "resources/rmg_shader.spv")
+        let shader_module_vert = Arc::new(
+            ShaderModule::new_from_file(&rmg.ctx.device, "resources/forward_vs.spv")
+                .unwrap(),
+        );
+
+        let shader_module_frag = Arc::new(
+            ShaderModule::new_from_file(&rmg.ctx.device, "resources/forward_fs.spv")
                 .unwrap(),
         );
         let vertex_shader_stage = ShaderStage::from_shared_module(
-            shader_module.clone(),
+            shader_module_vert.clone(),
             vk::ShaderStageFlags::VERTEX,
-            "main_vs".to_owned(),
+            "main".to_owned(),
         );
 
         let fragment_shader_stage = ShaderStage::from_shared_module(
-            shader_module.clone(),
+            shader_module_frag.clone(),
             vk::ShaderStageFlags::FRAGMENT,
-            "main_fs".to_owned(),
+            "main".to_owned(),
         );
 
         let pipeline = Arc::new(Self::forward_pipeline(
@@ -121,6 +167,11 @@ impl ForwardPass {
 
             pipeline,
             push,
+
+            index_buffer,
+            index_buffer_size,
+            vertex_buffer,
+            ubo_buffer: ubo,
         })
     }
 
@@ -177,8 +228,7 @@ impl ForwardPass {
             .viewport_count(1)
             .scissor_count(1);
 
-        /*
-        let vertex_binding_desc = vk::VertexInputBindingDescription::builder();
+        let vertex_binding_desc = vk::VertexInputBindingDescription::builder()
             .binding(0)
             .stride(core::mem::size_of::<shared::Vertex>() as u32)
             .input_rate(vk::VertexInputRate::VERTEX);
@@ -197,7 +247,7 @@ impl ForwardPass {
                 .format(vk::Format::R32G32B32_SFLOAT)
                 .offset(offset_of!(shared::Vertex, normal) as u32)
                 .build(),
-            //Description of the tangent attribute
+            //Description of the uv attribute
             vk::VertexInputAttributeDescription::builder()
                 .location(2)
                 .binding(0)
@@ -209,13 +259,7 @@ impl ForwardPass {
         let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder()
             .vertex_binding_descriptions(core::slice::from_ref(&vertex_binding_desc))
             .vertex_attribute_descriptions(&vertex_attrib_desc);
-        */
 
-        let vertex_input_state = vk::PipelineVertexInputStateCreateInfo {
-            vertex_attribute_description_count: 0,
-            vertex_binding_description_count: 0,
-            ..Default::default()
-        };
         let create_info = vk::GraphicsPipelineCreateInfo::builder()
             .color_blend_state(&color_blend_state)
             .depth_stencil_state(&depth_stencil_state)
@@ -288,6 +332,9 @@ impl Task for ForwardPass {
         }
         registry.request_image(&self.color_image);
         registry.request_image(&self.depth_image);
+        registry.request_buffer(&self.vertex_buffer);
+        registry.request_buffer(&self.index_buffer);
+        registry.request_buffer(&self.ubo_buffer);
         registry.register_asset(self.pipeline.clone());
     }
 
@@ -308,7 +355,8 @@ impl Task for ForwardPass {
             self.flip_target_buffer(resources, ctx)?;
         }
 
-        self.push.get_content_mut().buf = resources.get_resource_handle(self.sim_src.as_ref().unwrap())?;
+        self.push.get_content_mut().ubo = resources.get_resource_handle(&self.ubo_buffer)?;
+        self.push.get_content_mut().sim = resources.get_resource_handle(self.sim_src.as_ref().unwrap())?;
         Ok(())
     }
 
@@ -327,6 +375,11 @@ impl Task for ForwardPass {
         resources: &Resources,
     ) {
 
+        if self.sim_src.is_none(){
+            println!("No simulation buffer!");
+            return;
+        }
+
         //1. transform attachment images
         //2. Schedule draw op
         //3. transform attachments back
@@ -341,37 +394,40 @@ impl Task for ForwardPass {
             (img_access.mask, img_access.layout, img_access.image.clone(), img_access.view.clone() )
         };
 
+        let vertex_buffer_access = resources.get_buffer_state(&self.vertex_buffer);
+        let index_buffer_access = resources.get_buffer_state(&self.index_buffer);
+
 
         let viewport = colorimg.image_region().as_viewport();
         let scissors = colorimg.image_region().as_rect_2d();
         let depth_attachment = vk::RenderingAttachmentInfo::builder()
-                .clear_value(vk::ClearValue {
-                    depth_stencil: vk::ClearDepthStencilValue {
-                        depth: 1.0,
-                        stencil: 0,
-                    },
-                })
-                .image_layout(vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL)
-                .image_view(depthview.view)
-                .load_op(vk::AttachmentLoadOp::CLEAR)
-                .store_op(vk::AttachmentStoreOp::STORE);
+            .clear_value(vk::ClearValue {
+                depth_stencil: vk::ClearDepthStencilValue {
+                    depth: 1.0,
+                    stencil: 0,
+                },
+            })
+            .image_layout(vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL)
+            .image_view(depthview.view)
+            .load_op(vk::AttachmentLoadOp::CLEAR)
+            .store_op(vk::AttachmentStoreOp::STORE);
 
-            let color_attachments = vk::RenderingAttachmentInfo::builder()
-                .clear_value(vk::ClearValue {
-                    color: vk::ClearColorValue {
-                        float32: [0.1, 0.2, 0.4, 1.0],
-                    },
-                })
-                .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
-                .image_view(colorview.view)
-                .load_op(vk::AttachmentLoadOp::CLEAR)
-                .store_op(vk::AttachmentStoreOp::STORE);
+        let color_attachments = vk::RenderingAttachmentInfo::builder()
+            .clear_value(vk::ClearValue {
+                color: vk::ClearColorValue {
+                    float32: [0.1, 0.2, 0.4, 1.0],
+                },
+            })
+            .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+            .image_view(colorview.view)
+            .load_op(vk::AttachmentLoadOp::CLEAR)
+            .store_op(vk::AttachmentStoreOp::STORE);
 
-            let render_info = vk::RenderingInfo::builder()
-                .depth_attachment(&depth_attachment)
-                .render_area(scissors)
-                .layer_count(1)
-                .color_attachments(core::slice::from_ref(&color_attachments));
+        let render_info = vk::RenderingInfo::builder()
+            .depth_attachment(&depth_attachment)
+            .render_area(scissors)
+            .layer_count(1)
+            .color_attachments(core::slice::from_ref(&color_attachments));
 
         unsafe {
             device.inner.cmd_pipeline_barrier2(
@@ -419,7 +475,22 @@ impl Task for ForwardPass {
             device.inner.cmd_set_viewport(*command_buffer, 0, &[viewport]);
             device.inner.cmd_set_scissor(*command_buffer, 0, &[scissors]);
 
-            device.inner.cmd_draw(*command_buffer, 3, OBJECT_COUNT as u32, 0, 0);
+            device.inner.cmd_bind_vertex_buffers(
+                *command_buffer,
+                0,
+                &[vertex_buffer_access.buffer.inner],
+                &[0],
+            );
+
+
+            device.inner.cmd_bind_index_buffer(
+                *command_buffer,
+                index_buffer_access.buffer.inner,
+                0,
+                vk::IndexType::UINT32
+            );
+
+            device.inner.cmd_draw_indexed(*command_buffer, self.index_buffer_size, OBJECT_COUNT as u32, 0, 0, 0);
 
             device.inner.cmd_end_rendering(*command_buffer);
 

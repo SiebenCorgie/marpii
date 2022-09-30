@@ -1,6 +1,6 @@
 use crate::{Rmg, RmgError, BufferHandle, Task};
 use marpii::{resources::{Buffer, BufferMapError}, ash::vk};
-use std::{sync::Arc, mem::transmute};
+use std::sync::Arc;
 
 ///Represents one of the implemented upload strategies.
 #[allow(dead_code)]
@@ -50,10 +50,18 @@ impl<T: Copy + 'static> DynamicBuffer<T>{
         // located.
         // TODO: since we can't currently get the heap type of an allocation this is not yet possible.
         let mappable_buffer = Buffer::new_staging_for_data(&rmg.ctx.device, &rmg.ctx.allocator, None, &initial_data)?;
-        let gpu_local = rmg.new_buffer(initial_data.len(), None)?;
-
-        let strategy = UploadStrategy::Copy { cpu_local: mappable_buffer, gpu_local };
-
+        let strategy = {
+                let gpu_local = rmg.new_buffer(initial_data.len(), None)?;
+                UploadStrategy::Copy { cpu_local: mappable_buffer, gpu_local }
+            /*
+            if mappable_buffer.allocation.memory_properties().unwrap().contains(vk::MemoryPropertyFlags::DEVICE_LOCAL){
+                UploadStrategy::DMA { buffer: rmg.import_buffer(Arc::new(mappable_buffer), None, None)? }
+            }else{
+                let gpu_local = rmg.new_buffer(initial_data.len(), None)?;
+                UploadStrategy::Copy { cpu_local: mappable_buffer, gpu_local }
+            }
+            */
+        };
 
         Ok(DynamicBuffer {
             strategy,
@@ -69,7 +77,7 @@ impl<T: Copy + 'static> DynamicBuffer<T>{
             UploadStrategy::Copy { cpu_local, gpu_local: _ } => cpu_local,
             UploadStrategy::DMA { buffer: _ } => {
                 #[cfg(feature="logging")]
-                log::error!("DMA based dynamic buffer not implemented!");
+                log::error!("DMA not yet implemented!");
                 return Err(0);
             }
         };
@@ -78,11 +86,12 @@ impl<T: Copy + 'static> DynamicBuffer<T>{
         let access_num_elements = write_buffer_access.desc.size as usize/ size_of_element;
         let num_write_elements = data.len().min(access_num_elements.checked_sub(offset_elements).unwrap_or(0));
 
+        println!("Updating {}..{} / {}", offset_elements, offset_elements + data.len(), access_num_elements);
+
         if num_write_elements == 0{
             return Err(0);
         }
 
-        let data = unsafe{transmute::<_, _>(data)};
         self.has_changed = true;
         if let Err(e) = write_buffer_access.write(size_of_element * offset_elements, data){
             match e{
@@ -90,10 +99,19 @@ impl<T: Copy + 'static> DynamicBuffer<T>{
                 BufferMapError::PartialyWritten { written, size: _ } => return Err(written / size_of_element)
             }
         }
+        write_buffer_access.flush_range();
 
 
 
         Ok(())
+    }
+
+    ///Returns the buffer handle to the device local, dynamically updated buffer
+    pub fn buffer_handle(&self) -> &BufferHandle<T>{
+        match &self.strategy {
+            UploadStrategy::Copy { cpu_local: _, gpu_local } => gpu_local,
+            UploadStrategy::DMA { buffer } => buffer
+        }
     }
 }
 
@@ -144,6 +162,8 @@ impl<T: Copy + 'static> Task for DynamicBuffer<T>{
                         ])
                 );
             }
+        }else{
+            panic!("DMA not implemented!")
         }
 
         self.has_changed = false;

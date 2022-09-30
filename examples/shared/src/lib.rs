@@ -17,7 +17,7 @@ pub struct SimObj {
 }
 
 
-#[cfg_attr(not(target_arch = "spirv"), derive(Debug))]
+#[cfg_attr(not(target_arch = "spirv"), derive(Debug, Clone, Copy))]
 #[repr(C)]
 pub struct Vertex {
     pub position: [f32; 3],
@@ -36,7 +36,15 @@ pub struct SimPush {
 #[cfg_attr(not(target_arch = "spirv"), derive(Debug))]
 #[repr(C)]
 pub struct ForwardPush {
-    pub buf: ResourceHandle, //src we get our location data from
-    pub buffer_size: u32,
-    pub pad: [u32; 2],
+    pub ubo: ResourceHandle,
+    pub sim: ResourceHandle,
+    pub pad: [u32; 2]
+}
+
+
+#[cfg_attr(not(target_arch = "spirv"), derive(Debug, Clone, Copy))]
+#[repr(C)]
+pub struct Ubo {
+    pub model_view: [[f32; 4]; 4],
+    pub perspective: [[f32; 4]; 4]
 }
