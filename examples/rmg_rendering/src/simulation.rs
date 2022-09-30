@@ -22,7 +22,6 @@ impl Simulation {
     pub const SUBGROUP_COUNT: u32 = 64;
 
     pub fn new(rmg: &mut Rmg) -> Result<Self, RmgError> {
-        println!("Setup Simulation");
         let push = PushConstant::new(
             shared::SimPush {
                 sim_buffer: shared::ResourceHandle::new(

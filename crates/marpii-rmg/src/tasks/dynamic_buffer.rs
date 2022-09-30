@@ -96,13 +96,6 @@ impl<T: Copy + 'static> DynamicBuffer<T> {
                 .unwrap_or(0),
         );
 
-        println!(
-            "Updating {}..{} / {}",
-            offset_elements,
-            offset_elements + data.len(),
-            access_num_elements
-        );
-
         if num_write_elements == 0 {
             return Err(0);
         }

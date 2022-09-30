@@ -87,7 +87,6 @@ impl Camera {
         }
         //now add world space offset
         self.location += self.rotation.mul_vec3(self.velocity) * delta;
-        println!("{}", self.location);
     }
 
     pub fn to_ubo(&self, window: &Window) -> Ubo {

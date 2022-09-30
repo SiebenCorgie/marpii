@@ -52,8 +52,6 @@ impl ForwardPass {
 
         let (vertex_buffer_data, index_buffer_data) = load_model();
 
-        println!("{:?}", index_buffer_data);
-
         let index_buffer_size = index_buffer_data.len() as u32;
 
         let mut ver_upload = UploadBuffer::new_with_buffer(
@@ -86,9 +84,6 @@ impl ForwardPass {
 
         let vertex_buffer = ver_upload.buffer;
         let index_buffer = ind_upload.buffer;
-
-        println!("VertexBuffer as {:?} ", vertex_buffer);
-        println!("IndexBuffer as {:?} ", index_buffer);
 
         let color_format = rmg
             .ctx
@@ -299,10 +294,6 @@ impl ForwardPass {
         resources: &mut Resources,
         ctx: &CtxRmg,
     ) -> Result<(), marpii_rmg::RecordError> {
-        println!(
-            "Renewing target image for -> {:?}!",
-            resources.get_surface_extent()
-        );
         let color_format = resources.get_image_desc(&self.color_image).format;
         let depth_format = resources.get_image_desc(&self.depth_image).format;
 
@@ -380,14 +371,6 @@ impl Task for ForwardPass {
         Ok(())
     }
 
-    fn post_execution(
-        &mut self,
-        resources: &mut Resources,
-        ctx: &CtxRmg,
-    ) -> Result<(), marpii_rmg::RecordError> {
-        self.flip_target_buffer(resources, ctx)
-    }
-
     fn record(
         &mut self,
         device: &Arc<Device>,
@@ -395,7 +378,6 @@ impl Task for ForwardPass {
         resources: &Resources,
     ) {
         if self.sim_src.is_none() {
-            println!("No simulation buffer!");
             return;
         }
 

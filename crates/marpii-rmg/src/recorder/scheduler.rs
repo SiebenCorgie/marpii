@@ -334,6 +334,7 @@ impl<'rmg> Schedule<'rmg> {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn print_schedule(&self) {
         println!("Schedule");
         println!("    Submission: {:?}\n", self.submission_order);

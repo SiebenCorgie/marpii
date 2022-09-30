@@ -66,7 +66,7 @@ impl<'rmg> Recorder<'rmg> {
             .get_current_extent(&rmg.ctx.device.physical_device)
             .unwrap_or({
                 #[cfg(feature = "logging")]
-                log::error!(
+                log::info!(
                     "Failed to get surface extent, falling back to window extent={:?}",
                     window_extent
                 );
@@ -98,7 +98,7 @@ impl<'rmg> Recorder<'rmg> {
     ///Schedules everything for execution
     pub fn execute(self) -> Result<(), RecordError> {
         let schedule = Schedule::from_tasks(self.rmg, self.records)?;
-        schedule.print_schedule();
+        //schedule.print_schedule();
 
         let executions = Executor::exec(self.rmg, schedule)?;
 
