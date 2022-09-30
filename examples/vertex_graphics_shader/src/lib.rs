@@ -14,12 +14,12 @@ use spirv_std::image::SampledImage;
 #[cfg(not(target_arch = "spirv"))]
 use spirv_std::macros::spirv;
 
-use spirv_std::glam::{const_vec3, Mat4, Quat, Vec2, Vec3, Vec4, Vec4Swizzles};
+use spirv_std::glam::{Mat4, Quat, Vec2, Vec3, Vec4, Vec4Swizzles};
 use spirv_std::{Image, RuntimeArray};
 
 pub const UNDEFINED_HANDLE: u32 = 0xff_ff_ff_ff;
 
-pub const LIGHT_DIRECTION: Vec3 = const_vec3!([1.0, 1.0, 1.0]);
+pub const LIGHT_DIRECTION: Vec3 = Vec3::from_array([1.0, 1.0, 1.0]);
 
 #[repr(C, align(16))]
 pub struct ForwardPush {

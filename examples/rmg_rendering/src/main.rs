@@ -50,7 +50,7 @@ mod gltf_loader;
 mod model_loading;
 mod simulation;
 
-pub const OBJECT_COUNT: usize = 256;
+pub const OBJECT_COUNT: usize = 8192;
 
 fn main() -> Result<(), anyhow::Error> {
     simple_logger::SimpleLogger::new()

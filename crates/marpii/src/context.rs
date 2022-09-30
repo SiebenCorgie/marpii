@@ -37,6 +37,7 @@ pub use queue::{Queue, QueueBuilder};
 
 mod physical_device;
 pub use physical_device::{PhyDeviceProperties, PhysicalDeviceFilter};
+use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
 use crate::{allocator::Allocator, surface::Surface};
 
@@ -130,10 +131,12 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
 
     ///Creates simple context that has only one graphics queue. If provided creates the instance in a way that
     ///a surface for the provided window handle could be created.
-    pub fn default_with_surface(
-        window_handle: &dyn raw_window_handle::HasRawWindowHandle,
+    pub fn default_with_surface<T>(
+        window_handle: &T,
         use_validation: bool,
-    ) -> Result<(Self, Arc<crate::surface::Surface>), anyhow::Error> {
+    ) -> Result<(Self, Arc<crate::surface::Surface>), anyhow::Error>
+        where T: HasRawDisplayHandle + HasRawWindowHandle
+    {
         let mut instance_builder = Instance::linked()?;
         instance_builder = instance_builder.for_surface(window_handle)?;
 
@@ -231,11 +234,13 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
     /// Each queue family that exists is crated with the at max 16 queues (if possible).
     ///
     /// To control the device creation process, use the `on_device_builder` closure. Usefull as specially to register extentions etc.
-    pub fn custom_context(
-        window_handle: Option<&dyn raw_window_handle::HasRawWindowHandle>,
+    pub fn custom_context<T>(
+        window_handle: Option<&T>,
         use_validation: bool,
         on_device_builder: impl FnOnce(DeviceBuilder) -> DeviceBuilder,
-    ) -> Result<(Self, Option<Surface>), anyhow::Error> {
+    ) -> Result<(Self, Option<Surface>), anyhow::Error>
+        where T: HasRawDisplayHandle + HasRawWindowHandle
+    {
         let mut instance_builder = Instance::linked()?;
         if let Some(window_handle) = window_handle {
             instance_builder = instance_builder.for_surface(window_handle)?;

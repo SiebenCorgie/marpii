@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use ash::vk;
+use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
 ///using [ash-window](https://crates.io/crates/ash-window) to safely find a surface for a given window
 /// handle. Also keeps the instance alive lon enough to destroy the created surface in time.
@@ -12,12 +13,14 @@ pub struct Surface {
 }
 
 impl Surface {
-    pub fn new(
+    pub fn new<T>(
         instance: &Arc<crate::context::Instance>,
-        window_handle: &dyn raw_window_handle::HasRawWindowHandle,
-    ) -> Result<Self, anyhow::Error> {
+        window_handle: &T
+    ) -> Result<Self, anyhow::Error>
+        where T: HasRawDisplayHandle + HasRawWindowHandle
+    {
         let surface = unsafe {
-            ash_window::create_surface(&instance.entry, &instance.inner, window_handle, None)?
+            ash_window::create_surface(&instance.entry, &instance.inner, window_handle.raw_display_handle(), window_handle.raw_window_handle(), None)?
         };
         let surface_loader = ash::extensions::khr::Surface::new(&instance.entry, &instance.inner);
 

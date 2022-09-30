@@ -24,9 +24,9 @@ shader_reflection = ["rspirv-reflect"]
 shader_reflection_verbose = ["logging"]
 
 [dependencies]
-ash = {version = "0.36.0", features = ["loaded", "linked"]}
-ash-window = "0.9"
-raw-window-handle = "0.3.4"
+ash = {version = "0.37.0", features = ["loaded", "linked"]}
+ash-window = "0.12"
+raw-window-handle = "0.5"
 anyhow = "1.0.56"
 thiserror = "1.0.31"
 const-cstr = "0.1"

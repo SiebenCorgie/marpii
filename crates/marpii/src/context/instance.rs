@@ -1,7 +1,8 @@
-use std::{ffi::CString, sync::Arc};
+use std::{ffi::{CString, CStr}, sync::Arc};
 
 use ash::vk;
 use const_cstr::const_cstr;
+use raw_window_handle::HasRawDisplayHandle;
 
 use super::PhysicalDeviceFilter;
 const_cstr! {
@@ -291,11 +292,14 @@ impl InstanceBuilder {
     ///Enables all extensions that are needed for the surface behind `handle` to work.
     pub fn for_surface(
         mut self,
-        handle: &dyn raw_window_handle::HasRawWindowHandle,
+        handle: &dyn HasRawDisplayHandle,
     ) -> Result<Self, anyhow::Error> {
-        let required_extensions = ash_window::enumerate_required_extensions(handle)?;
+        let required_extensions = ash_window::enumerate_required_extensions(handle.raw_display_handle())?;
         for r in required_extensions {
-            self = self.with_extension(r.to_owned())?;
+            let st = unsafe{
+                CStr::from_ptr(*r).to_owned()
+            };
+            self = self.with_extension(st)?;
         }
 
         Ok(self)
