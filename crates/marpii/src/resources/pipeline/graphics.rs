@@ -94,7 +94,6 @@ impl GraphicsPipeline {
         color_formats: &[vk::Format],
         depth_format: vk::Format,
     ) -> Result<Self, anyhow::Error> {
-
         let layout = layout.into();
         assert!(
             device.extension_enabled_cstr(ash::extensions::khr::DynamicRendering::name()),

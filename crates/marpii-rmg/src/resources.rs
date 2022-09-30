@@ -10,26 +10,25 @@ use marpii::{
     swapchain::{Swapchain, SwapchainImage},
 };
 use slotmap::SlotMap;
-use std::{sync::Arc, marker::PhantomData};
+use std::{marker::PhantomData, sync::Arc};
 use thiserror::Error;
 
-
 use crate::{
-    track::Tracks,
     resources::{
+        descriptor::{Bindless, ResourceHandle},
         res_states::{
             BufferKey, ImageKey, QueueOwnership, ResBuffer, ResImage, ResSampler, SamplerKey,
         },
-        descriptor::{Bindless, ResourceHandle}
-    }, ImageHandle, SamplerHandle, BufferHandle,
-
+    },
+    track::Tracks,
+    BufferHandle, ImageHandle, SamplerHandle,
 };
 
-use self::{res_states::AnyResKey, handle::AnyHandle};
+use self::{handle::AnyHandle, res_states::AnyResKey};
 
 pub(crate) mod descriptor;
-pub(crate) mod res_states;
 pub(crate) mod handle;
+pub(crate) mod res_states;
 
 #[derive(Debug, Error)]
 pub enum ResourceError {
@@ -58,7 +57,7 @@ pub enum ResourceError {
     SwapchainError,
 
     #[error("There is no Track for queue family {0}")]
-    NoTrackForQueueFamily(u32)
+    NoTrackForQueueFamily(u32),
 }
 
 pub struct Resources {
@@ -113,8 +112,10 @@ impl Resources {
         additional_descriptor_sets: &[DescriptorSetLayout],
     ) -> Arc<PipelineLayout> {
         //TODO cache based on layout properties
-        Arc::new(self.bindless
-            .new_pipeline_layout(Bindless::MAX_PUSH_CONSTANT_SIZE, additional_descriptor_sets))
+        Arc::new(
+            self.bindless
+                .new_pipeline_layout(Bindless::MAX_PUSH_CONSTANT_SIZE, additional_descriptor_sets),
+        )
     }
 
     pub fn bindless_layout(&self) -> Arc<PipelineLayout> {
@@ -189,10 +190,7 @@ impl Resources {
             descriptor_handle: None,
         });
 
-        Ok(ImageHandle{
-            key,
-            imgref: image
-        })
+        Ok(ImageHandle { key, imgref: image })
     }
 
     pub fn add_sampler(&mut self, sampler: Arc<Sampler>) -> Result<SamplerHandle, ResourceError> {
@@ -201,12 +199,18 @@ impl Resources {
             sampler: sampler.clone(),
         });
 
-        Ok(SamplerHandle { key, samref: sampler })
+        Ok(SamplerHandle {
+            key,
+            samref: sampler,
+        })
     }
 
     ///Adds an buffer, assuming it is uninitialised. If the buffer is initialised, owned by a queue or similar,
     /// use the [import](Rmg::import_buffer) function instead.
-    pub fn add_buffer<T: 'static>(&mut self, buffer: Arc<Buffer>) -> Result<BufferHandle<T>, ResourceError> {
+    pub fn add_buffer<T: 'static>(
+        &mut self,
+        buffer: Arc<Buffer>,
+    ) -> Result<BufferHandle<T>, ResourceError> {
         let key = self.buffer.insert(ResBuffer {
             buffer: buffer.clone(),
             ownership: QueueOwnership::Uninitialized,
@@ -215,19 +219,35 @@ impl Resources {
             descriptor_handle: None,
         });
 
-        Ok(BufferHandle { key, bufref: buffer, data_type: PhantomData })
+        Ok(BufferHandle {
+            key,
+            bufref: buffer,
+            data_type: PhantomData,
+        })
     }
 
     ///Imports the buffer with the given state. Returns an error if a given queue_family index has no internal TrackId.
-    pub(crate) fn import_buffer<T: 'static>(&mut self, tracks: &Tracks, buffer: Arc<Buffer>, queue_family: Option<u32>, access_flags: Option<vk::AccessFlags2>) -> Result<BufferHandle<T>, ResourceError>{
-        let owner = if let Some(fam) = queue_family{
-            let track = tracks.0.iter().find_map(|(track_id, track)| if track.queue_idx == fam{Some(track_id)}else{None});
-            if let Some(_t) = track{
+    pub(crate) fn import_buffer<T: 'static>(
+        &mut self,
+        tracks: &Tracks,
+        buffer: Arc<Buffer>,
+        queue_family: Option<u32>,
+        access_flags: Option<vk::AccessFlags2>,
+    ) -> Result<BufferHandle<T>, ResourceError> {
+        let owner = if let Some(fam) = queue_family {
+            let track = tracks.0.iter().find_map(|(track_id, track)| {
+                if track.queue_idx == fam {
+                    Some(track_id)
+                } else {
+                    None
+                }
+            });
+            if let Some(_t) = track {
                 QueueOwnership::Owned(fam)
-            }else{
+            } else {
                 return Err(ResourceError::NoTrackForQueueFamily(fam));
             }
-        }else{
+        } else {
             QueueOwnership::Uninitialized
         };
 
@@ -241,7 +261,11 @@ impl Resources {
             descriptor_handle: None,
         });
 
-        Ok(BufferHandle { key, bufref: buffer, data_type: PhantomData })
+        Ok(BufferHandle {
+            key,
+            bufref: buffer,
+            data_type: PhantomData,
+        })
     }
 
     ///Tries to get the resource's bindless handle. If not already bound, tries to bind the resource
@@ -268,11 +292,9 @@ impl Resources {
     //TODO: Currently we use the rendering frame to do all the cleanup. In a perfect world we'd use
     //      another thread for that to not stall the recording process
     pub(crate) fn tick_record(&mut self, tracks: &Tracks) {
-
-
         self.images.retain(|key, img| {
-            if img.is_orphaned() && img.guard.map(|g| g.expired(tracks)).unwrap_or(true){
-                #[cfg(feature="logging")]
+            if img.is_orphaned() && img.guard.map(|g| g.expired(tracks)).unwrap_or(true) {
+                #[cfg(feature = "logging")]
                 log::info!("Dropping {:?}", key);
 
                 if let Some(hdl) = img.descriptor_handle {
@@ -283,35 +305,35 @@ impl Resources {
                     }
                 }
                 false
-            }else{
+            } else {
                 true
             }
         });
 
         self.buffer.retain(|key, buffer| {
-            if buffer.is_orphaned() && buffer.guard.map(|g| g.expired(tracks)).unwrap_or(true){
-                #[cfg(feature="logging")]
+            if buffer.is_orphaned() && buffer.guard.map(|g| g.expired(tracks)).unwrap_or(true) {
+                #[cfg(feature = "logging")]
                 log::info!("Dropping {:?}", key);
 
                 if let Some(hdl) = buffer.descriptor_handle {
                     self.bindless.remove_storage_buffer(hdl);
                 }
                 false
-            }else{
+            } else {
                 true
             }
         });
 
         self.sampler.retain(|key, sampler| {
-            if sampler.is_orphaned(){
-                #[cfg(feature="logging")]
+            if sampler.is_orphaned() {
+                #[cfg(feature = "logging")]
                 log::info!("Dropping {:?}", key);
 
                 if let Some(hdl) = sampler.descriptor_handle {
                     self.bindless.remove_sampler(hdl);
                 }
                 false
-            }else{
+            } else {
                 true
             }
         });
@@ -321,14 +343,26 @@ impl Resources {
         //Safety: expect is ok since we controll handle creation, and based on that resource
         //        destruction. In theory it is not possible to own a handle to an destroyed
         //        resource.
-        &self.images.get(hdl.key).as_ref().expect("Used invalid image handle").image.desc
+        &self
+            .images
+            .get(hdl.key)
+            .as_ref()
+            .expect("Used invalid image handle")
+            .image
+            .desc
     }
 
     pub fn get_buffer_desc<T: 'static>(&self, hdl: &BufferHandle<T>) -> &BufDesc {
         //Safety: expect is ok since we controll handle creation, and based on that resource
         //        destruction. In theory it is not possible to own a handle to an destroyed
         //        resource.
-        &self.buffer.get(hdl.key).as_ref().expect("Used invalid buffer handle").buffer.desc
+        &self
+            .buffer
+            .get(hdl.key)
+            .as_ref()
+            .expect("Used invalid buffer handle")
+            .buffer
+            .desc
     }
 
     ///Returns the current state of the given image.
@@ -337,11 +371,14 @@ impl Resources {
     /// If a the state gets changed in a command buffer, make sure that the final state is the
     /// same as the initial state reported by this function. Otherwise scheduling might produce a
     /// wrong value.
-    pub fn get_image_state(&self, hdl: &ImageHandle) -> &ResImage{
+    pub fn get_image_state(&self, hdl: &ImageHandle) -> &ResImage {
         //Safety: expect is ok since we controll handle creation, and based on that resource
         //        destruction. In theory it is not possible to own a handle to an destroyed
         //        resource.
-        self.images.get(hdl.key).as_ref().expect("Used invalid ImageHandle")
+        self.images
+            .get(hdl.key)
+            .as_ref()
+            .expect("Used invalid ImageHandle")
     }
 
     ///Returns the current state of the given buffer.
@@ -350,11 +387,14 @@ impl Resources {
     /// If a the state gets changed in a command buffer, make sure that the final state is the
     /// same as the initial state reported by this function. Otherwise scheduling might produce a
     /// wrong value.
-    pub fn get_buffer_state<T: 'static>(&self, hdl: &BufferHandle<T>) -> &ResBuffer{
+    pub fn get_buffer_state<T: 'static>(&self, hdl: &BufferHandle<T>) -> &ResBuffer {
         //Safety: expect is ok since we controll handle creation, and based on that resource
         //        destruction. In theory it is not possible to own a handle to an destroyed
         //        resource.
-        self.buffer.get(hdl.key).as_ref().expect(&format!("Used invalid BufferHandle {:?}", hdl.key))
+        self.buffer
+            .get(hdl.key)
+            .as_ref()
+            .expect(&format!("Used invalid BufferHandle {:?}", hdl.key))
     }
     ///Returns the current state of the given sampler.
     ///
@@ -362,11 +402,14 @@ impl Resources {
     /// If a the state gets changed in a command buffer, make sure that the final state is the
     /// same as the initial state reported by this function. Otherwise scheduling might produce a
     /// wrong value.
-    pub fn get_sampler_state(&self, hdl: &SamplerHandle) -> &ResSampler{
+    pub fn get_sampler_state(&self, hdl: &SamplerHandle) -> &ResSampler {
         //Safety: expect is ok since we controll handle creation, and based on that resource
         //        destruction. In theory it is not possible to own a handle to an destroyed
         //        resource.
-        self.sampler.get(hdl.key).as_ref().expect("Used invalid Sampler Handle")
+        self.sampler
+            .get(hdl.key)
+            .as_ref()
+            .expect("Used invalid Sampler Handle")
     }
 
     pub fn get_next_swapchain_image(&mut self) -> Result<SwapchainImage, ResourceError> {

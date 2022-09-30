@@ -68,7 +68,7 @@ impl ResImage {
     }
 
     ///Check if there are no public references anymore to this image
-    pub fn is_orphaned(&self) -> bool{
+    pub fn is_orphaned(&self) -> bool {
         //We check by summing the maximum number of inner strong references in
         // rmg. There are three possible places:
         // 1. self.image
@@ -77,10 +77,10 @@ impl ResImage {
 
         //for self
         let mut max_strong = 1;
-        if self.descriptor_handle.is_some(){
+        if self.descriptor_handle.is_some() {
             max_strong += 1;
         }
-        if self.guard.is_some(){
+        if self.guard.is_some() {
             max_strong += 1;
         }
         //if the strong count is higher, somewhere referenced
@@ -109,7 +109,7 @@ impl ResBuffer {
     }
 
     ///Check if there are no public references anymore to this buffer
-    pub fn is_orphaned(&self) -> bool{
+    pub fn is_orphaned(&self) -> bool {
         //We check by summing the maximum number of inner strong references in
         // rmg. There are three possible places:
         // 1. self.buffer
@@ -118,10 +118,10 @@ impl ResBuffer {
 
         //for self
         let mut max_strong = 1;
-        if self.descriptor_handle.is_some(){
+        if self.descriptor_handle.is_some() {
             max_strong += 1;
         }
-        if self.guard.is_some(){
+        if self.guard.is_some() {
             max_strong += 1;
         }
         //if the strong count is higher, somewhere referenced
@@ -137,7 +137,7 @@ pub struct ResSampler {
 
 impl ResSampler {
     ///Check if there are no public references anymore to this image
-    pub fn is_orphaned(&self) -> bool{
+    pub fn is_orphaned(&self) -> bool {
         //We check by summing the maximum number of inner strong references in
         // rmg. There are two possible places:
         // 1. self.sampler
@@ -145,7 +145,7 @@ impl ResSampler {
 
         //for self
         let mut max_strong = 1;
-        if self.descriptor_handle.is_some(){
+        if self.descriptor_handle.is_some() {
             max_strong += 1;
         }
         //if the strong count is higher, somewhere referenced

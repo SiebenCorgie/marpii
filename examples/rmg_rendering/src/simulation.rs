@@ -2,7 +2,7 @@ use marpii::{
     ash::vk,
     resources::{ComputePipeline, PushConstant, ShaderModule},
 };
-use marpii_rmg::{Rmg, RmgError, Task, BufferHandle};
+use marpii_rmg::{BufferHandle, Rmg, RmgError, Task};
 use shared::SimObj;
 use std::sync::Arc;
 
@@ -40,7 +40,12 @@ impl Simulation {
         let shader_stage = shader_module.into_shader_stage(vk::ShaderStageFlags::COMPUTE, "main");
         //No additional descriptors for us
         let layout = rmg.resources().bindless_pipeline_layout(&[]);
-        let pipeline = Arc::new(ComputePipeline::new(&rmg.ctx.device, &shader_stage, None, layout)?);
+        let pipeline = Arc::new(ComputePipeline::new(
+            &rmg.ctx.device,
+            &shader_stage,
+            None,
+            layout,
+        )?);
 
         Ok(Simulation {
             sim_buffer: rmg.new_buffer::<SimObj>(OBJECT_COUNT, Some("SimBuffer 1"))?,
@@ -69,8 +74,7 @@ impl Task for Simulation {
         resources: &mut marpii_rmg::Resources,
         _ctx: &marpii_rmg::CtxRmg,
     ) -> Result<(), marpii_rmg::RecordError> {
-        self.push.get_content_mut().sim_buffer =
-            resources.get_resource_handle(&self.sim_buffer)?;
+        self.push.get_content_mut().sim_buffer = resources.get_resource_handle(&self.sim_buffer)?;
         self.push.get_content_mut().is_init = self.is_init.into();
 
         if !self.is_init {

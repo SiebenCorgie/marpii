@@ -32,7 +32,7 @@ use camera_controller::Camera;
 use copy_buffer::CopyToGraphicsBuffer;
 use forward_pass::ForwardPass;
 use marpii::{ash::vk, context::Ctx};
-use marpii_rmg::tasks::{SwapchainBlit, DynamicBuffer};
+use marpii_rmg::tasks::{DynamicBuffer, SwapchainBlit};
 use marpii_rmg::Rmg;
 use shared::Ubo;
 use simulation::Simulation;
@@ -43,12 +43,12 @@ use winit::{
     event_loop::ControlFlow,
 };
 
+mod camera_controller;
+mod copy_buffer;
 mod forward_pass;
 mod gltf_loader;
-mod simulation;
-mod copy_buffer;
 mod model_loading;
-mod camera_controller;
+mod simulation;
 
 pub const OBJECT_COUNT: usize = 256;
 
@@ -69,8 +69,9 @@ fn main() -> Result<(), anyhow::Error> {
     let mut buffer_copy = CopyToGraphicsBuffer::new(&mut rmg, simulation.sim_buffer.clone())?;
     let mut forward = ForwardPass::new(
         &mut rmg,
-        ubo_update.buffer_handle().clone() //the ubo keeps the same every frame
-    ).unwrap();
+        ubo_update.buffer_handle().clone(), //the ubo keeps the same every frame
+    )
+    .unwrap();
     let mut swapchain_blit = SwapchainBlit::new();
 
     ev.run(move |ev, _, cf| {
@@ -81,7 +82,6 @@ fn main() -> Result<(), anyhow::Error> {
         match ev {
             Event::MainEventsCleared => window.request_redraw(),
             Event::RedrawRequested(_) => {
-
                 camera.tick();
 
                 //update camera
@@ -131,4 +131,3 @@ fn window_extent(window: &Window) -> vk::Extent2D {
         height: window.inner_size().height,
     }
 }
-

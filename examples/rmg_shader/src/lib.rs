@@ -11,11 +11,10 @@
 // HACK(eddyb) can't easily see warnings otherwise from `spirv-builder` builds.
 //#![deny(warnings)]
 
-use spirv_std::glam::{Vec4, vec4};
+use spirv_std::glam::{vec4, Vec4};
 
 #[cfg(not(target_arch = "spirv"))]
 use spirv_std::macros::spirv;
-
 
 #[spirv(fragment)]
 pub fn main_fs(output: &mut Vec4) {
@@ -29,7 +28,6 @@ pub fn main_vs(
     //v_texcoord: Vec2,
     #[spirv(vertex_index)] vert_id: i32,
     #[spirv(position, invariant)] out_pos: &mut Vec4,
-
 ) {
     //let d = v_position_obj.x + v_normal_obj.x + v_texcoord.x;
     //let d = d.min(0.0).max(0.0);

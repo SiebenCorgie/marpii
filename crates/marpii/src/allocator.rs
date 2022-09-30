@@ -13,7 +13,7 @@ mod gpu_allocator;
 mod unallocated;
 use std::{ffi::c_void, ptr::NonNull};
 
-use ash::vk::{MappedMemoryRange, self};
+use ash::vk::{self, MappedMemoryRange};
 pub use unallocated::{UnamanagedAllocationError, UnmanagedAllocation, UnmanagedAllocator};
 
 use crate::context::Device;

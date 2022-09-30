@@ -1,7 +1,8 @@
 use crate::{
     recorder::frame::CmdFrame,
+    resources::res_states::AnyResKey,
     track::{Guard, TrackId},
-    RecordError, Rmg, resources::res_states::AnyResKey,
+    RecordError, Rmg,
 };
 use fxhash::FxHashMap;
 use marpii::{
@@ -257,7 +258,8 @@ impl<'rmg> Executor<'rmg> {
             let queue_family = rmg.trackid_to_queue_idx(track);
             let queue = rmg
                 .ctx
-                .device.get_first_queue_for_family(queue_family)
+                .device
+                .get_first_queue_for_family(queue_family)
                 .unwrap();
             assert!(queue.family_index == queue_family);
 
@@ -273,7 +275,6 @@ impl<'rmg> Executor<'rmg> {
                 vk::Fence::null(),
             )?;
         }
-
 
         Ok(Some(Execution {
             resources: Vec::new(), //FIXME: collect
@@ -295,7 +296,11 @@ impl<'rmg> Executor<'rmg> {
             return Ok(None);
         }
 
-        let num_res = self.tracks.get(&frame.track).unwrap().record.frames[frame.frame.unwrap_index()].tasks.iter().fold(0, |res, rec| res + rec.registry.resource_collection.len());
+        let num_res = self.tracks.get(&frame.track).unwrap().record.frames
+            [frame.frame.unwrap_index()]
+        .tasks
+        .iter()
+        .fold(0, |res, rec| res + rec.registry.resource_collection.len());
         let mut used_resources = Vec::with_capacity(num_res);
 
         //create this frame's guard
@@ -452,10 +457,13 @@ impl<'rmg> Executor<'rmg> {
                 .get_first_queue_for_family(queue_family)
                 .unwrap();
 
-
             #[cfg(feature = "logging")]
-            log::trace!("Signal info: {:?}\nFamily: {}, index: {}", signal_semaphore, queue.family_index, 0);
-
+            log::trace!(
+                "Signal info: {:?}\nFamily: {}, index: {}",
+                signal_semaphore,
+                queue.family_index,
+                0
+            );
 
             assert!(queue.family_index == queue_family);
 
@@ -472,7 +480,11 @@ impl<'rmg> Executor<'rmg> {
             )?;
         }
 
-        for rec in self.tracks.get_mut(&frame.track).unwrap().record.frames[frame.frame.unwrap_index()].tasks.iter_mut(){
+        for rec in self.tracks.get_mut(&frame.track).unwrap().record.frames
+            [frame.frame.unwrap_index()]
+        .tasks
+        .iter_mut()
+        {
             used_resources.append(&mut rec.registry.resource_collection);
         }
 

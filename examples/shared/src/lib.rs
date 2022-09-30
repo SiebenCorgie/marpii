@@ -16,13 +16,12 @@ pub struct SimObj {
     pub velocity: [f32; 4],
 }
 
-
 #[cfg_attr(not(target_arch = "spirv"), derive(Debug, Clone, Copy))]
 #[repr(C)]
 pub struct Vertex {
     pub position: [f32; 3],
     pub normal: [f32; 3],
-    pub uv: [f32; 2]
+    pub uv: [f32; 2],
 }
 
 #[repr(C)]
@@ -38,13 +37,12 @@ pub struct SimPush {
 pub struct ForwardPush {
     pub ubo: ResourceHandle,
     pub sim: ResourceHandle,
-    pub pad: [u32; 2]
+    pub pad: [u32; 2],
 }
-
 
 #[cfg_attr(not(target_arch = "spirv"), derive(Debug, Clone, Copy))]
 #[repr(C)]
 pub struct Ubo {
     pub model_view: [[f32; 4]; 4],
-    pub perspective: [[f32; 4]; 4]
+    pub perspective: [[f32; 4]; 4],
 }

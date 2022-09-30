@@ -1,4 +1,4 @@
-use crate::{CtxRmg, RecordError, Task, ImageHandle, BufferHandle};
+use crate::{BufferHandle, CtxRmg, ImageHandle, RecordError, Task};
 use marpii::{ash::vk, resources::Buffer};
 use std::sync::Arc;
 
@@ -37,9 +37,7 @@ impl<'dta> Task for UploadImage<'dta> {
     ) -> Result<(), RecordError> {
         //create host image
         // TODO: Document that this is not free and should be done as early as possible
-        let desc = resources
-            .get_image_desc(&self.target)
-            .clone();
+        let desc = resources.get_image_desc(&self.target).clone();
         if !desc.usage.contains(vk::ImageUsageFlags::TRANSFER_DST) {
             #[cfg(feature = "logging")]
             log::error!("Image used as upload target does not have TRANSFER_DST flag set!");
@@ -71,10 +69,8 @@ impl<'dta> Task for UploadImage<'dta> {
         resources: &crate::Resources,
     ) {
         if let Some(bufkey) = &self.host_image {
-            let buffer = resources
-                .get_buffer_state(&bufkey);
-            let img = resources
-                .get_image_state(&self.target);
+            let buffer = resources.get_buffer_state(&bufkey);
+            let img = resources.get_image_state(&self.target);
 
             //copy over by moving to right layout, issue copy and moving back to _old_ layout
 

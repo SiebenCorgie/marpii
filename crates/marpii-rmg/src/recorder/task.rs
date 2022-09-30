@@ -3,7 +3,7 @@ use crate::{
         res_states::{AnyResKey, BufferKey, ImageKey, SamplerKey},
         Resources,
     },
-    CtxRmg, RecordError, ImageHandle, BufferHandle, SamplerHandle,
+    BufferHandle, CtxRmg, ImageHandle, RecordError, SamplerHandle,
 };
 use marpii::{ash::vk, context::Device};
 use std::{any::Any, ops::Deref, sync::Arc};
@@ -33,23 +33,26 @@ impl ResourceRegistry {
     ///Registers `image` as needed storage image.
     pub fn request_image(&mut self, image: &ImageHandle) {
         self.images.push(image.key);
-        self.resource_collection.push(Box::new(image.imgref.clone()));
+        self.resource_collection
+            .push(Box::new(image.imgref.clone()));
     }
 
     ///Registers `buffer` as needed storage buffer.
     pub fn request_buffer<T: 'static>(&mut self, buffer: &BufferHandle<T>) {
         self.buffers.push(buffer.key);
-        self.resource_collection.push(Box::new(buffer.bufref.clone()));
+        self.resource_collection
+            .push(Box::new(buffer.bufref.clone()));
     }
 
     ///Registers `sampler` as needed sampler.
     pub fn request_sampler(&mut self, sampler: &SamplerHandle) {
         self.sampler.push(sampler.key);
-        self.resource_collection.push(Box::new(sampler.samref.clone()));
+        self.resource_collection
+            .push(Box::new(sampler.samref.clone()));
     }
 
     ///Registers *any*thing to be kept alive until the task finishes its execution.
-    pub fn register_asset<T: Any + Send + 'static>(&mut self, asset: T){
+    pub fn register_asset<T: Any + Send + 'static>(&mut self, asset: T) {
         self.resource_collection.push(Box::new(asset));
     }
 

@@ -5,7 +5,7 @@ use shared::SimObj;
 use crate::OBJECT_COUNT;
 
 ///Copies a src buffer to the next "free" buffer.
-pub struct CopyToGraphicsBuffer{
+pub struct CopyToGraphicsBuffer {
     src_buffer: BufferHandle<SimObj>,
     //We are currently double buffering
     buffers: [BufferHandle<SimObj>; 2],
@@ -13,32 +13,31 @@ pub struct CopyToGraphicsBuffer{
 }
 
 impl CopyToGraphicsBuffer {
-    pub fn new(rmg: &mut Rmg, src_buffer: BufferHandle<SimObj>) -> Result<Self, RmgError>{
-
+    pub fn new(rmg: &mut Rmg, src_buffer: BufferHandle<SimObj>) -> Result<Self, RmgError> {
         //Allocate the two buffers
         let tranfer_buffer = [
-                rmg.new_buffer::<SimObj>(OBJECT_COUNT, Some("TransferBuffer 1"))?,
-                rmg.new_buffer::<SimObj>(OBJECT_COUNT, Some("TransferBuffer 2"))?,
-            ];
+            rmg.new_buffer::<SimObj>(OBJECT_COUNT, Some("TransferBuffer 1"))?,
+            rmg.new_buffer::<SimObj>(OBJECT_COUNT, Some("TransferBuffer 2"))?,
+        ];
 
         Ok(CopyToGraphicsBuffer {
             src_buffer,
             buffers: tranfer_buffer,
-            next: 0
+            next: 0,
         })
     }
 
-    pub fn next_buffer(&self) -> BufferHandle<SimObj>{
+    pub fn next_buffer(&self) -> BufferHandle<SimObj> {
         self.buffers[self.next].clone()
     }
 
-    pub fn last_buffer(&self) -> BufferHandle<SimObj>{
+    pub fn last_buffer(&self) -> BufferHandle<SimObj> {
         //the *oldest* buffer
         self.buffers[(self.next + 1) % self.buffers.len()].clone()
     }
 }
 
-impl Task for CopyToGraphicsBuffer{
+impl Task for CopyToGraphicsBuffer {
     fn name(&self) -> &'static str {
         "CopyToGraphics"
     }
@@ -46,7 +45,6 @@ impl Task for CopyToGraphicsBuffer{
     fn register(&self, registry: &mut marpii_rmg::ResourceRegistry) {
         registry.request_buffer(&self.src_buffer);
         registry.request_buffer(&self.next_buffer());
-
     }
 
     fn queue_flags(&self) -> marpii::ash::vk::QueueFlags {
@@ -67,21 +65,18 @@ impl Task for CopyToGraphicsBuffer{
 
         let copy_size = src_access.buffer.desc.size.min(dst_access.buffer.desc.size);
 
-        unsafe{
+        unsafe {
             device.inner.cmd_copy_buffer2(
                 *command_buffer,
                 &vk::CopyBufferInfo2::builder()
                     .src_buffer(src_access.buffer.inner)
                     .dst_buffer(dst_access.buffer.inner)
-                    .regions(&[
-                        *vk::BufferCopy2::builder()
-                            .src_offset(0)
-                            .dst_offset(0)
-                            .size(copy_size)
-                    ])
+                    .regions(&[*vk::BufferCopy2::builder()
+                        .src_offset(0)
+                        .dst_offset(0)
+                        .size(copy_size)]),
             );
         }
-
     }
 
     fn post_execution(

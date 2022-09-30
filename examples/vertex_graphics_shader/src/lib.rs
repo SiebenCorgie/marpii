@@ -15,7 +15,7 @@ use spirv_std::image::SampledImage;
 use spirv_std::macros::spirv;
 
 use spirv_std::glam::{const_vec3, Mat4, Quat, Vec2, Vec3, Vec4, Vec4Swizzles};
-use spirv_std::{Image, RuntimeArray,};
+use spirv_std::{Image, RuntimeArray};
 
 pub const UNDEFINED_HANDLE: u32 = 0xff_ff_ff_ff;
 

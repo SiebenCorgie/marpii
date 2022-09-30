@@ -8,7 +8,7 @@ use std::fmt::Debug;
 use marpii::ash::vk;
 use thiserror::Error;
 
-use crate::{ResourceError, Rmg, Task, resources::handle::AnyHandle};
+use crate::{resources::handle::AnyHandle, ResourceError, Rmg, Task};
 
 use self::{executor::Executor, scheduler::Schedule, task::ResourceRegistry};
 

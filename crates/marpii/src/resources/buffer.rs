@@ -1,6 +1,7 @@
 use std::{
     hash::{Hash, Hasher},
-    sync::{Arc, Mutex}, mem::size_of,
+    mem::size_of,
+    sync::{Arc, Mutex},
 };
 
 use crate::{
@@ -51,19 +52,23 @@ impl BufDesc {
         builder
     }
 
-    pub fn with(mut self, op: impl FnOnce(&mut Self)) -> Self{
+    pub fn with(mut self, op: impl FnOnce(&mut Self)) -> Self {
         op(&mut self);
         self
     }
 
     ///Creates a buffer description that could hold `size` elements of type `T`. Note that no usage is set.
-    pub fn for_data<T: 'static>(size: usize) -> Self{
+    pub fn for_data<T: 'static>(size: usize) -> Self {
         let size = (core::mem::size_of::<T>() * size) as u64;
-        BufDesc { size, usage: vk::BufferUsageFlags::empty(), sharing: SharingMode::Exclusive }
+        BufDesc {
+            size,
+            usage: vk::BufferUsageFlags::empty(),
+            sharing: SharingMode::Exclusive,
+        }
     }
 
     ///Creates a storage buffer description that could hold `size` elements of type `T`
-    pub fn storage_buffer<T: 'static>(size: usize) -> Self{
+    pub fn storage_buffer<T: 'static>(size: usize) -> Self {
         Self::for_data::<T>(size).with(|b| b.usage = vk::BufferUsageFlags::STORAGE_BUFFER)
     }
 }
@@ -265,7 +270,6 @@ impl Buffer {
             }
         }
     }
-
 
     ///Returns (if possible) a reference to the buffers data. Note that the data might be aligned, or not even be of one type. Turning this data into actual types should probably be implemented
     /// by whoever knows the actual data layout.

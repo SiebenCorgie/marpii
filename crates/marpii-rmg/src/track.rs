@@ -89,7 +89,11 @@ impl Track {
         self.inflight_executions
             .retain(|exec| exec.guard.target_value >= finished_till);
 
-        println!("{:?} {} inflight", self.flags, self.inflight_executions.len());
+        println!(
+            "{:?} {} inflight",
+            self.flags,
+            self.inflight_executions.len()
+        );
     }
 
     ///Allocates the next guard for this track.

@@ -1,6 +1,10 @@
 use marpii::ash::vk;
 
-use crate::{resources::res_states::{QueueOwnership, AnyResKey}, track::Guard, RecordError, Rmg};
+use crate::{
+    resources::res_states::{AnyResKey, QueueOwnership},
+    track::Guard,
+    RecordError, Rmg,
+};
 
 use super::{scheduler::ResLocation, TaskRecord};
 
@@ -86,7 +90,9 @@ impl<'rmg> CmdFrame<'rmg> {
                         rmg.res
                             .images
                             .get_mut(imgkey)
-                            .ok_or_else(|| RecordError::NoSuchResource(AnyResKey::Image(imgkey).into()))?
+                            .ok_or_else(|| {
+                                RecordError::NoSuchResource(AnyResKey::Image(imgkey).into())
+                            })?
                             .ownership
                     } {
                         QueueOwnership::Owned(owner) => {
@@ -178,7 +184,9 @@ impl<'rmg> CmdFrame<'rmg> {
                         rmg.res
                             .buffer
                             .get_mut(bufkey)
-                            .ok_or_else(|| RecordError::NoSuchResource(AnyResKey::Buffer(bufkey).into()))?
+                            .ok_or_else(|| {
+                                RecordError::NoSuchResource(AnyResKey::Buffer(bufkey).into())
+                            })?
                             .ownership
                     } {
                         QueueOwnership::Owned(owner) => {
@@ -278,7 +286,9 @@ impl<'rmg> CmdFrame<'rmg> {
                         rmg.res
                             .images
                             .get_mut(*imgkey)
-                            .ok_or_else(|| RecordError::NoSuchResource(AnyResKey::Image(*imgkey).into()))?
+                            .ok_or_else(|| {
+                                RecordError::NoSuchResource(AnyResKey::Image(*imgkey).into())
+                            })?
                             .ownership
                     } {
                         QueueOwnership::Owned(owner) => {
@@ -329,7 +339,11 @@ impl<'rmg> CmdFrame<'rmg> {
                                 from,
                                 to
                             );
-                            return Err(RecordError::ReleaseRecord((*res).into(), src_family, dst_family));
+                            return Err(RecordError::ReleaseRecord(
+                                (*res).into(),
+                                src_family,
+                                dst_family,
+                            ));
                         }
                         QueueOwnership::Uninitialized => {
                             #[cfg(feature = "logging")]
@@ -352,7 +366,9 @@ impl<'rmg> CmdFrame<'rmg> {
                         rmg.res
                             .buffer
                             .get_mut(*bufkey)
-                            .ok_or_else(|| RecordError::NoSuchResource(AnyResKey::Buffer(*bufkey).into()))?
+                            .ok_or_else(|| {
+                                RecordError::NoSuchResource(AnyResKey::Buffer(*bufkey).into())
+                            })?
                             .ownership
                     } {
                         QueueOwnership::Owned(owner) => {
@@ -404,7 +420,11 @@ impl<'rmg> CmdFrame<'rmg> {
                                 src_family,
                                 dst_family
                             );
-                            return Err(RecordError::ReleaseRecord((*res).into(), src_family, dst_family));
+                            return Err(RecordError::ReleaseRecord(
+                                (*res).into(),
+                                src_family,
+                                dst_family,
+                            ));
                         }
                         QueueOwnership::Uninitialized => {
                             #[cfg(feature = "logging")]

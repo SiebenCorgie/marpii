@@ -164,20 +164,19 @@
 //!
 mod resources;
 pub use resources::{
+    handle::{BufferHandle, ImageHandle, SamplerHandle},
     res_states::{ResBuffer, ResImage, ResSampler},
     ResourceError, Resources,
-    handle::{BufferHandle, ImageHandle, SamplerHandle}
 };
 mod recorder;
 pub use recorder::{
-    Recorder,
     task::{ResourceRegistry, Task},
-    RecordError,
+    RecordError, Recorder,
 };
 
 pub(crate) mod track;
 
+mod rmg;
 ///Pre implemented generic tasks
 pub mod tasks;
-mod rmg;
-pub use rmg::{Rmg, RmgError, CtxRmg};
+pub use rmg::{CtxRmg, Rmg, RmgError};
