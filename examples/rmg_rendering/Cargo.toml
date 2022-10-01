@@ -15,7 +15,6 @@ marpii-descriptor = {path = "../../crates/marpii-descriptor"}
 winit = "0.27"
 log = "*"
 image = "0.24.3"
-genmesh = "0.6.2"
 glam = "0.21.3"
-
+easy-gltf = "0.1.5"
 shared = {path = "../shared"}

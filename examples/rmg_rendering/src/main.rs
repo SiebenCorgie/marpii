@@ -27,6 +27,8 @@
 //!
 //!
 
+use std::path::PathBuf;
+
 use anyhow::Result;
 use camera_controller::Camera;
 use copy_buffer::CopyToGraphicsBuffer;
@@ -58,6 +60,21 @@ fn main() -> Result<(), anyhow::Error> {
         .init()
         .unwrap();
 
+    let mut args = std::env::args();
+    let _progname = args.next();
+    let mesh_path = if let Some(path) = args.next() {
+        let path = PathBuf::from(path);
+        if !path.exists() {
+            anyhow::bail!("Gltf-file @ {:?} does not exist!", path);
+        }
+
+        path
+    } else {
+        anyhow::bail!("No gltf path provided, try $cargo run --bin rmg_rendering -- path/to/gltf/name.gltf!");
+    };
+
+    let gltf = easy_gltf::load(mesh_path).unwrap();
+
     let ev = winit::event_loop::EventLoop::new();
     let window = winit::window::Window::new(&ev).unwrap();
     let (context, surface) = Ctx::default_with_surface(&window, true)?;
@@ -70,6 +87,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut forward = ForwardPass::new(
         &mut rmg,
         ubo_update.buffer_handle().clone(), //the ubo keeps the same every frame
+        &gltf
     )
     .unwrap();
     let mut swapchain_blit = SwapchainBlit::new();

@@ -15,7 +15,8 @@ layout (location = 2) in vec2 inUV;
 //To fragment shader
 layout (location = 0) out vec3 outNormal;
 layout (location = 1) out vec3 outColor;
-layout (location = 2) out vec3 outUV;
+layout (location = 2) out vec2 outUV;
+layout (location = 3) out vec3 outPos;
 
 //push constants block
 layout( push_constant ) uniform push{
@@ -35,6 +36,7 @@ layout(set = 0, binding = 0) buffer SimObjects{
 
 layout(set = 1, binding = 0) uniform writeonly image2D global_images_2d[];
 
+
 void main(){
 
   vec3 location = objects[nonuniformEXT(get_index(Push.push.sim))].objects[gl_InstanceIndex].location.xyz;
@@ -42,5 +44,10 @@ void main(){
 
   vec4 pos = vec4(inPos + location, 1.0);
 
+  outNormal = normalize(inNormal);
+  outColor = vec3(0.9, 0.85, 0.89);
+  outUV = inUV;
+
   gl_Position = Ubo[nonuniformEXT(get_index(Push.push.ubo))].projection * Ubo[nonuniformEXT(get_index(Push.push.ubo))].model_view * pos;
+  outPos = gl_Position.xyz;
 }

@@ -1,3 +1,4 @@
+use easy_gltf::Scene;
 use marpii::{
     allocator::MemoryUsage,
     ash::vk,
@@ -40,7 +41,7 @@ pub struct ForwardPass {
 }
 
 impl ForwardPass {
-    pub fn new(rmg: &mut Rmg, ubo: BufferHandle<Ubo>) -> Result<Self, RmgError> {
+    pub fn new(rmg: &mut Rmg, ubo: BufferHandle<Ubo>, gltf: &[Scene]) -> Result<Self, RmgError> {
         let push = PushConstant::new(
             shared::ForwardPush {
                 ubo: ResourceHandle::new(0, 0),
@@ -50,7 +51,7 @@ impl ForwardPass {
             vk::ShaderStageFlags::COMPUTE,
         );
 
-        let (vertex_buffer_data, index_buffer_data) = load_model();
+        let (vertex_buffer_data, index_buffer_data) = load_model(gltf);
 
         let index_buffer_size = index_buffer_data.len() as u32;
 
