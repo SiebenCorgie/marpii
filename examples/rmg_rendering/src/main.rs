@@ -86,7 +86,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut buffer_copy = CopyToGraphicsBuffer::new(&mut rmg, simulation.sim_buffer.clone())?;
     let mut forward = ForwardPass::new(
         &mut rmg,
-        ubo_update.buffer_handle().clone(), //the ubo keeps the same every frame
+        ubo_update.buffer_handle().clone(),
         &gltf
     )
     .unwrap();
