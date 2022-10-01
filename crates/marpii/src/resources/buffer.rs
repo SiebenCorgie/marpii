@@ -24,32 +24,52 @@ pub enum BufferMapError {
 }
 
 pub struct BufDesc {
-    pub size: ash::vk::DeviceSize,
-    pub usage: ash::vk::BufferUsageFlags,
-    pub sharing: super::SharingMode,
+    pub size: vk::DeviceSize,
+    pub usage: vk::BufferUsageFlags,
+    pub sharing: SharingMode,
 }
 
 impl BufDesc {
     pub fn set_on_builder<'a>(
         &'a self,
-        mut builder: ash::vk::BufferCreateInfoBuilder<'a>,
-    ) -> ash::vk::BufferCreateInfoBuilder<'a> {
+        mut builder: vk::BufferCreateInfoBuilder<'a>,
+    ) -> vk::BufferCreateInfoBuilder<'a> {
         builder = builder.size(self.size).usage(self.usage);
 
         match &self.sharing {
             super::SharingMode::Exclusive => {
-                builder = builder.sharing_mode(ash::vk::SharingMode::EXCLUSIVE)
+                builder = builder.sharing_mode(vk::SharingMode::EXCLUSIVE)
             }
             super::SharingMode::Concurrent {
                 queue_family_indices,
             } => {
                 builder = builder
-                    .sharing_mode(ash::vk::SharingMode::CONCURRENT)
+                    .sharing_mode(vk::SharingMode::CONCURRENT)
                     .queue_family_indices(queue_family_indices)
             }
         }
 
         builder
+    }
+
+    pub fn with(mut self, op: impl FnOnce(&mut Self)) -> Self {
+        op(&mut self);
+        self
+    }
+
+    ///Creates a buffer description that could hold `size` elements of type `T`. Note that no usage is set.
+    pub fn for_data<T: 'static>(size: usize) -> Self {
+        let size = (core::mem::size_of::<T>() * size) as u64;
+        BufDesc {
+            size,
+            usage: vk::BufferUsageFlags::empty(),
+            sharing: SharingMode::Exclusive,
+        }
+    }
+
+    ///Creates a storage buffer description that could hold `size` elements of type `T`
+    pub fn storage_buffer<T: 'static>(size: usize) -> Self {
+        Self::for_data::<T>(size).with(|b| b.usage = vk::BufferUsageFlags::STORAGE_BUFFER)
     }
 }
 

@@ -125,7 +125,7 @@ pub fn image_from_image<A: Allocator + Send + Sync + 'static>(
     usage: vk::ImageUsageFlags,
     img: image::DynamicImage,
 ) -> Result<Image, anyhow::Error> {
-    use image::{DynamicImage, GenericImageView};
+    use image::GenericImageView;
     use marpii::resources::ImageType;
 
     let (width, height) = img.dimensions();

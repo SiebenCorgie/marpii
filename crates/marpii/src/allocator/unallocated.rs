@@ -42,6 +42,9 @@ impl Allocation for UnmanagedAllocation {
     fn as_slice_mut(&mut self) -> Option<&mut [u8]> {
         None
     }
+    fn memory_properties(&self) -> ash::vk::MemoryPropertyFlags {
+        ash::vk::MemoryPropertyFlags::empty()
+    }
 }
 
 impl super::Allocator for UnmanagedAllocator {

@@ -1,15 +1,15 @@
 [workspace]
 members = [
 "crates/marpii",
-#"crates/marpii-command-graph",
 "crates/marpii-rmg",
+"crates/marpii-rmg-shared",
 "crates/marpii-commands",
 "crates/marpii-descriptor",
 
 "examples/hello_triangle",
-#"examples/render_graph",
 "examples/rust_shader",
 "examples/shader_builder",
-#"examples/vertex_graphics_shader",
-#"examples/gltf_loading"
+"examples/rmg_rendering",
+"examples/shared",
+"examples/rmg_shader"
 ]

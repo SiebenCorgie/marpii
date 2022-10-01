@@ -24,7 +24,7 @@ pub use shader_module::{ShaderModule, ShaderStage};
 use smallvec::SmallVec;
 
 ///Memory usage types
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum SharingMode {
     Exclusive,
     Concurrent {

@@ -1,6 +1,9 @@
 //!simple shader building utility. Usually hooked into the build script of the examples.
 
-use std::{fs::create_dir_all, path::Path};
+use std::{
+    fs::create_dir_all,
+    path::{Path, PathBuf},
+};
 
 use spirv_builder::{
     Capability, MetadataPrintout, ModuleResult, SpirvBuilder, SpirvBuilderError, SpirvMetadata,
@@ -11,6 +14,8 @@ pub fn compile_rust_shader(
     shader_crate: &str,
     destination_folder: &str,
 ) -> Result<(), SpirvBuilderError> {
+    println!("compile shader crate: {}", shader_crate);
+
     let shader_crate_location = Path::new(shader_crate).canonicalize().unwrap();
     if !shader_crate_location.exists() {
         println!("no crate at: {:?}", shader_crate_location);
@@ -68,8 +73,27 @@ pub fn compile_rust_shader(
             move_spirv_file(&path, None);
         }
     };
-
     Ok(())
+}
+
+fn build_glsl(path: &str, target: &str) {
+    if PathBuf::from(target).exists() {
+        std::fs::remove_file(target).unwrap();
+    }
+
+    let command = std::process::Command::new("glslangValidator")
+        .arg("-g")
+        .arg("-V")
+        .arg(path)
+        .arg("-o")
+        .arg(target)
+        .output()
+        .unwrap();
+
+    if !command.status.success() {
+        println!("Out: {}", std::str::from_utf8(&command.stdout).unwrap());
+        println!("Err: {}", std::str::from_utf8(&command.stderr).unwrap());
+    }
 }
 
 fn main() {
@@ -82,4 +106,20 @@ fn main() {
         "resources/",
     )
     .expect("Failed to build shader");
+
+    compile_rust_shader("rmg_shader", "examples/rmg_shader", "resources/")
+        .expect("Failed to build shader");
+
+    build_glsl(
+        "examples/rmg_shader/glsl/simulation.comp",
+        "resources/simulation.spv",
+    );
+    build_glsl(
+        "examples/rmg_shader/glsl/forward.vert",
+        "resources/forward_vs.spv",
+    );
+    build_glsl(
+        "examples/rmg_shader/glsl/forward.frag",
+        "resources/forward_fs.spv",
+    );
 }

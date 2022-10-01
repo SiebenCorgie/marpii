@@ -1,6 +1,8 @@
-use std::sync::Arc;
+use std::{ffi::{CString, CStr}, sync::Arc};
 
+use ash::vk;
 use const_cstr::const_cstr;
+use raw_window_handle::HasRawDisplayHandle;
 
 use super::PhysicalDeviceFilter;
 const_cstr! {
@@ -49,6 +51,8 @@ unsafe extern "system" fn vulkan_debug_callback(
             log::warn!("[{}: {:?}]: {:?}", id, idname, msg);
         } else if message_severity.contains(ash::vk::DebugUtilsMessageSeverityFlagsEXT::INFO) {
             log::info!("[{}: {:?}]: {:?}", id, idname, msg);
+        } else {
+            log::trace!("[{}: {:?}]: {:?}", id, idname, msg);
         }
     }
 
@@ -85,12 +89,49 @@ pub struct Debugger {
     pub debug_messenger: ash::vk::DebugUtilsMessengerEXT,
 }
 
+///Signales enabled and disabled validation layer features
+#[allow(dead_code)]
+pub struct ValidationFeatures {
+    enabled: Vec<vk::ValidationFeatureEnableEXT>,
+    disabled: Vec<vk::ValidationFeatureDisableEXT>,
+}
+
+impl ValidationFeatures {
+    pub fn none() -> Self {
+        ValidationFeatures {
+            enabled: Vec::new(),
+            disabled: Vec::new(),
+        }
+    }
+
+    ///enables only debug printf
+    pub fn gpu_printf() -> Self {
+        ValidationFeatures {
+            enabled: vec![vk::ValidationFeatureEnableEXT::DEBUG_PRINTF],
+            disabled: Vec::new(),
+        }
+    }
+
+    ///Enables all debug features
+    pub fn all() -> Self {
+        ValidationFeatures {
+            enabled: vec![
+                vk::ValidationFeatureEnableEXT::GPU_ASSISTED,
+                vk::ValidationFeatureEnableEXT::GPU_ASSISTED_RESERVE_BINDING_SLOT,
+                vk::ValidationFeatureEnableEXT::BEST_PRACTICES,
+                vk::ValidationFeatureEnableEXT::SYNCHRONIZATION_VALIDATION,
+            ],
+            disabled: Vec::new(),
+        }
+    }
+}
+
 ///Instance configuration as well as the source entry point. Usually this struct is created via [Instance::load] or [Instance::linked]
 pub struct InstanceBuilder {
     pub entry: ash::Entry,
-    pub validation_layers: bool,
-    pub enabled_layers: Vec<std::ffi::CString>,
-    pub enabled_extensions: Vec<std::ffi::CString>,
+    pub validation_layers: Option<ValidationFeatures>,
+    pub enabled_layers: Vec<CString>,
+    pub enabled_extensions: Vec<CString>,
 }
 
 impl InstanceBuilder {
@@ -98,19 +139,25 @@ impl InstanceBuilder {
     ///if `validation_layers` is enabled and no `debugger` is supplied a default debugger will be used.
     pub fn build(mut self) -> Result<Arc<Instance>, anyhow::Error> {
         //check if validation is enabled, in that case push the validation layers
-        if self.validation_layers {
-            self =
-                self.with_layer(std::ffi::CString::new("VK_LAYER_KHRONOS_validation").unwrap())?;
+        let has_val_layers = self.validation_layers.is_some();
+        if has_val_layers {
+            self = self.with_layer(CString::new("VK_LAYER_KHRONOS_validation").unwrap())?;
             self = self.with_extension(ash::extensions::ext::DebugUtils::name().to_owned())?;
         }
 
         let InstanceBuilder {
             entry,
-            validation_layers,
+            validation_layers: _,
             enabled_layers,
             enabled_extensions,
         } = self;
-
+        /*
+                let validation_features = if let Some(f) = validation_layers{
+                    f
+                }else{
+                    ValidationFeatures::none()
+                };
+        */
         let app_desc = ash::vk::ApplicationInfo::builder().api_version(ash::vk::make_api_version(
             0,
             Instance::API_VERSION_MAJOR,
@@ -154,12 +201,20 @@ impl InstanceBuilder {
             .application_info(&app_desc)
             .enabled_extension_names(&enabled_extensions)
             .enabled_layer_names(&enabled_layers);
+        /*
+        let mut valext = vk::ValidationFeaturesEXT::builder()
+            .enabled_validation_features(&validation_features.enabled)
+            .disabled_validation_features(&validation_features.disabled);
 
-        //now create the instance based on the provided create info
+        if has_val_layers{
+            create_info = create_info.push_next(&mut valext);
+            //now create the instance based on the provided create info
+        }
+        */
         let instance = unsafe { entry.create_instance(&create_info, None)? };
 
         //if validation is enabled, either unwrap the debugger, of create the new one
-        let debugger = if validation_layers {
+        let debugger = if has_val_layers {
             let (debug_report_loader, debug_messenger) = {
                 //create the reporter
                 let debug_report_loader = ash::extensions::ext::DebugUtils::new(&entry, &instance);
@@ -201,7 +256,7 @@ impl InstanceBuilder {
     }
 
     ///adds an extensions with the given name, if it was not added yet.
-    pub fn with_extension(mut self, name: std::ffi::CString) -> Result<Self, anyhow::Error> {
+    pub fn with_extension(mut self, name: CString) -> Result<Self, anyhow::Error> {
         for e in &self.enabled_extensions {
             #[cfg(feature = "logging")]
             log::warn!("Tried to enable extension twice: {:?}", name);
@@ -218,7 +273,7 @@ impl InstanceBuilder {
     }
 
     ///adds an layer with the given name to the list of layers
-    pub fn with_layer(mut self, name: std::ffi::CString) -> Result<Self, anyhow::Error> {
+    pub fn with_layer(mut self, name: CString) -> Result<Self, anyhow::Error> {
         for l in &self.enabled_layers {
             #[cfg(feature = "logging")]
             log::warn!("Tried to enable layer twice: {:?}", name);
@@ -237,19 +292,22 @@ impl InstanceBuilder {
     ///Enables all extensions that are needed for the surface behind `handle` to work.
     pub fn for_surface(
         mut self,
-        handle: &dyn raw_window_handle::HasRawWindowHandle,
+        handle: &dyn HasRawDisplayHandle,
     ) -> Result<Self, anyhow::Error> {
-        let required_extensions = ash_window::enumerate_required_extensions(handle)?;
+        let required_extensions = ash_window::enumerate_required_extensions(handle.raw_display_handle())?;
         for r in required_extensions {
-            self = self.with_extension(r.to_owned())?;
+            let st = unsafe{
+                CStr::from_ptr(*r).to_owned()
+            };
+            self = self.with_extension(st)?;
         }
 
         Ok(self)
     }
 
     ///enables validation layers and implicitly sets a debugger that prints either via [println](println), or via the log crate if the `logging` feature is enabled.
-    pub fn enable_validation(mut self) -> Self {
-        self.validation_layers = true;
+    pub fn enable_validation(mut self, features: ValidationFeatures) -> Self {
+        self.validation_layers = Some(features);
         self
     }
 }
@@ -282,7 +340,7 @@ impl Instance {
             entry,
             enabled_extensions: Vec::new(),
             enabled_layers: Vec::new(),
-            validation_layers: false,
+            validation_layers: None,
         })
     }
 
@@ -294,7 +352,7 @@ impl Instance {
             entry,
             enabled_extensions: Vec::new(),
             enabled_layers: Vec::new(),
-            validation_layers: false,
+            validation_layers: None,
         })
     }
 }

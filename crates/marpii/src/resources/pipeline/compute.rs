@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::{context::Device, resources::shader_module::ShaderStage};
+use crate::{context::Device, resources::shader_module::ShaderStage, util::OoS};
 
 use super::PipelineLayout;
 
@@ -12,7 +12,7 @@ use super::PipelineLayout;
 pub struct ComputePipeline {
     pub device: Arc<Device>,
     pub pipeline: ash::vk::Pipeline,
-    pub layout: PipelineLayout,
+    pub layout: OoS<PipelineLayout>,
 }
 
 impl ComputePipeline {
@@ -20,8 +20,9 @@ impl ComputePipeline {
         device: &Arc<Device>,
         stage: &'a ShaderStage,
         specialization_info: Option<&'a ash::vk::SpecializationInfo>,
-        layout: PipelineLayout,
+        layout: impl Into<OoS<PipelineLayout>>,
     ) -> Result<Self, anyhow::Error> {
+        let layout = layout.into();
         let create_info = ash::vk::ComputePipelineCreateInfo::builder()
             .stage(*stage.as_create_info(specialization_info))
             .layout(layout.layout);

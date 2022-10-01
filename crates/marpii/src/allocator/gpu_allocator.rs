@@ -1,3 +1,4 @@
+use ash::vk;
 use gpu_allocator::{vulkan::AllocationCreateDesc, MemoryLocation};
 
 use super::{Allocation, MemoryUsage};
@@ -31,6 +32,9 @@ impl Allocation for gpu_allocator::vulkan::Allocation {
 
     fn as_slice_mut(&mut self) -> Option<&mut [u8]> {
         self.mapped_slice_mut()
+    }
+    fn memory_properties(&self) -> vk::MemoryPropertyFlags {
+        self.memory_properties()
     }
 }
 

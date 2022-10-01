@@ -440,7 +440,7 @@ impl App {
         let extent = self
             .swapchain
             .surface
-            .get_capabilities(self.ctx.device.physical_device)
+            .get_capabilities(&self.ctx.device.physical_device)
             .unwrap()
             .current_extent;
         //if on wayland this will be wrong, therfore sanitize

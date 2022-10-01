@@ -208,7 +208,7 @@ impl SwapchainBuilder {
     pub fn get_supported_image_extent(&self) -> ash::vk::Extent2D {
         let supported = self
             .surface
-            .get_capabilities(self.device.physical_device)
+            .get_capabilities(&self.device.physical_device)
             .unwrap();
         let ext = ash::vk::Extent2D {
             width: supported
@@ -366,7 +366,7 @@ impl Swapchain {
         surface: &Arc<Surface>,
     ) -> Result<SwapchainBuilder, anyhow::Error> {
         let formats = surface.get_formats(device.physical_device)?;
-        let capabilities = surface.get_capabilities(device.physical_device)?;
+        let capabilities = surface.get_capabilities(&device.physical_device)?;
         let present_modes = surface.get_present_modes(device.physical_device)?;
 
         let format = formats[0];
