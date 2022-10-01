@@ -9,27 +9,17 @@ Second iteration of [marp](gitlab.com/tendsinmende/marp). Vulkan wrapper around 
 </div>
 
 ## Difference to Marp
-Marp tries to wrap the Ash crate completely. The target was to create a high-level-ish API that allows faster iterations while programming without sacrificing speed of the resulting application.
+Marp tries to wrap the Ash crate. The target was to create a high-level-ish API that allows faster iterations while programming without sacrificing speed of the resulting application.
 
 This works for simple applications, like [algae's test application](https://gitlab.com/tendsinmende/algae/-/tree/main/crates/vulkan_runner) but became limiting when writing bigger applications like [nako's renderer](https://gitlab.com/tendsinmende/nako/-/tree/main/crates/nakorender).
 
-More sophisticated applications sometimes need to create more complex systems that need access to Vulkan's low level primitives. This is where MarpII shines. It provides helpful helpers that can, but must not be used.
+More sophisticated applications sometimes need to create more complex systems that need access to Vulkan's low level primitives. This is where MarpII shines. It provides helpful helpers that can, but don't have to be used.
 
-The main [marpii](crates/marpii) crate provides helper function for the most common vulkan objects like pipelines, images, buffers etc. If manages lifetimes of objects that are created through the device. This usually happens "on drop" of those resources. Additionally, some implicit lifetime tracking (for instance command-pools must outlive the command buffer created from those pools) are implemented by keeping a reference to the pool until the command buffer is dropped.
-
-On top of those low-level-ish helpers higher level helpers are implemented. Most notably:
-
-
-- marpii-descriptor: Self growing descriptor pool with descriptor sets that keep their bound resources alive until they are dropped.
-- marpii-command: Command-buffer helper that keeps resources alive until the command buffer is not in use anymore. 
-- marpii-command-graph: Provides highlevel "pass" abstraction and resource state tracking. Allows easy combination of graphics/renderpasses for rapid rendering prototyping.
-
-
-Have a look at the [minder](https://flathub.org/apps/details/com.github.phase1geo.minder) mind map for the initial ideas.
+The main [marpii](crates/marpii) crate provides helper function for the most common vulkan objects like pipelines, images, buffers etc. It manages lifetimes of objects that are created through the device. This usually happens "on drop" of those resources. Additionally, some implicit lifetime tracking (for instance command-pools must outlive the command buffer created from those pools) are implemented by keeping a reference to the pool until the command buffer is dropped.
 
 ## Defaults and opinionated design
 
-MarpII has some design decisions that are opinionated. For instance, where ever it matters the target vulkan version will be the latest stable major release. As of writing (march 2022) this is 1.3. 
+MarpII has some design decisions that are opinionated. For instance, where ever it matters the target vulkan version will be the latest stable major release. As of writing (march 2022) this is 1.3. It also uses `Arc<T>` to keep objects alive. The added safety/convenience is payed by some overhead.
 
 ## Getting started
 
@@ -43,7 +33,8 @@ Examples can be found in the `examples` directory, marpii is also documented. A 
 Apart from the main crate that is closely related to Vulkan multiple helper crates exist that should make working with vulkan easier. Have a look at their READMEs for a description on what they do and how experimental they are.
 
 - marpii-commands: CommandBuffer helper that captures resources that are needed for the execution of the command buffer.
-- marpii-command-graph: Experimental frame-graph helper. Allows defining multiple abstract `Pass`es which are build from `SubPass`es. inter-pass dependencies are found and resource transition is taken care of. This basically allows the user to create complex frame graphs easyly. 
+- marpii-rmg: Frame-graph helper. Allows defining multiple sub `Task`s for a frame. Takes care of resources (Buffers/Images), layout and access transitions, pipeline barriers, inter-queue synchronisation etc. You basically only have to register which resources are used for a task, and how the draw/dispatch is done. 
+- marpii-rmg-shared: `no_std` crate that defines the resource handles used by RMG's bindless setup. Can be used in rust-gpu based shaders for convenient access.
 - marpii-descriptor: Multiple `DescriptorSet` helpers. Similar to the command-buffer helper resources are captured to keep the descriptor sets valid. Also handles descriptor allocation and freeing for you.
 
 ### Examples
@@ -51,16 +42,9 @@ Apart from the main crate that is closely related to Vulkan multiple helper crat
 Examples are executed via `cargo run --bin example_name`. Have a look at `examples/` for available applications.
 
 
-## Roadmap
-- [x] Simple device and resource creation
-- [ ] RAII style resource (Image / Buffer) creation
-- [ ] Bindless setup helpers
-- [x] Pipeline layout <-> Shader descriptor verification
-- [x] Resource state negotiation (allows declaring "needed" state and "current" state and the needed transition between them), for single queue environment
-- [x] high level "pass" concept with automatic inter-state transitions
-- [x] command-buffer resource attachments (for better tracking of resource lifetimes)
+## Crates structure
 
-![Initial mind map](resources/initialMindMap.svg)
+![crate structure](resources/MarpIIStructure.svg)
 
 
 ## Dependencies
@@ -80,13 +64,17 @@ A list of dependencies used in the crates of this project. Have a look at the `C
 - puffin: profiling if enabled
 - rspirv-reflect: spirv-module reflection if enabled. Allows convenient descriptor-layout creation.
 
-### MarpII-Command-Graph
+### MarpII-Rmg
 
-- marpii/marpii-commands: marpii binding
-- anyhow: convenient error handling.
+- marpii/marpii-commands/marpii-descriptor: marpii binding
+- anyhow: convenient error handling
+- thiserror: convenient error handling
 - fxhash: in the cases where we need a hash map/set fx-hash is used for speed.
-- slotmap: Fast and safe Vec-like access for `Passe`s within a Graph.
+- slotmap: Fast and safe Vec-like mapping from handles to internal resource
 - log: logging if enabled
+- winit: swapchain handling
+- crossbeam-channel: async resource collector (not yet implemented)
+- poll-promise: async resource collector (not yet implemented)
 
 ### MarpII-Commands
 - marpii: marpii binding
