@@ -1,4 +1,4 @@
-use crate::{BufferHandle, Rmg, RmgError, Task};
+use marpii_rmg::{BufferHandle, Rmg, RmgError, Task, ResourceRegistry, Resources};
 use marpii::{
     ash::vk,
     resources::{BufDesc, Buffer},
@@ -56,7 +56,7 @@ impl<T: Copy + 'static> Task for UploadBuffer<T> {
         "BufferUpload"
     }
 
-    fn register(&self, registry: &mut crate::ResourceRegistry) {
+    fn register(&self, registry: &mut ResourceRegistry) {
         registry.request_buffer(&self.buffer);
         registry.request_buffer(&self.src_buffer)
     }
@@ -69,7 +69,7 @@ impl<T: Copy + 'static> Task for UploadBuffer<T> {
         &mut self,
         device: &Arc<marpii::context::Device>,
         command_buffer: &vk::CommandBuffer,
-        resources: &crate::Resources,
+        resources: &Resources,
     ) {
         //NOTE: buffer barrier is done by scheduler
 

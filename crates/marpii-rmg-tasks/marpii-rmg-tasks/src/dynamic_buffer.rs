@@ -1,4 +1,4 @@
-use crate::{BufferHandle, Rmg, RmgError, Task};
+use marpii_rmg::{BufferHandle, Rmg, RmgError, Task, Resources, ResourceRegistry};
 use marpii::{
     ash::vk,
     resources::{Buffer, BufferMapError},
@@ -133,7 +133,7 @@ impl<T: Copy + 'static> Task for DynamicBuffer<T> {
     fn queue_flags(&self) -> marpii::ash::vk::QueueFlags {
         vk::QueueFlags::TRANSFER
     }
-    fn register(&self, registry: &mut crate::ResourceRegistry) {
+    fn register(&self, registry: &mut ResourceRegistry) {
         if !self.has_changed {
             return;
         }
@@ -149,7 +149,7 @@ impl<T: Copy + 'static> Task for DynamicBuffer<T> {
         &mut self,
         device: &Arc<marpii::context::Device>,
         command_buffer: &vk::CommandBuffer,
-        resources: &crate::Resources,
+        resources: &Resources,
     ) {
         if !self.has_changed {
             return;

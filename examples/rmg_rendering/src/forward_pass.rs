@@ -11,9 +11,10 @@ use marpii::{
     util::OoS,
 };
 use marpii_rmg::{
-    tasks::UploadBuffer, BufferHandle, CtxRmg, ImageHandle, ResourceRegistry, Resources, Rmg,
+    BufferHandle, CtxRmg, ImageHandle, ResourceRegistry, Resources, Rmg,
     RmgError, Task,
 };
+use marpii_rmg_tasks::UploadBuffer;
 use shared::{ResourceHandle, SimObj, Ubo, Vertex};
 use std::sync::Arc;
 

@@ -34,7 +34,7 @@ use camera_controller::Camera;
 use copy_buffer::CopyToGraphicsBuffer;
 use forward_pass::ForwardPass;
 use marpii::{ash::vk, context::Ctx};
-use marpii_rmg::tasks::{DynamicBuffer, SwapchainBlit};
+use marpii_rmg_tasks::{DynamicBuffer, SwapchainBlit};
 use marpii_rmg::Rmg;
 use shared::Ubo;
 use simulation::Simulation;

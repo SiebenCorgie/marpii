@@ -1,10 +1,13 @@
 [workspace]
 members = [
 "crates/marpii",
-"crates/marpii-rmg",
-"crates/marpii-rmg-shared",
 "crates/marpii-commands",
 "crates/marpii-descriptor",
+"crates/marpii-rmg",
+"crates/marpii-rmg-shared",
+"crates/marpii-rmg-tasks/marpii-rmg-tasks",
+"crates/marpii-rmg-tasks/marpii-rmg-task-shader",
+"crates/marpii-rmg-tasks/marpii-rmg-task-shared",
 
 "examples/hello_triangle",
 "examples/rust_shader",

@@ -1,4 +1,4 @@
-use crate::{BufferHandle, CtxRmg, ImageHandle, RecordError, Task};
+use marpii_rmg::{BufferHandle, CtxRmg, ImageHandle, RecordError, Task, Resources, ResourceRegistry};
 use marpii::{ash::vk, resources::Buffer};
 use std::sync::Arc;
 
@@ -32,7 +32,7 @@ impl<'dta> Task for UploadImage<'dta> {
     }
     fn pre_record(
         &mut self,
-        resources: &mut crate::Resources,
+        resources: &mut Resources,
         ctx: &CtxRmg,
     ) -> Result<(), RecordError> {
         //create host image
@@ -58,7 +58,7 @@ impl<'dta> Task for UploadImage<'dta> {
 
         Ok(())
     }
-    fn register(&self, registry: &mut crate::ResourceRegistry) {
+    fn register(&self, registry: &mut ResourceRegistry) {
         registry.request_image(&self.target);
         registry.request_buffer(&self.host_image.clone().unwrap());
     }
@@ -66,7 +66,7 @@ impl<'dta> Task for UploadImage<'dta> {
         &mut self,
         device: &std::sync::Arc<marpii::context::Device>,
         command_buffer: &vk::CommandBuffer,
-        resources: &crate::Resources,
+        resources: &Resources,
     ) {
         if let Some(bufkey) = &self.host_image {
             let buffer = resources.get_buffer_state(&bufkey);
@@ -120,7 +120,7 @@ impl<'dta> Task for UploadImage<'dta> {
 
     fn post_execution(
         &mut self,
-        _resources: &mut crate::Resources,
+        _resources: &mut Resources,
         _ctx: &CtxRmg,
     ) -> Result<(), RecordError> {
         //remove temporary buffer
