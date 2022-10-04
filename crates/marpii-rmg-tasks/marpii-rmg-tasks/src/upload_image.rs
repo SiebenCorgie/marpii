@@ -1,66 +1,55 @@
-use marpii_rmg::{BufferHandle, CtxRmg, ImageHandle, RecordError, Task, Resources, ResourceRegistry};
-use marpii::{ash::vk, resources::Buffer};
+use marpii_rmg::{BufferHandle, ImageHandle, Task, Resources, ResourceRegistry, Rmg, RmgError};
+use marpii::{ash::vk, resources::{Buffer, ImgDesc}};
 use std::sync::Arc;
 
 ///Transfer pass that copies data to an image on the GPU.
 /// perfect if you need to initialise textures for instance.
-pub struct UploadImage<'dta> {
-    target: ImageHandle,
-    src: &'dta [u8],
-    host_image: Option<BufferHandle<u8>>,
+pub struct UploadImage {
+    pub image: ImageHandle,
+    upload: BufferHandle<u8>,
 }
 
-impl<'dta> UploadImage<'dta> {
+impl UploadImage {
+
+    //TODO: add tasks constructors, for instance automatic "load from file"?
+
     ///Creates the upload task. Note that data is interpreted as whatever `target`'s format is.
     /// If this is wrong you will get artefacts. Use a format convertion before (on CPU), or a chained GPU based
     /// convertion task otherwise.
-    pub fn new(target: ImageHandle, data: &'dta [u8]) -> Self {
-        Self {
-            target,
-            src: data,
-            host_image: None,
+    pub fn new_with_image<'dta>(rmg: &mut Rmg, data: &'dta [u8], mut desc: ImgDesc) -> Result<Self, RmgError>{
+
+        let staging = Buffer::new_staging_for_data(
+            &rmg.ctx.device,
+            &rmg.ctx.allocator,
+            Some("StagingBuffer"),
+            data,
+        )?;
+
+        staging.flush_range();
+
+        if !desc.usage.contains(vk::ImageUsageFlags::TRANSFER_DST){
+            #[cfg(feature = "logging")]
+            log::warn!("Upload image had TRANSEFER_DST not set, adding to usage...");
+            desc.usage |= vk::ImageUsageFlags::TRANSFER_DST;
         }
+
+        let staging = rmg.import_buffer(Arc::new(staging), None, None)?;
+        let image = rmg.new_image_uninitialized(desc, None)?;
+
+        Ok(UploadImage { image, upload: staging })
     }
 }
 
-impl<'dta> Task for UploadImage<'dta> {
+impl Task for UploadImage {
     fn name(&self) -> &'static str {
         "UploadImage"
     }
     fn queue_flags(&self) -> vk::QueueFlags {
         vk::QueueFlags::TRANSFER
     }
-    fn pre_record(
-        &mut self,
-        resources: &mut Resources,
-        ctx: &CtxRmg,
-    ) -> Result<(), RecordError> {
-        //create host image
-        // TODO: Document that this is not free and should be done as early as possible
-        let desc = resources.get_image_desc(&self.target).clone();
-        if !desc.usage.contains(vk::ImageUsageFlags::TRANSFER_DST) {
-            #[cfg(feature = "logging")]
-            log::error!("Image used as upload target does not have TRANSFER_DST flag set!");
-            return Err(RecordError::Any(anyhow::anyhow!(
-                "Upload Image has no transfer bit set"
-            )));
-        }
-
-        let host_image = Buffer::new_staging_for_data(
-            &ctx.device,
-            &ctx.allocator,
-            Some("StagingBuffer"),
-            self.src,
-        )?;
-
-        //Add buffer to resource manager
-        self.host_image = Some(resources.add_buffer(Arc::new(host_image))?);
-
-        Ok(())
-    }
     fn register(&self, registry: &mut ResourceRegistry) {
-        registry.request_image(&self.target);
-        registry.request_buffer(&self.host_image.clone().unwrap());
+        registry.request_image(&self.image);
+        registry.request_buffer(&self.upload);
     }
     fn record(
         &mut self,
@@ -68,64 +57,56 @@ impl<'dta> Task for UploadImage<'dta> {
         command_buffer: &vk::CommandBuffer,
         resources: &Resources,
     ) {
-        if let Some(bufkey) = &self.host_image {
-            let buffer = resources.get_buffer_state(&bufkey);
-            let img = resources.get_image_state(&self.target);
 
-            //copy over by moving to right layout, issue copy and moving back to _old_ layout
+        let buffer = resources.get_buffer_state(&self.upload);
+        let img = resources.get_image_state(&self.image);
 
-            unsafe {
-                device.inner.cmd_pipeline_barrier2(
-                    *command_buffer,
-                    &vk::DependencyInfo::builder()
-                        .buffer_memory_barriers(&[*vk::BufferMemoryBarrier2::builder()
+        //copy over by moving to right layout, issue copy and moving back to _old_ layout
+
+        unsafe {
+            device.inner.cmd_pipeline_barrier2(
+                *command_buffer,
+                &vk::DependencyInfo::builder()
+                    .buffer_memory_barriers(&[
+                        *vk::BufferMemoryBarrier2::builder()
                             .buffer(buffer.buffer.inner)
                             .offset(0)
-                            .size(vk::WHOLE_SIZE)])
-                        .image_memory_barriers(&[*vk::ImageMemoryBarrier2::builder()
-                            .image(img.image.inner)
-                            .subresource_range(img.image.subresource_all())
-                            .old_layout(vk::ImageLayout::UNDEFINED)
-                            .new_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)]),
-                );
-
-                device.inner.cmd_copy_buffer_to_image2(
-                    *command_buffer,
-                    &vk::CopyBufferToImageInfo2::builder()
-                        .src_buffer(buffer.buffer.inner)
-                        .dst_image(img.image.inner)
-                        .regions(&[*vk::BufferImageCopy2::builder()
-                            .buffer_offset(0)
-                            .buffer_row_length(0)
-                            .buffer_image_height(0)
-                            .image_extent(img.image.desc.extent)
-                            .image_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
-                            .image_subresource(img.image.subresource_layers_all())])
-                        .dst_image_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL),
-                );
-
-                device.inner.cmd_pipeline_barrier2(
-                    *command_buffer,
-                    &vk::DependencyInfo::builder().image_memory_barriers(&[
+                            .size(vk::WHOLE_SIZE)
+                    ])
+                    .image_memory_barriers(&[
                         *vk::ImageMemoryBarrier2::builder()
                             .image(img.image.inner)
                             .subresource_range(img.image.subresource_all())
-                            .old_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
-                            .new_layout(img.layout),
+                            .old_layout(vk::ImageLayout::UNDEFINED)
+                            .new_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
                     ]),
-                );
-            }
+            );
+
+            device.inner.cmd_copy_buffer_to_image2(
+                *command_buffer,
+                &vk::CopyBufferToImageInfo2::builder()
+                    .src_buffer(buffer.buffer.inner)
+                    .dst_image(img.image.inner)
+                    .regions(&[*vk::BufferImageCopy2::builder()
+                               .buffer_offset(0)
+                               .buffer_row_length(0)
+                               .buffer_image_height(0)
+                               .image_extent(img.image.desc.extent)
+                               .image_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
+                               .image_subresource(img.image.subresource_layers_all())])
+                    .dst_image_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL),
+            );
+
+            device.inner.cmd_pipeline_barrier2(
+                *command_buffer,
+                &vk::DependencyInfo::builder().image_memory_barriers(&[
+                    *vk::ImageMemoryBarrier2::builder()
+                        .image(img.image.inner)
+                        .subresource_range(img.image.subresource_all())
+                        .old_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
+                        .new_layout(img.layout),
+                ]),
+            );
         }
-    }
-
-    fn post_execution(
-        &mut self,
-        _resources: &mut Resources,
-        _ctx: &CtxRmg,
-    ) -> Result<(), RecordError> {
-        //remove temporary buffer
-        let _ = self.host_image.take();
-
-        Ok(())
     }
 }
