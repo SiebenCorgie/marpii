@@ -100,13 +100,6 @@ fn main() {
     compile_rust_shader("test_shader", "examples/rust_shader", "resources/")
         .expect("Failed to build shader");
 
-    compile_rust_shader(
-        "vertex_graphics_shader",
-        "examples/vertex_graphics_shader",
-        "resources/",
-    )
-    .expect("Failed to build shader");
-
     compile_rust_shader("rmg_shader", "examples/rmg_shader", "resources/")
         .expect("Failed to build shader");
 
