@@ -41,7 +41,7 @@ impl Simulation {
             ShaderModule::new_from_file(&rmg.ctx.device, "resources/simulation.spv")?;
         let shader_stage = shader_module.into_shader_stage(vk::ShaderStageFlags::COMPUTE, "main");
         //No additional descriptors for us
-        let layout = rmg.resources().bindless_pipeline_layout(&[]);
+        let layout = rmg.resources().bindless_layout();
         let pipeline = Arc::new(ComputePipeline::new(
             &rmg.ctx.device,
             &shader_stage,

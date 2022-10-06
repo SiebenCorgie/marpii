@@ -80,7 +80,7 @@ impl Resources {
     pub fn new(device: &Arc<Device>, surface: &Arc<Surface>) -> Result<Self, ResourceError> {
         let bindless = Bindless::new_default(device)?;
         let bindless_layout =
-            Arc::new(bindless.new_pipeline_layout(Bindless::MAX_PUSH_CONSTANT_SIZE, &[]));
+            Arc::new(bindless.new_pipeline_layout(&[]));
 
         let swapchain = Swapchain::builder(device, surface)?
             .with(move |b| {
@@ -101,21 +101,6 @@ impl Resources {
             last_known_surface_extent: vk::Extent2D::default(),
             handle_drop_channel,
         })
-    }
-
-    ///creates an additional pipeline layout, compatible with bindless, where each additional
-    /// set is bound starting at descriptor_set index 5.
-    ///
-    //TODO expose "bind" function?
-    pub fn bindless_pipeline_layout(
-        &self,
-        additional_descriptor_sets: &[DescriptorSetLayout],
-    ) -> Arc<PipelineLayout> {
-        //TODO cache based on layout properties
-        Arc::new(
-            self.bindless
-                .new_pipeline_layout(Bindless::MAX_PUSH_CONSTANT_SIZE, additional_descriptor_sets),
-        )
     }
 
     pub fn bindless_layout(&self) -> Arc<PipelineLayout> {

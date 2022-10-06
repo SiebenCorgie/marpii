@@ -238,7 +238,6 @@ pub(crate) struct Bindless {
     accel: SetManager<Arc<Buffer>>,
 
     ///Safes the actual max push constant size, to verify bound push constants.
-    #[allow(dead_code)]
     push_constant_size: u32,
 
     device: Arc<Device>,
@@ -276,9 +275,6 @@ impl Bindless {
     #[cfg(feature = "ray-tracing")]
     pub const MAX_BOUND_ACCELERATION_STRUCTURE: u32 = 128;
 
-    ///Default maximum size of a push constant
-    pub const MAX_PUSH_CONSTANT_SIZE: u32 = (core::mem::size_of::<u32>() * 16) as u32;
-
     ///max slot id.
     #[allow(dead_code)]
     const MAX_SLOT: u32 = 2u32.pow(24);
@@ -304,7 +300,6 @@ impl Bindless {
         max_storage_buffer: u32,
         max_sampler: u32,
         #[cfg(feature = "ray-tracing")] max_acceleration_structure: u32,
-        push_constant_size: u32,
     ) -> Result<Self, anyhow::Error> {
         //TODO - check that all flags are set
         //     - setup layout
@@ -366,12 +361,10 @@ impl Bindless {
             Self::NUM_SETS,
         )?);
 
-        #[allow(unused_variables)]
-        let push_range = vk::PushConstantRange {
-            stage_flags: vk::ShaderStageFlags::ALL,
-            offset: 0,
-            size: push_constant_size,
-        };
+        //always maximum size
+        let push_constant_size = device.get_device_properties().properties.limits.max_push_constants_size;
+        #[cfg(feature="logging")]
+        log::info!("Creating Bindless layout with max push_constant_size={}", push_constant_size);
 
         let saimage = SetManager::new(
             device,
@@ -419,7 +412,6 @@ impl Bindless {
     /// the supplied additional sets can be added.
     pub fn new_pipeline_layout(
         &self,
-        push_constant_size: u32,
         additional_descriptor_sets: &[DescriptorSetLayout],
     ) -> PipelineLayout {
         //NOTE: This is the delicate part. We create a link between the descriptor set layouts and this pipeline layout. This is however *safe*
@@ -441,7 +433,7 @@ impl Bindless {
         let push_range = vk::PushConstantRange {
             stage_flags: vk::ShaderStageFlags::ALL,
             offset: 0,
-            size: push_constant_size,
+            size: self.push_constant_size,
         };
 
         let pipeline_layout_create_info = vk::PipelineLayoutCreateInfo::builder()
@@ -472,7 +464,6 @@ impl Bindless {
             Self::MAX_BOUND_SAMPLER.min(limits.max_descriptor_set_samplers),
             Self::MAX_BOUND_ACCELERATION_STRUCTURE
                 .min(limits.max_descriptor_set_storage_buffers_dynamic), //FIXME: not really the correct one...
-            Self::MAX_PUSH_CONSTANT_SIZE,
         )
     }
 
@@ -486,7 +477,6 @@ impl Bindless {
             Self::MAX_BOUND_STORAGE_IMAGES.min(limits.max_descriptor_set_storage_images),
             Self::MAX_BOUND_STORAGE_BUFFER.min(limits.max_descriptor_set_storage_buffers),
             Self::MAX_BOUND_SAMPLER.min(limits.max_descriptor_set_samplers),
-            Self::MAX_PUSH_CONSTANT_SIZE,
         )
     }
 

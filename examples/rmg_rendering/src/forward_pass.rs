@@ -139,7 +139,7 @@ impl ForwardPass {
         let depth_image = rmg.new_image_uninitialized(depth_desc, None)?;
 
         //No additional descriptors for us
-        let layout = rmg.resources().bindless_pipeline_layout(&[]);
+        let layout = rmg.resources().bindless_layout();
 
         let shader_module_vert = Arc::new(
             ShaderModule::new_from_file(&rmg.ctx.device, "resources/forward_vs.spv").unwrap(),
