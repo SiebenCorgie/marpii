@@ -29,7 +29,10 @@ pub struct SimPush {
     pub sim_buffer: ResourceHandle,
     pub is_init: u32,
     pub buf_size: u32,
-    pub pad: [u32; 1],
+    pub img_handle: ResourceHandle,
+    pub img_width: u32,
+    pub img_height: u32,
+    pub pad: [u32; 2],
 }
 
 #[cfg_attr(not(target_arch = "spirv"), derive(Debug))]

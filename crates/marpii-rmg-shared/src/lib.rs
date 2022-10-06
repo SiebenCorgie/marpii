@@ -23,7 +23,7 @@ impl ResourceHandle {
     pub const TYPE_ACCELERATION_STRUCTURE: u8 = 0x4;
     pub const TYPE_INVALID: u8 = 0xff;
 
-    pub const INVALID: Self = Self::new(Self::TYPE_INVALID, 0);
+    pub const INVALID: Self = Self::new_unchecked(Self::TYPE_INVALID, 0);
 
     ///Returns the handle type bits of this handle.
     pub const fn handle_type(&self) -> u8 {
@@ -48,14 +48,18 @@ impl ResourceHandle {
         self.handle_type() > Self::TYPE_ACCELERATION_STRUCTURE
     }
 
+
+    ///Creates a new handle, panics if the type is outside the defined types, or the index exceeds (2^56)-1.
+    pub const fn new_unchecked(ty: u8, index: u32) -> Self {
+        let bytes = (index << 8) | ty as u32;
+        ResourceHandle(bytes)
+    }
+
     ///Creates a new handle, panics if the type is outside the defined types, or the index exceeds (2^56)-1.
     pub const fn new(ty: u8, index: u32) -> Self {
         assert!(ty <= Self::TYPE_ACCELERATION_STRUCTURE);
         assert!(index < 2u32.pow(24));
-
-        let bytes = (index << 8) | ty as u32;
-
-        ResourceHandle(bytes)
+        Self::new_unchecked(ty, index)
     }
 
     #[cfg(feature = "marpii")]

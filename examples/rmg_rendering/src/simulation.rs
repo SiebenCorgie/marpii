@@ -1,9 +1,9 @@
 use marpii::{
     ash::vk,
-    resources::{ComputePipeline, PushConstant, ShaderModule},
+    resources::{ComputePipeline, PushConstant, ShaderModule, ImgDesc},
 };
-use marpii_rmg::{BufferHandle, Rmg, RmgError, Task};
-use shared::SimObj;
+use marpii_rmg::{BufferHandle, Rmg, RmgError, Task, ImageHandle};
+use shared::{SimObj, ResourceHandle};
 use std::sync::Arc;
 
 use crate::OBJECT_COUNT;
@@ -11,7 +11,7 @@ use crate::OBJECT_COUNT;
 pub struct Simulation {
     ///Simulation buffer
     pub sim_buffer: BufferHandle<SimObj>,
-
+    pub feedback_image: ImageHandle,
     is_init: bool,
 
     pipeline: Arc<ComputePipeline>,
@@ -30,7 +30,10 @@ impl Simulation {
                 ),
                 is_init: 0,
                 buf_size: OBJECT_COUNT as u32,
-                pad: [0u32; 1],
+                img_handle: ResourceHandle::INVALID,
+                img_width: 64,
+                img_height: 64,
+                pad: [0u32; 2],
             },
             vk::ShaderStageFlags::COMPUTE,
         );
@@ -46,8 +49,11 @@ impl Simulation {
             layout,
         )?);
 
+        let feedback_image = rmg.new_image_uninitialized(ImgDesc::storage_image_2d(64, 64, vk::Format::R8G8B8A8_UNORM), None)?;
+
         Ok(Simulation {
             sim_buffer: rmg.new_buffer::<SimObj>(OBJECT_COUNT, Some("SimBuffer 1"))?,
+            feedback_image,
             is_init: false,
             pipeline,
             push,
@@ -74,6 +80,7 @@ impl Task for Simulation {
         _ctx: &marpii_rmg::CtxRmg,
     ) -> Result<(), marpii_rmg::RecordError> {
         self.push.get_content_mut().sim_buffer = resources.get_resource_handle(&self.sim_buffer)?;
+        self.push.get_content_mut().img_handle = resources.get_resource_handle(&self.feedback_image)?;
         self.push.get_content_mut().is_init = self.is_init.into();
 
         if !self.is_init {
