@@ -71,6 +71,21 @@ impl BufDesc {
     pub fn storage_buffer<T: 'static>(size: usize) -> Self {
         Self::for_data::<T>(size).with(|b| b.usage = vk::BufferUsageFlags::STORAGE_BUFFER)
     }
+
+    ///Creates a new vertex buffer description for `count` times a vertex `V`.
+    pub fn vertex_buffer<V: 'static>(count: usize) -> Self{
+        Self::for_data::<V>(count).with(|b| b.usage = vk::BufferUsageFlags::VERTEX_BUFFER)
+    }
+
+    ///Creates a new index buffer for `count` times an index of type `u32`.
+    pub fn index_buffer_u32(count: usize) -> Self{
+        Self::for_data::<u32>(count).with(|b| b.usage = vk::BufferUsageFlags::INDEX_BUFFER)
+    }
+
+    ///Creates a new index buffer for `count` times an index of type `u16`.
+    pub fn index_buffer_u16(count: usize) -> Self{
+        Self::for_data::<u16>(count).with(|b| b.usage = vk::BufferUsageFlags::INDEX_BUFFER)
+    }
 }
 
 ///Self managing buffer that uses the allocator `A` to create the buffer, and free it when dropped.
@@ -262,6 +277,8 @@ impl Buffer {
             .device
             .offset_to_next_higher_coherent_atom_size(range.size);
 
+        #[cfg(feature="logging")]
+        log::info!("Flushing {:?} in range {}..{}={}", self.inner, range.offset, (range.offset + range.size), range.size);
         unsafe {
             if let Err(e) = self.device.inner.flush_mapped_memory_ranges(&[range]) {
                 #[cfg(feature = "logging")]

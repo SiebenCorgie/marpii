@@ -169,8 +169,16 @@ impl Rmg {
         Recorder::new(self, window_extent)
     }
 
+    pub fn record_compute_only<'rmg>(&'rmg mut self) -> Recorder<'rmg>{
+        self.record(vk::Extent2D{width: 1, height: 1})
+    }
+
     pub fn resources(&self) -> &Resources {
         &self.res
+    }
+
+    pub fn resources_mut(&mut self) -> &mut Resources {
+        &mut self.res
     }
 
     pub(crate) fn queue_idx_to_trackid(&self, idx: u32) -> Option<TrackId> {
