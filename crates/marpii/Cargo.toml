@@ -29,7 +29,7 @@ ash-window = "0.12"
 raw-window-handle = "0.5"
 anyhow = "1.0.56"
 thiserror = "1.0.31"
-const-cstr = "0.1"
+const-cstr = "0.3"
 smallvec = "1.8.0"
 fxhash = "0.2.1"
 
