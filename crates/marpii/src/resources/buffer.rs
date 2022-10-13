@@ -1,7 +1,7 @@
 use std::{
     hash::{Hash, Hasher},
     mem::size_of,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, MutexGuard},
 };
 
 use crate::{
@@ -21,6 +21,13 @@ pub enum BufferMapError {
     PartialyWritten { written: usize, size: usize },
     #[error("Buffer can not be mapped")]
     NotMapable,
+    #[error("Can not lock allocation for mapping")]
+    NotLockable,
+    #[error("Failed while flushing")]
+    FailedToFlush,
+
+
+
 }
 
 pub struct BufDesc {
@@ -97,9 +104,9 @@ pub struct Buffer {
     pub device: Arc<Device>,
     //NOTE: The allocator was a generic once. However this clocks up the type system over time, as specially when
     //      Mixing different allocator types etc. Since the allocation field is only used once (on drop) to free the
-    //      Memory I find it okay to use dynamic disaptch here. The benefit is a much cleaner API, and the ability to
+    //      Memory I find it okay to use dynamic dispatch here. The benefit is a much cleaner API, and the ability to
     //      collect buffers from different allocators in one Vec<Buffer> for instance.
-    pub allocation: Box<dyn AnonymAllocation + Send + Sync + 'static>,
+    pub allocation: Mutex<Box<dyn AnonymAllocation + Send + Sync + 'static>>,
 }
 
 impl Drop for Buffer {
@@ -150,11 +157,11 @@ impl Buffer {
 
         Ok(Buffer {
             device: device.clone(),
-            allocation: Box::new(ManagedAllocation {
+            allocation: Mutex::new(Box::new(ManagedAllocation {
                 allocator: allocator.clone(),
                 device: device.clone(),
                 allocation: Some(allocation),
-            }),
+            })),
             usage,
             desc: description,
             inner: buffer,
@@ -182,11 +189,11 @@ impl Buffer {
             usage: vk::BufferUsageFlags::TRANSFER_SRC | vk::BufferUsageFlags::TRANSFER_DST, //make sure copy works
         };
 
-        let mut buffer = Buffer::new(device, allocator, desc, MemoryUsage::CpuToGpu, name, None)?;
+        let buffer = Buffer::new(device, allocator, desc, MemoryUsage::CpuToGpu, name, None)?;
         //write data to transfer buffer
         buffer.write(0, data)?;
         //Make sure the data is written
-        buffer.flush_range();
+        buffer.flush_range()?;
 
         Ok(buffer)
     }
@@ -196,8 +203,10 @@ impl Buffer {
     ///
     ///If the buffer is not mapable by the host (usually if the buffer us created with MemoryUsage::GpuOnly) nothing is
     /// written and an error is returned.
+    ///
+    /// If the buffer's allocation is currently locked (by another write or read function) an error might be returned.
     pub fn write<T: Copy + Sized + 'static>(
-        &mut self,
+        &self,
         offset: usize,
         data: &[T],
     ) -> Result<(), BufferMapError> {
@@ -229,8 +238,8 @@ impl Buffer {
             data.len() * size_of::<T>()
         };
 
-        //since we sanitized the write, try to map the pointer and write the actual slice
-        if let Some(mut ptr) = self.allocation.mapped_ptr() {
+        //since we sanitised the write, try to map the pointer and write the actual slice
+        if let Some(mut ptr) = self.allocation.lock().map_err(|_| BufferMapError::NotLockable)?.mapped_ptr() {
             #[cfg(feature = "logging")]
             log::info!("writing to mapped buffer[{:?}] of size {} with offset={}, data_size={}, write_size={}", self.inner, self.desc.size, offset, data.len(), write_size);
 
@@ -257,19 +266,19 @@ impl Buffer {
     }
 
     ///Tries to flash the memory range. Does nothing if the memory is not host mappable
-    pub fn flush_range(&self) {
+    pub fn flush_range(&self) -> Result<(), BufferMapError>{
         match &self.usage {
             MemoryUsage::GpuOnly | MemoryUsage::Unknown => {
                 #[cfg(feature = "logging")]
                 log::error!("Tried flush buffer that has usage: {:?}", self.usage);
-                return;
+                return Err(BufferMapError::NotMapable);
             }
             _ => {}
         }
 
-        let mut range = self.allocation.as_memory_range().unwrap();
+        let mut range = self.allocation.lock().map_err(|_| BufferMapError::NotLockable)?.as_memory_range().unwrap();
 
-        //update range's offet and size to be in Device limits
+        //update range's offset and size to be in Device limits
         range.offset = self
             .device
             .offset_to_next_lower_coherent_atom_size(range.offset);
@@ -283,14 +292,15 @@ impl Buffer {
             if let Err(e) = self.device.inner.flush_mapped_memory_ranges(&[range]) {
                 #[cfg(feature = "logging")]
                 log::error!("Failed to flush memory range of mapped buffer: {}", e);
-                return;
+                return Err(BufferMapError::FailedToFlush);
             }
         }
+        Ok(())
     }
 
-    ///Returns (if possible) a reference to the buffers data. Note that the data might be aligned, or not even be of one type. Turning this data into actual types should probably be implemented
-    /// by whoever knows the actual data layout.
-    pub fn read(&self) -> Result<&[u8], BufferMapError> {
+    ///Returns (if possible) a reference to the buffers data. Note that this lock the internal allocation until the value is dropped. Therefore while reading
+    /// no write to the buffer can occure.
+    pub fn read<'a>(&'a self) -> Result<MutexGuard<'a, Box<dyn AnonymAllocation + Send + Sync>>, BufferMapError> {
         match &self.usage {
             MemoryUsage::GpuOnly | MemoryUsage::Unknown => {
                 #[cfg(feature = "logging")]
@@ -300,10 +310,15 @@ impl Buffer {
             _ => {}
         }
 
-        if let Some(slice) = self.allocation.as_slice_ref() {
-            Ok(slice)
-        } else {
-            Err(BufferMapError::NotMapable)
+        let lock = self.allocation.lock().map_err(|_| BufferMapError::NotLockable)?;
+        Ok(lock)
+    }
+
+    pub fn memory_properties(&self) -> Result<vk::MemoryPropertyFlags, BufferMapError>{
+        if let Ok(lck) = self.allocation.lock(){
+           Ok(lck.memory_properties().unwrap_or(vk::MemoryPropertyFlags::empty()))
+        }else{
+            Err(BufferMapError::NotLockable)
         }
     }
 }

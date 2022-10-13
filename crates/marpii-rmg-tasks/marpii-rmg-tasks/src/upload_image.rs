@@ -25,7 +25,11 @@ impl UploadImage {
             data,
         )?;
 
-        staging.flush_range();
+        staging.flush_range().map_err(|e| {
+            #[cfg(feature = "logging")]
+            log::error!("Flushing upload image failed: {}", e);
+            RmgError::Any(anyhow::anyhow!("Flushing upload image failed"))
+        })?;
 
         if !desc.usage.contains(vk::ImageUsageFlags::TRANSFER_DST){
             #[cfg(feature = "logging")]

@@ -9,6 +9,8 @@ use std::sync::Arc;
 #[allow(dead_code)]
 enum UploadStrategy<T: Copy + 'static> {
     DMA {
+        ///local buffer we use for write
+        cpy: Arc<Buffer>,
         buffer: BufferHandle<T>,
     },
     Copy {
@@ -52,19 +54,17 @@ impl<T: Copy + 'static> DynamicBuffer<T> {
         let mappable_buffer =
             Buffer::new_staging_for_data(&rmg.ctx.device, &rmg.ctx.allocator, None, &initial_data)?;
         let strategy = {
-            let gpu_local = rmg.new_buffer(initial_data.len(), None)?;
-            UploadStrategy::Copy {
-                cpu_local: mappable_buffer,
-                gpu_local,
-            }
-            /*
-            if mappable_buffer.allocation.memory_properties().unwrap().contains(vk::MemoryPropertyFlags::DEVICE_LOCAL){
-                UploadStrategy::DMA { buffer: rmg.import_buffer(Arc::new(mappable_buffer), None, None)? }
+            if mappable_buffer.memory_properties().unwrap().contains(vk::MemoryPropertyFlags::DEVICE_LOCAL){
+                let buffer = Arc::new(mappable_buffer);
+                UploadStrategy::DMA {
+                    cpy: buffer.clone(),
+                    buffer: rmg.import_buffer(buffer, None, None)?
+                }
             }else{
                 let gpu_local = rmg.new_buffer(initial_data.len(), None)?;
                 UploadStrategy::Copy { cpu_local: mappable_buffer, gpu_local }
             }
-            */
+
         };
 
         Ok(DynamicBuffer {
@@ -76,20 +76,10 @@ impl<T: Copy + 'static> DynamicBuffer<T> {
     ///Writes 'data' to the buffer, starting with `offset_element`. Returns Err(written_elements) if the
     /// buffer wasn't big enough.
     pub fn write(&mut self, data: &[T], offset_elements: usize) -> Result<(), usize> {
-        let write_buffer_access = match &mut self.strategy {
-            UploadStrategy::Copy {
-                cpu_local,
-                gpu_local: _,
-            } => cpu_local,
-            UploadStrategy::DMA { buffer: _ } => {
-                #[cfg(feature = "logging")]
-                log::error!("DMA not yet implemented!");
-                return Err(0);
-            }
-        };
+
 
         let size_of_element = core::mem::size_of::<T>();
-        let access_num_elements = write_buffer_access.desc.size as usize / size_of_element;
+        let access_num_elements = self.buffer_handle().count();
         let num_write_elements = data.len().min(
             access_num_elements
                 .checked_sub(offset_elements)
@@ -100,16 +90,38 @@ impl<T: Copy + 'static> DynamicBuffer<T> {
             return Err(0);
         }
 
+        let write_access = match &self.strategy {
+            UploadStrategy::Copy {
+                cpu_local,
+                gpu_local: _,
+            } =>{
+                #[cfg(feature = "logging")]
+                log::info!("Write to staging buffer {:?}@{}", cpu_local.inner, offset_elements);
+                cpu_local
+            },
+            UploadStrategy::DMA { cpy, buffer: _ } => {
+                #[cfg(feature = "logging")]
+                log::info!("Write to DMA buffer @{}", offset_elements);
+                cpy
+            }
+        };
+
         self.has_changed = true;
-        if let Err(e) = write_buffer_access.write(size_of_element * offset_elements, data) {
+        if let Err(e) = write_access.write(size_of_element * offset_elements, data) {
             match e {
-                BufferMapError::OffsetTooLarge | BufferMapError::NotMapable => return Err(0),
                 BufferMapError::PartialyWritten { written, size: _ } => {
                     return Err(written / size_of_element)
-                }
+                },
+                _ => return Err(0),
             }
         }
-        write_buffer_access.flush_range();
+
+        if let Err(e) = write_access.flush_range(){
+            #[cfg(feature = "logging")]
+            log::error!("failed to flush: {}", e);
+
+            return Err(0);
+        }
 
         Ok(())
     }
@@ -121,7 +133,7 @@ impl<T: Copy + 'static> DynamicBuffer<T> {
                 cpu_local: _,
                 gpu_local,
             } => gpu_local,
-            UploadStrategy::DMA { buffer } => buffer,
+            UploadStrategy::DMA { cpy: _, buffer } => buffer,
         }
     }
 }
@@ -142,7 +154,8 @@ impl<T: Copy + 'static> Task for DynamicBuffer<T> {
                 cpu_local: _,
                 gpu_local,
             } => registry.request_buffer(gpu_local),
-            UploadStrategy::DMA { buffer } => registry.request_buffer(buffer),
+            //Do not register since we already wrote.
+            UploadStrategy::DMA { .. } => {},
         }
     }
     fn record(
@@ -176,8 +189,6 @@ impl<T: Copy + 'static> Task for DynamicBuffer<T> {
                             .size(copy_size)]),
                 );
             }
-        } else {
-            panic!("DMA not implemented!")
         }
 
         self.has_changed = false;

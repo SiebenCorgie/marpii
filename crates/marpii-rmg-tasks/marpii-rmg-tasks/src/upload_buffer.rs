@@ -33,7 +33,11 @@ impl<T: Copy + 'static> UploadBuffer<T> {
             data,
         )?;
 
-        staging.flush_range();
+        staging.flush_range().map_err(|e| {
+            #[cfg(feature = "logging")]
+            log::error!("Flushing upload buffer failed: {}", e);
+            RmgError::Any(anyhow::anyhow!("Flushing upload buffer failed"))
+        })?;
 
         if !desc.usage.contains(vk::BufferUsageFlags::TRANSFER_DST) {
             #[cfg(feature = "logging")]

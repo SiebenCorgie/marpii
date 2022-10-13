@@ -16,18 +16,7 @@ pub use upload_buffer::UploadBuffer;
 mod upload_image;
 pub use upload_image::UploadImage;
 
-
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
-}
+#[cfg(feature="egui-task")]
+mod egui;
+#[cfg(feature="egui-task")]
+pub use egui::EGuiRender;

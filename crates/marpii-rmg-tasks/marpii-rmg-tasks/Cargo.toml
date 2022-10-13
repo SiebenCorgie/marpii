@@ -9,6 +9,8 @@ default = ["logging"]
 # if enabled, uses the log crate for messages. Note that the graph prints reasoning of decissions into the tracing level
 logging = ["log"]
 
+#If enabled, compiles the egui shader and integration tasks.
+egui-render = ["egui", "egui-winit"]
 
 [dependencies]
 marpii = {path = "../../marpii"}
@@ -16,6 +18,9 @@ marpii-rmg = {path = "../../marpii-rmg"}
 marpii-rmg-task-shared = {path = "../marpii-rmg-task-shared"}
 log = {version = "0.4.15", optional = true}
 anyhow = "1.0.56"
+
+egui = {version = "0.19", optional = true}
+egui-winit  = {version = "0.19", optional = true}
 
 [build-dependencies]
 spirv-builder = { git = "https://github.com/EmbarkStudios/rust-gpu", rev="a9a233eb80f6d5d512130f8c12469a1a74f58c65"}
