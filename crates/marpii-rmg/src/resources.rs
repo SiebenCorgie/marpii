@@ -3,7 +3,7 @@ use marpii::{
     ash::vk,
     context::Device,
     resources::{
-        BufDesc, Buffer, DescriptorSetLayout, Image, ImgDesc, PipelineLayout, SafeImageView,
+        BufDesc, Buffer, Image, ImgDesc, PipelineLayout, SafeImageView,
         Sampler,
     },
     surface::Surface,

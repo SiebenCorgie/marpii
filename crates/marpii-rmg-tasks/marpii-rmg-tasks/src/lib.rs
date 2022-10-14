@@ -15,6 +15,8 @@ mod upload_buffer;
 pub use upload_buffer::UploadBuffer;
 mod upload_image;
 pub use upload_image::UploadImage;
+mod dynamic_image;
+pub use dynamic_image::DynamicImage;
 
 #[cfg(feature="egui-task")]
 mod egui;
