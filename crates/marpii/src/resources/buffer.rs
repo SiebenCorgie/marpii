@@ -24,11 +24,7 @@ pub enum BufferMapError {
     #[error("Can not lock allocation for mapping")]
     NotLockable,
     #[error("Failed while flushing")]
-    FailedToFlush,
-
-
-
-}
+    FailedToFlush,}
 
 pub struct BufDesc {
     pub size: vk::DeviceSize,
@@ -124,7 +120,7 @@ impl Hash for Buffer {
 
 impl Buffer {
     ///Creates a buffer for `description` and the supplied creation-time information. Note that the actual resulting
-    ///allocation can be bigger than specified. use `extend` to change the creation info before the buffer is created.
+    ///allocation can be bigger than specified.
     pub fn new<A: Allocator + Send + Sync + 'static>(
         device: &Arc<Device>,
         allocator: &Arc<Mutex<A>>,
@@ -253,6 +249,11 @@ impl Buffer {
             }
         } else {
             return Err(BufferMapError::NotMapable);
+        }
+
+        //check if we need to flush
+        if !self.memory_properties()?.contains(vk::MemoryPropertyFlags::HOST_COHERENT){
+            self.flush_range()?;
         }
 
         if write_size < (data.len() * size_of::<T>()) {

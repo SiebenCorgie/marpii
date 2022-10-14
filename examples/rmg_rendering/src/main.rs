@@ -56,7 +56,7 @@ pub const OBJECT_COUNT: usize = 8192;
 
 fn main() -> Result<(), anyhow::Error> {
     simple_logger::SimpleLogger::new()
-        .with_level(log::LevelFilter::Warn)
+        .with_level(log::LevelFilter::Trace)
         .init()
         .unwrap();
 
@@ -91,6 +91,9 @@ fn main() -> Result<(), anyhow::Error> {
     )
     .unwrap();
     let mut swapchain_blit = SwapchainBlit::new();
+
+    //update camera
+    ubo_update.write(&[camera.to_ubo(&window)], 0).unwrap();
 
     ev.run(move |ev, _, cf| {
         *cf = ControlFlow::Poll;
