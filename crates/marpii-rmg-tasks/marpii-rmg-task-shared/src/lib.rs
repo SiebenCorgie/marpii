@@ -11,41 +11,12 @@ pub use spirv_std;
 pub use spirv_std::glam;
 pub use marpii_rmg_shared::ResourceHandle;
 
-//rmg rendering object type
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub struct SimObj {
-    pub location: [f32; 4],
-    pub velocity: [f32; 4],
-}
 
-#[cfg_attr(not(target_arch = "spirv"), derive(Debug, Clone, Copy))]
-#[repr(C)]
-pub struct Vertex {
-    pub position: [f32; 3],
-    pub normal: [f32; 3],
-    pub uv: [f32; 2],
-}
-
-#[repr(C)]
-pub struct SimPush {
-    pub sim_buffer: ResourceHandle,
-    pub is_init: u32,
-    pub buf_size: u32,
-    pub pad: [u32; 1],
-}
-
-#[cfg_attr(not(target_arch = "spirv"), derive(Debug))]
-#[repr(C)]
-pub struct ForwardPush {
-    pub ubo: ResourceHandle,
-    pub sim: ResourceHandle,
-    pub pad: [u32; 2],
-}
-
-#[cfg_attr(not(target_arch = "spirv"), derive(Debug, Clone, Copy))]
-#[repr(C)]
-pub struct Ubo {
-    pub model_view: [[f32; 4]; 4],
-    pub perspective: [[f32; 4]; 4],
+///EGui push constants for a draw command
+#[repr(C, align(16))]
+pub struct EGuiPush{
+    pub texture: ResourceHandle,
+    pub pad0: [ResourceHandle; 3],
+    pub screen_size: [f32; 2],
+    pub pad1: [f32; 2]
 }

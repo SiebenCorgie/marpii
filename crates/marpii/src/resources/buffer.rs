@@ -60,6 +60,15 @@ impl BufDesc {
         self
     }
 
+    pub fn for_slice<T: 'static>(slice: &[T]) -> Self{
+        Self::for_data::<T>(slice.len())
+    }
+
+    pub fn add_usage(mut self, usage: vk::BufferUsageFlags) -> Self{
+        self.usage |= usage;
+        self
+    }
+
     ///Creates a buffer description that could hold `size` elements of type `T`. Note that no usage is set.
     pub fn for_data<T: 'static>(size: usize) -> Self {
         let size = (core::mem::size_of::<T>() * size) as u64;

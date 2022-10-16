@@ -17,8 +17,12 @@ mod upload_image;
 pub use upload_image::UploadImage;
 mod dynamic_image;
 pub use dynamic_image::DynamicImage;
+#[cfg(feature="egui-task")]
+mod egui_integration;
+#[cfg(feature="egui-task")]
+pub use crate::egui_integration::{EGuiRender, EGuiWinitIntegration};
+#[cfg(feature="egui-task")]
+pub use egui_winit::egui;
 
-#[cfg(feature="egui-task")]
-mod egui;
-#[cfg(feature="egui-task")]
-pub use egui::EGuiRender;
+///Rust shader byte code. Compiled ahead of the crate and included for *save* distribution.
+pub const SHADER_RUST: &'static [u8] = include_bytes!("../../resources/rshader.spv");

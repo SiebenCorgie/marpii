@@ -1,7 +1,7 @@
 use marpii_rmg::{BufferHandle, Rmg, RmgError, Task, Resources, ResourceRegistry};
 use marpii::{
     ash::vk,
-    resources::{Buffer, BufferMapError},
+    resources::{Buffer, BufferMapError, BufDesc},
 };
 use std::sync::Arc;
 
@@ -25,21 +25,27 @@ pub struct DynamicBuffer<T: Copy + 'static> {
 }
 
 impl<T: Copy + 'static> DynamicBuffer<T> {
-    ///creates the buffer with the given `initial_data`. Note that this data also determines the size of the buffer.
-    pub fn new(rmg: &mut Rmg, initial_data: &[T]) -> Result<Self, RmgError> {
-        //to decide for an upload strategy, allocate one "CpuToGpu" buffer, and check on which heap the allocation is
-        // located.
-        // TODO: since we can't currently get the heap type of an allocation this is not yet possible.
+
+    pub fn new_with_buffer(rmg: &mut Rmg, initial_data: &[T], description: BufDesc, name: Option<&str>) -> Result<Self, RmgError>{
+        let description = description
+            .with(|b| b.usage |= vk::BufferUsageFlags::TRANSFER_DST); //atleast transfer dst for this pass
+
         let mappable_buffer =
             Buffer::new_staging_for_data(&rmg.ctx.device, &rmg.ctx.allocator, None, &initial_data)?;
 
-        let gpu_local = rmg.new_buffer(initial_data.len(), None)?;
+        let gpu_local = rmg.new_buffer_uninitialized(description, name)?;
 
         Ok(DynamicBuffer {
             cpu_local: mappable_buffer,
             gpu_local,
             has_changed: true,
         })
+    }
+
+    ///creates the buffer with the given `initial_data`. Note that this data also determines the size of the buffer.
+    pub fn new(rmg: &mut Rmg, initial_data: &[T]) -> Result<Self, RmgError> {
+        let desc = BufDesc::for_data::<T>(initial_data.len());
+        Self::new_with_buffer(rmg, initial_data, desc, None)
     }
 
     ///Writes 'data' to the buffer, starting with `offset_element`. Returns Err(written_elements) if the

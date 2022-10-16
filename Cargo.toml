@@ -14,5 +14,6 @@ members = [
 "examples/shader_builder",
 "examples/rmg_rendering",
 "examples/shared",
-"examples/rmg_shader"
+"examples/rmg_shader",
+"examples/egui"
 ]
