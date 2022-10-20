@@ -92,9 +92,6 @@ fn main() -> Result<(), anyhow::Error> {
     .unwrap();
     let mut swapchain_blit = SwapchainBlit::new();
 
-    //update camera
-    ubo_update.write(&[camera.to_ubo(&window)], 0).unwrap();
-
     ev.run(move |ev, _, cf| {
         *cf = ControlFlow::Poll;
 
@@ -115,11 +112,11 @@ fn main() -> Result<(), anyhow::Error> {
                 swapchain_blit.next_blit(forward.color_image.clone());
 
                 rmg.record(window_extent(&window))
-                    .add_task(&mut ubo_update)
-                    .unwrap()
                     .add_task(&mut simulation)
                     .unwrap()
                     .add_task(&mut buffer_copy)
+                    .unwrap()
+                    .add_task(&mut ubo_update)
                     .unwrap()
                     .add_task(&mut forward)
                     .unwrap()
@@ -127,6 +124,7 @@ fn main() -> Result<(), anyhow::Error> {
                     .unwrap()
                     .execute()
                     .unwrap();
+
             }
             Event::WindowEvent {
                 event:
