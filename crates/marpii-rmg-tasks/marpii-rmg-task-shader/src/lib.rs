@@ -6,7 +6,7 @@
 )]
 
 use marpii_rmg_task_shared::glam::{vec4, Vec4, Vec2, Vec3, BVec3, vec3, Vec4Swizzles};
-use spirv_std;
+use spirv_std::{self, Sampler, RuntimeArray, image::SampledImage, Image};
 #[cfg(not(target_arch = "spirv"))]
 use spirv_std::macros::spirv;
 
@@ -40,11 +40,17 @@ fn gamma_from_linear_rgba(linear_rgba: Vec4) -> Vec4{
 pub fn egui_fs(
     in_rgba_gamma: Vec4,
     in_v_tc: Vec2,
-    output: &mut Vec4
+    output: &mut Vec4,
+    #[spirv(push_constant)] push: &marpii_rmg_task_shared::EGuiPush,
+    #[spirv(descriptor_set = 2, binding = 0)] sampled_images: &RuntimeArray<Image!(2D, format=rgba8, sampled)>,
+    #[spirv(descriptor_set = 3, binding = 0)] sampler: &RuntimeArray<Sampler>,
 ) {
-    let col = in_rgba_gamma * in_v_tc.extend(0.0).extend(0.0).min(Vec4::ONE).max(Vec4::ONE);
-    //let texture_in_gamma = gamma_from_linear_rgba(load_texture(push.texture));
-    *output = col;
+    let image = unsafe{sampled_images.index(push.texture.index() as usize)};
+    let sampler = unsafe{sampler.index(push.sampler.index() as usize)};
+    let tex_val = image.sample(*sampler, in_v_tc);
+
+    let texture_in_gamma = gamma_from_linear_rgba(tex_val);
+    *output = in_rgba_gamma * texture_in_gamma;
 }
 
 #[spirv(vertex)]

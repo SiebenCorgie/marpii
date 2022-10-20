@@ -8,15 +8,17 @@
 
 use crate::{DynamicImage, DynamicBuffer};
 use crate::egui::{TextureId, ClippedPrimitive, TexturesDelta};
-use egui_winit::egui::Pos2;
+use egui_winit::egui::{Pos2, Color32};
 use egui_winit::winit::window::Window;
 use egui_winit::winit::event_loop::EventLoopWindowTarget;
 use fxhash::FxHashMap;
-use marpii::ash::vk::{Offset3D, Extent3D, Rect2D};
+use marpii::ash::vk::{Offset3D, Extent3D, Rect2D, ImageUsageFlags};
+use marpii::resources::SharingMode;
 use marpii::util::ImageRegion;
 use marpii::{ash::vk, resources::{ImgDesc, ImageType, ShaderModule, ShaderStage, GraphicsPipeline, PushConstant, PipelineLayout, BufDesc}, context::Device, util::OoS, offset_of};
-use marpii_rmg::{Rmg, RmgError, Task, ImageHandle};
+use marpii_rmg::{Rmg, RmgError, Task, ImageHandle, SamplerHandle};
 use marpii_rmg_task_shared::{EGuiPush, ResourceHandle};
+use std::borrow::Cow;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -24,7 +26,7 @@ use std::time::Instant;
 
 
 
-///Single EGui primitve draw command
+///Single EGui primitive draw command
 struct EGuiPrimDraw{
     ///Offset into the vertex buffer
     vertex_offset: u32,
@@ -33,6 +35,9 @@ struct EGuiPrimDraw{
 
     vertex_buffer_size: u32,
     index_buffer_size: u32,
+
+    sampler: ResourceHandle,
+    texture: ResourceHandle,
 
     clip: Rect2D
 }
@@ -50,15 +55,20 @@ pub struct EGuiWinitIntegration{
 impl EGuiWinitIntegration {
     pub fn new<T>(rmg: &mut Rmg, event_loop: &EventLoopWindowTarget<T>) -> Result<Self, RmgError>{
 
+        let mut state = egui_winit::State::new(event_loop);
+        state.set_max_texture_side(2048);
+        let egui_context = crate::egui::Context::default();
+        egui_context.set_pixels_per_point(1.0);
+
         Ok(EGuiWinitIntegration{
-            state: egui_winit::State::new(event_loop),
+            state,
             start: Instant::now(),
-            egui_context: crate::egui::Context::default(),
+            egui_context,
             renderer: EGuiRender::new(rmg)?
         })
     }
     pub fn handle_event<T>(&mut self, event: &egui_winit::winit::event::Event<T>){
-        if let egui_winit::winit::event::Event::WindowEvent { window_id, event } = event{
+        if let egui_winit::winit::event::Event::WindowEvent { window_id: _, event } = event{
             let _is_exclusive = self.state.on_event(&self.egui_context, event);
         }
     }
@@ -105,6 +115,12 @@ pub struct EGuiRender{
     //NOTE: egui uses three main resources to render its interface. A texture atlas, and a vertex/index buffer changing at a high rate
     //      we take our own DynamicBuffer and DynamicImage for those tasks.
     atlas: FxHashMap<TextureId, DynamicImage>,
+    //Deferred free commands for texture_deltas. Basically the *last* free list.
+    deferred_free: Vec<TextureId>,
+
+    linear_sampler: SamplerHandle,
+    nearest_sampler: SamplerHandle,
+
     vertex_buffer: DynamicBuffer<crate::egui::epaint::Vertex>,
     index_buffer: DynamicBuffer<u32>,
 
@@ -123,6 +139,18 @@ impl EGuiRender{
 
     ///Default vertex buffer size (in vertices).
     pub const DEFAULT_BUF_SIZE: usize = 1024;
+
+
+    fn default_texture_desc() -> ImgDesc{
+        ImgDesc{
+            format: vk::Format::R8G8B8A8_UNORM,
+            img_type: ImageType::Tex2d,
+            usage: ImageUsageFlags::from_raw( ImageUsageFlags::SAMPLED.as_raw() | ImageUsageFlags::TRANSFER_DST.as_raw()),
+            sharing_mode: SharingMode::Exclusive,
+            ..ImgDesc::default()
+        }
+    }
+
     pub fn new(rmg: &mut Rmg) -> Result<Self, RmgError>{
 
         let target_format = rmg
@@ -181,7 +209,8 @@ impl EGuiRender{
         let push = PushConstant::new(
             EGuiPush {
                 texture: ResourceHandle::INVALID,
-                pad0: [ResourceHandle::INVALID; 3],
+                sampler: ResourceHandle::INVALID,
+                pad0: [ResourceHandle::INVALID; 2],
                 screen_size: [1.0,1.0],
                 pad1: [0.0; 2]
             },
@@ -215,11 +244,33 @@ impl EGuiRender{
             None
         )?;
 
+        let linear_sampler = rmg.new_sampler(
+            &vk::SamplerCreateInfo::builder()
+                .address_mode_u(vk::SamplerAddressMode::CLAMP_TO_EDGE)
+                .address_mode_v(vk::SamplerAddressMode::CLAMP_TO_EDGE)
+                .address_mode_w(vk::SamplerAddressMode::CLAMP_TO_EDGE)
+                .min_filter(vk::Filter::LINEAR)
+                .mag_filter(vk::Filter::LINEAR)
+        )?;
+
+        let nearest_sampler = rmg.new_sampler(
+            &vk::SamplerCreateInfo::builder()
+                .address_mode_u(vk::SamplerAddressMode::CLAMP_TO_EDGE)
+                .address_mode_v(vk::SamplerAddressMode::CLAMP_TO_EDGE)
+                .address_mode_w(vk::SamplerAddressMode::CLAMP_TO_EDGE)
+                .min_filter(vk::Filter::NEAREST)
+                .mag_filter(vk::Filter::NEAREST)
+        )?;
+
         Ok(EGuiRender {
             atlas: FxHashMap::default(),
+            deferred_free: Vec::new(),
             vertex_buffer,
             index_buffer,
             commands: Vec::new(),
+
+            linear_sampler,
+            nearest_sampler,
 
             px_per_point: 1.0,
             target_image,
@@ -377,7 +428,25 @@ impl EGuiRender{
                     let clip_min_y = clip_min_y.round() as u32;
                     let clip_max_x = clip_max_x.round() as u32;
                     let clip_max_y = clip_max_y.round() as u32;
+
+
+                    let texture = match self.atlas.get(&mesh.texture_id){
+                        Some(t) => {
+                            rmg.resources_mut().get_resource_handle(t.image.clone())?
+                        },
+                        None =>{
+                            #[cfg(feature="logging")]
+                            //log::error!("No texture={:?} for egui mesh", mesh.texture_id);
+                            continue;
+                        }
+                    };
+
+                    //TODO choose right one?
+                    let sampler = rmg.resources_mut().get_resource_handle(self.linear_sampler.clone())?;
+
                     let command = EGuiPrimDraw{
+                        sampler,
+                        texture,
                         index_offset: new_index_buffer.len().try_into().unwrap(),
                         vertex_offset: new_vertex_buffer.len().try_into().unwrap(),
                         index_buffer_size: mesh.indices.len().try_into().unwrap(),
@@ -401,6 +470,7 @@ impl EGuiRender{
 
         //check if we can just write to the index/vertex buffer, or if we have to grow.
         if self.index_buffer.buffer_handle().count() > new_index_buffer.len(){
+            println!("In byte: {}={}b/{}", self.index_buffer.buffer_handle().count(), self.index_buffer.buffer_handle().size(), new_index_buffer.len() * 4);
             //can overwrite
             self.index_buffer.write(&new_index_buffer, 0)
                              .map_err(|e| anyhow::anyhow!("Uploaded index buffer partially {}/{}", e, new_index_buffer.len()))?;
@@ -438,7 +508,95 @@ impl EGuiRender{
     }
 
     pub fn set_texture_deltas(&mut self, rmg: &mut Rmg, deltas: TexturesDelta) -> Result<(), RmgError>{
-        println!("Textures not implemented");
+        for (id, delta) in deltas.set{
+            assert!(delta.image.bytes_per_pixel() == 4, "EGui image is not rgba8 encoded");
+
+            //delta position
+            let pos = if let Some(pos) = delta.pos{
+                [pos[0] as u32, pos[0] as u32]
+            }else{
+                [0u32; 2]
+            };
+
+
+            let ext = delta.image.size();
+            let ext = [ext[0] as u32, ext[1] as u32];
+            let is_whole = delta.is_whole();
+
+            let region = ImageRegion {
+                offset: vk::Offset3D{
+                    x: pos[0] as i32, y: pos[1] as i32, z: 0,
+                },
+                extent: vk::Extent3D{
+                    width: ext[0],
+                    height: ext[1],
+                    depth: 1
+                }
+            };
+
+            //extract texture data as srgb
+            let dta = match &delta.image{
+                egui_winit::egui::epaint::ImageData::Color(img) => {
+                    Cow::Borrowed(&img.pixels)
+                },
+                egui_winit::egui::epaint::ImageData::Font(img) => {
+                    Cow::Owned(img.srgba_pixels(1.0).collect::<Vec<Color32>>())
+                }
+            };
+
+            let dta: &[u8] = bytemuck::cast_slice(dta.as_slice());
+
+            if let Some(tex) = self.atlas.get_mut(&id){
+                if (ext[0] + pos[0]) > tex.image.extent_2d().width  || (ext[1] + pos[1]) > tex.image.extent_2d().height{
+
+                    //need to create a new texture, since the old one can't hold the new image
+                    assert!(is_whole, "Texture didn't fit, but was no whole texture!");
+                    *tex = DynamicImage::new(
+                        rmg,
+                        ImgDesc {
+                            //NOTE: must be *new* whole image, therefore pos == 0,0, and ext == image_extent
+                            extent: vk::Extent3D{
+                                width: ext[0],
+                                height: ext[1],
+                                depth: 1
+                            },
+                            ..Self::default_texture_desc()
+                        },
+                        None
+                    )?;
+                    tex.write_bytes(rmg, region, &dta)?;
+                }else{
+                    //Fits, update region
+                    tex.write_bytes(rmg, region, &dta)?;
+                }
+            }else{
+                #[cfg(feature="logging")]
+                log::info!("Setting up eGui texture {:?}", id);
+                let mut tex = DynamicImage::new(
+                    rmg,
+                    ImgDesc {
+                        //NOTE: must be *new* whole image, therefore pos == 0,0, and ext == image_extent
+                        extent: vk::Extent3D{
+                            width: ext[0],
+                            height: ext[1],
+                            depth: 1
+                        },
+                        ..Self::default_texture_desc()
+                    },
+                    None
+                )?;
+                tex.write_bytes(rmg, region, &dta)?;
+                assert!(self.atlas.insert(id, tex).is_none());
+            }
+        }
+
+        for free in self.deferred_free.drain(0..){
+            if let None = self.atlas.remove(&free){
+                #[cfg(feature="logging")]
+                log::error!("Tried removing non existent eGui texture {:?}", free);
+            }
+        }
+
         Ok(())
     }
 
@@ -453,6 +611,9 @@ impl EGuiRender{
         if resolution == self.target_image.extent_2d(){
             return Ok(());
         }
+
+        #[cfg(feature="logging")]
+        log::info!("Recreating EGUI resolution");
 
         let resolution = vk::Extent2D{
             width: resolution.width.max(1),
@@ -494,7 +655,9 @@ impl Task for EGuiRender{
     fn pre_record(&mut self, resources: &mut marpii_rmg::Resources, ctx: &marpii_rmg::CtxRmg) -> Result<(), marpii_rmg::RecordError> {
         self.index_buffer.pre_record(resources, ctx)?;
         self.vertex_buffer.pre_record(resources, ctx)?;
-
+        for (_id, tex) in self.atlas.iter_mut(){
+            tex.pre_record(resources, ctx)?;
+        }
         //setup push
         let width_in_points = self.target_image.extent_2d().width as f32 / self.px_per_point;
         let height_in_points = self.target_image.extent_2d().height as f32 / self.px_per_point;
@@ -510,12 +673,18 @@ impl Task for EGuiRender{
     ) -> Result<(), marpii_rmg::RecordError> {
         self.index_buffer.post_execution(resources, ctx)?;
         self.vertex_buffer.post_execution(resources, ctx)?;
+        for (_id, tex) in self.atlas.iter_mut(){
+            tex.post_execution(resources, ctx)?;
+        }
         Ok(())
     }
 
     fn register(&self, registry: &mut marpii_rmg::ResourceRegistry) {
         self.index_buffer.register(registry);
         self.vertex_buffer.register(registry);
+        for (_id, tex) in self.atlas.iter(){
+            tex.register(registry);
+        }
 
         registry.request_buffer(self.index_buffer.buffer_handle());
         registry.request_buffer(self.vertex_buffer.buffer_handle());
@@ -530,7 +699,9 @@ impl Task for EGuiRender{
     ) {
         self.index_buffer.record(device, command_buffer, resources);
         self.vertex_buffer.record(device, command_buffer, resources);
-
+        for (_id, tex) in self.atlas.iter_mut(){
+            tex.record(device, command_buffer, resources);
+        }
 
         //after recording updates, schedule all draw commands
         let (target_before_access, target_before_layout, targetimg, targetview) = {
@@ -624,6 +795,16 @@ impl Task for EGuiRender{
             );
 
             for cmd in self.commands.iter(){
+                //setup texture and sampler
+                self.push.get_content_mut().sampler = cmd.sampler;
+                self.push.get_content_mut().texture = cmd.texture;
+                device.inner.cmd_push_constants(
+                    *command_buffer,
+                    self.pipeline.layout.layout,
+                    vk::ShaderStageFlags::ALL,
+                    0,
+                    self.push.content_as_bytes(),
+                );
 
                 device
                     .inner

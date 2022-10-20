@@ -1,6 +1,5 @@
 use std::{
     hash::{Hash, Hasher},
-    mem::size_of,
     sync::{Arc, Mutex, MutexGuard},
 };
 
@@ -24,7 +23,11 @@ pub enum BufferMapError {
     #[error("Can not lock allocation for mapping")]
     NotLockable,
     #[error("Failed while flushing")]
-    FailedToFlush,}
+    FailedToFlush,
+    //NOTE: Not necessarly an error, but probably a problem with the user.
+    #[error("Tried to write empty buffer")]
+    EmptyWrite,
+}
 
 pub struct BufDesc {
     pub size: vk::DeviceSize,
@@ -177,7 +180,8 @@ impl Buffer {
     /// the staging buffer to read the data.
     ///
     /// Buffers created by this function are initalized to `data` and can be used as transfer source and destination. Have a look at the code for more information.
-    pub fn new_staging_for_data<A: Allocator + Send + Sync + 'static, T: Copy + Sized + 'static>(
+    #[cfg(feature="bytemuck")]
+    pub fn new_staging_for_data<A: Allocator + Send + Sync + 'static, T: bytemuck::Pod>(
         device: &Arc<Device>,
         allocator: &Arc<Mutex<A>>,
         name: Option<&str>,
@@ -195,6 +199,8 @@ impl Buffer {
         };
 
         let buffer = Buffer::new(device, allocator, desc, MemoryUsage::CpuToGpu, name, None)?;
+
+        let data = bytemuck::cast_slice(data);
         //write data to transfer buffer
         buffer.write(0, data)?;
         //Make sure the data is written
@@ -204,16 +210,18 @@ impl Buffer {
     }
 
     ///Writes `data` to the buffer.
-    ///If `(data.len() * size_of::<T>()) > buffer.len()` only the first `buffer.len()` bytes of data are written and an error is returned.
+    ///If `data.len() > buffer.len()` only the first `buffer.len()` bytes of data are written and an error is returned.
     ///
     ///If the buffer is not mapable by the host (usually if the buffer us created with MemoryUsage::GpuOnly) nothing is
     /// written and an error is returned.
     ///
     /// If the buffer's allocation is currently locked (by another write or read function) an error might be returned.
-    pub fn write<T: Copy + Sized + 'static>(
+    ///
+    /// Hint: Use the `bytemuck` crate to create slices of bytes for data "T". Also make sure you fullfill alignment for GPUs.
+    pub fn write(
         &self,
         offset: usize,
-        data: &[T],
+        data: &[u8],
     ) -> Result<(), BufferMapError> {
         //Check that we have a chance for mapping
         match &self.usage {
@@ -225,8 +233,9 @@ impl Buffer {
             _ => {}
         }
 
+        let byte_offset = offset;
         //Test region of write and shrink if necessary
-        let write_size = if (offset + (data.len() * size_of::<T>())) > (self.desc.size as usize) {
+        let write_size = if (byte_offset + data.len())  > (self.desc.size as usize) {
             //edge case where the offset is too big, in that case the subtraction below would underflow
             if offset > (self.desc.size as usize) {
                 #[cfg(feature = "logging")]
@@ -238,24 +247,21 @@ impl Buffer {
                 return Err(BufferMapError::OffsetTooLarge);
             }
 
-            (self.desc.size as usize) - offset
+            (self.desc.size as usize) - byte_offset
         } else {
-            data.len() * size_of::<T>()
+            data.len()
         };
 
+        #[cfg(feature = "logging")]
+        log::info!("Using write_size={}", write_size);
+
         //since we sanitised the write, try to map the pointer and write the actual slice
-        if let Some(mut ptr) = self.allocation.lock().map_err(|_| BufferMapError::NotLockable)?.mapped_ptr() {
+        if let Some(slice) = self.allocation.lock().map_err(|_| BufferMapError::NotLockable)?.as_slice_mut() {
             #[cfg(feature = "logging")]
             log::info!("writing to mapped buffer[{:?}] of size {} with offset={}, data_size={}, write_size={}", self.inner, self.desc.size, offset, data.len(), write_size);
 
-            unsafe {
-                ash::util::Align::new(
-                    ptr.as_mut(),
-                    std::mem::align_of::<T>() as u64,
-                    write_size as u64,
-                )
-                .copy_from_slice(data);
-            }
+            slice[offset..(offset+write_size)].copy_from_slice(&data[0..write_size]);
+
         } else {
             return Err(BufferMapError::NotMapable);
         }
@@ -265,7 +271,7 @@ impl Buffer {
             self.flush_range()?;
         }
 
-        if write_size < (data.len() * size_of::<T>()) {
+        if write_size < data.len() {
             Err(BufferMapError::PartialyWritten {
                 written: write_size,
                 size: data.len(),

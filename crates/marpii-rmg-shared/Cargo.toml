@@ -13,3 +13,4 @@ logging = ["log"]
 [dependencies]
 marpii = {path = "../marpii", optional = true}
 log = {version = "0.4.15", optional = true}
+bytemuck = "1"

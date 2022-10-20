@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 spirv-std = { git = "https://github.com/EmbarkStudios/rust-gpu", features = ["glam"], rev="a9a233eb80f6d5d512130f8c12469a1a74f58c65"}
 marpii-rmg-shared =  {path = "../../marpii-rmg-shared"}
+bytemuck = "1"

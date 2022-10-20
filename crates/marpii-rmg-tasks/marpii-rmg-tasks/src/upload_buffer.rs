@@ -9,12 +9,12 @@ use std::sync::Arc;
 ///
 /// A fitting buffer (`self.buffer`) is created. Note that the buffer is uninitialised
 /// until the task is scheduled.
-pub struct UploadBuffer<T: Copy + 'static> {
+pub struct UploadBuffer<T: marpii::bytemuck::Pod> {
     pub buffer: BufferHandle<T>,
     src_buffer: BufferHandle<T>,
 }
 
-impl<T: Copy + 'static> UploadBuffer<T> {
+impl<T: marpii::bytemuck::Pod> UploadBuffer<T> {
     ///Creates a new storage buffer for the given data. If the buffer needs to be configured, for instance
     /// as vertex buffer, use [new_with_buffer](Self::new_with_buffer).
     pub fn new<'src>(rmg: &mut Rmg, data: &'src [T]) -> Result<Self, RmgError> {
@@ -55,7 +55,7 @@ impl<T: Copy + 'static> UploadBuffer<T> {
     }
 }
 
-impl<T: Copy + 'static> Task for UploadBuffer<T> {
+impl<T: marpii::bytemuck::Pod> Task for UploadBuffer<T> {
     fn name(&self) -> &'static str {
         "BufferUpload"
     }

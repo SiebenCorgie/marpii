@@ -4,15 +4,19 @@
 #[cfg(feature = "marpii")]
 use marpii::ash::vk;
 
+#[cfg(not(target_arch = "spirv"))]
+use bytemuck::{Zeroable, Pod};
+
 ///By definition when interpreted as big endian the highest byte is the handle type and the lower bytes are the actual index.
 ///
 /// Note that the descriptor set index is the same as the type
 //NOTE: Only derive Hash, Debug etc, on non-shader target. Otherwise panics the compiler atm.
 #[cfg_attr(
     not(target_arch = "spirv"),
-    derive(Clone, Copy, Hash, PartialEq, PartialOrd, Eq, Debug)
+    derive(Clone, Copy, Hash, PartialEq, PartialOrd, Eq, Debug, Pod, Zeroable)
 )]
-//#[cfg_attr(target_arch = "spirv", derive(PartialEq, Eq))]
+#[cfg_attr(target_arch = "spirv", derive(Clone, Copy))]
+#[repr(C)]
 pub struct ResourceHandle(u32);
 
 impl ResourceHandle {

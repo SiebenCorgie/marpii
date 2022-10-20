@@ -18,13 +18,13 @@ use std::sync::Arc;
 /// Whenever data changes it is written to the CPU local buffer immediately, and later, at execution time of this task the CPU buffer is written
 /// to the GPU local clone.
 ///
-pub struct DynamicBuffer<T: Copy + 'static> {
+pub struct DynamicBuffer<T: marpii::bytemuck::Pod> {
     cpu_local: Buffer,
     gpu_local: BufferHandle<T>,
     has_changed: bool,
 }
 
-impl<T: Copy + 'static> DynamicBuffer<T> {
+impl<T: marpii::bytemuck::Pod> DynamicBuffer<T> {
 
     pub fn new_with_buffer(rmg: &mut Rmg, initial_data: &[T], description: BufDesc, name: Option<&str>) -> Result<Self, RmgError>{
         let description = description
@@ -50,40 +50,21 @@ impl<T: Copy + 'static> DynamicBuffer<T> {
 
     ///Writes 'data' to the buffer, starting with `offset_element`. Returns Err(written_elements) if the
     /// buffer wasn't big enough.
-    pub fn write(&mut self, data: &[T], offset_elements: usize) -> Result<(), usize> {
+    pub fn write(&mut self, data: &[T], offset_elements: usize) -> Result<(), BufferMapError> {
 
 
         let size_of_element = core::mem::size_of::<T>();
         let access_num_elements = self.buffer_handle().count();
-        let num_write_elements = data.len().min(
-            access_num_elements
-                .checked_sub(offset_elements)
-                .unwrap_or(0),
-        );
-
-        if num_write_elements == 0 {
-            return Err(0);
+        if access_num_elements.checked_sub(offset_elements).unwrap_or(0) < data.len(){
+            return Err(BufferMapError::OffsetTooLarge);
         }
 
         #[cfg(feature = "logging")]
         log::info!("Write to staging buffer {:?}@{}", self.cpu_local.inner, offset_elements);
 
         self.has_changed = true;
-        if let Err(e) = self.cpu_local.write(size_of_element * offset_elements, data) {
-            match e {
-                BufferMapError::PartialyWritten { written, size: _ } => {
-                    return Err(written / size_of_element)
-                },
-                _ => return Err(0),
-            }
-        }
-
-        if let Err(e) = self.cpu_local.flush_range(){
-            #[cfg(feature = "logging")]
-            log::error!("failed to flush: {}", e);
-
-            return Err(0);
-        }
+        let data = bytemuck::cast_slice(data);
+        self.cpu_local.write(size_of_element * offset_elements, data)?;
 
         Ok(())
     }
@@ -94,7 +75,7 @@ impl<T: Copy + 'static> DynamicBuffer<T> {
     }
 }
 
-impl<T: Copy + 'static> Task for DynamicBuffer<T> {
+impl<T: marpii::bytemuck::Pod> Task for DynamicBuffer<T> {
     fn name(&self) -> &'static str {
         "DynamicBuffer"
     }
