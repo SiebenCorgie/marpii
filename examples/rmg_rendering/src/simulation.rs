@@ -7,6 +7,7 @@ use shared::{SimObj, ResourceHandle};
 use std::sync::Arc;
 
 use crate::OBJECT_COUNT;
+const SHADER_COMP: &'static [u8] = include_bytes!("../../resources/simulation.spv");
 
 pub struct Simulation {
     ///Simulation buffer
@@ -38,7 +39,7 @@ impl Simulation {
             vk::ShaderStageFlags::COMPUTE,
         );
         let shader_module =
-            ShaderModule::new_from_file(&rmg.ctx.device, "resources/simulation.spv")?;
+            ShaderModule::new_from_bytes(&rmg.ctx.device, SHADER_COMP)?;
         let shader_stage = shader_module.into_shader_stage(vk::ShaderStageFlags::COMPUTE, "main");
         //No additional descriptors for us
         let layout = rmg.resources().bindless_layout();

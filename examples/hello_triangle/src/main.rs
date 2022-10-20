@@ -22,6 +22,9 @@ use winit::{
     event_loop::ControlFlow,
 };
 
+
+const SHADER: &'static [u8] = include_bytes!("../../resources/rust_shader.spv");
+
 #[repr(C)]
 pub struct PushConst {
     radius: f32,
@@ -69,7 +72,7 @@ impl PassData {
         )));
 
         //load shader from file
-        let shader_module = ShaderModule::new_from_file(&ctx.device, "resources/test_shader.spv")?;
+        let shader_module = ShaderModule::new_from_bytes(&ctx.device, SHADER)?;
 
         let descriptor_set_layouts = shader_module.create_descriptor_set_layouts()?;
 

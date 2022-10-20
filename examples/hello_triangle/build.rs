@@ -1,5 +1,3 @@
-//!simple shader building utility. Usually hooked into the build script of the examples.
-
 use std::{
     fs::create_dir_all,
     path::{Path, PathBuf},
@@ -8,32 +6,30 @@ use std::{
 use spirv_builder::{
     Capability, MetadataPrintout, ModuleResult, SpirvBuilder, SpirvBuilderError, SpirvMetadata,
 };
+
 ///Builds the shader crate and moves all files to a location that can be found by the renderer's loader.
 pub fn compile_rust_shader(
     output_name: &str,
     shader_crate: &str,
     destination_folder: &str,
 ) -> Result<(), SpirvBuilderError> {
-    println!("compile shader crate: {}", shader_crate);
+    println!("cargo:warning=compile shader crate: {}", shader_crate);
 
     let shader_crate_location = Path::new(shader_crate).canonicalize().unwrap();
     if !shader_crate_location.exists() {
-        println!("no crate at: {:?}", shader_crate_location);
+        println!("cargo:warning=no crate at: {:?}", shader_crate_location);
         return Err(SpirvBuilderError::CratePathDoesntExist(
             shader_crate_location.to_owned(),
         ));
     }
 
-    println!("Building shader {:?}", shader_crate_location);
+    println!("cargo:warning=Building shader {:?}", shader_crate_location);
 
     let spirv_target_location = Path::new(destination_folder).canonicalize().unwrap();
 
     if !spirv_target_location.exists() {
-        println!("{:?} does not exist, creating...", spirv_target_location);
         create_dir_all(&spirv_target_location).expect("Could not create spirv directory!");
     }
-
-    println!("SpirV dir @ {:?}", spirv_target_location);
 
     let compiler_result = SpirvBuilder::new(&shader_crate_location, "spirv-unknown-vulkan1.2")
         .spirv_metadata(SpirvMetadata::NameVariables)
@@ -44,9 +40,9 @@ pub fn compile_rust_shader(
         .capability(Capability::RuntimeDescriptorArray)
         .build()?;
 
-    println!("Generated following Spirv entrypoints:");
+    println!("cargo:warning=Generated following Spirv entrypoints:");
     for e in &compiler_result.entry_points {
-        println!("{}", e);
+        println!("cargo:warning=    {}", e);
     }
 
     let move_spirv_file = |spv_location: &Path, entry: Option<String>| {
@@ -57,7 +53,7 @@ pub fn compile_rust_shader(
             target = target.join(&format!("{}.spv", output_name));
         }
 
-        println!("Copying {:?} to {:?}", spv_location, target);
+        println!("cargo:warning=Copying {:?} to {:?}", spv_location, target);
         std::fs::copy(spv_location, &target).expect("Failed to copy spirv file!");
     };
 
@@ -76,9 +72,14 @@ pub fn compile_rust_shader(
     Ok(())
 }
 
-fn build_glsl(path: &str, target: &str) {
-    if PathBuf::from(target).exists() {
-        std::fs::remove_file(target).unwrap();
+#[allow(dead_code)]
+fn build_glsl(path: &str, name: &str, target: &str) {
+
+    //TODO: build all files that do not end with ".glsl". and copy to
+    // RESDIR as well.
+    let target_path = PathBuf::from(target).join(name);
+    if target_path.exists() {
+        std::fs::remove_file(&target_path).unwrap();
     }
 
     let command = std::process::Command::new("glslangValidator")
@@ -86,7 +87,7 @@ fn build_glsl(path: &str, target: &str) {
         .arg("-V")
         .arg(path)
         .arg("-o")
-        .arg(target)
+        .arg(target_path)
         .output()
         .unwrap();
 
@@ -96,23 +97,19 @@ fn build_glsl(path: &str, target: &str) {
     }
 }
 
+const RESDIR: &'static str = &"../resources";
+
+pub fn ensure_res(){
+    if !PathBuf::from(RESDIR).exists(){
+        std::fs::create_dir_all(RESDIR).unwrap();
+    }
+}
+
+// Builds rust shader crate and all glsl shaders.
 fn main() {
-    compile_rust_shader("test_shader", "examples/rust_shader", "resources/")
+    println!("cargo:rerun-if-changed=../resources");
+    ensure_res();
+    compile_rust_shader("rust_shader", "../rust_shader", RESDIR)
         .expect("Failed to build shader");
 
-    compile_rust_shader("rmg_shader", "examples/rmg_shader", "resources/")
-        .expect("Failed to build shader");
-
-    build_glsl(
-        "examples/rmg_shader/glsl/simulation.comp",
-        "resources/simulation.spv",
-    );
-    build_glsl(
-        "examples/rmg_shader/glsl/forward.vert",
-        "resources/forward_vs.spv",
-    );
-    build_glsl(
-        "examples/rmg_shader/glsl/forward.frag",
-        "resources/forward_fs.spv",
-    );
 }

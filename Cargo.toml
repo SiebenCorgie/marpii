@@ -11,9 +11,7 @@ members = [
 
 "examples/hello_triangle",
 "examples/rust_shader",
-"examples/shader_builder",
 "examples/rmg_rendering",
 "examples/shared",
-"examples/rmg_shader",
 "examples/egui"
 ]

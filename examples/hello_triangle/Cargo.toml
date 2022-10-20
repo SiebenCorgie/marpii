@@ -13,3 +13,6 @@ marpii = {path = "../../crates/marpii"}
 marpii-commands = {path = "../../crates/marpii-commands"}
 marpii-descriptor = {path = "../../crates/marpii-descriptor"}
 winit = "0.27"
+
+[build-dependencies]
+spirv-builder = { git = "https://github.com/EmbarkStudios/rust-gpu", rev="a9a233eb80f6d5d512130f8c12469a1a74f58c65"}
