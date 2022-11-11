@@ -36,6 +36,17 @@ fn gamma_from_linear_rgba(linear_rgba: Vec4) -> Vec4{
     Vec4::new(srgb.x, srgb.y, srgb.z, linear_rgba.w)
 }
 
+fn srgba_to_linear(srgb: Vec3) -> Vec3{
+
+    let lower = srgb/Vec3::splat(12.92);
+    let higher = ((srgb + Vec3::splat(0.055)) / Vec3::splat(1.055)).powf(2.4);
+    Vec3::new(
+        if srgb.x < 0.0031308{lower.x}else{higher.x},
+        if srgb.y < 0.0031308{lower.y}else{higher.y},
+        if srgb.z < 0.0031308{lower.z}else{higher.z},
+    )
+}
+
 #[spirv(fragment)]
 pub fn egui_fs(
     in_rgba_gamma: Vec4,
@@ -45,13 +56,26 @@ pub fn egui_fs(
     #[spirv(descriptor_set = 2, binding = 0)] sampled_images: &RuntimeArray<Image!(2D, format=rgba8, sampled)>,
     #[spirv(descriptor_set = 3, binding = 0)] sampler: &RuntimeArray<Sampler>,
 ) {
+
+    if push.texture.is_invalid() || push.sampler.is_invalid(){
+        *output = Vec4::ZERO;
+        return;
+    }
+
     let image = unsafe{sampled_images.index(push.texture.index() as usize)};
     let sampler = unsafe{sampler.index(push.sampler.index() as usize)};
-    let tex_val = image.sample(*sampler, in_v_tc);
+    let tex_val: Vec4 = image.sample(*sampler, in_v_tc);
+
+    if tex_val.w <= 0.5{
+        *output = Vec4::ZERO;
+        return;
+    }
 
     let texture_in_gamma = gamma_from_linear_rgba(tex_val);
-    *output = in_rgba_gamma * texture_in_gamma;
+    let rgba_gamma = texture_in_gamma * in_rgba_gamma;
+    *output = rgba_gamma;
 }
+
 
 #[spirv(vertex)]
 pub fn egui_vs(

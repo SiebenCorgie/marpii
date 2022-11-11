@@ -1,8 +1,8 @@
-use marpii_rmg::{BufferHandle, Rmg, RmgError, Task, Resources, ResourceRegistry};
 use marpii::{
     ash::vk,
-    resources::{Buffer, BufferMapError, BufDesc},
+    resources::{BufDesc, Buffer, BufferMapError},
 };
+use marpii_rmg::{BufferHandle, ResourceRegistry, Resources, Rmg, RmgError, Task};
 use std::sync::Arc;
 
 ///Manages a buffer where the content can be changed from the CPU side
@@ -25,10 +25,15 @@ pub struct DynamicBuffer<T: marpii::bytemuck::Pod> {
 }
 
 impl<T: marpii::bytemuck::Pod> DynamicBuffer<T> {
-
-    pub fn new_with_buffer(rmg: &mut Rmg, initial_data: &[T], description: BufDesc, name: Option<&str>) -> Result<Self, RmgError>{
-        let description = description
-            .with(|b| b.usage |= vk::BufferUsageFlags::TRANSFER_DST | vk::BufferUsageFlags::STORAGE_BUFFER); //atleast transfer dst for this pass
+    pub fn new_with_buffer(
+        rmg: &mut Rmg,
+        initial_data: &[T],
+        description: BufDesc,
+        name: Option<&str>,
+    ) -> Result<Self, RmgError> {
+        let description = description.with(|b| {
+            b.usage |= vk::BufferUsageFlags::TRANSFER_DST | vk::BufferUsageFlags::STORAGE_BUFFER
+        }); //atleast transfer dst for this pass
 
         let mappable_buffer =
             Buffer::new_staging_for_data(&rmg.ctx.device, &rmg.ctx.allocator, None, &initial_data)?;
@@ -53,16 +58,25 @@ impl<T: marpii::bytemuck::Pod> DynamicBuffer<T> {
     pub fn write(&mut self, data: &[T], offset_elements: usize) -> Result<(), BufferMapError> {
         let size_of_element = core::mem::size_of::<T>();
         let access_num_elements = self.buffer_handle().count();
-        if access_num_elements.checked_sub(offset_elements).unwrap_or(0) < data.len(){
+        if access_num_elements
+            .checked_sub(offset_elements)
+            .unwrap_or(0)
+            < data.len()
+        {
             return Err(BufferMapError::OffsetTooLarge);
         }
 
         #[cfg(feature = "logging")]
-        log::info!("Write to staging buffer {:?}@{}", self.cpu_local.inner, offset_elements);
+        log::info!(
+            "Write to staging buffer {:?}@{}",
+            self.cpu_local.inner,
+            offset_elements
+        );
 
         self.has_changed = true;
         let data = bytemuck::cast_slice(data);
-        self.cpu_local.write(size_of_element * offset_elements, data)?;
+        self.cpu_local
+            .write(size_of_element * offset_elements, data)?;
 
         Ok(())
     }
@@ -107,9 +121,9 @@ impl<T: marpii::bytemuck::Pod> Task for DynamicBuffer<T> {
                     .src_buffer(self.cpu_local.inner)
                     .dst_buffer(dst_access.buffer.inner)
                     .regions(&[*vk::BufferCopy2::builder()
-                               .src_offset(0)
-                               .dst_offset(0)
-                               .size(copy_size)]),
+                        .src_offset(0)
+                        .dst_offset(0)
+                        .size(copy_size)]),
             );
         }
 

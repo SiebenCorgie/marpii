@@ -6,7 +6,6 @@
 //!
 //! Note that you need `glslangVaildator` in your `$PATH` to be able to build the crate.
 
-
 mod dynamic_buffer;
 pub use dynamic_buffer::DynamicBuffer;
 mod swapchain_blit;
@@ -17,11 +16,14 @@ mod upload_image;
 pub use upload_image::UploadImage;
 mod dynamic_image;
 pub use dynamic_image::DynamicImage;
-#[cfg(feature="egui-task")]
+mod image_blit;
+pub use image_blit::ImageBlit;
+
+#[cfg(feature = "egui-task")]
 mod egui_integration;
-#[cfg(feature="egui-task")]
+#[cfg(feature = "egui-task")]
 pub use crate::egui_integration::{EGuiRender, EGuiWinitIntegration};
-#[cfg(feature="egui-task")]
+#[cfg(feature = "egui-task")]
 pub use egui_winit::egui;
 
 ///Rust shader byte code. Compiled ahead of the crate and included for *save* distribution.

@@ -1,5 +1,5 @@
-use marpii_rmg::{CtxRmg, ImageHandle, RecordError, Task, Resources, ResourceRegistry};
 use marpii::{ash::vk, swapchain::SwapchainImage};
+use marpii_rmg::{CtxRmg, ImageHandle, RecordError, ResourceRegistry, Resources, Task};
 struct Blit {
     src_image: ImageHandle,
     sw_image: Option<SwapchainImage>,
@@ -24,11 +24,7 @@ impl SwapchainBlit {
 }
 
 impl Task for SwapchainBlit {
-    fn pre_record(
-        &mut self,
-        resources: &mut Resources,
-        _ctx: &CtxRmg,
-    ) -> Result<(), RecordError> {
+    fn pre_record(&mut self, resources: &mut Resources, _ctx: &CtxRmg) -> Result<(), RecordError> {
         if let Some(blit) = &mut self.next_blit {
             blit.sw_image = Some(resources.get_next_swapchain_image().unwrap());
         }

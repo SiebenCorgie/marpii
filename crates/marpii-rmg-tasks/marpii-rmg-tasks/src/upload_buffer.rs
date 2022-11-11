@@ -1,8 +1,8 @@
-use marpii_rmg::{BufferHandle, Rmg, RmgError, Task, ResourceRegistry, Resources};
 use marpii::{
     ash::vk,
     resources::{BufDesc, Buffer},
 };
+use marpii_rmg::{BufferHandle, ResourceRegistry, Resources, Rmg, RmgError, Task};
 use std::sync::Arc;
 
 ///Uploads a number of elements of type `T`.

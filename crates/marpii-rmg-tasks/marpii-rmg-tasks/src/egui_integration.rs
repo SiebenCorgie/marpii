@@ -6,28 +6,34 @@
 //! Have a look at the egui example for an in depth integration.
 //!
 
-use crate::{DynamicImage, DynamicBuffer};
-use crate::egui::{TextureId, ClippedPrimitive, TexturesDelta};
-use egui_winit::egui::{Pos2, Color32};
-use egui_winit::winit::window::Window;
+use crate::egui::{ClippedPrimitive, TextureId, TexturesDelta};
+use crate::{DynamicBuffer, DynamicImage};
+use egui::{Color32, Pos2, FontDefinitions};
 use egui_winit::winit::event_loop::EventLoopWindowTarget;
+use egui_winit::winit::window::Window;
 use fxhash::FxHashMap;
-use marpii::ash::vk::{Offset3D, Extent3D, Rect2D, ImageUsageFlags};
+use marpii::ash::vk::{Extent3D, ImageUsageFlags, Offset3D, Rect2D};
 use marpii::resources::SharingMode;
 use marpii::util::ImageRegion;
-use marpii::{ash::vk, resources::{ImgDesc, ImageType, ShaderModule, ShaderStage, GraphicsPipeline, PushConstant, PipelineLayout, BufDesc}, context::Device, util::OoS, offset_of};
-use marpii_rmg::{Rmg, RmgError, Task, ImageHandle, SamplerHandle};
+use marpii::{
+    ash::vk,
+    context::Device,
+    offset_of,
+    resources::{
+        BufDesc, GraphicsPipeline, ImageType, ImgDesc, PipelineLayout, PushConstant, ShaderModule,
+        ShaderStage,
+    },
+    util::OoS,
+};
+use marpii_rmg::{ImageHandle, Rmg, RmgError, SamplerHandle, Task};
 use marpii_rmg_task_shared::{EGuiPush, ResourceHandle};
 use std::borrow::Cow;
+use std::collections::hash_map::Values;
 use std::sync::Arc;
 use std::time::Instant;
 
-
-
-
-
 ///Single EGui primitive draw command
-struct EGuiPrimDraw{
+struct EGuiPrimDraw {
     ///Offset into the vertex buffer
     vertex_offset: u32,
     ///Offest into the index buffer
@@ -39,79 +45,99 @@ struct EGuiPrimDraw{
     sampler: ResourceHandle,
     texture: ResourceHandle,
 
-    clip: Rect2D
+    clip: Rect2D,
 }
 
 ///Wrapper around the render task, takes care of winit events and let's you define
 /// the UI for each frame.
-pub struct EGuiWinitIntegration{
+pub struct EGuiWinitIntegration {
     //translation state
-    state: egui_winit::State,
+    winit_state: egui_winit::State,
     start: Instant,
-    egui_context: crate::egui::Context,
+    egui_context: egui::Context,
     renderer: EGuiRender,
 }
 
 impl EGuiWinitIntegration {
-    pub fn new<T>(rmg: &mut Rmg, event_loop: &EventLoopWindowTarget<T>) -> Result<Self, RmgError>{
+    pub fn new<T>(rmg: &mut Rmg, event_loop: &EventLoopWindowTarget<T>) -> Result<Self, RmgError> {
 
-        let mut state = egui_winit::State::new(event_loop);
-        state.set_max_texture_side(2048);
-        let egui_context = crate::egui::Context::default();
+        let mut winit_state = egui_winit::State::new(event_loop);
+        winit_state.set_max_texture_side(2048);
+
+        let egui_context: egui::Context = Default::default();
+        egui_context.set_fonts(FontDefinitions::default());
+
+        //assert!(false, "Fonts: {:?}", FontDefinitions::default());
         egui_context.set_pixels_per_point(1.0);
 
-        Ok(EGuiWinitIntegration{
-            state,
+        Ok(EGuiWinitIntegration {
+            winit_state,
             start: Instant::now(),
             egui_context,
-            renderer: EGuiRender::new(rmg)?
+            renderer: EGuiRender::new(rmg)?,
         })
     }
-    pub fn handle_event<T>(&mut self, event: &egui_winit::winit::event::Event<T>){
-        if let egui_winit::winit::event::Event::WindowEvent { window_id: _, event } = event{
-            let _is_exclusive = self.state.on_event(&self.egui_context, event);
+    pub fn handle_event<T>(&mut self, event: &egui_winit::winit::event::Event<T>) {
+        if let egui_winit::winit::event::Event::WindowEvent {
+            window_id: _,
+            event,
+        } = event
+        {
+            let _is_exclusive = self.winit_state.on_event(&self.egui_context, event);
         }
     }
 
-    pub fn target_image(&self) -> &ImageHandle{
+    pub fn target_image(&self) -> &ImageHandle {
         &self.renderer.target_image
     }
 
-    pub fn renderer(&mut self) -> &mut EGuiRender{
+    pub fn renderer_mut(&mut self) -> &mut EGuiRender {
         &mut self.renderer
     }
 
-    ///runs `run_ui` on this context. Use the closure to encode the next "to be rendered" egui.
-    pub fn run(&mut self, rmg: &mut Rmg, window: &Window, run_ui: impl FnOnce(&egui_winit::egui::Context)) -> Result<(), RmgError>{
+    pub fn renderer(&self) -> &EGuiRender{
+        &self.renderer
+    }
 
-        let mut raw_input = self.state.take_egui_input(window);
+    ///runs `run_ui` on this context. Use the closure to encode the next "to be rendered" egui.
+    pub fn run(
+        &mut self,
+        rmg: &mut Rmg,
+        window: &Window,
+        run_ui: impl FnOnce(&egui_winit::egui::Context),
+    ) -> Result<(), RmgError> {
+        let mut raw_input = self.winit_state.take_egui_input(window);
         raw_input.time = Some(self.start.elapsed().as_secs_f64());
-        let resolution = vk::Extent2D{
+        let resolution = vk::Extent2D {
             width: window.inner_size().width,
-            height: window.inner_size().height
+            height: window.inner_size().height,
         };
-        raw_input.screen_rect = Some(egui_winit::egui::Rect{
+        raw_input.screen_rect = Some(egui_winit::egui::Rect {
             min: Pos2::ZERO,
-            max: Pos2::new(resolution.width as f32, resolution.height as f32)
+            max: Pos2::new(resolution.width as f32, resolution.height as f32),
         });
 
-        self.state.set_pixels_per_point(window.scale_factor() as f32);
+        self.winit_state
+            .set_pixels_per_point(window.scale_factor() as f32);
         self.renderer.px_per_point = window.scale_factor() as f32;
-
 
         let output = self.egui_context.run(raw_input, run_ui);
 
-        self.state.handle_platform_output(window, &self.egui_context, output.platform_output);
         let primitives = self.egui_context.tessellate(output.shapes);
+
         self.renderer.set_resolution(rmg, resolution)?;
         self.renderer.set_primitives(rmg, primitives)?;
-        self.renderer.set_texture_deltas(rmg, output.textures_delta)?;
+        self.renderer
+            .set_texture_deltas(rmg, output.textures_delta)?;
+
+        self.winit_state
+            .handle_platform_output(window, &self.egui_context, output.platform_output);
         Ok(())
     }
 }
 
 ///Egui render task. Make sure to supply the renderer with all `winit` events that should be taken into account, or use [EGuiIntegration] instead.
-pub struct EGuiRender{
+pub struct EGuiRender {
     //NOTE: egui uses three main resources to render its interface. A texture atlas, and a vertex/index buffer changing at a high rate
     //      we take our own DynamicBuffer and DynamicImage for those tasks.
     atlas: FxHashMap<TextureId, DynamicImage>,
@@ -134,32 +160,33 @@ pub struct EGuiRender{
     push: PushConstant<EGuiPush>,
 }
 
-
-impl EGuiRender{
-
+impl EGuiRender {
     ///Default vertex buffer size (in vertices).
     pub const DEFAULT_BUF_SIZE: usize = 1024;
 
+    pub fn texture_atlas(&self) -> Values<TextureId, DynamicImage>{
+        self.atlas.values()
+    }
 
-    fn default_texture_desc() -> ImgDesc{
-        ImgDesc{
+    fn default_texture_desc() -> ImgDesc {
+        ImgDesc {
             format: vk::Format::R8G8B8A8_UNORM,
             img_type: ImageType::Tex2d,
-            usage: ImageUsageFlags::from_raw( ImageUsageFlags::SAMPLED.as_raw() | ImageUsageFlags::TRANSFER_DST.as_raw()),
+            usage: ImageUsageFlags::SAMPLED | ImageUsageFlags::TRANSFER_DST | ImageUsageFlags::TRANSFER_SRC,
             sharing_mode: SharingMode::Exclusive,
             ..ImgDesc::default()
         }
     }
 
-    pub fn new(rmg: &mut Rmg) -> Result<Self, RmgError>{
-
+    pub fn new(rmg: &mut Rmg) -> Result<Self, RmgError> {
         let target_format = rmg
             .ctx
             .device
             .select_format(
                 vk::ImageUsageFlags::COLOR_ATTACHMENT
                     | vk::ImageUsageFlags::STORAGE
-                    | vk::ImageUsageFlags::TRANSFER_SRC,
+                    | vk::ImageUsageFlags::TRANSFER_SRC
+                    | vk::ImageUsageFlags::TRANSFER_DST,
                 vk::ImageTiling::OPTIMAL,
                 &[
                     vk::Format::R8G8B8A8_UNORM,
@@ -181,6 +208,7 @@ impl EGuiRender{
                 tiling: vk::ImageTiling::OPTIMAL,
                 usage: vk::ImageUsageFlags::COLOR_ATTACHMENT
                     | vk::ImageUsageFlags::TRANSFER_SRC
+                    | vk::ImageUsageFlags::TRANSFER_DST
                     | vk::ImageUsageFlags::STORAGE,
                 ..Default::default()
             },
@@ -190,9 +218,8 @@ impl EGuiRender{
         //Pipeline layout
         let layout = rmg.resources().bindless_layout();
 
-        let shader_module = Arc::new(
-            ShaderModule::new_from_bytes(&rmg.ctx.device, &crate::SHADER_RUST).unwrap(),
-        );
+        let shader_module =
+            Arc::new(ShaderModule::new_from_bytes(&rmg.ctx.device, &crate::SHADER_RUST).unwrap());
 
         let vertex_shader_stage = ShaderStage::from_shared_module(
             shader_module.clone(),
@@ -211,8 +238,8 @@ impl EGuiRender{
                 texture: ResourceHandle::INVALID,
                 sampler: ResourceHandle::INVALID,
                 pad0: [ResourceHandle::INVALID; 2],
-                screen_size: [1.0,1.0],
-                pad1: [0.0; 2]
+                screen_size: [1.0, 1.0],
+                pad1: [0.0; 2],
             },
             vk::ShaderStageFlags::ALL,
         );
@@ -224,24 +251,27 @@ impl EGuiRender{
                 &[vertex_shader_stage, fragment_shader_stage],
                 &[target_format],
             )
-                .unwrap(),
+            .unwrap(),
         );
 
-        let default_vertex_buffer = vec![crate::egui::epaint::Vertex::default(); Self::DEFAULT_BUF_SIZE];
+        let default_vertex_buffer =
+            vec![crate::egui::epaint::Vertex::default(); Self::DEFAULT_BUF_SIZE];
         let default_index_buffer = vec![0u32; Self::DEFAULT_BUF_SIZE];
         let vertex_buffer = DynamicBuffer::new_with_buffer(
             rmg,
             &default_vertex_buffer,
-            BufDesc::for_slice(&default_vertex_buffer)
-                .add_usage(vk::BufferUsageFlags::VERTEX_BUFFER | vk::BufferUsageFlags::STORAGE_BUFFER),
-            None
+            BufDesc::for_slice(&default_vertex_buffer).add_usage(
+                vk::BufferUsageFlags::VERTEX_BUFFER | vk::BufferUsageFlags::STORAGE_BUFFER,
+            ),
+            None,
         )?;
         let index_buffer = DynamicBuffer::new_with_buffer(
             rmg,
             &default_index_buffer,
-            BufDesc::for_slice(&default_index_buffer)
-                .add_usage(vk::BufferUsageFlags::INDEX_BUFFER | vk::BufferUsageFlags::STORAGE_BUFFER),
-            None
+            BufDesc::for_slice(&default_index_buffer).add_usage(
+                vk::BufferUsageFlags::INDEX_BUFFER | vk::BufferUsageFlags::STORAGE_BUFFER,
+            ),
+            None,
         )?;
 
         let linear_sampler = rmg.new_sampler(
@@ -250,7 +280,7 @@ impl EGuiRender{
                 .address_mode_v(vk::SamplerAddressMode::CLAMP_TO_EDGE)
                 .address_mode_w(vk::SamplerAddressMode::CLAMP_TO_EDGE)
                 .min_filter(vk::Filter::LINEAR)
-                .mag_filter(vk::Filter::LINEAR)
+                .mag_filter(vk::Filter::LINEAR),
         )?;
 
         let nearest_sampler = rmg.new_sampler(
@@ -259,7 +289,7 @@ impl EGuiRender{
                 .address_mode_v(vk::SamplerAddressMode::CLAMP_TO_EDGE)
                 .address_mode_w(vk::SamplerAddressMode::CLAMP_TO_EDGE)
                 .min_filter(vk::Filter::NEAREST)
-                .mag_filter(vk::Filter::NEAREST)
+                .mag_filter(vk::Filter::NEAREST),
         )?;
 
         Ok(EGuiRender {
@@ -275,24 +305,25 @@ impl EGuiRender{
             px_per_point: 1.0,
             target_image,
             pipeline,
-            push
+            push,
         })
     }
 
-        pub fn pipeline(
+    pub fn pipeline(
         device: &Arc<Device>,
         pipeline_layout: impl Into<OoS<PipelineLayout>>,
         shader_stages: &[ShaderStage],
         color_formats: &[vk::Format],
     ) -> Result<GraphicsPipeline, anyhow::Error> {
         let color_blend_attachments = vk::PipelineColorBlendAttachmentState::builder()
-            .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
+            .src_color_blend_factor(vk::BlendFactor::ONE)
             .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
-            .color_blend_op(vk::BlendOp::ADD)
-            .src_alpha_blend_factor(vk::BlendFactor::ONE)
-            .dst_alpha_blend_factor(vk::BlendFactor::ZERO)
-            .alpha_blend_op(vk::BlendOp::ADD)
             .color_write_mask(vk::ColorComponentFlags::RGBA)
+            //.color_blend_op(vk::BlendOp::ADD)
+            //.src_alpha_blend_factor(vk::BlendFactor::ONE_MINUS_DST_ALPHA)
+            //.dst_alpha_blend_factor(vk::BlendFactor::ONE)
+            //.alpha_blend_op(vk::BlendOp::ADD)
+            //.color_write_mask(vk::ColorComponentFlags::RGBA)
             .blend_enable(true);
 
         let color_blend_state = vk::PipelineColorBlendStateCreateInfo::builder()
@@ -300,7 +331,7 @@ impl EGuiRender{
             .attachments(core::slice::from_ref(&color_blend_attachments)); //only the color target
 
         let depth_stencil_state = vk::PipelineDepthStencilStateCreateInfo::builder()
-            .depth_compare_op(vk::CompareOp::LESS)
+            .depth_compare_op(vk::CompareOp::ALWAYS)
             .depth_write_enable(false)
             .depth_test_enable(false)
             .depth_bounds_test_enable(false)
@@ -382,35 +413,40 @@ impl EGuiRender{
         Ok(pipeline)
     }
 
-
     ///Sets the internal primitives. Usually the output of `egui::Context::tesselate`.
-    pub fn set_primitives(&mut self, rmg: &mut Rmg, primitives: Vec<ClippedPrimitive>) -> Result<(), RmgError>{
+    pub fn set_primitives(
+        &mut self,
+        rmg: &mut Rmg,
+        primitives: Vec<ClippedPrimitive>,
+    ) -> Result<(), RmgError> {
         //gather all vertices and indices into one big buffer. Annotate our dram commands.
-        self.commands.clear();
+
+        //self.commands.clear();
         self.commands.reserve(primitives.len());
 
-        let (vertex_count, index_count) = primitives.iter().fold((0, 0), |(mut vc, mut ic), prim|{
-            match &prim.primitive{
-                crate::egui::epaint::Primitive::Mesh(mesh) => {
-                    vc += mesh.vertices.len();
-                    ic += mesh.indices.len();
+        let (vertex_count, index_count) =
+            primitives.iter().fold((0, 0), |(mut vc, mut ic), prim| {
+                match &prim.primitive {
+                    crate::egui::epaint::Primitive::Mesh(mesh) => {
+                        vc += mesh.vertices.len();
+                        ic += mesh.indices.len();
+                    }
+                    crate::egui::epaint::Primitive::Callback(_) => {
+                        #[cfg(feature = "logging")]
+                        log::error!("Primitive callback not implemented");
+                    }
                 }
-                crate::egui::epaint::Primitive::Callback(_) => {
-                    #[cfg(feature="logging")]
-                    log::error!("Primitive callback not implemented");
-                }
-            }
 
-            (vc, ic)
-        });
+                (vc, ic)
+            });
         let mut new_vertex_buffer = Vec::with_capacity(vertex_count);
         let mut new_index_buffer = Vec::with_capacity(index_count);
 
         let width_in_pixels = self.target_image.extent_2d().width;
         let height_in_pixels = self.target_image.extent_2d().height;
 
-        for prim in primitives{
-            match prim.primitive{
+        for prim in primitives {
+            match prim.primitive {
                 crate::egui::epaint::Primitive::Mesh(mut mesh) => {
                     // Transform clip rect to physical pixels:
                     let clip_min_x = self.px_per_point * prim.clip_rect.min.x;
@@ -429,32 +465,37 @@ impl EGuiRender{
                     let clip_max_x = clip_max_x.round() as u32;
                     let clip_max_y = clip_max_y.round() as u32;
 
-
-                    let texture = match self.atlas.get(&mesh.texture_id){
-                        Some(t) => {
-                            rmg.resources_mut().get_resource_handle(t.image.clone())?
-                        },
-                        None =>{
-                            #[cfg(feature="logging")]
-                            //log::error!("No texture={:?} for egui mesh", mesh.texture_id);
+                    let texture = match self.atlas.get(&mesh.texture_id) {
+                        Some(t) => rmg.resources_mut().get_resource_handle(t.image.clone())?,
+                        None => {
+                            #[cfg(feature = "logging")]
+                            log::error!("No texture={:?} for egui mesh", mesh.texture_id);
                             continue;
                         }
                     };
 
                     //TODO choose right one?
-                    let sampler = rmg.resources_mut().get_resource_handle(self.linear_sampler.clone())?;
+                    let sampler = rmg
+                        .resources_mut()
+                        .get_resource_handle(self.linear_sampler.clone())?;
 
-                    let command = EGuiPrimDraw{
+                    let command = EGuiPrimDraw {
                         sampler,
                         texture,
                         index_offset: new_index_buffer.len().try_into().unwrap(),
                         vertex_offset: new_vertex_buffer.len().try_into().unwrap(),
                         index_buffer_size: mesh.indices.len().try_into().unwrap(),
                         vertex_buffer_size: mesh.vertices.len().try_into().unwrap(),
-                        clip: vk::Rect2D{
-                            offset: vk::Offset2D{x: clip_min_x as i32, y: clip_min_y as i32},
-                            extent: vk::Extent2D{width: clip_max_x-clip_min_x, height: clip_max_y-clip_min_y}
-                        }
+                        clip: vk::Rect2D {
+                            offset: vk::Offset2D {
+                                x: clip_min_x as i32,
+                                y: clip_min_y as i32,
+                            },
+                            extent: vk::Extent2D {
+                                width: clip_max_x - clip_min_x,
+                                height: clip_max_y - clip_min_y,
+                            },
+                        },
                     };
 
                     new_vertex_buffer.append(&mut mesh.vertices);
@@ -462,137 +503,156 @@ impl EGuiRender{
                     self.commands.push(command);
                 }
                 crate::egui::epaint::Primitive::Callback(_) => {
-                    #[cfg(feature="logging")]
+                    #[cfg(feature = "logging")]
                     log::error!("Primitive callback not implemented");
                 }
             }
         }
 
         //check if we can just write to the index/vertex buffer, or if we have to grow.
-        if self.index_buffer.buffer_handle().count() > new_index_buffer.len(){
-            println!("In byte: {}={}b/{}", self.index_buffer.buffer_handle().count(), self.index_buffer.buffer_handle().size(), new_index_buffer.len() * 4);
+        if self.index_buffer.buffer_handle().count() > new_index_buffer.len() {
             //can overwrite
-            self.index_buffer.write(&new_index_buffer, 0)
-                             .map_err(|e| anyhow::anyhow!("Uploaded index buffer partially {}/{}", e, new_index_buffer.len()))?;
-        }else {
-            #[cfg(feature="logging")]
+            self.index_buffer.write(&new_index_buffer, 0).map_err(|e| {
+                anyhow::anyhow!(
+                    "Uploaded index buffer partially {}/{}",
+                    e,
+                    new_index_buffer.len()
+                )
+            })?;
+        } else {
+            #[cfg(feature = "logging")]
             log::info!("Have to grow index buffer to {}", new_index_buffer.len());
 
             self.index_buffer = DynamicBuffer::new_with_buffer(
                 rmg,
                 &new_index_buffer,
-                BufDesc::for_slice(&new_index_buffer)
-                    .add_usage(vk::BufferUsageFlags::INDEX_BUFFER | vk::BufferUsageFlags::STORAGE_BUFFER),
-                None
+                BufDesc::for_slice(&new_index_buffer).add_usage(
+                    vk::BufferUsageFlags::INDEX_BUFFER | vk::BufferUsageFlags::STORAGE_BUFFER,
+                ),
+                None,
             )?;
         }
 
-        if self.vertex_buffer.buffer_handle().count() > new_vertex_buffer.len(){
+        if self.vertex_buffer.buffer_handle().count() > new_vertex_buffer.len() {
             //can overwrite
-            self.vertex_buffer.write(&new_vertex_buffer, 0)
-                              .map_err(|e| anyhow::anyhow!("Uploaded vertex buffer partially {}/{}", e, new_vertex_buffer.len()))?;
-        }else {
-            #[cfg(feature="logging")]
+            self.vertex_buffer
+                .write(&new_vertex_buffer, 0)
+                .map_err(|e| {
+                    anyhow::anyhow!(
+                        "Uploaded vertex buffer partially {}/{}",
+                        e,
+                        new_vertex_buffer.len()
+                    )
+                })?;
+        } else {
+            #[cfg(feature = "logging")]
             log::info!("Have to grow vertex buffer to {}", new_vertex_buffer.len());
-
             self.vertex_buffer = DynamicBuffer::new_with_buffer(
-            rmg,
-            &new_vertex_buffer,
-            BufDesc::for_slice(&new_vertex_buffer)
-                .add_usage(vk::BufferUsageFlags::VERTEX_BUFFER | vk::BufferUsageFlags::STORAGE_BUFFER),
-            None
-        )?;
+                rmg,
+                &new_vertex_buffer,
+                BufDesc::for_slice(&new_vertex_buffer).add_usage(
+                    vk::BufferUsageFlags::VERTEX_BUFFER | vk::BufferUsageFlags::STORAGE_BUFFER,
+                ),
+                None,
+            )?;
         }
 
         Ok(())
     }
 
-    pub fn set_texture_deltas(&mut self, rmg: &mut Rmg, deltas: TexturesDelta) -> Result<(), RmgError>{
-        for (id, delta) in deltas.set{
-            assert!(delta.image.bytes_per_pixel() == 4, "EGui image is not rgba8 encoded");
+    pub fn set_texture_deltas(
+        &mut self,
+        rmg: &mut Rmg,
+        deltas: TexturesDelta,
+    ) -> Result<(), RmgError> {
+        for (id, delta) in deltas.set {
+            assert!(
+                delta.image.bytes_per_pixel() == 4,
+                "EGui image is not rgba8 encoded"
+            );
 
             //delta position
-            let pos = if let Some(pos) = delta.pos{
+            let pos = if let Some(pos) = delta.pos {
                 [pos[0] as u32, pos[0] as u32]
-            }else{
+            } else {
                 [0u32; 2]
             };
-
 
             let ext = delta.image.size();
             let ext = [ext[0] as u32, ext[1] as u32];
             let is_whole = delta.is_whole();
 
             let region = ImageRegion {
-                offset: vk::Offset3D{
-                    x: pos[0] as i32, y: pos[1] as i32, z: 0,
+                offset: vk::Offset3D {
+                    x: pos[0] as i32,
+                    y: pos[1] as i32,
+                    z: 0,
                 },
-                extent: vk::Extent3D{
+                extent: vk::Extent3D {
                     width: ext[0],
                     height: ext[1],
-                    depth: 1
-                }
+                    depth: 1,
+                },
             };
 
             //extract texture data as srgb
-            let dta = match &delta.image{
-                egui_winit::egui::epaint::ImageData::Color(img) => {
-                    Cow::Borrowed(&img.pixels)
-                },
+            let dta = match &delta.image {
+                egui_winit::egui::epaint::ImageData::Color(img) => Cow::Borrowed(&img.pixels),
                 egui_winit::egui::epaint::ImageData::Font(img) => {
-                    Cow::Owned(img.srgba_pixels(1.0).collect::<Vec<Color32>>())
+                    Cow::Owned(img.srgba_pixels(0.5).collect::<Vec<Color32>>())
                 }
             };
 
             let dta: &[u8] = bytemuck::cast_slice(dta.as_slice());
 
-            if let Some(tex) = self.atlas.get_mut(&id){
-                if (ext[0] + pos[0]) > tex.image.extent_2d().width  || (ext[1] + pos[1]) > tex.image.extent_2d().height{
-
+            if let Some(tex) = self.atlas.get_mut(&id) {
+                if (ext[0] + pos[0]) > tex.image.extent_2d().width
+                    || (ext[1] + pos[1]) > tex.image.extent_2d().height
+                {
                     //need to create a new texture, since the old one can't hold the new image
                     assert!(is_whole, "Texture didn't fit, but was no whole texture!");
                     *tex = DynamicImage::new(
                         rmg,
                         ImgDesc {
                             //NOTE: must be *new* whole image, therefore pos == 0,0, and ext == image_extent
-                            extent: vk::Extent3D{
+                            extent: vk::Extent3D {
                                 width: ext[0],
                                 height: ext[1],
-                                depth: 1
+                                depth: 1,
                             },
                             ..Self::default_texture_desc()
                         },
-                        None
+                        None,
                     )?;
                     tex.write_bytes(rmg, region, &dta)?;
-                }else{
+                } else {
                     //Fits, update region
                     tex.write_bytes(rmg, region, &dta)?;
                 }
-            }else{
-                #[cfg(feature="logging")]
+            } else {
+                #[cfg(feature = "logging")]
                 log::info!("Setting up eGui texture {:?}", id);
                 let mut tex = DynamicImage::new(
                     rmg,
                     ImgDesc {
                         //NOTE: must be *new* whole image, therefore pos == 0,0, and ext == image_extent
-                        extent: vk::Extent3D{
+                        extent: vk::Extent3D {
                             width: ext[0],
                             height: ext[1],
-                            depth: 1
+                            depth: 1,
                         },
                         ..Self::default_texture_desc()
                     },
-                    None
+                    None,
                 )?;
                 tex.write_bytes(rmg, region, &dta)?;
                 assert!(self.atlas.insert(id, tex).is_none());
             }
         }
 
-        for free in self.deferred_free.drain(0..){
-            if let None = self.atlas.remove(&free){
-                #[cfg(feature="logging")]
+        for free in self.deferred_free.drain(0..) {
+            if let None = self.atlas.remove(&free) {
+                #[cfg(feature = "logging")]
                 log::error!("Tried removing non existent eGui texture {:?}", free);
             }
         }
@@ -601,38 +661,42 @@ impl EGuiRender{
     }
 
     ///The image the egui output is written to.
-    pub fn target_image(&self) -> &ImageHandle{
+    pub fn target_image(&self) -> &ImageHandle {
         &self.target_image
     }
 
     ///Sets the resolution of the rendertarget
-    pub fn set_resolution(&mut self, rmg: &mut Rmg, resolution: vk::Extent2D) -> Result<(), RmgError>{
-
-        if resolution == self.target_image.extent_2d(){
+    pub fn set_resolution(
+        &mut self,
+        rmg: &mut Rmg,
+        resolution: vk::Extent2D,
+    ) -> Result<(), RmgError> {
+        if resolution == self.target_image.extent_2d() {
             return Ok(());
         }
 
-        #[cfg(feature="logging")]
+        #[cfg(feature = "logging")]
         log::info!("Recreating EGUI resolution");
 
-        let resolution = vk::Extent2D{
+        let resolution = vk::Extent2D {
             width: resolution.width.max(1),
-            height: resolution.height.max(1)
+            height: resolution.height.max(1),
         };
 
         //Use same format, different resolution.
         let format = self.target_image.format();
-        let description = ImgDesc{
-            extent: vk::Extent3D{
+        let description = ImgDesc {
+            extent: vk::Extent3D {
                 width: resolution.width,
                 height: resolution.height,
-                depth: 1
+                depth: 1,
             },
             format: *format,
             img_type: ImageType::Tex2d,
             tiling: vk::ImageTiling::OPTIMAL,
             usage: vk::ImageUsageFlags::COLOR_ATTACHMENT
                 | vk::ImageUsageFlags::TRANSFER_SRC
+                | vk::ImageUsageFlags::TRANSFER_DST
                 | vk::ImageUsageFlags::STORAGE,
             ..Default::default()
         };
@@ -642,20 +706,25 @@ impl EGuiRender{
     }
 }
 
-
-impl Task for EGuiRender{
+impl Task for EGuiRender {
     fn name(&self) -> &'static str {
         "EGuiRender"
     }
 
     fn queue_flags(&self) -> marpii::ash::vk::QueueFlags {
-        self.vertex_buffer.queue_flags() | self.index_buffer.queue_flags() | marpii::ash::vk::QueueFlags::GRAPHICS
+        self.vertex_buffer.queue_flags()
+            | self.index_buffer.queue_flags()
+            | marpii::ash::vk::QueueFlags::GRAPHICS
     }
 
-    fn pre_record(&mut self, resources: &mut marpii_rmg::Resources, ctx: &marpii_rmg::CtxRmg) -> Result<(), marpii_rmg::RecordError> {
+    fn pre_record(
+        &mut self,
+        resources: &mut marpii_rmg::Resources,
+        ctx: &marpii_rmg::CtxRmg,
+    ) -> Result<(), marpii_rmg::RecordError> {
         self.index_buffer.pre_record(resources, ctx)?;
         self.vertex_buffer.pre_record(resources, ctx)?;
-        for (_id, tex) in self.atlas.iter_mut(){
+        for (_id, tex) in self.atlas.iter_mut() {
             tex.pre_record(resources, ctx)?;
         }
         //setup push
@@ -673,7 +742,7 @@ impl Task for EGuiRender{
     ) -> Result<(), marpii_rmg::RecordError> {
         self.index_buffer.post_execution(resources, ctx)?;
         self.vertex_buffer.post_execution(resources, ctx)?;
-        for (_id, tex) in self.atlas.iter_mut(){
+        for (_id, tex) in self.atlas.iter_mut() {
             tex.post_execution(resources, ctx)?;
         }
         Ok(())
@@ -682,7 +751,7 @@ impl Task for EGuiRender{
     fn register(&self, registry: &mut marpii_rmg::ResourceRegistry) {
         self.index_buffer.register(registry);
         self.vertex_buffer.register(registry);
-        for (_id, tex) in self.atlas.iter(){
+        for (_id, tex) in self.atlas.iter() {
             tex.register(registry);
         }
 
@@ -699,7 +768,7 @@ impl Task for EGuiRender{
     ) {
         self.index_buffer.record(device, command_buffer, resources);
         self.vertex_buffer.record(device, command_buffer, resources);
-        for (_id, tex) in self.atlas.iter_mut(){
+        for (_id, tex) in self.atlas.iter_mut() {
             tex.record(device, command_buffer, resources);
         }
 
@@ -731,9 +800,9 @@ impl Task for EGuiRender{
             .store_op(vk::AttachmentStoreOp::STORE);
 
         let render_info = vk::RenderingInfo::builder()
-            .render_area(vk::Rect2D{
-                offset: vk::Offset2D {x: 0, y: 0},
-                extent: self.target_image.extent_2d()
+            .render_area(vk::Rect2D {
+                offset: vk::Offset2D { x: 0, y: 0 },
+                extent: self.target_image.extent_2d(),
             })
             .layer_count(1)
             .color_attachments(core::slice::from_ref(&color_attachments));
@@ -752,13 +821,13 @@ impl Task for EGuiRender{
                         .dst_access_mask(vk::AccessFlags2::COLOR_ATTACHMENT_WRITE)
                         .subresource_range(targetimg.subresource_all())
                         .old_layout(target_before_layout)
-                        .new_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+                        .new_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL),
                 ]),
             );
         }
 
-
-        unsafe{
+        let commands = std::mem::take(&mut self.commands);
+        unsafe {
             //setup draw state (binding / viewport etc)
             device
                 .inner
@@ -794,7 +863,7 @@ impl Task for EGuiRender{
                 vk::IndexType::UINT32,
             );
 
-            for cmd in self.commands.iter(){
+            for cmd in commands {
                 //setup texture and sampler
                 self.push.get_content_mut().sampler = cmd.sampler;
                 self.push.get_content_mut().texture = cmd.texture;
@@ -806,23 +875,24 @@ impl Task for EGuiRender{
                     self.push.content_as_bytes(),
                 );
 
+                //set scissors to clip space
                 device
                     .inner
                     .cmd_set_scissor(*command_buffer, 0, &[cmd.clip]);
+
                 device.inner.cmd_draw_indexed(
                     *command_buffer,
                     cmd.index_buffer_size,
                     1,
                     cmd.index_offset,
                     cmd.vertex_offset.try_into().unwrap(),
-                    0
+                    0,
                 );
             }
 
             //end renderpass
             device.inner.cmd_end_rendering(*command_buffer);
         }
-
 
         //transfer target back into initial layout
         unsafe {
@@ -838,7 +908,7 @@ impl Task for EGuiRender{
                         .src_access_mask(vk::AccessFlags2::COLOR_ATTACHMENT_WRITE)
                         .subresource_range(targetimg.subresource_all())
                         .new_layout(target_before_layout)
-                        .old_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
+                        .old_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL),
                 ]),
             );
         }

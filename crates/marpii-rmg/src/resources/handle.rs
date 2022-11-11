@@ -1,5 +1,5 @@
 use crate::resources::res_states::{BufferKey, ImageKey, SamplerKey};
-use marpii::{resources::{Buffer, Image, Sampler, ImageType}, ash::vk};
+use marpii::{resources::{Buffer, Image, Sampler, ImageType}, ash::vk, util::ImageRegion};
 use std::{
     any::Any,
     fmt::{Debug, Display},
@@ -37,6 +37,10 @@ impl ImageHandle{
 
     pub fn image_type(&self) -> &ImageType{
         &self.imgref.desc.img_type
+    }
+
+    pub fn region_all(&self) -> ImageRegion{
+        self.imgref.image_region()
     }
 }
 

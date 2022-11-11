@@ -1,5 +1,8 @@
-use marpii_rmg::{BufferHandle, ImageHandle, Task, Resources, ResourceRegistry, Rmg, RmgError};
-use marpii::{ash::vk, resources::{Buffer, ImgDesc}};
+use marpii::{
+    ash::vk,
+    resources::{Buffer, ImgDesc},
+};
+use marpii_rmg::{BufferHandle, ImageHandle, ResourceRegistry, Resources, Rmg, RmgError, Task};
 use std::sync::Arc;
 
 ///Transfer pass that copies data to an image on the GPU.
@@ -10,14 +13,16 @@ pub struct UploadImage {
 }
 
 impl UploadImage {
-
     //TODO: add tasks constructors, for instance automatic "load from file"?
 
     ///Creates the upload task. Note that data is interpreted as whatever `target`'s format is.
     /// If this is wrong you will get artefacts. Use a format convertion before (on CPU), or a chained GPU based
     /// convertion task otherwise.
-    pub fn new_with_image<'dta>(rmg: &mut Rmg, data: &'dta [u8], mut desc: ImgDesc) -> Result<Self, RmgError>{
-
+    pub fn new_with_image<'dta>(
+        rmg: &mut Rmg,
+        data: &'dta [u8],
+        mut desc: ImgDesc,
+    ) -> Result<Self, RmgError> {
         let staging = Buffer::new_staging_for_data(
             &rmg.ctx.device,
             &rmg.ctx.allocator,
@@ -31,7 +36,7 @@ impl UploadImage {
             RmgError::Any(anyhow::anyhow!("Flushing upload image failed"))
         })?;
 
-        if !desc.usage.contains(vk::ImageUsageFlags::TRANSFER_DST){
+        if !desc.usage.contains(vk::ImageUsageFlags::TRANSFER_DST) {
             #[cfg(feature = "logging")]
             log::warn!("Upload image had TRANSEFER_DST not set, adding to usage...");
             desc.usage |= vk::ImageUsageFlags::TRANSFER_DST;
@@ -40,7 +45,10 @@ impl UploadImage {
         let staging = rmg.import_buffer(Arc::new(staging), None, None)?;
         let image = rmg.new_image_uninitialized(desc, None)?;
 
-        Ok(UploadImage { image, upload: staging })
+        Ok(UploadImage {
+            image,
+            upload: staging,
+        })
     }
 }
 
@@ -61,7 +69,6 @@ impl Task for UploadImage {
         command_buffer: &vk::CommandBuffer,
         resources: &Resources,
     ) {
-
         let buffer = resources.get_buffer_state(&self.upload);
         let img = resources.get_image_state(&self.image);
 
@@ -71,19 +78,15 @@ impl Task for UploadImage {
             device.inner.cmd_pipeline_barrier2(
                 *command_buffer,
                 &vk::DependencyInfo::builder()
-                    .buffer_memory_barriers(&[
-                        *vk::BufferMemoryBarrier2::builder()
-                            .buffer(buffer.buffer.inner)
-                            .offset(0)
-                            .size(vk::WHOLE_SIZE)
-                    ])
-                    .image_memory_barriers(&[
-                        *vk::ImageMemoryBarrier2::builder()
-                            .image(img.image.inner)
-                            .subresource_range(img.image.subresource_all())
-                            .old_layout(vk::ImageLayout::UNDEFINED)
-                            .new_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
-                    ]),
+                    .buffer_memory_barriers(&[*vk::BufferMemoryBarrier2::builder()
+                        .buffer(buffer.buffer.inner)
+                        .offset(0)
+                        .size(vk::WHOLE_SIZE)])
+                    .image_memory_barriers(&[*vk::ImageMemoryBarrier2::builder()
+                        .image(img.image.inner)
+                        .subresource_range(img.image.subresource_all())
+                        .old_layout(vk::ImageLayout::UNDEFINED)
+                        .new_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)]),
             );
 
             device.inner.cmd_copy_buffer_to_image2(
@@ -92,12 +95,12 @@ impl Task for UploadImage {
                     .src_buffer(buffer.buffer.inner)
                     .dst_image(img.image.inner)
                     .regions(&[*vk::BufferImageCopy2::builder()
-                               .buffer_offset(0)
-                               .buffer_row_length(0)
-                               .buffer_image_height(0)
-                               .image_extent(img.image.desc.extent)
-                               .image_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
-                               .image_subresource(img.image.subresource_layers_all())])
+                        .buffer_offset(0)
+                        .buffer_row_length(0)
+                        .buffer_image_height(0)
+                        .image_extent(img.image.desc.extent)
+                        .image_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
+                        .image_subresource(img.image.subresource_layers_all())])
                     .dst_image_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL),
             );
 

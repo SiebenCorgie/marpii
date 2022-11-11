@@ -74,7 +74,6 @@ pub fn compile_rust_shader(
 
 #[allow(dead_code)]
 fn build_glsl(path: &str, target: &str) {
-
     //TODO: build all files that do not end with ".glsl". and copy to
     // RESDIR as well.
 
@@ -99,9 +98,9 @@ fn build_glsl(path: &str, target: &str) {
 
 const RESDIR: &'static str = &"../resources";
 
-fn clean_up(){
+fn clean_up() {
     let path = PathBuf::from(RESDIR);
-    if path.exists(){
+    if path.exists() {
         std::fs::remove_dir_all(&path).unwrap();
     }
 

@@ -1,10 +1,11 @@
 use std::path::PathBuf;
 
 use anyhow::Result;
+use marpii::resources::ImgDesc;
 use marpii::{ash::vk, context::Ctx};
 use marpii_rmg_tasks::egui::epaint::{Primitive, Vertex};
 use marpii_rmg_tasks::egui::{ClippedPrimitive, Rect, Mesh, Color32, CentralPanel, SidePanel, ScrollArea};
-use marpii_rmg_tasks::{DynamicBuffer, SwapchainBlit, EGuiRender, EGuiWinitIntegration};
+use marpii_rmg_tasks::{DynamicBuffer, SwapchainBlit, EGuiRender, EGuiWinitIntegration, egui, ImageBlit};
 use marpii_rmg::Rmg;
 
 use winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
@@ -67,7 +68,7 @@ fn quat() -> ClippedPrimitive{
 
 fn main() -> Result<(), anyhow::Error> {
     simple_logger::SimpleLogger::new()
-        .with_level(log::LevelFilter::Trace)
+        .with_level(log::LevelFilter::Warn)
         .init()
         .unwrap();
 
@@ -77,6 +78,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut rmg = Rmg::new(context, &surface)?;
 
     let mut egui = EGuiWinitIntegration::new(&mut rmg, &ev)?;
+
     let mut swapchain_blit = SwapchainBlit::new();
 
     let mut name = "Teddy".to_string();
@@ -89,27 +91,26 @@ fn main() -> Result<(), anyhow::Error> {
         match ev {
             Event::MainEventsCleared => window.request_redraw(),
             Event::RedrawRequested(_) => {
-
                 egui.run(&mut rmg, &window, |ctx|{
-                    SidePanel::left("my_side_panel").show(ctx, |ui| {
-                        ui.heading("Hello World!");
-                        if ui.button("Quit").clicked() {
-                            quit = true;
-                        }
-                    });
-
-                    CentralPanel::default().show(ctx, |ui| {
-                        ScrollArea::vertical().show(ui, |ui| {
-                            ui.heading("Ello teddy")
+                    egui::CentralPanel::default().show(ctx, |ui| {
+                        ui.heading("My egui Application");
+                        ui.horizontal(|ui| {
+                            ui.label("Your name: ");
+                            ui.text_edit_singleline(&mut name);
                         });
+                        ui.add(egui::Slider::new(&mut age, 0..=120).text("age"));
+                        if ui.button("Click each year").clicked() {
+                            age += 1;
+                        }
+                        ui.label(format!("Hello '{}', age {}", name, age));
                     });
                 }).unwrap();
 
                 //setup src image and blit
-                swapchain_blit.next_blit(egui.target_image().clone());
+                swapchain_blit.next_blit(egui.renderer().target_image().clone());
 
-                rmg.record(window_extent(&window))
-                    .add_task(egui.renderer())
+                let recorder = rmg.record(window_extent(&window))
+                    .add_task(egui.renderer_mut())
                     .unwrap()
                     .add_task(&mut swapchain_blit)
                     .unwrap()
