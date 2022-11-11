@@ -599,7 +599,7 @@ impl EGuiRender {
             let dta = match &delta.image {
                 egui_winit::egui::epaint::ImageData::Color(img) => Cow::Borrowed(&img.pixels),
                 egui_winit::egui::epaint::ImageData::Font(img) => {
-                    Cow::Owned(img.srgba_pixels(0.5).collect::<Vec<Color32>>())
+                    Cow::Owned(img.srgba_pixels(1.0).collect::<Vec<Color32>>())
                 }
             };
 
