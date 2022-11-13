@@ -143,7 +143,7 @@ impl Drop for ImageView {
 ///
 ///
 /// In most cases the provided helper function should cover 99% of the use cases.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ImgDesc {
     pub img_type: ImageType,
     pub format: ash::vk::Format,

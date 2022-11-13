@@ -1,11 +1,15 @@
 [package]
-name = "shared"
+name = "marpii-rmg-task-shader"
 version = "0.1.0"
 edition = "2021"
+publish = false
+
+[lib]
+crate-type = ["lib", "dylib"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-marpii-rmg-shared = {path = "../../crates/marpii-rmg-shared"}
+marpii-rmg-task-shared = {path = "../marpii-rmg-task-shared"}
 spirv-std = { workspace=true, features = ["glam"]}
-bytemuck.workspace = true
+

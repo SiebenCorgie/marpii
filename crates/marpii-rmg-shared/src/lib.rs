@@ -4,15 +4,19 @@
 #[cfg(feature = "marpii")]
 use marpii::ash::vk;
 
+#[cfg(not(target_arch = "spirv"))]
+use bytemuck::{Zeroable, Pod};
+
 ///By definition when interpreted as big endian the highest byte is the handle type and the lower bytes are the actual index.
 ///
 /// Note that the descriptor set index is the same as the type
 //NOTE: Only derive Hash, Debug etc, on non-shader target. Otherwise panics the compiler atm.
 #[cfg_attr(
     not(target_arch = "spirv"),
-    derive(Clone, Copy, Hash, PartialEq, PartialOrd, Eq, Debug)
+    derive(Clone, Copy, Hash, PartialEq, PartialOrd, Eq, Debug, Pod, Zeroable)
 )]
-//#[cfg_attr(target_arch = "spirv", derive(PartialEq, Eq))]
+#[cfg_attr(target_arch = "spirv", derive(Clone, Copy))]
+#[repr(C)]
 pub struct ResourceHandle(u32);
 
 impl ResourceHandle {
@@ -21,15 +25,18 @@ impl ResourceHandle {
     pub const TYPE_SAMPLED_IMAGE: u8 = 0x2;
     pub const TYPE_SAMPLER: u8 = 0x3;
     pub const TYPE_ACCELERATION_STRUCTURE: u8 = 0x4;
+    pub const TYPE_INVALID: u8 = 0xff;
+
+    pub const INVALID: Self = Self::new_unchecked(Self::TYPE_INVALID, 0);
 
     ///Returns the handle type bits of this handle.
-    pub fn handle_type(&self) -> u8 {
+    pub const fn handle_type(&self) -> u8 {
         //self.0.to_be_bytes()[0]
         self.0 as u8
     }
 
     ///Returns the index of this handle into its own descriptor.
-    pub fn index(&self) -> u32 {
+    pub const fn index(&self) -> u32 {
         //lowest byte is type, rest is index, therfore move 8bit, that should be it
         self.0 >> 8
         /*
@@ -39,14 +46,24 @@ impl ResourceHandle {
          */
     }
 
+    ///Returns true if the handle is invalid. Note that this contains **any** invalid
+    /// `handle_type` bits, not just `TYPE_INVALID`
+    pub const fn is_invalid(&self) -> bool{
+        self.handle_type() > Self::TYPE_ACCELERATION_STRUCTURE
+    }
+
+
     ///Creates a new handle, panics if the type is outside the defined types, or the index exceeds (2^56)-1.
-    pub fn new(ty: u8, index: u32) -> Self {
+    pub const fn new_unchecked(ty: u8, index: u32) -> Self {
+        let bytes = (index << 8) | ty as u32;
+        ResourceHandle(bytes)
+    }
+
+    ///Creates a new handle, panics if the type is outside the defined types, or the index exceeds (2^56)-1.
+    pub const fn new(ty: u8, index: u32) -> Self {
         assert!(ty <= Self::TYPE_ACCELERATION_STRUCTURE);
         assert!(index < 2u32.pow(24));
-
-        let bytes = (index << 8) | ty as u32;
-
-        ResourceHandle(bytes)
+        Self::new_unchecked(ty, index)
     }
 
     #[cfg(feature = "marpii")]

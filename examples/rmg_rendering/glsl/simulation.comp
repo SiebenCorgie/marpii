@@ -12,7 +12,10 @@ layout( push_constant ) uniform constants{
     ResHandle sim;
     uint is_init;
     uint buf_size;
-    uint pad;
+    ResHandle img;
+    uint img_width;
+    uint img_height;
+    uvec2 pad;
 } Push;
 
 layout(set = 0, binding = 0) buffer SimObjects{
@@ -31,6 +34,8 @@ float rand(vec2 co){
 layout (local_size_x = 64, local_size_y = 1, local_size_z = 1) in;
 void main(){
   uint widx = gl_GlobalInvocationID.x;
+
+  ivec2 coord = ivec2(widx % Push.img_width, widx / Push.img_width);
 
   if (widx >= Push.buf_size){
       return;
@@ -70,4 +75,14 @@ void main(){
   }
 
   global_buffers_objects[nonuniformEXT(get_index(Push.sim))].objects[widx] = src;
+
+  if(coord.x >= Push.img_width || coord.y >= Push.img_height){
+    return;
+  }
+
+  imageStore(
+      global_images_2d[get_index(Push.img)],
+      coord,
+      vec4(vec2(coord) / 512.0, 0.0, 1.0)
+  );
 }

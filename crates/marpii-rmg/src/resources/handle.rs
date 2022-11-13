@@ -1,5 +1,5 @@
 use crate::resources::res_states::{BufferKey, ImageKey, SamplerKey};
-use marpii::resources::{Buffer, Image, Sampler};
+use marpii::{resources::{Buffer, Image, Sampler, ImageType}, ash::vk, util::ImageRegion};
 use std::{
     any::Any,
     fmt::{Debug, Display},
@@ -17,6 +17,33 @@ pub struct ImageHandle {
     pub(crate) imgref: Arc<Image>,
 }
 
+
+impl ImageHandle{
+    pub fn format(&self) -> &vk::Format{
+        &self.imgref.desc.format
+    }
+
+    pub fn usage_flags(&self) -> &vk::ImageUsageFlags{
+        &self.imgref.desc.usage
+    }
+
+    pub fn extent_2d(&self) -> vk::Extent2D{
+        self.imgref.extent_2d()
+    }
+
+    pub fn extent_3d(&self) -> vk::Extent3D{
+        self.imgref.extent_3d()
+    }
+
+    pub fn image_type(&self) -> &ImageType{
+        &self.imgref.desc.img_type
+    }
+
+    pub fn region_all(&self) -> ImageRegion{
+        self.imgref.image_region()
+    }
+}
+
 impl Debug for ImageHandle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "ImageHandle({:?})", self.key)
@@ -30,6 +57,23 @@ pub struct BufferHandle<T: 'static> {
     pub(crate) key: BufferKey,
     pub(crate) bufref: Arc<Buffer>,
     pub(crate) data_type: PhantomData<T>,
+}
+
+impl<T: 'static> BufferHandle<T>{
+
+    ///Returns the size in bytes. If you want to know how many
+    /// objects of type `T` fit in the buffer, use `count`.
+    pub fn size(&self) -> u64{
+        self.bufref.desc.size
+    }
+
+    pub fn count(&self) -> usize{
+        (self.bufref.desc.size / core::mem::size_of::<T>() as u64).try_into().unwrap()
+    }
+
+    pub fn usage_flags(&self) -> &vk::BufferUsageFlags{
+        &self.bufref.desc.usage
+    }
 }
 
 impl<T: 'static> Debug for BufferHandle<T> {

@@ -11,13 +11,17 @@ use marpii::{
     util::OoS,
 };
 use marpii_rmg::{
-    tasks::UploadBuffer, BufferHandle, CtxRmg, ImageHandle, ResourceRegistry, Resources, Rmg,
+    BufferHandle, CtxRmg, ImageHandle, ResourceRegistry, Resources, Rmg,
     RmgError, Task,
 };
+use marpii_rmg_tasks::UploadBuffer;
 use shared::{ResourceHandle, SimObj, Ubo, Vertex};
 use std::sync::Arc;
 
 use crate::{model_loading::load_model, OBJECT_COUNT};
+
+const SHADER_VS: &'static [u8] = include_bytes!("../../resources/forward_vs.spv");
+const SHADER_FS: &'static [u8] = include_bytes!("../../resources/forward_fs.spv");
 
 pub struct ForwardPass {
     //    attdesc: AttachmentDescription,
@@ -138,14 +142,14 @@ impl ForwardPass {
         let depth_image = rmg.new_image_uninitialized(depth_desc, None)?;
 
         //No additional descriptors for us
-        let layout = rmg.resources().bindless_pipeline_layout(&[]);
+        let layout = rmg.resources().bindless_layout();
 
         let shader_module_vert = Arc::new(
-            ShaderModule::new_from_file(&rmg.ctx.device, "resources/forward_vs.spv").unwrap(),
+            ShaderModule::new_from_bytes(&rmg.ctx.device, SHADER_VS).unwrap(),
         );
 
         let shader_module_frag = Arc::new(
-            ShaderModule::new_from_file(&rmg.ctx.device, "resources/forward_fs.spv").unwrap(),
+            ShaderModule::new_from_bytes(&rmg.ctx.device, SHADER_FS).unwrap(),
         );
         let vertex_shader_stage = ShaderStage::from_shared_module(
             shader_module_vert.clone(),

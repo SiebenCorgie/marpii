@@ -34,7 +34,7 @@ use camera_controller::Camera;
 use copy_buffer::CopyToGraphicsBuffer;
 use forward_pass::ForwardPass;
 use marpii::{ash::vk, context::Ctx};
-use marpii_rmg::tasks::{DynamicBuffer, SwapchainBlit};
+use marpii_rmg_tasks::{DynamicBuffer, SwapchainBlit};
 use marpii_rmg::Rmg;
 use shared::Ubo;
 use simulation::Simulation;
@@ -56,7 +56,7 @@ pub const OBJECT_COUNT: usize = 8192;
 
 fn main() -> Result<(), anyhow::Error> {
     simple_logger::SimpleLogger::new()
-        .with_level(log::LevelFilter::Error)
+        .with_level(log::LevelFilter::Trace)
         .init()
         .unwrap();
 
@@ -112,11 +112,11 @@ fn main() -> Result<(), anyhow::Error> {
                 swapchain_blit.next_blit(forward.color_image.clone());
 
                 rmg.record(window_extent(&window))
-                    .add_task(&mut ubo_update)
-                    .unwrap()
                     .add_task(&mut simulation)
                     .unwrap()
                     .add_task(&mut buffer_copy)
+                    .unwrap()
+                    .add_task(&mut ubo_update)
                     .unwrap()
                     .add_task(&mut forward)
                     .unwrap()
@@ -124,6 +124,7 @@ fn main() -> Result<(), anyhow::Error> {
                     .unwrap()
                     .execute()
                     .unwrap();
+
             }
             Event::WindowEvent {
                 event:

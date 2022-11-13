@@ -12,6 +12,7 @@ logging = ["log"]
 # if enabled, enables rmg to bind and build acceleration structures.
 ray-tracing = []
 
+
 [dependencies]
 anyhow = "1.0.56"
 thiserror = "1.0"
@@ -22,9 +23,10 @@ marpii = {path = "../../crates/marpii"}
 marpii-commands = {path = "../../crates/marpii-commands"}
 marpii-descriptor = {path = "../../crates/marpii-descriptor"}
 marpii-rmg-shared = {path = "../../crates/marpii-rmg-shared", features = ["std"]}
-winit = "0.26.1"
+winit = "0.27"
 
-log = {version = "0.4.15", optional = true}
+log = {workspace = true, optional = true}
+
 #for the garbage collector
 crossbeam-channel = "0.5.6"
 #to spawn garbage collection

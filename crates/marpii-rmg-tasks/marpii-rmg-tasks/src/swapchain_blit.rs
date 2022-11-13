@@ -1,6 +1,5 @@
-use crate::{CtxRmg, ImageHandle, RecordError, Task};
 use marpii::{ash::vk, swapchain::SwapchainImage};
-
+use marpii_rmg::{CtxRmg, ImageHandle, RecordError, ResourceRegistry, Resources, Task};
 struct Blit {
     src_image: ImageHandle,
     sw_image: Option<SwapchainImage>,
@@ -25,11 +24,7 @@ impl SwapchainBlit {
 }
 
 impl Task for SwapchainBlit {
-    fn pre_record(
-        &mut self,
-        resources: &mut crate::Resources,
-        _ctx: &CtxRmg,
-    ) -> Result<(), RecordError> {
+    fn pre_record(&mut self, resources: &mut Resources, _ctx: &CtxRmg) -> Result<(), RecordError> {
         if let Some(blit) = &mut self.next_blit {
             blit.sw_image = Some(resources.get_next_swapchain_image().unwrap());
         }
@@ -39,7 +34,7 @@ impl Task for SwapchainBlit {
 
     fn post_execution(
         &mut self,
-        resources: &mut crate::Resources,
+        resources: &mut Resources,
         _ctx: &CtxRmg,
     ) -> Result<(), RecordError> {
         if let Some(mut blit) = self.next_blit.take() {
@@ -57,7 +52,7 @@ impl Task for SwapchainBlit {
     fn queue_flags(&self) -> vk::QueueFlags {
         vk::QueueFlags::GRAPHICS | vk::QueueFlags::TRANSFER
     }
-    fn register(&self, registry: &mut crate::ResourceRegistry) {
+    fn register(&self, registry: &mut ResourceRegistry) {
         if let Some(Blit {
             src_image,
             sw_image: Some(swimage),
@@ -78,7 +73,7 @@ impl Task for SwapchainBlit {
         &mut self,
         device: &std::sync::Arc<marpii::context::Device>,
         command_buffer: &vk::CommandBuffer,
-        resources: &crate::Resources,
+        resources: &Resources,
     ) {
         if let Some(Blit {
             src_image,

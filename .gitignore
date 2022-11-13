@@ -6,3 +6,4 @@ Cargo.lock
 *.spv
 *#
 *~
+crates/marpii-rmg-tasks/resources

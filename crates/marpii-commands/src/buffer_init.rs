@@ -15,7 +15,7 @@ use crate::ManagedCommands;
 ///Returns when the buffer has finished uploading.
 /// Since this can potentually be a long operation you can either use a dedicated
 /// uploading pass in a graph if the upload should be scheduled better, or use something like [poll-promise](https://crates.io/crates/poll-promise) to do the upload on another thread.
-pub fn buffer_from_data<A: Allocator + Send + Sync + 'static, T: Copy + Sized + 'static>(
+pub fn buffer_from_data<A: Allocator + Send + Sync + 'static, T: marpii::bytemuck::Pod>(
     device: &Arc<Device>,
     allocator: &Arc<Mutex<A>>,
     upload_queue: &Queue,

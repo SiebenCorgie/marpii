@@ -1,15 +1,27 @@
 [workspace]
 members = [
 "crates/marpii",
-"crates/marpii-rmg",
-"crates/marpii-rmg-shared",
 "crates/marpii-commands",
 "crates/marpii-descriptor",
+"crates/marpii-rmg",
+"crates/marpii-rmg-shared",
+"crates/marpii-rmg-tasks/marpii-rmg-tasks",
+"crates/marpii-rmg-tasks/marpii-rmg-task-shader",
+"crates/marpii-rmg-tasks/marpii-rmg-task-shared",
 
 "examples/hello_triangle",
 "examples/rust_shader",
-"examples/shader_builder",
 "examples/rmg_rendering",
 "examples/shared",
-"examples/rmg_shader"
+"examples/egui"
 ]
+
+
+[workspace.dependencies]
+spirv-std = { git = "https://github.com/EmbarkStudios/rust-gpu", rev="39850120ae6ca16d0cb3f7a12e5aad8e2293732b"}
+spirv-builder = { git = "https://github.com/EmbarkStudios/rust-gpu", rev="39850120ae6ca16d0cb3f7a12e5aad8e2293732b"}
+bytemuck = "1"
+log = "0.4.15"
+
+[patch.crates-io]
+libm = { git = "https://github.com/rust-lang/libm", tag = "0.2.5" }

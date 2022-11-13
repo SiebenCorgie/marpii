@@ -1,0 +1,28 @@
+[package]
+name = "marpii-rmg-tasks"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[features]
+default = ["logging", "egui-task"]
+# if enabled, uses the log crate for messages. Note that the graph prints reasoning of decissions into the tracing level
+logging = ["log"]
+
+#If enabled, compiles the egui shader and integration tasks.
+egui-task = ["egui-winit", "fxhash"]
+
+[dependencies]
+marpii = {path = "../../marpii"}
+marpii-rmg = {path = "../../marpii-rmg"}
+marpii-rmg-task-shared = {path = "../marpii-rmg-task-shared"}
+log = {workspace = true, optional=true}
+anyhow = "1.0.56"
+
+egui-winit  = {version = "0.19", optional = true, features = ["bytemuck"]}
+egui = "0.19"
+fxhash = {version = "0.2.1", optional = true}
+bytemuck.workspace = true
+
+[build-dependencies]
+spirv-builder.workspace = true

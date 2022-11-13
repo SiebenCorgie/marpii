@@ -1,20 +1,20 @@
-use crate::{BufferHandle, Rmg, RmgError, Task};
 use marpii::{
     ash::vk,
     resources::{BufDesc, Buffer},
 };
+use marpii_rmg::{BufferHandle, ResourceRegistry, Resources, Rmg, RmgError, Task};
 use std::sync::Arc;
 
 ///Uploads a number of elements of type `T`.
 ///
 /// A fitting buffer (`self.buffer`) is created. Note that the buffer is uninitialised
 /// until the task is scheduled.
-pub struct UploadBuffer<T: Copy + 'static> {
+pub struct UploadBuffer<T: marpii::bytemuck::Pod> {
     pub buffer: BufferHandle<T>,
     src_buffer: BufferHandle<T>,
 }
 
-impl<T: Copy + 'static> UploadBuffer<T> {
+impl<T: marpii::bytemuck::Pod> UploadBuffer<T> {
     ///Creates a new storage buffer for the given data. If the buffer needs to be configured, for instance
     /// as vertex buffer, use [new_with_buffer](Self::new_with_buffer).
     pub fn new<'src>(rmg: &mut Rmg, data: &'src [T]) -> Result<Self, RmgError> {
@@ -33,7 +33,11 @@ impl<T: Copy + 'static> UploadBuffer<T> {
             data,
         )?;
 
-        staging.flush_range();
+        staging.flush_range().map_err(|e| {
+            #[cfg(feature = "logging")]
+            log::error!("Flushing upload buffer failed: {}", e);
+            RmgError::Any(anyhow::anyhow!("Flushing upload buffer failed"))
+        })?;
 
         if !desc.usage.contains(vk::BufferUsageFlags::TRANSFER_DST) {
             #[cfg(feature = "logging")]
@@ -51,12 +55,12 @@ impl<T: Copy + 'static> UploadBuffer<T> {
     }
 }
 
-impl<T: Copy + 'static> Task for UploadBuffer<T> {
+impl<T: marpii::bytemuck::Pod> Task for UploadBuffer<T> {
     fn name(&self) -> &'static str {
         "BufferUpload"
     }
 
-    fn register(&self, registry: &mut crate::ResourceRegistry) {
+    fn register(&self, registry: &mut ResourceRegistry) {
         registry.request_buffer(&self.buffer);
         registry.request_buffer(&self.src_buffer)
     }
@@ -69,7 +73,7 @@ impl<T: Copy + 'static> Task for UploadBuffer<T> {
         &mut self,
         device: &Arc<marpii::context::Device>,
         command_buffer: &vk::CommandBuffer,
-        resources: &crate::Resources,
+        resources: &Resources,
     ) {
         //NOTE: buffer barrier is done by scheduler
 
