@@ -3,8 +3,6 @@
  * file, You can obtain one at https://mozilla.org/MPL/2.0/. */
 #![cfg_attr(
     target_arch = "spirv",
-    feature(register_attr),
-    register_attr(spirv),
     no_std
 )]
 // HACK(eddyb) can't easily see warnings otherwise from `spirv-builder` builds.
@@ -14,9 +12,8 @@ use spirv_std;
 use spirv_std::glam::{UVec3, Vec2, Vec3, Vec3Swizzles};
 use spirv_std::Image;
 
-//Note this is needed to compile on cpu
-#[cfg(not(target_arch = "spirv"))]
-use spirv_std::macros::spirv;
+//spirv macro
+use spirv_std::spirv;
 
 #[cfg(target_arch = "spirv")]
 use spirv_std::num_traits::Float;

@@ -1,14 +1,10 @@
-#![cfg_attr(
-    target_arch = "spirv",
-    feature(register_attr),
-    register_attr(spirv),
-    no_std
-)]
+#![cfg_attr(target_arch = "spirv", no_std)]
 
 use marpii_rmg_task_shared::glam::{vec4, Vec4, Vec2, Vec3, BVec3, vec3, Vec4Swizzles};
 use spirv_std::{self, Sampler, RuntimeArray, image::SampledImage, Image};
-#[cfg(not(target_arch = "spirv"))]
-use spirv_std::macros::spirv;
+
+//include spirv macro
+use spirv_std::spirv;
 
 
 #[spirv(compute(threads(8, 8, 1)))]
