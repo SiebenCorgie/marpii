@@ -7,5 +7,5 @@ edition = "2021"
 
 [dependencies]
 marpii-rmg-shared = {path = "../../crates/marpii-rmg-shared"}
-spirv-std = { git = "https://github.com/EmbarkStudios/rust-gpu", features = ["glam"], rev="a9a233eb80f6d5d512130f8c12469a1a74f58c65"}
-bytemuck = "1"
+spirv-std = { workspace=true, features = ["glam"]}
+bytemuck.workspace = true

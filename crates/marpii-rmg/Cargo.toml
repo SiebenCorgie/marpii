@@ -25,7 +25,7 @@ marpii-descriptor = {path = "../../crates/marpii-descriptor"}
 marpii-rmg-shared = {path = "../../crates/marpii-rmg-shared", features = ["std"]}
 winit = "0.27"
 
-log = {version = "0.4.15", optional = true}
+log = {workspace = true, optional = true}
 
 #for the garbage collector
 crossbeam-channel = "0.5.6"

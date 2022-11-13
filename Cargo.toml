@@ -15,3 +15,10 @@ members = [
 "examples/shared",
 "examples/egui"
 ]
+
+
+[workspace.dependencies]
+spirv-std = { git = "https://github.com/EmbarkStudios/rust-gpu", rev="39850120ae6ca16d0cb3f7a12e5aad8e2293732b"}
+spirv-builder = { git = "https://github.com/EmbarkStudios/rust-gpu", rev="39850120ae6ca16d0cb3f7a12e5aad8e2293732b"}
+bytemuck = "1"
+log = "0.4.15"

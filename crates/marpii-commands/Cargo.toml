@@ -14,7 +14,5 @@ image_loading = ["image"]
 [dependencies]
 marpii = {path = "../marpii"}
 anyhow = "1.0.56"
-
-
-log = {version = "0.4.15", optional = true}
+log = {workspace = true, optional=true}
 image = {version = "0.24", optional = true}

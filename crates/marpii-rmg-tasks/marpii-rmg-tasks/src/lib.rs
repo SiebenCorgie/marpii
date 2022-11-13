@@ -18,6 +18,9 @@ mod dynamic_image;
 pub use dynamic_image::DynamicImage;
 mod image_blit;
 pub use image_blit::ImageBlit;
+mod alpha_blend;
+pub use alpha_blend::AlphaBlend;
+
 
 #[cfg(feature = "egui-task")]
 mod egui_integration;

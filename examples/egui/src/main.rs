@@ -68,7 +68,7 @@ fn quat() -> ClippedPrimitive{
 
 fn main() -> Result<(), anyhow::Error> {
     simple_logger::SimpleLogger::new()
-        .with_level(log::LevelFilter::Warn)
+        .with_level(log::LevelFilter::Info)
         .init()
         .unwrap();
 

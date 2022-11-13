@@ -18,4 +18,4 @@ bindless-wrapper = []
 marpii = {path = "../marpii"}
 fxhash = "0.2.1"
 anyhow = "1.0.56"
-log = {version = "0.4.15", optional = true}
+log = {workspace = true, optional=true}
