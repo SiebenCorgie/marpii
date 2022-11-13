@@ -43,7 +43,7 @@ impl<const N: usize> Task for ImageBlit<N>{
         let src_image = resources.get_image_state(&self.src);
         let dst_image = resources.get_image_state(&self.dst);
 
-        let mut change = TempLayoutChange::to_state(
+        let change = TempLayoutChange::to_state(
             resources,
             device,
             command_buffer,

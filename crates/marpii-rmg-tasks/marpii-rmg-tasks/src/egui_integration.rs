@@ -12,7 +12,7 @@ use egui::{Color32, Pos2, FontDefinitions};
 use egui_winit::winit::event_loop::EventLoopWindowTarget;
 use egui_winit::winit::window::Window;
 use fxhash::FxHashMap;
-use marpii::ash::vk::{Extent3D, ImageUsageFlags, Offset3D, Rect2D};
+use marpii::ash::vk::{ImageUsageFlags, Rect2D};
 use marpii::resources::SharingMode;
 use marpii::util::ImageRegion;
 use marpii::{
@@ -39,6 +39,7 @@ struct EGuiPrimDraw {
     ///Offest into the index buffer
     index_offset: u32,
 
+    #[allow(dead_code)]
     vertex_buffer_size: u32,
     index_buffer_size: u32,
 
@@ -145,6 +146,7 @@ pub struct EGuiRender {
     deferred_free: Vec<TextureId>,
 
     linear_sampler: SamplerHandle,
+    #[allow(dead_code)]
     nearest_sampler: SamplerHandle,
 
     vertex_buffer: DynamicBuffer<crate::egui::epaint::Vertex>,

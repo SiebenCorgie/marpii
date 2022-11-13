@@ -1,7 +1,7 @@
 #![cfg_attr(target_arch = "spirv", no_std)]
 
-use marpii_rmg_task_shared::glam::{vec4, Vec4, Vec2, Vec3, BVec3, vec3, Vec4Swizzles};
-use spirv_std::{self, Sampler, RuntimeArray, image::SampledImage, Image};
+use marpii_rmg_task_shared::glam::{vec4, Vec4, Vec2, Vec3, Vec4Swizzles};
+use spirv_std::{self, Sampler, RuntimeArray, Image};
 
 //include spirv macro
 use spirv_std::spirv;
@@ -12,6 +12,7 @@ pub fn compute_shader(
 ) {
 }
 
+#[allow(dead_code)]
 fn srgb_from_linear(rgb: Vec3) -> Vec3{
     let lower = rgb * Vec3::splat(3294.6);
     let higher = Vec3::splat(269.025) * rgb.powf(1.0/2.4) - Vec3::splat(14.025);
@@ -22,11 +23,13 @@ fn srgb_from_linear(rgb: Vec3) -> Vec3{
     )
 }
 
+#[allow(dead_code)]
 fn srgba_from_linear(rgba: Vec4) -> Vec4{
     let rgb = srgb_from_linear(rgba.xyz());
     Vec4::new(rgb.x, rgb.y, rgb.z, 255.0 * rgba.w)
 }
 
+#[allow(dead_code)]
 fn gamma_from_linear_rgba(linear_rgba: Vec4) -> Vec4{
     let srgb = srgb_from_linear(linear_rgba.xyz()) / 255.0;
     Vec4::new(srgb.x, srgb.y, srgb.z, linear_rgba.w)

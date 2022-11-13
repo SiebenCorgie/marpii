@@ -1,4 +1,4 @@
-use marpii::{util::ImageRegion, ash::vk};
+use marpii::ash::vk;
 use marpii_rmg::ImageHandle;
 
 

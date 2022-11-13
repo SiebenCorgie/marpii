@@ -3,7 +3,7 @@ use marpii::{
     resources::{Buffer, ImgDesc},
     util::ImageRegion,
 };
-use marpii_rmg::{ImageHandle, Rmg, RmgError, Task, TempLayoutChange};
+use marpii_rmg::{ImageHandle, Rmg, RmgError, Task};
 use std::sync::Arc;
 
 pub struct DynImgCmd {
@@ -90,18 +90,7 @@ impl Task for DynamicImage {
         let image_access = resources.get_image_state(&self.image);
 
         let staging = core::mem::take(&mut self.staging_copies);
-/*
-        let tmp_state = TempLayoutChange::to_state(
-            resources,
-            device,
-            command_buffer,
-            [(
-                self.image.clone(),
-                vk::AccessFlags2::empty(),
-                vk::ImageLayout::TRANSFER_DST_OPTIMAL,
-            )],
-        );
-*/
+
         for cp in staging {
             let copy_cmd = vk::BufferImageCopy2::builder()
                 .buffer_image_height(0)
@@ -122,6 +111,5 @@ impl Task for DynamicImage {
             }
         }
 
-//        tmp_state.revert(device, command_buffer);
     }
 }

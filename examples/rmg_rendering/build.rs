@@ -1,6 +1,6 @@
 use std::{
     fs::create_dir_all,
-    path::{Path, PathBuf},
+    path::PathBuf,
 };
 
 #[allow(dead_code)]
