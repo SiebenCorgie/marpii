@@ -24,7 +24,7 @@ image: "rust:latest"
 
 before_script:
   - apt update
-  - apt install -y vulkan-sdk
+  - apt install -y libvulkan-dev glslang-tools
 
 # Check that it is building at all
 build:cargo:
