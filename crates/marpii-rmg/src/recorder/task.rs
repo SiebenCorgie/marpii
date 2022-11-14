@@ -5,7 +5,7 @@ use crate::{
     },
     BufferHandle, CtxRmg, ImageHandle, RecordError, SamplerHandle,
 };
-use marpii::{ash::vk, context::Device};
+use marpii::{ash::vk::{self, ImageLayout}, context::Device};
 use std::{any::Any, ops::Deref, sync::Arc};
 
 pub struct ResourceRegistry {
@@ -30,15 +30,16 @@ impl ResourceRegistry {
         }
     }
 
-    ///Registers `image` as needed storage image.
-    pub fn request_image(&mut self, image: &ImageHandle) {
+    ///Registers `image` as needed image. The Image will be supplied using the given `access`, transitioned to `layout`, and guaranteed available
+    /// starding on `stage`.
+    pub fn request_image(&mut self, image: &ImageHandle, stage: vk::PipelineStageFlags2, access: vk::AccessFlags2, layout: ImageLayout) {
         self.images.push(image.key);
         self.resource_collection
             .push(Box::new(image.imgref.clone()));
     }
 
-    ///Registers `buffer` as needed storage buffer.
-    pub fn request_buffer<T: 'static>(&mut self, buffer: &BufferHandle<T>) {
+    ///Registers `buffer` as needed buffer. The buffer will be available in the given `stage` when using `access`.
+    pub fn request_buffer<T: 'static>(&mut self, buffer: &BufferHandle<T>, stage: vk::PipelineStageFlags2, access: vk::AccessFlags2) {
         self.buffers.push(buffer.key);
         self.resource_collection
             .push(Box::new(buffer.bufref.clone()));
