@@ -92,7 +92,7 @@ impl Task for Simulation {
     }
 
     fn register(&self, registry: &mut marpii_rmg::ResourceRegistry) {
-        registry.request_buffer(&self.sim_buffer);
+        registry.request_buffer(&self.sim_buffer, vk::PipelineStageFlags2::COMPUTE_SHADER, vk::AccessFlags2::empty());
         registry.register_asset(self.pipeline.clone());
     }
 

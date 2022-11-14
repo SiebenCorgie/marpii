@@ -58,7 +58,8 @@ impl Task for SwapchainBlit {
             sw_image: Some(swimage),
         }) = &self.next_blit
         {
-            registry.request_image(&src_image);
+            registry.request_image(&src_image, vk::PipelineStageFlags2::TRANSFER, vk::AccessFlags2::TRANSFER_READ, vk::ImageLayout::TRANSFER_SRC_OPTIMAL);
+            //NOTE: swimage is transitioned explicitly.
             registry.register_foreign_semaphore(swimage.sem_present.clone())
         } else {
             #[cfg(feature = "logging")]
@@ -81,27 +82,13 @@ impl Task for SwapchainBlit {
         }) = &self.next_blit
         {
             //init our swapchain image to transfer-able, and move the src image to transfer
-            let (before_access, before_layout, img) = {
-                let img_access = resources.get_image_state(src_image);
-
-                (img_access.mask, img_access.layout, img_access.image.clone())
-            };
+            let img =  resources.get_image_state(src_image).image.clone();
 
             unsafe {
                 device.inner.cmd_pipeline_barrier2(
                     *command_buffer,
                     &vk::DependencyInfo::builder().image_memory_barriers(&[
-                        //src image
-                        *vk::ImageMemoryBarrier2::builder()
-                            .image(img.inner)
-                            .src_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                            .dst_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                            .src_access_mask(before_access)
-                            .dst_access_mask(vk::AccessFlags2::TRANSFER_READ)
-                            .subresource_range(img.subresource_all())
-                            .old_layout(before_layout)
-                            .new_layout(vk::ImageLayout::TRANSFER_SRC_OPTIMAL),
-                        //swapchain image
+                        //swapchain image transition. Don't keep data
                         *vk::ImageMemoryBarrier2::builder()
                             .image(swimage.image.inner)
                             .src_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
@@ -136,21 +123,11 @@ impl Task for SwapchainBlit {
                 );
             }
 
-            //Move swapchain image to present, and src image back to "before" state
+            //Move swapchain image to present
             unsafe {
                 device.inner.cmd_pipeline_barrier2(
                     *command_buffer,
                     &vk::DependencyInfo::builder().image_memory_barriers(&[
-                        //src image
-                        *vk::ImageMemoryBarrier2::builder()
-                            .image(img.inner)
-                            .src_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                            .dst_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                            .src_access_mask(vk::AccessFlags2::TRANSFER_READ)
-                            .dst_access_mask(before_access)
-                            .subresource_range(img.subresource_all())
-                            .old_layout(vk::ImageLayout::TRANSFER_SRC_OPTIMAL)
-                            .new_layout(before_layout),
                         //swapchain image
                         *vk::ImageMemoryBarrier2::builder()
                             .image(swimage.image.inner)

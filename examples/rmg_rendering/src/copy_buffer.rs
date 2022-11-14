@@ -43,8 +43,8 @@ impl Task for CopyToGraphicsBuffer {
     }
 
     fn register(&self, registry: &mut marpii_rmg::ResourceRegistry) {
-        registry.request_buffer(&self.src_buffer);
-        registry.request_buffer(&self.next_buffer());
+        registry.request_buffer(&self.src_buffer, vk::PipelineStageFlags2::TRANSFER, vk::AccessFlags2::TRANSFER_READ);
+        registry.request_buffer(&self.next_buffer(), vk::PipelineStageFlags2::TRANSFER, vk::AccessFlags2::TRANSFER_WRITE);
     }
 
     fn queue_flags(&self) -> marpii::ash::vk::QueueFlags {

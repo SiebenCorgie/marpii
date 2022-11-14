@@ -311,6 +311,7 @@ impl ForwardPass {
                     height: self.target_img_ext.height,
                     depth: 1,
                 },
+
                 format: color_format,
                 img_type: ImageType::Tex2d,
                 tiling: vk::ImageTiling::OPTIMAL,
@@ -343,13 +344,13 @@ impl ForwardPass {
 impl Task for ForwardPass {
     fn register(&self, registry: &mut ResourceRegistry) {
         if let Some(buf) = &self.sim_src {
-            registry.request_buffer(buf);
+            registry.request_buffer(buf, vk::PipelineStageFlags2::ALL_GRAPHICS, vk::AccessFlags2::empty());
         }
-        registry.request_image(&self.color_image);
-        registry.request_image(&self.depth_image);
-        registry.request_buffer(&self.vertex_buffer);
-        registry.request_buffer(&self.index_buffer);
-        registry.request_buffer(&self.ubo_buffer);
+        registry.request_image(&self.color_image, vk::PipelineStageFlags2::ALL_GRAPHICS, vk::AccessFlags2::COLOR_ATTACHMENT_WRITE, vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
+        registry.request_image(&self.depth_image, vk::PipelineStageFlags2::ALL_GRAPHICS, vk::AccessFlags2::DEPTH_STENCIL_ATTACHMENT_WRITE, vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL);
+        registry.request_buffer(&self.vertex_buffer, vk::PipelineStageFlags2::ALL_GRAPHICS, vk::AccessFlags2::VERTEX_ATTRIBUTE_READ);
+        registry.request_buffer(&self.index_buffer, vk::PipelineStageFlags2::ALL_GRAPHICS, vk::AccessFlags2::INDEX_READ);
+        registry.request_buffer(&self.ubo_buffer, vk::PipelineStageFlags2::ALL_GRAPHICS, vk::AccessFlags2::SHADER_READ);
         registry.register_asset(self.pipeline.clone());
     }
 
@@ -390,25 +391,15 @@ impl Task for ForwardPass {
         //2. Schedule draw op
         //3. transform attachments back
 
-        let (color_before_access, color_before_layout, colorimg, colorview) = {
+        let (colorimg, colorview) = {
             let img_access = resources.get_image_state(&self.color_image);
             (
-                img_access.mask,
-                img_access.layout,
                 img_access.image.clone(),
                 img_access.view.clone(),
             )
         };
 
-        let (depth_before_access, depth_before_layout, depthimg, depthview) = {
-            let img_access = resources.get_image_state(&self.depth_image);
-            (
-                img_access.mask,
-                img_access.layout,
-                img_access.image.clone(),
-                img_access.view.clone(),
-            )
-        };
+        let depthview = resources.get_image_state(&self.depth_image).view.clone();
 
         let vertex_buffer_access = resources.get_buffer_state(&self.vertex_buffer);
         let index_buffer_access = resources.get_buffer_state(&self.index_buffer);
@@ -445,32 +436,6 @@ impl Task for ForwardPass {
             .color_attachments(core::slice::from_ref(&color_attachments));
 
         unsafe {
-            device.inner.cmd_pipeline_barrier2(
-                *command_buffer,
-                &vk::DependencyInfo::builder().image_memory_barriers(&[
-                    //src image
-                    *vk::ImageMemoryBarrier2::builder()
-                        .image(colorimg.inner)
-                        .src_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                        .dst_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                        .src_access_mask(color_before_access)
-                        .dst_access_mask(vk::AccessFlags2::COLOR_ATTACHMENT_WRITE)
-                        .subresource_range(colorimg.subresource_all())
-                        .old_layout(color_before_layout)
-                        .new_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL),
-                    //swapchain image
-                    *vk::ImageMemoryBarrier2::builder()
-                        .image(depthimg.inner)
-                        .src_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                        .dst_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                        .src_access_mask(depth_before_access)
-                        .dst_access_mask(vk::AccessFlags2::DEPTH_STENCIL_ATTACHMENT_WRITE)
-                        .subresource_range(depthimg.subresource_all())
-                        .old_layout(vk::ImageLayout::UNDEFINED)
-                        .new_layout(vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL),
-                ]),
-            );
-
             //DRAW STEP
             device
                 .inner
@@ -519,33 +484,6 @@ impl Task for ForwardPass {
             );
 
             device.inner.cmd_end_rendering(*command_buffer);
-
-            //TRANFORM BACK into initial state
-            device.inner.cmd_pipeline_barrier2(
-                *command_buffer,
-                &vk::DependencyInfo::builder().image_memory_barriers(&[
-                    //src image
-                    *vk::ImageMemoryBarrier2::builder()
-                        .image(colorimg.inner)
-                        .dst_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                        .src_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                        .dst_access_mask(color_before_access)
-                        .src_access_mask(vk::AccessFlags2::COLOR_ATTACHMENT_WRITE)
-                        .subresource_range(colorimg.subresource_all())
-                        .new_layout(color_before_layout)
-                        .old_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL),
-                    //swapchain image
-                    *vk::ImageMemoryBarrier2::builder()
-                        .image(depthimg.inner)
-                        .dst_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                        .src_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                        .dst_access_mask(depth_before_access)
-                        .src_access_mask(vk::AccessFlags2::DEPTH_STENCIL_ATTACHMENT_WRITE)
-                        .subresource_range(depthimg.subresource_all())
-                        .new_layout(depth_before_layout)
-                        .old_layout(vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL),
-                ]),
-            );
         }
     }
     fn queue_flags(&self) -> vk::QueueFlags {

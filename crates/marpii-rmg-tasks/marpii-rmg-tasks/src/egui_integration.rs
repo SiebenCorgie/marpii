@@ -757,8 +757,9 @@ impl Task for EGuiRender {
             tex.register(registry);
         }
 
-        registry.request_buffer(self.index_buffer.buffer_handle());
-        registry.request_buffer(self.vertex_buffer.buffer_handle());
+        registry.request_buffer(self.index_buffer.buffer_handle(), vk::PipelineStageFlags2::ALL_GRAPHICS, vk::AccessFlags2::INDEX_READ);
+        registry.request_buffer(self.vertex_buffer.buffer_handle(), vk::PipelineStageFlags2::ALL_GRAPHICS, vk::AccessFlags2::VERTEX_ATTRIBUTE_READ);
+        registry.request_image(&self.target_image, vk::PipelineStageFlags2::ALL_GRAPHICS, vk::AccessFlags2::COLOR_ATTACHMENT_WRITE, vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
         registry.register_asset(self.pipeline.clone());
     }
 
@@ -775,11 +776,9 @@ impl Task for EGuiRender {
         }
 
         //after recording updates, schedule all draw commands
-        let (target_before_access, target_before_layout, targetimg, targetview) = {
+        let (targetimg, targetview) = {
             let img_access = resources.get_image_state(&self.target_image);
             (
-                img_access.mask,
-                img_access.layout,
                 img_access.image.clone(),
                 img_access.view.clone(),
             )
@@ -809,24 +808,6 @@ impl Task for EGuiRender {
             .layer_count(1)
             .color_attachments(core::slice::from_ref(&color_attachments));
 
-        //transfer image to render attachment
-        unsafe {
-            device.inner.cmd_pipeline_barrier2(
-                *command_buffer,
-                &vk::DependencyInfo::builder().image_memory_barriers(&[
-                    //src image
-                    *vk::ImageMemoryBarrier2::builder()
-                        .image(targetimg.inner)
-                        .src_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                        .dst_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                        .src_access_mask(target_before_access)
-                        .dst_access_mask(vk::AccessFlags2::COLOR_ATTACHMENT_WRITE)
-                        .subresource_range(targetimg.subresource_all())
-                        .old_layout(target_before_layout)
-                        .new_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL),
-                ]),
-            );
-        }
 
         let commands = std::mem::take(&mut self.commands);
         unsafe {
@@ -894,25 +875,6 @@ impl Task for EGuiRender {
 
             //end renderpass
             device.inner.cmd_end_rendering(*command_buffer);
-        }
-
-        //transfer target back into initial layout
-        unsafe {
-            device.inner.cmd_pipeline_barrier2(
-                *command_buffer,
-                &vk::DependencyInfo::builder().image_memory_barriers(&[
-                    //src image
-                    *vk::ImageMemoryBarrier2::builder()
-                        .image(targetimg.inner)
-                        .dst_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                        .src_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                        .dst_access_mask(target_before_access)
-                        .src_access_mask(vk::AccessFlags2::COLOR_ATTACHMENT_WRITE)
-                        .subresource_range(targetimg.subresource_all())
-                        .new_layout(target_before_layout)
-                        .old_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL),
-                ]),
-            );
         }
     }
 }

@@ -75,7 +75,7 @@ impl Task for DynamicImage {
         vk::QueueFlags::TRANSFER
     }
     fn register(&self, registry: &mut marpii_rmg::ResourceRegistry) {
-        registry.request_image(&self.image);
+        registry.request_image(&self.image, vk::PipelineStageFlags2::TRANSFER, vk::AccessFlags2::TRANSFER_WRITE, vk::ImageLayout::GENERAL);
         for cp in self.staging_copies.iter() {
             registry.register_asset(cp.buffer.clone());
         }

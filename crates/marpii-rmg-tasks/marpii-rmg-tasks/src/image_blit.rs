@@ -1,5 +1,5 @@
 use marpii::{util::ImageRegion, ash::vk};
-use marpii_rmg::{ImageHandle, Task, TempLayoutChange};
+use marpii_rmg::{ImageHandle, Task};
 
 
 ///Blits `N` a regions of one image to another. Always blits all subresource layers.
@@ -30,8 +30,8 @@ impl<const N: usize> Task for ImageBlit<N>{
     }
 
     fn register(&self, registry: &mut marpii_rmg::ResourceRegistry) {
-        registry.request_image(&self.src);
-        registry.request_image(&self.dst);
+        registry.request_image(&self.src, vk::PipelineStageFlags2::TRANSFER, vk::AccessFlags2::TRANSFER_READ, vk::ImageLayout::GENERAL);
+        registry.request_image(&self.dst, vk::PipelineStageFlags2::TRANSFER, vk::AccessFlags2::TRANSFER_WRITE, vk::ImageLayout::GENERAL);
     }
 
     fn record(
@@ -42,17 +42,6 @@ impl<const N: usize> Task for ImageBlit<N>{
     ) {
         let src_image = resources.get_image_state(&self.src);
         let dst_image = resources.get_image_state(&self.dst);
-
-        let change = TempLayoutChange::to_state(
-            resources,
-            device,
-            command_buffer,
-            [
-                (self.src.clone(), vk::AccessFlags2::empty(), vk::ImageLayout::GENERAL),
-                (self.dst.clone(), vk::AccessFlags2::empty(), vk::ImageLayout::GENERAL),
-            ]
-        );
-
 
         let mut regions = [vk::ImageBlit2::default(); N];
         let src_subresource = src_image.image.subresource_layers_all();
@@ -82,7 +71,6 @@ impl<const N: usize> Task for ImageBlit<N>{
             device.inner.cmd_blit_image2(*command_buffer, &blit_image_info)
         }
 
-        change.revert(device, command_buffer);
     }
 
     fn queue_flags(&self) -> vk::QueueFlags {
