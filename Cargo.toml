@@ -13,7 +13,8 @@ members = [
 "examples/rust_shader",
 "examples/rmg_rendering",
 "examples/shared",
-"examples/egui"
+"examples/egui",
+"examples/scheduler_dryrun"
 ]
 
 
@@ -22,6 +23,8 @@ spirv-std = { git = "https://github.com/EmbarkStudios/rust-gpu", rev="39850120ae
 spirv-builder = { git = "https://github.com/EmbarkStudios/rust-gpu", rev="39850120ae6ca16d0cb3f7a12e5aad8e2293732b"}
 bytemuck = "1"
 log = "0.4.15"
+ahash = "0.8.2"
+anyhow = "1.0.56"
 
 [patch.crates-io]
 libm = { git = "https://github.com/rust-lang/libm", tag = "0.2.5" }

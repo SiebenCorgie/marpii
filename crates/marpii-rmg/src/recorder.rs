@@ -1,20 +1,22 @@
 pub(crate) mod executor;
 pub(crate) mod frame;
 pub(crate) mod scheduler;
-pub(crate) mod task;
+pub mod task;
+pub mod task_scheduler;
 
 use std::fmt::Debug;
 
 use marpii::ash::vk;
 use thiserror::Error;
+use tinyvec::TinyVec;
 
-use crate::{resources::handle::AnyHandle, ResourceError, Rmg, Task};
+use crate::{resources::handle::AnyHandle, ResourceError, Rmg, Task, track::TrackId};
 
 use self::{executor::Executor, scheduler::Schedule, task::ResourceRegistry};
 
 #[derive(Debug, Error)]
 pub enum RecordError {
-    #[error("No fitting track for flags found")]
+    #[error("No fitting track for flags {0:?} found")]
     NoFittingTrack(vk::QueueFlags),
 
     #[error("No such resource found")]
@@ -38,7 +40,33 @@ pub enum RecordError {
     ResError(#[from] ResourceError),
 }
 
-pub(crate) struct TaskRecord<'t> {
+pub(crate) struct WaitEvent{
+    ///The block ID we are waiting for.
+    track: TrackId,
+    ///The semaphore value that needs to be reached on the track before continuing.
+    block_sem: u64
+}
+
+impl Default for WaitEvent{
+    fn default() -> Self {
+        WaitEvent { track: TrackId::empty(), block_sem: 0  }
+    }
+}
+
+///Abstract events that can occur on a track.
+///
+/// Block: A sequential block of task(s) that can be executed without having to wait for another track to finish a specific block.
+///
+/// Wait: Wait operation that waits for one or more blocks on possibly multiple other tracks.
+///
+/// Barrier: On Track barrier for resources. Theoretically there can be one in between each block. However, the scheduler should try and minimize those.
+pub(crate) enum TrackEvent<'t>{
+    Block(Vec<TaskRecord<'t>>),
+    Wait(TinyVec<[WaitEvent; 3]>),
+    Barrier
+}
+
+pub struct TaskRecord<'t> {
     task: &'t mut dyn Task,
     registry: ResourceRegistry,
 }
@@ -52,7 +80,7 @@ impl<'t> Debug for TaskRecord<'t> {
 ///records a new execution graph blocks any access to `rmg` until the graph is executed.
 pub struct Recorder<'rmg> {
     pub rmg: &'rmg mut Rmg,
-    records: Vec<TaskRecord<'rmg>>,
+    pub records: Vec<TaskRecord<'rmg>>,
     #[allow(dead_code)]
     framebuffer_extent: vk::Extent2D,
 }

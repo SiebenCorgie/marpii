@@ -5,13 +5,14 @@ use crate::{
     },
     BufferHandle, CtxRmg, ImageHandle, RecordError, SamplerHandle,
 };
+use ahash::AHashSet;
 use marpii::{ash::vk::{self, ImageLayout}, context::Device};
 use std::{any::Any, ops::Deref, sync::Arc};
 
 pub struct ResourceRegistry {
-    images: Vec<ImageKey>,
-    buffers: Vec<BufferKey>,
-    sampler: Vec<SamplerKey>,
+    images: AHashSet<(ImageKey, vk::PipelineStageFlags2, vk::AccessFlags2, vk::ImageLayout)>,
+    buffers: AHashSet<(BufferKey, vk::PipelineStageFlags2, vk::AccessFlags2)>,
+    sampler: AHashSet<SamplerKey>,
 
     foreign_sem: Vec<Arc<vk::Semaphore>>,
     ///Collects all resources handle used in the registry
@@ -22,34 +23,55 @@ pub struct ResourceRegistry {
 impl ResourceRegistry {
     pub fn new() -> Self {
         ResourceRegistry {
-            images: Vec::new(),
-            buffers: Vec::new(),
-            sampler: Vec::new(),
+            images: AHashSet::new(),
+            buffers: AHashSet::new(),
+            sampler: AHashSet::new(),
             foreign_sem: Vec::new(),
             resource_collection: Vec::new(),
         }
     }
 
     ///Registers `image` as needed image. The Image will be supplied using the given `access`, transitioned to `layout`, and guaranteed available
-    /// starding on `stage`.
-    pub fn request_image(&mut self, image: &ImageHandle, stage: vk::PipelineStageFlags2, access: vk::AccessFlags2, layout: ImageLayout) {
-        self.images.push(image.key);
+    /// starting on `stage`.
+    ///
+    ///
+    /// Returns `Err` if the image was already registered.
+    pub fn request_image(&mut self, image: &ImageHandle, stage: vk::PipelineStageFlags2, access: vk::AccessFlags2, layout: ImageLayout) -> Result<(), ()>{
+
+        if !self.images.insert((image.key, stage, access, layout)){
+            return Err(());
+        }
         self.resource_collection
             .push(Box::new(image.imgref.clone()));
+        Ok(())
     }
 
     ///Registers `buffer` as needed buffer. The buffer will be available in the given `stage` when using `access`.
-    pub fn request_buffer<T: 'static>(&mut self, buffer: &BufferHandle<T>, stage: vk::PipelineStageFlags2, access: vk::AccessFlags2) {
-        self.buffers.push(buffer.key);
+    ///
+    ///
+    /// Returns `Err` if the image was already registered.
+    pub fn request_buffer<T: 'static>(&mut self, buffer: &BufferHandle<T>, stage: vk::PipelineStageFlags2, access: vk::AccessFlags2)  -> Result<(), ()>{
+        if !self.buffers.insert((buffer.key, stage, access)){
+            return Err(());
+        }
         self.resource_collection
             .push(Box::new(buffer.bufref.clone()));
+        Ok(())
     }
 
     ///Registers `sampler` as needed sampler.
-    pub fn request_sampler(&mut self, sampler: &SamplerHandle) {
-        self.sampler.push(sampler.key);
+    ///
+    ///
+    ///
+    /// Returns `Err` if the image was already registered.
+    pub fn request_sampler(&mut self, sampler: &SamplerHandle)  -> Result<(), ()>{
+        if !self.sampler.insert(sampler.key){
+            return Err(());
+        }
         self.resource_collection
             .push(Box::new(sampler.samref.clone()));
+
+        Err(())
     }
 
     ///Registers *any*thing to be kept alive until the task finishes its execution.
@@ -57,7 +79,7 @@ impl ResourceRegistry {
         self.resource_collection.push(Box::new(asset));
     }
 
-    ///Registers that this foreign semaphore must be signaled after execution. Needed for swapchain stuff.
+    ///Registers that this foreign semaphore must be signalled after execution. Needed for swapchain stuff.
     pub fn register_foreign_semaphore(&mut self, semaphore: Arc<vk::Semaphore>) {
         self.foreign_sem.push(semaphore.clone());
         self.resource_collection.push(Box::new(semaphore))
@@ -66,8 +88,8 @@ impl ResourceRegistry {
     pub(crate) fn any_res_iter<'a>(&'a self) -> impl Iterator<Item = AnyResKey> + 'a {
         self.images
             .iter()
-            .map(|img| AnyResKey::Image(*img))
-            .chain(self.buffers.iter().map(|buf| AnyResKey::Buffer(*buf)))
+            .map(|img| AnyResKey::Image(img.0))
+            .chain(self.buffers.iter().map(|buf| AnyResKey::Buffer(buf.0)))
             .chain(self.sampler.iter().map(|sam| AnyResKey::Sampler(*sam)))
     }
 

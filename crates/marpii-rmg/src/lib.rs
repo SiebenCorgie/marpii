@@ -168,7 +168,7 @@ pub use resources::{
     res_states::{ResBuffer, ResImage, ResSampler},
     ResourceError, Resources,
 };
-mod recorder;
+pub mod recorder;
 pub use recorder::{
     task::{ResourceRegistry, Task},
     RecordError, Recorder,

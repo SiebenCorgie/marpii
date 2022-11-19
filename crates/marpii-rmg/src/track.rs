@@ -127,6 +127,20 @@ impl Track {
 
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
 pub struct TrackId(pub vk::QueueFlags);
+
+impl TrackId{
+    ///Creates a trackId with no capabilities.
+    pub fn empty() -> Self{
+        TrackId(vk::QueueFlags::empty())
+    }
+}
+
+impl From<vk::QueueFlags> for TrackId{
+    fn from(f: vk::QueueFlags) -> Self {
+        TrackId(f)
+    }
+}
+
 impl Display for TrackId {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "TrackId({:?})", self.0)

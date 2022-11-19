@@ -10,7 +10,7 @@ use super::{scheduler::ResLocation, TaskRecord};
 
 #[derive(Debug, Clone)]
 pub(crate) struct Acquire {
-    //The track, and frame index this aquires from
+    //The track, and frame index this acquires from
     pub(crate) from: ResLocation,
     pub(crate) to: ResLocation,
     pub(crate) res: AnyResKey,
