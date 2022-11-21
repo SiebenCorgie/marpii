@@ -2,7 +2,7 @@ use ahash::AHashMap;
 use marpii::ash::vk;
 use marpii_commands::BarrierBuilder;
 
-use crate::{recorder::task_scheduler::DepPart, track::TrackId, RecordError, Rmg, resources::res_states::{AnyResKey, QueueOwnership}};
+use crate::{recorder::task_scheduler::DepPart, track::{TrackId, Guard}, RecordError, Rmg, resources::res_states::{AnyResKey, QueueOwnership}};
 
 use super::task_scheduler::TaskSchedule;
 
@@ -13,6 +13,10 @@ pub struct Executor<'t> {
 
     ///tracks which frame for which track should be scheduled next
     next_frame: AHashMap<TrackId, usize>,
+
+    //For sync guards are often collected. This vector is used to prevent re-allocation each time.
+    guard_cache: Vec<Guard>,
+    submit_info_cache: Vec<vk::SemaphoreSubmitInfo>,
 }
 
 impl<'t> Executor<'t> {
@@ -39,6 +43,8 @@ impl<'t> Executor<'t> {
         let mut exec = Executor {
             schedule,
             next_frame,
+            guard_cache: Vec::with_capacity(10),
+            submit_info_cache: Vec::with_capacity(rmg.tracks.0.len())
         };
 
         while exec.has_executable() {
@@ -140,9 +146,57 @@ impl<'t> Executor<'t> {
         Err(RecordError::DeadLock)
     }
 
+    ///clears and rebuilds the submitinfo cache from the current set of guards.
+    fn build_submitinfo_cache(&mut self, rmg: &mut Rmg){
+        self.submit_info_cache.clear();
+        //for all guards, find the biggest/latest semaphore value and build a submit info for that
+        // semaphore.
+        //
+        // If a track isn't listed in the current guards, it won't produce a submitinfo.
+        // Therefore, if there are no guards, a submit using the submit cache wont wait... which is a good thing.
+        //
+        let track_biggest_pairs = self
+            .guard_cache
+            .iter()
+            .fold(
+                AHashMap::default(),
+                |mut map: AHashMap<TrackId, u64>, exec_guard| {
+                    if let Some(val) = map.get_mut(exec_guard.as_ref()) {
+                        *val = (*val).max(exec_guard.wait_value());
+                    } else {
+                        map.insert((*exec_guard).into(), exec_guard.wait_value());
+                    }
+
+                    map
+                },
+            );
+        for (track_id, sem_value) in track_biggest_pairs{
+                //turn each track-value pair into a submit info
+                rmg.tracks
+                   .0
+                   .get(&track_id)
+                   .unwrap()
+                   .sem
+                   .wait(sem_value, u64::MAX)
+                   .unwrap();
+
+                self.submit_info_cache.push(
+                    vk::SemaphoreSubmitInfo::builder()
+                        .semaphore(rmg.tracks.0.get(&track_id).unwrap().sem.inner)
+                        .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS) //TODO: make more percise
+                        .value(sem_value)
+                        .build()
+                );
+            }
+
+    }
+
     ///checks all import statements and adds release operations to the currently owning tracks, to make
     /// the frames acquire operation valid.
     fn schedule_import_release_frame(&mut self, rmg: &mut Rmg) -> Result<(), RecordError>{
+
+        //clear for this pass.
+        self.guard_cache.clear();
 
         struct ReleaseOp{
             current_owner: TrackId,
@@ -180,6 +234,7 @@ impl<'t> Executor<'t> {
                             destination_owner: *trackid,
                             res: dep.dep.clone()
                         });
+
                     }else{
                         #[cfg(feature="logging")]
                         log::trace!("{} not yet owned, not releasing", dep.dep);
@@ -196,7 +251,7 @@ impl<'t> Executor<'t> {
         //
         let mut barriers: AHashMap<TrackId, BarrierBuilder> = self.schedule.tracks.keys().map(|k| (*k, BarrierBuilder::default())).collect();
 
-        for op in release_ops{
+        for op in &release_ops{
             let barrier_builder = barriers.get_mut(&op.current_owner).unwrap();
             let src_family = rmg.trackid_to_queue_idx(op.current_owner);
             let dst_family = rmg.trackid_to_queue_idx(op.destination_owner);
@@ -211,8 +266,12 @@ impl<'t> Executor<'t> {
                         src_family,
                         dst_family
                     );
-                    //flag internally
+                    //flag internally and setup guard for this execution. If there is already a guard, push that into the
+                    // cache for later submit building.
                     state.ownership = QueueOwnership::Released { src_family, dst_family};
+                    if let Some(guard) = state.guard.take(){
+                        self.guard_cache.push(guard);
+                    }
                 },
                 AnyResKey::Image(img) => {
                     let state = rmg.resources_mut().images.get_mut(*img).ok_or(RecordError::NoSuchResource(img.into()))?;
@@ -222,6 +281,12 @@ impl<'t> Executor<'t> {
                         src_family,
                         dst_family
                     );
+                    //flag internally and setup guard for this execution. If there is already a guard, push that into the
+                    // cache for later submit building.
+                    state.ownership = QueueOwnership::Released { src_family, dst_family};
+                    if let Some(guard) = state.guard.take(){
+                        self.guard_cache.push(guard);
+                    }
                 },
                 AnyResKey::Sampler(_) => {} //has no ownership
             }
@@ -237,17 +302,98 @@ impl<'t> Executor<'t> {
             println!("    {:?}", barrier);
         }
 
+        //build submit infos
+        self.build_submitinfo_cache(rmg);
+
+        //now setup semaphore values for each frame. Depending on if there is a release on that track
+        // or not it might change by 1.
+        for (trackid, track) in self.schedule.tracks.iter(){
+
+            //schedule on sem val and execute release barrier immediately, move semval up once.
+            if barriers.get(trackid).unwrap().has_barrier(){
+
+                //allocate submission guard.
+                let release_guard = rmg.tracks.0.get_mut(trackid).unwrap().next_guard();
+                //set execution guard for each resource in a release op that is used.
+                for op in release_ops.iter().filter(|op| &op.current_owner == trackid){
+                    match op.res {
+                        AnyResKey::Buffer(buf) => {
+                            let guard_field = &mut rmg.resources_mut().buffer.get_mut(buf).unwrap().guard;
+                            assert!(guard_field.is_none(), "Resource had guard, therefore wait was scheduled wrong");
+                            *guard_field = Some(release_guard.clone());
+                        },
+                        AnyResKey::Image(img) => {
+                            let guard_field = &mut rmg.resources_mut().images.get_mut(img).unwrap().guard;
+                            assert!(guard_field.is_none(), "Resource had guard, therefore wait was scheduled wrong");
+                            *guard_field = Some(release_guard.clone());
+                        },
+                        AnyResKey::Sampler(_) => {}
+                    }
+                }
+
+                let cb = rmg.tracks.0.get_mut(trackid).unwrap().new_command_buffer()?;
+                let dependency_info = barriers.get(trackid).unwrap().as_dependency_info();
+                unsafe{
+                    rmg.ctx.device.inner.begin_command_buffer(
+                        cb.inner,
+                        &vk::CommandBufferBeginInfo::builder()
+                            .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT)
+                    )?;
+                    rmg.ctx.device.inner.cmd_pipeline_barrier2(cb.inner, &dependency_info);
+                    rmg.ctx.device.inner.end_command_buffer(cb.inner)?;
+                }
+
+                //execute cb, waiting for the wait info of this track
+                // NOTE: not waiting for the others, since this is essentially put at the end of the previous
+                //       record.
+                let queue_fam = rmg.trackid_to_queue_idx(*trackid);
+                let queue = rmg.ctx.device.get_first_queue_for_family(queue_fam).unwrap();
+                assert!(queue.family_index == queue_fam);
+
+                //signal only the created guard
+                let signal_info = vk::SemaphoreSubmitInfo::builder()
+                    .semaphore(
+                        rmg.tracks
+                           .0
+                           .get(release_guard.as_ref())
+                           .unwrap()
+                           .sem
+                           .inner,
+                    )
+                    .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
+                    .value(release_guard.wait_value());
+
+                #[cfg(feature="logging")]
+                log::trace!("Executing release for {} on {:?}", trackid, release_guard);
+
+                unsafe{
+                    rmg.ctx.device.inner.queue_submit2(
+                        *queue.inner(),
+                        &[
+                            *vk::SubmitInfo2::builder()
+                                .command_buffer_infos(
+                                    &[*vk::CommandBufferSubmitInfo::builder()
+                                        .command_buffer(cb.inner)]
+                                ).wait_semaphore_infos(&self.submit_info_cache)
+                                .signal_semaphore_infos(&[*signal_info])
+                        ],
+                        vk::Fence::null())?;
+                }
+            }
+        }
 
         Ok(())
     }
 
 
     fn schedule_frame(&mut self, trackid: TrackId, frame_index: usize) -> Result<(), RecordError> {
-        //- build the acquire semaphores by collecting all "first" dependencies and checking their current state.
-        //  Wait for the latest semaphore each.
-        //- then build transition barriers pre/post task.
+        //- build the acquire semaphores by collecting all "import" dependencies and checking their current state.
+        //  Wait for the guard/owner semaphore each.
+        //- then build transition barriers pre/post task, maybe merge semaphore.
         //- schedule each task
         //- then build post execution release barriers for each dependee.
+        //
+        // TODO: assert that each acquired res was released before.
 
         let track = self.schedule.tracks.get(&trackid).unwrap();
         println!("Frame[{}] @ {}", frame_index, trackid);

@@ -114,8 +114,6 @@ impl Display for TrackFrame {
 pub(crate) struct TrackSchedule<'t> {
     pub(crate) nodes: Vec<TaskNode<'t>>,
     pub(crate) frames: Vec<TrackFrame>,
-    //offset to be added to a nodes index to get the semaphore value this task works on.
-    pub(crate) semaphore_offset: u64,
 }
 
 impl<'t> TrackSchedule<'t> {
@@ -202,7 +200,6 @@ impl<'t> TaskSchedule<'t> {
                     TrackSchedule {
                         nodes: Vec::with_capacity(10),
                         frames: Vec::new(),
-                        semaphore_offset: track.latest_signaled_value,
                     },
                 )
             })

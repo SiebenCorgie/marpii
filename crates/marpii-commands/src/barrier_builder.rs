@@ -186,11 +186,16 @@ impl BarrierBuilder{
         self
     }
 
-    ///Returns a reference to a barrier, containig the currently pushed barriers
+    ///Returns a reference to a barrier, containing the currently pushed barriers
     // TODO: allow adding flags?
     pub fn as_dependency_info<'a>(&'a self) -> vk::DependencyInfoBuilder<'a>{
         vk::DependencyInfo::builder()
             .image_memory_barriers(self.images.as_slice())
             .buffer_memory_barriers(self.buffers.as_slice())
+    }
+
+    ///Returns true if at least one barrier has been added.
+    pub fn has_barrier(&self) -> bool{
+        !self.images.is_empty() || !self.buffers.is_empty()
     }
 }
