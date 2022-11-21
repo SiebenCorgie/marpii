@@ -1,9 +1,8 @@
-use std::sync::Barrier;
-
 use ahash::AHashMap;
+use marpii::ash::vk;
 use marpii_commands::BarrierBuilder;
 
-use crate::{recorder::task_scheduler::DepPart, track::TrackId, RecordError, Rmg, resources::res_states::AnyResKey};
+use crate::{recorder::task_scheduler::DepPart, track::TrackId, RecordError, Rmg, resources::res_states::{AnyResKey, QueueOwnership}};
 
 use super::task_scheduler::TaskSchedule;
 
@@ -155,20 +154,35 @@ impl<'t> Executor<'t> {
         let mut release_ops = Vec::new();
 
         for (trackid, track) in self.schedule.tracks.iter(){
+            let track_family = rmg.trackid_to_queue_idx(*trackid);
             for dep in track.nodes.iter().map(|node| node.dependencies.iter()).flatten(){
                 if let DepPart::Import = dep.participant{
                     //if there is a current owner, build release.
                     //
                     // There are two events where there is no owner:
                     // 1. Res is a sampler
-                    // 2. Res is uninitialized. In that case the access/layout transition implicitly takes care of initializing
+                    // 2. Res is uninitialised. In that case the access/layout transition implicitly takes care of initialising
                     //    queue ownership.
                     if let Some(current_owner) = rmg.resources().get_current_owner(dep.dep){
+
+                        //Do not have to acquire if it is already on the same track/queue_family
+                        if current_owner == track_family{
+                            #[cfg(feature="logging")]
+                            log::trace!("Resource {} already owned on {} at import", dep.dep, current_owner);
+                            continue;
+                        }
+
+                        #[cfg(feature="logging")]
+                        log::trace!("Releasing {} from {}", dep.dep, rmg.queue_idx_to_trackid(current_owner).unwrap());
+
                         release_ops.push(ReleaseOp{
                             current_owner: rmg.queue_idx_to_trackid(current_owner).ok_or(RecordError::Any(anyhow::anyhow!("no track for queue {}", current_owner)))?,
                             destination_owner: *trackid,
                             res: dep.dep.clone()
                         });
+                    }else{
+                        #[cfg(feature="logging")]
+                        log::trace!("{} not yet owned, not releasing", dep.dep);
                     }
                 }
             }
@@ -182,6 +196,48 @@ impl<'t> Executor<'t> {
         //
         let mut barriers: AHashMap<TrackId, BarrierBuilder> = self.schedule.tracks.keys().map(|k| (*k, BarrierBuilder::default())).collect();
 
+        for op in release_ops{
+            let barrier_builder = barriers.get_mut(&op.current_owner).unwrap();
+            let src_family = rmg.trackid_to_queue_idx(op.current_owner);
+            let dst_family = rmg.trackid_to_queue_idx(op.destination_owner);
+            match &op.res {
+                AnyResKey::Buffer(buf) => {
+                    let state = rmg.resources_mut().buffer.get_mut(*buf).ok_or(RecordError::NoSuchResource(buf.into()))?;
+
+                    barrier_builder.buffer_queue_transition(
+                        state.buffer.inner,
+                        0,
+                        vk::WHOLE_SIZE,
+                        src_family,
+                        dst_family
+                    );
+                    //flag internally
+                    state.ownership = QueueOwnership::Released { src_family, dst_family};
+                },
+                AnyResKey::Image(img) => {
+                    let state = rmg.resources_mut().images.get_mut(*img).ok_or(RecordError::NoSuchResource(img.into()))?;
+                    barrier_builder.image_queue_transition(
+                        state.image.inner,
+                        state.image.subresource_all(),
+                        src_family,
+                        dst_family
+                    );
+                },
+                AnyResKey::Sampler(_) => {} //has no ownership
+            }
+        }
+
+
+        #[cfg(feature="logging")]
+        log::error!("UNTESTED: is release correct?");
+
+        println!("Release barriers");
+        for (track, barrier) in &barriers{
+            println!("    [{}]", track);
+            println!("    {:?}", barrier);
+        }
+
+
         Ok(())
     }
 
@@ -190,7 +246,7 @@ impl<'t> Executor<'t> {
         //- build the acquire semaphores by collecting all "first" dependencies and checking their current state.
         //  Wait for the latest semaphore each.
         //- then build transition barriers pre/post task.
-        //- scheduel each task
+        //- schedule each task
         //- then build post execution release barriers for each dependee.
 
         let track = self.schedule.tracks.get(&trackid).unwrap();

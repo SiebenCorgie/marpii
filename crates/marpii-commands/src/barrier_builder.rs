@@ -4,13 +4,14 @@ use tinyvec::{Array, TinyVec};
 ///Barrier building helper. Lets you add barriers for images and buffers
 /// via a simple builder API.
 ///
-/// Convinient whenever building a simple array for the barriers is not possible.
+/// Convenient whenever building a simple array for the barriers is not possible.
 ///
 /// Uses tinyvec internally. `N` sets the amount of barriers for each type that are pre allocated into an array. The barrier
 /// however can outgrow that value.
+#[derive(Debug)]
 pub struct BarrierBuilder{
-    images: TinyVec<[vk::ImageMemoryBarrier2; Self::STACK_ALLCATION]>,
-    buffers: TinyVec<[vk::BufferMemoryBarrier2; Self::STACK_ALLCATION]>,
+    pub images: TinyVec<[vk::ImageMemoryBarrier2; Self::STACK_ALLCATION]>,
+    pub buffers: TinyVec<[vk::BufferMemoryBarrier2; Self::STACK_ALLCATION]>,
 }
 
 ///By default we pre allocate two barriers per type, since this is a pretty common pattern for simple
@@ -45,7 +46,7 @@ impl BarrierBuilder{
     /// This is not enforced by this object since it is dropped whenever the commandbuffer is build. Therefore, there is no
     /// way for it to extent the lifetime as needed.
     pub fn buffer_barrier(
-        mut self,
+        &mut self,
         buffer: vk::Buffer,
         offset: u64,
         size: u64,
@@ -55,7 +56,7 @@ impl BarrierBuilder{
         dst_access_mask: vk::AccessFlags2,
         dst_pipeline_stage: vk::PipelineStageFlags2,
         dst_queue_family: u32
-    ) -> Self{
+    ) -> &mut Self{
         let item = vk::BufferMemoryBarrier2::builder()
             .buffer(buffer)
             .src_access_mask(src_access_mask)
@@ -76,13 +77,13 @@ impl BarrierBuilder{
     ///
     /// # Safety see [buffer_barrier].
     pub fn buffer_queue_transition(
-        mut self,
+        &mut self,
         buffer: vk::Buffer,
         offset: u64,
         size: u64,
         src_queue_family: u32,
         dst_queue_family: u32
-    ) -> Self{
+    ) -> &mut Self{
         let item = vk::BufferMemoryBarrier2::builder()
             .buffer(buffer)
             .src_queue_family_index(src_queue_family)
@@ -95,7 +96,7 @@ impl BarrierBuilder{
         self
     }
 
-    pub fn buffer_custom_barrier(mut self, barrier: vk::BufferMemoryBarrier2) -> Self{
+    pub fn buffer_custom_barrier(&mut self, barrier: vk::BufferMemoryBarrier2) -> &mut Self{
         self.buffers.push(barrier);
         self
     }
@@ -108,7 +109,7 @@ impl BarrierBuilder{
     /// This is not enforced by this object since it is dropped whenever the commandbuffer is build. Therefore, there is no
     /// way for it to extent the lifetime as needed.
     pub fn image_barrier(
-        mut self,
+        &mut self,
         image: vk::Image,
         subresource_range: vk::ImageSubresourceRange,
         src_access_mask: vk::AccessFlags2,
@@ -119,7 +120,7 @@ impl BarrierBuilder{
         dst_pipeline_stage: vk::PipelineStageFlags2,
         dst_layout: ImageLayout,
         dst_queue_family: u32
-    ) -> Self{
+    ) -> &mut Self{
         let item = vk::ImageMemoryBarrier2::builder()
             .image(image)
             .subresource_range(subresource_range)
@@ -142,12 +143,12 @@ impl BarrierBuilder{
     ///
     /// # Safety see [image_barrier].
     pub fn image_queue_transition(
-        mut self,
+        &mut self,
         image: vk::Image,
         subresource_range: vk::ImageSubresourceRange,
         src_queue_family: u32,
         dst_queue_family: u32
-    ) -> Self{
+    ) -> &mut Self{
         let item = vk::ImageMemoryBarrier2::builder()
             .image(image)
             .subresource_range(subresource_range)
@@ -163,12 +164,12 @@ impl BarrierBuilder{
     ///
     /// # Safety see [image_barrier].
     pub fn image_layout_transition(
-        mut self,
+        &mut self,
         image: vk::Image,
         subresource_range: vk::ImageSubresourceRange,
         src_layout: vk::ImageLayout ,
         dst_layout: ImageLayout
-    ) -> Self{
+    ) -> &mut Self{
         let item = vk::ImageMemoryBarrier2::builder()
             .image(image)
             .subresource_range(subresource_range)
@@ -180,7 +181,7 @@ impl BarrierBuilder{
         self
     }
 
-    pub fn image_custom_barrier(mut self, barrier: vk::ImageMemoryBarrier2) -> Self{
+    pub fn image_custom_barrier(&mut self, barrier: vk::ImageMemoryBarrier2) -> &mut Self{
         self.images.push(barrier);
         self
     }
