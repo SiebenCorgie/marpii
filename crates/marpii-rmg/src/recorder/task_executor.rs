@@ -1,6 +1,7 @@
 use std::sync::Barrier;
 
 use ahash::AHashMap;
+use marpii_commands::BarrierBuilder;
 
 use crate::{recorder::task_scheduler::DepPart, track::TrackId, RecordError, Rmg, resources::res_states::AnyResKey};
 
@@ -179,7 +180,7 @@ impl<'t> Executor<'t> {
         //      setup semaphore values for the tracks.
         //
         //
-        let mut barriers: AHashMap<TrackId, BarrierBuilder> = self.schedule.tracks.keys().map(|k| (k, BarrierBuilder::default())).collect();
+        let mut barriers: AHashMap<TrackId, BarrierBuilder> = self.schedule.tracks.keys().map(|k| (*k, BarrierBuilder::default())).collect();
 
         Ok(())
     }

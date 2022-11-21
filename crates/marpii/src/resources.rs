@@ -20,8 +20,7 @@ pub use command_buffer::{CommandBuffer, CommandBufferAllocator, CommandPool};
 
 mod shader_module;
 pub use shader_module::{ShaderModule, ShaderStage};
-
-use smallvec::SmallVec;
+use tinyvec::TinyVec;
 
 ///Memory usage types
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -29,6 +28,6 @@ pub enum SharingMode {
     Exclusive,
     Concurrent {
         ///The queue family indices of families that can access the image concurrently.
-        queue_family_indices: SmallVec<[u32; 4]>,
+        queue_family_indices: TinyVec<[u32; 4]>,
     },
 }
