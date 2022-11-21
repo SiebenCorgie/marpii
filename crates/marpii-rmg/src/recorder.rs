@@ -2,6 +2,7 @@ pub(crate) mod executor;
 pub(crate) mod frame;
 pub(crate) mod scheduler;
 pub mod task;
+pub mod task_executor;
 pub mod task_scheduler;
 
 use std::fmt::Debug;
@@ -10,7 +11,7 @@ use marpii::ash::vk;
 use thiserror::Error;
 use tinyvec::TinyVec;
 
-use crate::{resources::handle::AnyHandle, ResourceError, Rmg, Task, track::TrackId};
+use crate::{resources::handle::AnyHandle, track::TrackId, ResourceError, Rmg, Task};
 
 use self::{executor::Executor, scheduler::Schedule, task::ResourceRegistry};
 
@@ -38,18 +39,24 @@ pub enum RecordError {
 
     #[error("Record time resource error")]
     ResError(#[from] ResourceError),
+
+    #[error("Found scheduling deadlock, there might be a dependency cycle.")]
+    DeadLock,
 }
 
-pub(crate) struct WaitEvent{
+pub(crate) struct WaitEvent {
     ///The block ID we are waiting for.
     track: TrackId,
     ///The semaphore value that needs to be reached on the track before continuing.
-    block_sem: u64
+    block_sem: u64,
 }
 
-impl Default for WaitEvent{
+impl Default for WaitEvent {
     fn default() -> Self {
-        WaitEvent { track: TrackId::empty(), block_sem: 0  }
+        WaitEvent {
+            track: TrackId::empty(),
+            block_sem: 0,
+        }
     }
 }
 
@@ -60,10 +67,10 @@ impl Default for WaitEvent{
 /// Wait: Wait operation that waits for one or more blocks on possibly multiple other tracks.
 ///
 /// Barrier: On Track barrier for resources. Theoretically there can be one in between each block. However, the scheduler should try and minimize those.
-pub(crate) enum TrackEvent<'t>{
+pub(crate) enum TrackEvent<'t> {
     Block(Vec<TaskRecord<'t>>),
     Wait(TinyVec<[WaitEvent; 3]>),
-    Barrier
+    Barrier,
 }
 
 pub struct TaskRecord<'t> {

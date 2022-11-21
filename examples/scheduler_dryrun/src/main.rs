@@ -107,8 +107,8 @@ fn main() -> Result<(), anyhow::Error> {
                    .unwrap();
 
     let schedule = TaskSchedule::new_from_tasks(tasks.rmg, tasks.records)?;
-
     println!("{}", schedule);
+    marpii_rmg::recorder::task_executor::Executor::execute(tasks.rmg, schedule)?;
     Ok(())
 }
 

@@ -128,14 +128,14 @@ impl Track {
 #[derive(Hash, PartialEq, Eq, PartialOrd, Ord, Debug, Clone, Copy)]
 pub struct TrackId(pub vk::QueueFlags);
 
-impl TrackId{
+impl TrackId {
     ///Creates a trackId with no capabilities.
-    pub fn empty() -> Self{
+    pub fn empty() -> Self {
         TrackId(vk::QueueFlags::empty())
     }
 }
 
-impl From<vk::QueueFlags> for TrackId{
+impl From<vk::QueueFlags> for TrackId {
     fn from(f: vk::QueueFlags) -> Self {
         TrackId(f)
     }

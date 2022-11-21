@@ -2,10 +2,7 @@ use crossbeam_channel::{Receiver, Sender};
 use marpii::{
     ash::vk,
     context::Device,
-    resources::{
-        BufDesc, Buffer, Image, ImgDesc, PipelineLayout, SafeImageView,
-        Sampler,
-    },
+    resources::{BufDesc, Buffer, Image, ImgDesc, PipelineLayout, SafeImageView, Sampler},
     surface::Surface,
     swapchain::{Swapchain, SwapchainImage},
 };
@@ -20,7 +17,7 @@ use crate::{
             BufferKey, ImageKey, QueueOwnership, ResBuffer, ResImage, ResSampler, SamplerKey,
         },
     },
-    track::Tracks,
+    track::{Tracks, TrackId},
     BufferHandle, ImageHandle, SamplerHandle,
 };
 
@@ -79,8 +76,7 @@ pub struct Resources {
 impl Resources {
     pub fn new(device: &Arc<Device>, surface: &Arc<Surface>) -> Result<Self, ResourceError> {
         let bindless = Bindless::new_default(device)?;
-        let bindless_layout =
-            Arc::new(bindless.new_pipeline_layout(&[]));
+        let bindless_layout = Arc::new(bindless.new_pipeline_layout(&[]));
 
         let swapchain = Swapchain::builder(device, surface)?
             .with(move |b| {
@@ -395,6 +391,16 @@ impl Resources {
             .get(hdl.key)
             .as_ref()
             .expect("Used invalid Sampler Handle")
+    }
+
+
+    ///Returns the current owning queue (if the res exists and is NOT a sampler).
+    pub(crate) fn get_current_owner(&self, res: impl Into<AnyResKey>) -> Option<u32>{
+        match &res.into(){
+            AnyResKey::Buffer(k) => self.buffer.get(*k).map(|buf| buf.ownership.owner()).flatten(),
+            AnyResKey::Image(k) => self.images.get(*k).map(|img| img.ownership.owner()).flatten(),
+            AnyResKey::Sampler(k) => None,
+        }
     }
 
     pub fn get_next_swapchain_image(&mut self) -> Result<SwapchainImage, ResourceError> {

@@ -1,9 +1,2 @@
-
-
-
-
-
 #[test]
-fn test_add() {
-
-}
+fn test_add() {}

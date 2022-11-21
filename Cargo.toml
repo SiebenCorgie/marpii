@@ -25,6 +25,7 @@ bytemuck = "1"
 log = "0.4.15"
 ahash = "0.8.2"
 anyhow = "1.0.56"
+tinyvec = {version = "1.6.0", features = ["alloc"]}
 
 [patch.crates-io]
 libm = { git = "https://github.com/rust-lang/libm", tag = "0.2.5" }

@@ -6,11 +6,19 @@ use crate::{
     BufferHandle, CtxRmg, ImageHandle, RecordError, SamplerHandle,
 };
 use ahash::AHashSet;
-use marpii::{ash::vk::{self, ImageLayout}, context::Device};
+use marpii::{
+    ash::vk::{self, ImageLayout},
+    context::Device,
+};
 use std::{any::Any, ops::Deref, sync::Arc};
 
 pub struct ResourceRegistry {
-    images: AHashSet<(ImageKey, vk::PipelineStageFlags2, vk::AccessFlags2, vk::ImageLayout)>,
+    images: AHashSet<(
+        ImageKey,
+        vk::PipelineStageFlags2,
+        vk::AccessFlags2,
+        vk::ImageLayout,
+    )>,
     buffers: AHashSet<(BufferKey, vk::PipelineStageFlags2, vk::AccessFlags2)>,
     sampler: AHashSet<SamplerKey>,
 
@@ -36,9 +44,14 @@ impl ResourceRegistry {
     ///
     ///
     /// Returns `Err` if the image was already registered.
-    pub fn request_image(&mut self, image: &ImageHandle, stage: vk::PipelineStageFlags2, access: vk::AccessFlags2, layout: ImageLayout) -> Result<(), ()>{
-
-        if !self.images.insert((image.key, stage, access, layout)){
+    pub fn request_image(
+        &mut self,
+        image: &ImageHandle,
+        stage: vk::PipelineStageFlags2,
+        access: vk::AccessFlags2,
+        layout: ImageLayout,
+    ) -> Result<(), ()> {
+        if !self.images.insert((image.key, stage, access, layout)) {
             return Err(());
         }
         self.resource_collection
@@ -50,8 +63,13 @@ impl ResourceRegistry {
     ///
     ///
     /// Returns `Err` if the image was already registered.
-    pub fn request_buffer<T: 'static>(&mut self, buffer: &BufferHandle<T>, stage: vk::PipelineStageFlags2, access: vk::AccessFlags2)  -> Result<(), ()>{
-        if !self.buffers.insert((buffer.key, stage, access)){
+    pub fn request_buffer<T: 'static>(
+        &mut self,
+        buffer: &BufferHandle<T>,
+        stage: vk::PipelineStageFlags2,
+        access: vk::AccessFlags2,
+    ) -> Result<(), ()> {
+        if !self.buffers.insert((buffer.key, stage, access)) {
             return Err(());
         }
         self.resource_collection
@@ -64,8 +82,8 @@ impl ResourceRegistry {
     ///
     ///
     /// Returns `Err` if the image was already registered.
-    pub fn request_sampler(&mut self, sampler: &SamplerHandle)  -> Result<(), ()>{
-        if !self.sampler.insert(sampler.key){
+    pub fn request_sampler(&mut self, sampler: &SamplerHandle) -> Result<(), ()> {
+        if !self.sampler.insert(sampler.key) {
             return Err(());
         }
         self.resource_collection

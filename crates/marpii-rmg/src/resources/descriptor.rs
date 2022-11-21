@@ -362,9 +362,16 @@ impl Bindless {
         )?);
 
         //always maximum size
-        let push_constant_size = device.get_device_properties().properties.limits.max_push_constants_size;
-        #[cfg(feature="logging")]
-        log::info!("Creating Bindless layout with max push_constant_size={}", push_constant_size);
+        let push_constant_size = device
+            .get_device_properties()
+            .properties
+            .limits
+            .max_push_constants_size;
+        #[cfg(feature = "logging")]
+        log::info!(
+            "Creating Bindless layout with max push_constant_size={}",
+            push_constant_size
+        );
 
         let saimage = SetManager::new(
             device,

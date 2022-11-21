@@ -19,7 +19,7 @@ thiserror = "1.0"
 slotmap = "1.0"
 fxhash = "0.2.1"
 ahash.workspace = true
-tinyvec = {version = "1.6.0", features = ["alloc"]}
+tinyvec.workspace = true
 marpii = {path = "../../crates/marpii"}
 marpii-commands = {path = "../../crates/marpii-commands"}
 marpii-descriptor = {path = "../../crates/marpii-descriptor"}

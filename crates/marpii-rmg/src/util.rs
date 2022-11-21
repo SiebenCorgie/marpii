@@ -73,11 +73,7 @@ impl<const N: usize> TempLayoutChange<N> {
     }
 
     ///Reverts the image back to the old state
-    pub fn revert(
-        self,
-        device: &Arc<Device>,
-        command_buffer: &vk::CommandBuffer,
-    ) {
+    pub fn revert(self, device: &Arc<Device>, command_buffer: &vk::CommandBuffer) {
         //create reversing barrierers and schedule
 
         let mut barriers = [vk::ImageMemoryBarrier2::default(); N];
@@ -95,7 +91,7 @@ impl<const N: usize> TempLayoutChange<N> {
                 .build();
         }
 
-        unsafe{
+        unsafe {
             device.inner.cmd_pipeline_barrier2(
                 *command_buffer,
                 &vk::DependencyInfo::builder().image_memory_barriers(&barriers),
