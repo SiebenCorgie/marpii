@@ -37,6 +37,15 @@ impl QueueOwnership {
         self != &QueueOwnership::Uninitialized
     }
 
+    ///Returns true if the ownership is released to `queue_family`
+    pub fn is_released_to(&self, family: u32) -> bool {
+        if let QueueOwnership::Released { dst_family, .. } = self {
+            *dst_family == family
+        } else {
+            false
+        }
+    }
+
     ///If owned (not released), the queue family.
     pub fn owner(&self) -> Option<u32> {
         if let QueueOwnership::Owned(q) = self {

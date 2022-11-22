@@ -7,7 +7,7 @@ use crate::{resources::res_states::AnyResKey, track::TrackId, RecordError, Rmg};
 use super::{scheduler::Schedule, TaskRecord, TrackEvent};
 
 //Participant in an dependency definition
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) enum DepPart {
     ///When imported for first use in graph.
     Import,
@@ -16,6 +16,7 @@ pub(crate) enum DepPart {
 }
 
 ///Dependency half edge, declaring the *other* participant and the resource that is depended on.
+#[derive(Debug, Clone)]
 pub(crate) struct Dependency {
     pub(crate) participant: DepPart,
     pub(crate) dep: AnyResKey,

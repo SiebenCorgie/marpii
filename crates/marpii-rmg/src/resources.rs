@@ -17,7 +17,7 @@ use crate::{
             BufferKey, ImageKey, QueueOwnership, ResBuffer, ResImage, ResSampler, SamplerKey,
         },
     },
-    track::{Tracks, TrackId},
+    track::{TrackId, Tracks},
     BufferHandle, ImageHandle, SamplerHandle,
 };
 
@@ -393,12 +393,19 @@ impl Resources {
             .expect("Used invalid Sampler Handle")
     }
 
-
     ///Returns the current owning queue (if the res exists and is NOT a sampler).
-    pub(crate) fn get_current_owner(&self, res: impl Into<AnyResKey>) -> Option<u32>{
-        match &res.into(){
-            AnyResKey::Buffer(k) => self.buffer.get(*k).map(|buf| buf.ownership.owner()).flatten(),
-            AnyResKey::Image(k) => self.images.get(*k).map(|img| img.ownership.owner()).flatten(),
+    pub(crate) fn get_current_owner(&self, res: impl Into<AnyResKey>) -> Option<u32> {
+        match &res.into() {
+            AnyResKey::Buffer(k) => self
+                .buffer
+                .get(*k)
+                .map(|buf| buf.ownership.owner())
+                .flatten(),
+            AnyResKey::Image(k) => self
+                .images
+                .get(*k)
+                .map(|img| img.ownership.owner())
+                .flatten(),
             AnyResKey::Sampler(k) => None,
         }
     }

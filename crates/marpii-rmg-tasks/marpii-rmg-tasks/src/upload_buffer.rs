@@ -62,7 +62,7 @@ impl<T: marpii::bytemuck::Pod> Task for UploadBuffer<T> {
 
     fn register(&self, registry: &mut ResourceRegistry) {
         registry.request_buffer(&self.buffer, vk::PipelineStageFlags2::TRANSFER, vk::AccessFlags2::TRANSFER_WRITE);
-        registry.request_buffer(&self.src_buffer, vk::PipelineStageFlags2::TRANSFER, vk::AccessFlags2::TRANSFER_READ)
+        registry.request_buffer(&self.src_buffer, vk::PipelineStageFlags2::TRANSFER, vk::AccessFlags2::TRANSFER_READ);
     }
 
     fn queue_flags(&self) -> marpii::ash::vk::QueueFlags {

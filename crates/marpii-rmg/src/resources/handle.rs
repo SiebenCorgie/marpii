@@ -164,27 +164,39 @@ impl<T: 'static> From<&BufferHandle<T>> for AnyHandle {
     }
 }
 
-impl From<ImageKey> for AnyHandle{
+impl From<ImageKey> for AnyHandle {
     fn from(k: ImageKey) -> Self {
-        AnyHandle { atomic_ref: None, key: k.into() }
+        AnyHandle {
+            atomic_ref: None,
+            key: k.into(),
+        }
     }
 }
 
-impl From<&ImageKey> for AnyHandle{
+impl From<&ImageKey> for AnyHandle {
     fn from(k: &ImageKey) -> Self {
-        AnyHandle { atomic_ref: None, key: (*k).into() }
+        AnyHandle {
+            atomic_ref: None,
+            key: (*k).into(),
+        }
     }
 }
 
-impl From<BufferKey> for AnyHandle{
+impl From<BufferKey> for AnyHandle {
     fn from(k: BufferKey) -> Self {
-        AnyHandle { atomic_ref: None, key: k.into() }
+        AnyHandle {
+            atomic_ref: None,
+            key: k.into(),
+        }
     }
 }
 
-impl From<&BufferKey> for AnyHandle{
+impl From<&BufferKey> for AnyHandle {
     fn from(k: &BufferKey) -> Self {
-        AnyHandle { atomic_ref: None, key: (*k).into() }
+        AnyHandle {
+            atomic_ref: None,
+            key: (*k).into(),
+        }
     }
 }
 
