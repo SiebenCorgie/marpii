@@ -1,5 +1,5 @@
 use marpii::ash::vk::{self, ImageLayout};
-use tinyvec::{Array, TinyVec};
+use tinyvec::TinyVec;
 
 ///Barrier building helper. Lets you add barriers for images and buffers
 /// via a simple builder API.
@@ -28,7 +28,7 @@ impl Default for BarrierBuilder {
 impl BarrierBuilder{
 
     ///Ammount of barriers that can be stack allocated.
-    pub const STACK_ALLCATION: usize = 2;
+    pub const STACK_ALLCATION: usize = 6;
 
     ///Creates new builder with `N` stack allocated barriers per type.
     pub fn new() -> Self{

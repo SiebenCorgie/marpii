@@ -11,8 +11,8 @@ use super::{scheduler::Schedule, TaskRecord, TrackEvent};
 pub(crate) enum DepPart {
     ///When imported for first use in graph.
     Import,
-    ///When it is a scheduled task
-    Scheduled { track: TrackId, task_idx: usize },
+    ///When it is a scheduled task (the index in the node array), and on which track.
+    Scheduled { track: TrackId, node_idx: usize },
 }
 
 ///Dependency half edge, declaring the *other* participant and the resource that is depended on.
@@ -38,8 +38,8 @@ impl<'t> Display for TaskNode<'t> {
         for dep in &self.dependencies {
             let s = match dep.participant {
                 DepPart::Import => format!("Imp"),
-                DepPart::Scheduled { track, task_idx } => {
-                    format!("{:x}:{}", track.0.as_raw(), task_idx)
+                DepPart::Scheduled { track, node_idx } => {
+                    format!("{:x}:{}", track.0.as_raw(), node_idx)
                 }
             };
             write!(f, " {} ", s)?;
@@ -50,8 +50,8 @@ impl<'t> Display for TaskNode<'t> {
         for dep in &self.dependees {
             let s = match dep.participant {
                 DepPart::Import => "Imp".to_string(),
-                DepPart::Scheduled { track, task_idx } => {
-                    format!("{:x}:{}", track.0.as_raw(), task_idx)
+                DepPart::Scheduled { track, node_idx } => {
+                    format!("{:x}:{}", track.0.as_raw(), node_idx)
                 }
             };
             write!(f, " {} ", s)?;
@@ -259,7 +259,7 @@ impl<'t> TaskSchedule<'t> {
                 let to_add = Dependency {
                     participant: DepPart::Scheduled {
                         track: residency.0,
-                        task_idx: residency.1,
+                        node_idx: residency.1,
                     },
                     dep: res,
                 };
@@ -270,7 +270,7 @@ impl<'t> TaskSchedule<'t> {
                     .push(Dependency {
                         participant: DepPart::Scheduled {
                             track: node_track,
-                            task_idx: node_idx,
+                            node_idx: node_idx,
                         },
                         dep: res,
                     });
@@ -307,13 +307,13 @@ impl<'t> TaskSchedule<'t> {
                 DepPart::Import => {}
                 DepPart::Scheduled {
                     track: dep_track,
-                    task_idx,
+                    node_idx,
                 } => {
                     //TODO: We probably can ignore if the track is our track and the idx is smaller...
                     //      For a first implementation this is however clearer.
 
                     //Check if it is scheduled, otherwise end early.
-                    if !self.tracks.get(dep_track).unwrap().is_scheduled(*task_idx) {
+                    if !self.tracks.get(dep_track).unwrap().is_scheduled(*node_idx) {
                         return false;
                     }
                 }
