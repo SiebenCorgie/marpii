@@ -8,7 +8,7 @@
 
 use crate::egui::{ClippedPrimitive, TextureId, TexturesDelta};
 use crate::{DynamicBuffer, DynamicImage};
-use egui::{Color32, Pos2, FontDefinitions};
+use egui::{Color32, FontDefinitions, Pos2};
 use egui_winit::winit::event_loop::EventLoopWindowTarget;
 use egui_winit::winit::window::Window;
 use fxhash::FxHashMap;
@@ -61,7 +61,6 @@ pub struct EGuiWinitIntegration {
 
 impl EGuiWinitIntegration {
     pub fn new<T>(rmg: &mut Rmg, event_loop: &EventLoopWindowTarget<T>) -> Result<Self, RmgError> {
-
         let mut winit_state = egui_winit::State::new(event_loop);
         winit_state.set_max_texture_side(2048);
 
@@ -96,7 +95,7 @@ impl EGuiWinitIntegration {
         &mut self.renderer
     }
 
-    pub fn renderer(&self) -> &EGuiRender{
+    pub fn renderer(&self) -> &EGuiRender {
         &self.renderer
     }
 
@@ -166,7 +165,7 @@ impl EGuiRender {
     ///Default vertex buffer size (in vertices).
     pub const DEFAULT_BUF_SIZE: usize = 1024;
 
-    pub fn texture_atlas(&self) -> Values<TextureId, DynamicImage>{
+    pub fn texture_atlas(&self) -> Values<TextureId, DynamicImage> {
         self.atlas.values()
     }
 
@@ -174,7 +173,9 @@ impl EGuiRender {
         ImgDesc {
             format: vk::Format::R8G8B8A8_UNORM,
             img_type: ImageType::Tex2d,
-            usage: ImageUsageFlags::SAMPLED | ImageUsageFlags::TRANSFER_DST | ImageUsageFlags::TRANSFER_SRC,
+            usage: ImageUsageFlags::SAMPLED
+                | ImageUsageFlags::TRANSFER_DST
+                | ImageUsageFlags::TRANSFER_SRC,
             sharing_mode: SharingMode::Exclusive,
             ..ImgDesc::default()
         }
@@ -757,9 +758,22 @@ impl Task for EGuiRender {
             tex.register(registry);
         }
 
-        registry.request_buffer(self.index_buffer.buffer_handle(), vk::PipelineStageFlags2::ALL_GRAPHICS, vk::AccessFlags2::INDEX_READ);
-        registry.request_buffer(self.vertex_buffer.buffer_handle(), vk::PipelineStageFlags2::ALL_GRAPHICS, vk::AccessFlags2::VERTEX_ATTRIBUTE_READ);
-        registry.request_image(&self.target_image, vk::PipelineStageFlags2::ALL_GRAPHICS, vk::AccessFlags2::COLOR_ATTACHMENT_WRITE, vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
+        registry.request_buffer(
+            self.index_buffer.buffer_handle(),
+            vk::PipelineStageFlags2::ALL_GRAPHICS,
+            vk::AccessFlags2::INDEX_READ,
+        );
+        registry.request_buffer(
+            self.vertex_buffer.buffer_handle(),
+            vk::PipelineStageFlags2::ALL_GRAPHICS,
+            vk::AccessFlags2::VERTEX_ATTRIBUTE_READ,
+        );
+        registry.request_image(
+            &self.target_image,
+            vk::PipelineStageFlags2::ALL_GRAPHICS,
+            vk::AccessFlags2::COLOR_ATTACHMENT_WRITE,
+            vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+        );
         registry.register_asset(self.pipeline.clone());
     }
 
@@ -778,10 +792,7 @@ impl Task for EGuiRender {
         //after recording updates, schedule all draw commands
         let (targetimg, targetview) = {
             let img_access = resources.get_image_state(&self.target_image);
-            (
-                img_access.image.clone(),
-                img_access.view.clone(),
-            )
+            (img_access.image.clone(), img_access.view.clone())
         };
 
         let vertex_buffer_access = resources.get_buffer_state(&self.vertex_buffer.buffer_handle());
@@ -807,7 +818,6 @@ impl Task for EGuiRender {
             })
             .layer_count(1)
             .color_attachments(core::slice::from_ref(&color_attachments));
-
 
         let commands = std::mem::take(&mut self.commands);
         unsafe {

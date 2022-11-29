@@ -5,11 +5,12 @@ use crate::{
     RecordError, Rmg,
 };
 use fxhash::FxHashMap;
-use marpii::{
-    ash::vk::{self, SemaphoreSubmitInfo},
-};
+use marpii::ash::vk::{self, SemaphoreSubmitInfo};
 
-use super::{scheduler::{Schedule, SubmitFrame, TrackRecord}, Execution};
+use super::{
+    scheduler::{Schedule, SubmitFrame, TrackRecord},
+    Execution,
+};
 
 struct Exec<'rmg> {
     record: TrackRecord<'rmg>,
@@ -24,7 +25,6 @@ pub struct Executor<'rmg> {
     ///buffer that holds guards while collecting acquire barriers
     guard_buffer: Vec<Guard>,
 }
-
 
 impl<'rmg> Executor<'rmg> {
     pub fn exec(rmg: &mut Rmg, schedule: Schedule<'rmg>) -> Result<Vec<Execution>, RecordError> {

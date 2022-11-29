@@ -1,9 +1,9 @@
 use marpii::{
     ash::vk,
-    resources::{ComputePipeline, PushConstant, ShaderModule, ImgDesc},
+    resources::{ComputePipeline, ImgDesc, PushConstant, ShaderModule},
 };
-use marpii_rmg::{BufferHandle, Rmg, RmgError, Task, ImageHandle};
-use shared::{SimObj, ResourceHandle};
+use marpii_rmg::{BufferHandle, ImageHandle, Rmg, RmgError, Task};
+use shared::{ResourceHandle, SimObj};
 use std::sync::Arc;
 
 use crate::OBJECT_COUNT;
@@ -38,8 +38,7 @@ impl Simulation {
             },
             vk::ShaderStageFlags::COMPUTE,
         );
-        let shader_module =
-            ShaderModule::new_from_bytes(&rmg.ctx.device, SHADER_COMP)?;
+        let shader_module = ShaderModule::new_from_bytes(&rmg.ctx.device, SHADER_COMP)?;
         let shader_stage = shader_module.into_shader_stage(vk::ShaderStageFlags::COMPUTE, "main");
         //No additional descriptors for us
         let layout = rmg.resources().bindless_layout();
@@ -50,7 +49,10 @@ impl Simulation {
             layout,
         )?);
 
-        let feedback_image = rmg.new_image_uninitialized(ImgDesc::storage_image_2d(64, 64, vk::Format::R8G8B8A8_UNORM), None)?;
+        let feedback_image = rmg.new_image_uninitialized(
+            ImgDesc::storage_image_2d(64, 64, vk::Format::R8G8B8A8_UNORM),
+            None,
+        )?;
 
         Ok(Simulation {
             sim_buffer: rmg.new_buffer::<SimObj>(OBJECT_COUNT, Some("SimBuffer 1"))?,
@@ -81,7 +83,8 @@ impl Task for Simulation {
         _ctx: &marpii_rmg::CtxRmg,
     ) -> Result<(), marpii_rmg::RecordError> {
         self.push.get_content_mut().sim_buffer = resources.get_resource_handle(&self.sim_buffer)?;
-        self.push.get_content_mut().img_handle = resources.get_resource_handle(&self.feedback_image)?;
+        self.push.get_content_mut().img_handle =
+            resources.get_resource_handle(&self.feedback_image)?;
         self.push.get_content_mut().is_init = self.is_init.into();
 
         if !self.is_init {
@@ -92,7 +95,11 @@ impl Task for Simulation {
     }
 
     fn register(&self, registry: &mut marpii_rmg::ResourceRegistry) {
-        registry.request_buffer(&self.sim_buffer, vk::PipelineStageFlags2::COMPUTE_SHADER, vk::AccessFlags2::empty());
+        registry.request_buffer(
+            &self.sim_buffer,
+            vk::PipelineStageFlags2::COMPUTE_SHADER,
+            vk::AccessFlags2::empty(),
+        );
         registry.register_asset(self.pipeline.clone());
     }
 

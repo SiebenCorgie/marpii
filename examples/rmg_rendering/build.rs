@@ -1,11 +1,7 @@
-use std::{
-    fs::create_dir_all,
-    path::PathBuf,
-};
+use std::{fs::create_dir_all, path::PathBuf};
 
 #[allow(dead_code)]
 fn build_glsl(path: &str, name: &str, target: &str) {
-
     //TODO: build all files that do not end with ".glsl". and copy to
     // RESDIR as well.
     let target_path = PathBuf::from(target).join(name);
@@ -23,15 +19,21 @@ fn build_glsl(path: &str, name: &str, target: &str) {
         .unwrap();
 
     if !command.status.success() {
-        println!("cargo:warning=Out: {}", std::str::from_utf8(&command.stdout).unwrap());
-        println!("cargo:warning=Err: {}", std::str::from_utf8(&command.stderr).unwrap());
+        println!(
+            "cargo:warning=Out: {}",
+            std::str::from_utf8(&command.stdout).unwrap()
+        );
+        println!(
+            "cargo:warning=Err: {}",
+            std::str::from_utf8(&command.stderr).unwrap()
+        );
     }
 }
 
 const RESDIR: &'static str = &"../resources";
 
-pub fn ensure_res(){
-    if !PathBuf::from(RESDIR).exists(){
+pub fn ensure_res() {
+    if !PathBuf::from(RESDIR).exists() {
         create_dir_all(RESDIR).unwrap();
     }
 }
@@ -43,16 +45,16 @@ fn main() {
     build_glsl(
         "../rmg_rendering/glsl/simulation.comp",
         "simulation.spv",
-        RESDIR
+        RESDIR,
     );
     build_glsl(
         "../rmg_rendering/glsl/forward.vert",
         "forward_vs.spv",
-        RESDIR
+        RESDIR,
     );
     build_glsl(
         "../rmg_rendering/glsl/forward.frag",
         "forward_fs.spv",
-        RESDIR
+        RESDIR,
     );
 }

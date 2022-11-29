@@ -6,9 +6,8 @@
 )]
 //! Shared objects between the example's CPU side and GPU side code.
 
-
 #[cfg(not(target_arch = "spirv"))]
-use bytemuck::{Zeroable, Pod};
+use bytemuck::{Pod, Zeroable};
 
 pub use marpii_rmg_shared::ResourceHandle;
 
@@ -20,7 +19,6 @@ pub struct SimObj {
     pub location: [f32; 4],
     pub velocity: [f32; 4],
 }
-
 
 #[cfg_attr(not(target_arch = "spirv"), derive(Debug, Clone, Copy, Pod, Zeroable))]
 #[repr(C)]
@@ -48,7 +46,6 @@ pub struct ForwardPush {
     pub sim: ResourceHandle,
     pub pad: [u32; 2],
 }
-
 
 #[cfg_attr(not(target_arch = "spirv"), derive(Debug, Clone, Copy, Pod, Zeroable))]
 #[repr(C)]

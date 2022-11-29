@@ -11,8 +11,7 @@ use marpii::{
     util::OoS,
 };
 use marpii_rmg::{
-    BufferHandle, CtxRmg, ImageHandle, ResourceRegistry, Resources, Rmg,
-    RmgError, Task,
+    BufferHandle, CtxRmg, ImageHandle, ResourceRegistry, Resources, Rmg, RmgError, Task,
 };
 use marpii_rmg_tasks::UploadBuffer;
 use shared::{ResourceHandle, SimObj, Ubo, Vertex};
@@ -144,13 +143,11 @@ impl ForwardPass {
         //No additional descriptors for us
         let layout = rmg.resources().bindless_layout();
 
-        let shader_module_vert = Arc::new(
-            ShaderModule::new_from_bytes(&rmg.ctx.device, SHADER_VS).unwrap(),
-        );
+        let shader_module_vert =
+            Arc::new(ShaderModule::new_from_bytes(&rmg.ctx.device, SHADER_VS).unwrap());
 
-        let shader_module_frag = Arc::new(
-            ShaderModule::new_from_bytes(&rmg.ctx.device, SHADER_FS).unwrap(),
-        );
+        let shader_module_frag =
+            Arc::new(ShaderModule::new_from_bytes(&rmg.ctx.device, SHADER_FS).unwrap());
         let vertex_shader_stage = ShaderStage::from_shared_module(
             shader_module_vert.clone(),
             vk::ShaderStageFlags::VERTEX,
@@ -344,13 +341,39 @@ impl ForwardPass {
 impl Task for ForwardPass {
     fn register(&self, registry: &mut ResourceRegistry) {
         if let Some(buf) = &self.sim_src {
-            registry.request_buffer(buf, vk::PipelineStageFlags2::ALL_GRAPHICS, vk::AccessFlags2::empty());
+            registry.request_buffer(
+                buf,
+                vk::PipelineStageFlags2::ALL_GRAPHICS,
+                vk::AccessFlags2::empty(),
+            );
         }
-        registry.request_image(&self.color_image, vk::PipelineStageFlags2::ALL_GRAPHICS, vk::AccessFlags2::COLOR_ATTACHMENT_WRITE, vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL);
-        registry.request_image(&self.depth_image, vk::PipelineStageFlags2::ALL_GRAPHICS, vk::AccessFlags2::DEPTH_STENCIL_ATTACHMENT_WRITE, vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL);
-        registry.request_buffer(&self.vertex_buffer, vk::PipelineStageFlags2::ALL_GRAPHICS, vk::AccessFlags2::VERTEX_ATTRIBUTE_READ);
-        registry.request_buffer(&self.index_buffer, vk::PipelineStageFlags2::ALL_GRAPHICS, vk::AccessFlags2::INDEX_READ);
-        registry.request_buffer(&self.ubo_buffer, vk::PipelineStageFlags2::ALL_GRAPHICS, vk::AccessFlags2::SHADER_READ);
+        registry.request_image(
+            &self.color_image,
+            vk::PipelineStageFlags2::ALL_GRAPHICS,
+            vk::AccessFlags2::COLOR_ATTACHMENT_WRITE,
+            vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+        );
+        registry.request_image(
+            &self.depth_image,
+            vk::PipelineStageFlags2::ALL_GRAPHICS,
+            vk::AccessFlags2::DEPTH_STENCIL_ATTACHMENT_WRITE,
+            vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL,
+        );
+        registry.request_buffer(
+            &self.vertex_buffer,
+            vk::PipelineStageFlags2::ALL_GRAPHICS,
+            vk::AccessFlags2::VERTEX_ATTRIBUTE_READ,
+        );
+        registry.request_buffer(
+            &self.index_buffer,
+            vk::PipelineStageFlags2::ALL_GRAPHICS,
+            vk::AccessFlags2::INDEX_READ,
+        );
+        registry.request_buffer(
+            &self.ubo_buffer,
+            vk::PipelineStageFlags2::ALL_GRAPHICS,
+            vk::AccessFlags2::SHADER_READ,
+        );
         registry.register_asset(self.pipeline.clone());
     }
 
@@ -393,10 +416,7 @@ impl Task for ForwardPass {
 
         let (colorimg, colorview) = {
             let img_access = resources.get_image_state(&self.color_image);
-            (
-                img_access.image.clone(),
-                img_access.view.clone(),
-            )
+            (img_access.image.clone(), img_access.view.clone())
         };
 
         let depthview = resources.get_image_state(&self.depth_image).view.clone();

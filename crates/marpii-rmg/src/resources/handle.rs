@@ -10,7 +10,6 @@
 //! Around both the key and handle types the `AnyKey` and `AnyHandle` types form an abstraction that allows
 //! working with somewhat anonymous resources.
 
-
 use crate::resources::res_states::{BufferKey, ImageKey, SamplerKey};
 use marpii::{
     ash::vk,

@@ -34,8 +34,8 @@ use camera_controller::Camera;
 use copy_buffer::CopyToGraphicsBuffer;
 use forward_pass::ForwardPass;
 use marpii::{ash::vk, context::Ctx};
-use marpii_rmg_tasks::{DynamicBuffer, SwapchainBlit};
 use marpii_rmg::Rmg;
+use marpii_rmg_tasks::{DynamicBuffer, SwapchainBlit};
 use shared::Ubo;
 use simulation::Simulation;
 use winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
@@ -70,7 +70,9 @@ fn main() -> Result<(), anyhow::Error> {
 
         path
     } else {
-        anyhow::bail!("No gltf path provided, try $cargo run --bin rmg_rendering -- path/to/gltf/name.gltf!");
+        anyhow::bail!(
+            "No gltf path provided, try $cargo run --bin rmg_rendering -- path/to/gltf/name.gltf!"
+        );
     };
 
     let gltf = easy_gltf::load(mesh_path).unwrap();
@@ -84,12 +86,8 @@ fn main() -> Result<(), anyhow::Error> {
     let mut ubo_update = DynamicBuffer::new(&mut rmg, &[camera.to_ubo(&window)])?;
     let mut simulation = Simulation::new(&mut rmg)?;
     let mut buffer_copy = CopyToGraphicsBuffer::new(&mut rmg, simulation.sim_buffer.clone())?;
-    let mut forward = ForwardPass::new(
-        &mut rmg,
-        ubo_update.buffer_handle().clone(),
-        &gltf
-    )
-    .unwrap();
+    let mut forward =
+        ForwardPass::new(&mut rmg, ubo_update.buffer_handle().clone(), &gltf).unwrap();
     let mut swapchain_blit = SwapchainBlit::new();
 
     ev.run(move |ev, _, cf| {
@@ -124,7 +122,6 @@ fn main() -> Result<(), anyhow::Error> {
                     .unwrap()
                     .execute()
                     .unwrap();
-
             }
             Event::WindowEvent {
                 event:

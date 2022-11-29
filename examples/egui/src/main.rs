@@ -1,7 +1,7 @@
 use anyhow::Result;
 use marpii::{ash::vk, context::Ctx};
-use marpii_rmg_tasks::{SwapchainBlit, EGuiWinitIntegration, egui};
 use marpii_rmg::Rmg;
+use marpii_rmg_tasks::{egui, EGuiWinitIntegration, SwapchainBlit};
 
 use winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
 use winit::window::Window;
@@ -9,7 +9,6 @@ use winit::{
     event::{Event, WindowEvent},
     event_loop::ControlFlow,
 };
-
 
 fn main() -> Result<(), anyhow::Error> {
     simple_logger::SimpleLogger::new()
@@ -35,7 +34,7 @@ fn main() -> Result<(), anyhow::Error> {
         match ev {
             Event::MainEventsCleared => window.request_redraw(),
             Event::RedrawRequested(_) => {
-                egui.run(&mut rmg, &window, |ctx|{
+                egui.run(&mut rmg, &window, |ctx| {
                     egui::CentralPanel::default().show(ctx, |ui| {
                         ui.heading("My egui Application");
                         ui.horizontal(|ui| {
@@ -48,7 +47,8 @@ fn main() -> Result<(), anyhow::Error> {
                         }
                         ui.label(format!("Hello '{}', age {}", name, age));
                     });
-                }).unwrap();
+                })
+                .unwrap();
 
                 //setup src image and blit
                 swapchain_blit.next_blit(egui.renderer().target_image().clone());

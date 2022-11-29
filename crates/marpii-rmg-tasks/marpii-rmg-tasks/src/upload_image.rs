@@ -60,8 +60,17 @@ impl Task for UploadImage {
         vk::QueueFlags::TRANSFER
     }
     fn register(&self, registry: &mut ResourceRegistry) {
-        registry.request_image(&self.image, vk::PipelineStageFlags2::TRANSFER, vk::AccessFlags2::TRANSFER_WRITE, vk::ImageLayout::TRANSFER_DST_OPTIMAL);
-        registry.request_buffer(&self.upload, vk::PipelineStageFlags2::TRANSFER, vk::AccessFlags2::TRANSFER_READ);
+        registry.request_image(
+            &self.image,
+            vk::PipelineStageFlags2::TRANSFER,
+            vk::AccessFlags2::TRANSFER_WRITE,
+            vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+        );
+        registry.request_buffer(
+            &self.upload,
+            vk::PipelineStageFlags2::TRANSFER,
+            vk::AccessFlags2::TRANSFER_READ,
+        );
     }
     fn record(
         &mut self,

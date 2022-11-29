@@ -12,7 +12,6 @@
 //!
 //! Does not (yet) use byte addressable buffers.
 
-
 use marpii::{
     ash::vk,
     context::Device,
@@ -25,7 +24,6 @@ use std::{collections::VecDeque, fmt::Debug, sync::Arc};
 
 //Re-export of the handle type.
 pub use marpii_rmg_shared::ResourceHandle;
-
 
 ///Handles one descriptor set of type T.
 struct SetManager<T> {

@@ -9,7 +9,10 @@ use crate::{
     RecordError, Rmg,
 };
 
-use super::{task_scheduler::{TaskSchedule, Dependency}, Execution};
+use super::{
+    task_scheduler::{Dependency, TaskSchedule},
+    Execution,
+};
 
 ///Schedule executor. Takes Frames, dependencies and dependees to build an
 /// command buffer that is immediately pushed to the GPU.
@@ -27,7 +30,10 @@ pub struct Executor<'t> {
 }
 
 impl<'t> Executor<'t> {
-    pub fn execute(rmg: &mut Rmg, schedule: TaskSchedule<'t>) -> Result<Vec<Execution>, RecordError> {
+    pub fn execute(
+        rmg: &mut Rmg,
+        schedule: TaskSchedule<'t>,
+    ) -> Result<Vec<Execution>, RecordError> {
         let next_frame = schedule
             .tracks
             .iter()
@@ -49,7 +55,10 @@ impl<'t> Executor<'t> {
             .tracks
             .values()
             .fold(0, |sum, track| sum + track.nodes.len());
-        let n_frames = schedule.tracks.iter().fold(0, |sum, track| sum + track.1.frames.len());
+        let n_frames = schedule
+            .tracks
+            .iter()
+            .fold(0, |sum, track| sum + track.1.frames.len());
 
         let mut execution_order = Vec::with_capacity(n_nodes);
         let mut exec = Executor {
@@ -57,7 +66,7 @@ impl<'t> Executor<'t> {
             next_frame,
             guard_cache: Vec::with_capacity(10),
             submit_info_cache: Vec::with_capacity(rmg.tracks.0.len()),
-            execution_cache: Vec::with_capacity(n_frames)
+            execution_cache: Vec::with_capacity(n_frames),
         };
 
         while exec.has_executable() {
@@ -77,10 +86,13 @@ impl<'t> Executor<'t> {
         }
 
         //after executing all frames, trigger post_execution for all nodes in order
-        for (track, frame) in execution_order{
+        for (track, frame) in execution_order {
             let track = exec.schedule.tracks.get_mut(&track).unwrap();
-            for node in track.frames[frame].iter_indices(){
-                track.nodes[node].task.task.post_execution(&mut rmg.res, &rmg.ctx)?;
+            for node in track.frames[frame].iter_indices() {
+                track.nodes[node]
+                    .task
+                    .task
+                    .post_execution(&mut rmg.res, &rmg.ctx)?;
             }
         }
 
@@ -405,9 +417,9 @@ impl<'t> Executor<'t> {
                             .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT),
                     )?;
                     rmg.ctx
-                       .device
-                       .inner
-                       .cmd_pipeline_barrier2(cb.inner, &dependency_info);
+                        .device
+                        .inner
+                        .cmd_pipeline_barrier2(cb.inner, &dependency_info);
                     rmg.ctx.device.inner.end_command_buffer(cb.inner)?;
                 }
 
@@ -435,11 +447,11 @@ impl<'t> Executor<'t> {
                     rmg.ctx.device.inner.queue_submit2(
                         *queue.inner(),
                         &[*vk::SubmitInfo2::builder()
-                          .command_buffer_infos(&[
-                              *vk::CommandBufferSubmitInfo::builder().command_buffer(cb.inner)
-                          ])
-                          .wait_semaphore_infos(&self.submit_info_cache)
-                          .signal_semaphore_infos(&[*signal_info])],
+                            .command_buffer_infos(&[
+                                *vk::CommandBufferSubmitInfo::builder().command_buffer(cb.inner)
+                            ])
+                            .wait_semaphore_infos(&self.submit_info_cache)
+                            .signal_semaphore_infos(&[*signal_info])],
                         vk::Fence::null(),
                     )?;
                 }
@@ -453,7 +465,13 @@ impl<'t> Executor<'t> {
     /// this track.
     ///
     /// Updates the guard cache accordingly.
-    fn build_import_acquire_barrier(&mut self, rmg: &mut Rmg, trackid: TrackId, frame_index: usize, exec_guard: Guard) -> Result<BarrierBuilder, RecordError>{
+    fn build_import_acquire_barrier(
+        &mut self,
+        rmg: &mut Rmg,
+        trackid: TrackId,
+        frame_index: usize,
+        exec_guard: Guard,
+    ) -> Result<BarrierBuilder, RecordError> {
         let track_queue_family = rmg.trackid_to_queue_idx(trackid);
 
         //create acquire barrier for all imports.
@@ -465,12 +483,12 @@ impl<'t> Executor<'t> {
                 self.schedule.tracks.get(&trackid).unwrap().nodes[node_idx]
                     .dependencies
                     .iter()
-                //filter out all deps that are already on the queue. This also acts as a filter for multiple occurance
-                // of any res, since the participant can only differ once per frame
+                    //filter out all deps that are already on the queue. This also acts as a filter for multiple occurance
+                    // of any res, since the participant can only differ once per frame
                     .filter(|dep| {
-                        if let DepPart::Scheduled { track, .. } = dep.participant{
+                        if let DepPart::Scheduled { track, .. } = dep.participant {
                             track != trackid
-                        }else{
+                        } else {
                             //imports are always true
                             true
                         }
@@ -488,29 +506,47 @@ impl<'t> Executor<'t> {
                 AnyResKey::Buffer(buf) => {
                     let bufstate = rmg.res.buffer.get_mut(buf).unwrap();
                     //update ownership,  and if needed push acquire
-                    match bufstate.ownership{
-                        QueueOwnership::Released { src_family, dst_family } => {
-                            #[cfg(feature="logging")]
-                            log::trace!("Acquire {:?} to track {:?}",  buf, trackid);
-                            assert!(dst_family == track_queue_family, "Release queue family does not match {} != {}", dst_family, track_queue_family);
+                    match bufstate.ownership {
+                        QueueOwnership::Released {
+                            src_family,
+                            dst_family,
+                        } => {
+                            #[cfg(feature = "logging")]
+                            log::trace!("Acquire {:?} to track {:?}", buf, trackid);
+                            assert!(
+                                dst_family == track_queue_family,
+                                "Release queue family does not match {} != {}",
+                                dst_family,
+                                track_queue_family
+                            );
                             bufstate.ownership = QueueOwnership::Owned(track_queue_family);
-                            barrier.buffer_queue_transition(bufstate.buffer.inner, 0, vk::WHOLE_SIZE, src_family, dst_family);
-                        },
+                            barrier.buffer_queue_transition(
+                                bufstate.buffer.inner,
+                                0,
+                                vk::WHOLE_SIZE,
+                                src_family,
+                                dst_family,
+                            );
+                        }
                         QueueOwnership::Uninitialized => {
                             //intit to queue
-                            #[cfg(feature="logging")]
-                            log::trace!("Init {:?} to track {:?}",  buf, trackid);
+                            #[cfg(feature = "logging")]
+                            log::trace!("Init {:?} to track {:?}", buf, trackid);
                             bufstate.ownership = QueueOwnership::Owned(track_queue_family)
-                        },
+                        }
                         QueueOwnership::Owned(_) => {
-                            #[cfg(feature="logging")]
-                            log::error!("Buffer[{:?}] ownership was not released to {} before acquire!", buf, track_queue_family);
+                            #[cfg(feature = "logging")]
+                            log::error!(
+                                "Buffer[{:?}] ownership was not released to {} before acquire!",
+                                buf,
+                                track_queue_family
+                            );
                             return Err(RecordError::AcquireRecord(buf.into(), track_queue_family));
                         }
                     }
 
                     //update guards
-                    if let Some(guard) = bufstate.guard.take(){
+                    if let Some(guard) = bufstate.guard.take() {
                         self.guard_cache.push(guard);
                     }
                     bufstate.guard = Some(exec_guard.clone());
@@ -519,29 +555,46 @@ impl<'t> Executor<'t> {
                     //same as buffer acquire
                     let imgstate = rmg.res.images.get_mut(img).unwrap();
                     //update ownership,  and if needed push acquire
-                    match imgstate.ownership{
-                        QueueOwnership::Released { src_family, dst_family } => {
-                            #[cfg(feature="logging")]
-                            log::trace!("Acquire {:?} to track {:?}",  img, trackid);
-                            assert!(dst_family == track_queue_family, "Release queue family does not match {} != {}", dst_family, track_queue_family);
+                    match imgstate.ownership {
+                        QueueOwnership::Released {
+                            src_family,
+                            dst_family,
+                        } => {
+                            #[cfg(feature = "logging")]
+                            log::trace!("Acquire {:?} to track {:?}", img, trackid);
+                            assert!(
+                                dst_family == track_queue_family,
+                                "Release queue family does not match {} != {}",
+                                dst_family,
+                                track_queue_family
+                            );
                             imgstate.ownership = QueueOwnership::Owned(track_queue_family);
-                            barrier.image_queue_transition(imgstate.image.inner, imgstate.image.subresource_all(), src_family, dst_family);
-                        },
+                            barrier.image_queue_transition(
+                                imgstate.image.inner,
+                                imgstate.image.subresource_all(),
+                                src_family,
+                                dst_family,
+                            );
+                        }
                         QueueOwnership::Uninitialized => {
                             //intit to queue
-                            #[cfg(feature="logging")]
-                            log::trace!("Init {:?} to track {:?}",  img, trackid);
+                            #[cfg(feature = "logging")]
+                            log::trace!("Init {:?} to track {:?}", img, trackid);
                             imgstate.ownership = QueueOwnership::Owned(track_queue_family)
-                        },
+                        }
                         QueueOwnership::Owned(_) => {
-                            #[cfg(feature="logging")]
-                            log::error!("Image[{:?}] ownership was not released to {} before acquire!", img, track_queue_family);
+                            #[cfg(feature = "logging")]
+                            log::error!(
+                                "Image[{:?}] ownership was not released to {} before acquire!",
+                                img,
+                                track_queue_family
+                            );
                             return Err(RecordError::AcquireRecord(img.into(), track_queue_family));
                         }
                     }
 
                     //update guards
-                    if let Some(guard) = imgstate.guard.take(){
+                    if let Some(guard) = imgstate.guard.take() {
                         self.guard_cache.push(guard);
                     }
                     imgstate.guard = Some(exec_guard.clone());
@@ -554,80 +607,137 @@ impl<'t> Executor<'t> {
     }
 
     ///Builds the release barriers for all resources of `frame` on `track` that have a `dependee`.
-    fn build_release_barriers(&mut self, rmg: &mut Rmg, trackid: TrackId, frame_index: usize) -> Result<BarrierBuilder, RecordError>{
+    fn build_release_barriers(
+        &mut self,
+        rmg: &mut Rmg,
+        trackid: TrackId,
+        frame_index: usize,
+    ) -> Result<BarrierBuilder, RecordError> {
         let src_family = rmg.trackid_to_queue_idx(trackid);
         let mut barriers = BarrierBuilder::new();
 
         //filter all dependees, that are on another track and depended on
-        let releases_iter = self.schedule.tracks.get(&trackid).unwrap().frames[frame_index].iter_indices()
-            .map(|node_idx| self.schedule.tracks.get(&trackid).unwrap().nodes[node_idx].dependees.iter().filter(|dependee| match dependee.participant {
-                DepPart::Scheduled { track, .. } => track != trackid,
-                DepPart::Import => {
-                    #[cfg(feature="logging")]
-                    log::warn!("Found dependee of type import. Ignoring...");
-                    false
-                }
-            })).flatten();
+        let releases_iter = self.schedule.tracks.get(&trackid).unwrap().frames[frame_index]
+            .iter_indices()
+            .map(|node_idx| {
+                self.schedule.tracks.get(&trackid).unwrap().nodes[node_idx]
+                    .dependees
+                    .iter()
+                    .filter(|dependee| match dependee.participant {
+                        DepPart::Scheduled { track, .. } => track != trackid,
+                        DepPart::Import => {
+                            #[cfg(feature = "logging")]
+                            log::warn!("Found dependee of type import. Ignoring...");
+                            false
+                        }
+                    })
+            })
+            .flatten();
 
-        for release_to in releases_iter{
-            match release_to.participant{
+        for release_to in releases_iter {
+            match release_to.participant {
                 DepPart::Scheduled { track, .. } => {
                     let dst_family = rmg.trackid_to_queue_idx(track);
                     //add release op for images and buffers, and update ownership accordingly
-                    match release_to.dep{
+                    match release_to.dep {
                         AnyResKey::Buffer(buf) => {
                             let bufstate = rmg.res.buffer.get_mut(buf).unwrap();
-                            match bufstate.ownership{
-                                QueueOwnership::Released { src_family, dst_family } => {
-                                    #[cfg(feature="logging")]
+                            match bufstate.ownership {
+                                QueueOwnership::Released {
+                                    src_family,
+                                    dst_family,
+                                } => {
+                                    #[cfg(feature = "logging")]
                                     log::error!("Buffer {:?} was already released {} -> {}, can not add release",  buf, src_family, dst_family);
-                                    return Err(RecordError::Any(anyhow::anyhow!("Buffer was already release, can not add release")));
-                                },
+                                    return Err(RecordError::Any(anyhow::anyhow!(
+                                        "Buffer was already release, can not add release"
+                                    )));
+                                }
                                 QueueOwnership::Uninitialized => {
                                     //intit to queue
-                                    #[cfg(feature="logging")]
-                                    log::error!("Buffer {:?} was uninitialised on release",  buf);
-                                    return Err(RecordError::Any(anyhow::anyhow!("Buffer was not initialised")));
-                                },
+                                    #[cfg(feature = "logging")]
+                                    log::error!("Buffer {:?} was uninitialised on release", buf);
+                                    return Err(RecordError::Any(anyhow::anyhow!(
+                                        "Buffer was not initialised"
+                                    )));
+                                }
                                 QueueOwnership::Owned(owner) => {
                                     debug_assert!(owner == src_family, "Adding release for buffer {:?} on family {}, buf was owned by {}", buf, src_family, owner);
-                                    #[cfg(feature="logging")]
-                                    log::trace!("Releasing Buffer {:?} {} -> {} !", buf, src_family, dst_family);
-                                    bufstate.ownership = QueueOwnership::Released { src_family, dst_family };
-                                    barriers.buffer_queue_transition(bufstate.buffer.inner, 0, vk::WHOLE_SIZE, src_family, dst_family);
+                                    #[cfg(feature = "logging")]
+                                    log::trace!(
+                                        "Releasing Buffer {:?} {} -> {} !",
+                                        buf,
+                                        src_family,
+                                        dst_family
+                                    );
+                                    bufstate.ownership = QueueOwnership::Released {
+                                        src_family,
+                                        dst_family,
+                                    };
+                                    barriers.buffer_queue_transition(
+                                        bufstate.buffer.inner,
+                                        0,
+                                        vk::WHOLE_SIZE,
+                                        src_family,
+                                        dst_family,
+                                    );
                                 }
                             }
-                        },
+                        }
                         AnyResKey::Image(img) => {
                             let imgstate = rmg.res.images.get_mut(img).unwrap();
-                            match imgstate.ownership{
-                                QueueOwnership::Released { src_family, dst_family } => {
-                                    #[cfg(feature="logging")]
+                            match imgstate.ownership {
+                                QueueOwnership::Released {
+                                    src_family,
+                                    dst_family,
+                                } => {
+                                    #[cfg(feature = "logging")]
                                     log::error!("Image {:?} was already released {} -> {}, can not add release",  img, src_family, dst_family);
-                                    return Err(RecordError::Any(anyhow::anyhow!("Image was already release, can not add release")));
-                                },
+                                    return Err(RecordError::Any(anyhow::anyhow!(
+                                        "Image was already release, can not add release"
+                                    )));
+                                }
                                 QueueOwnership::Uninitialized => {
                                     //intit to queue
-                                    #[cfg(feature="logging")]
-                                    log::error!("Image {:?} was uninitialised on release",  img);
-                                    return Err(RecordError::Any(anyhow::anyhow!("Image was not initialised")));
-                                },
+                                    #[cfg(feature = "logging")]
+                                    log::error!("Image {:?} was uninitialised on release", img);
+                                    return Err(RecordError::Any(anyhow::anyhow!(
+                                        "Image was not initialised"
+                                    )));
+                                }
                                 QueueOwnership::Owned(owner) => {
                                     debug_assert!(owner == src_family, "Adding release for image {:?} on family {}, buf was owned by {}", img, src_family, owner);
-                                    #[cfg(feature="logging")]
-                                    log::trace!("Releasing Image {:?} {} -> {} !", img, src_family, dst_family);
-                                    imgstate.ownership = QueueOwnership::Released { src_family, dst_family };
-                                    barriers.image_queue_transition(imgstate.image.inner, imgstate.image.subresource_all(), src_family, dst_family);
+                                    #[cfg(feature = "logging")]
+                                    log::trace!(
+                                        "Releasing Image {:?} {} -> {} !",
+                                        img,
+                                        src_family,
+                                        dst_family
+                                    );
+                                    imgstate.ownership = QueueOwnership::Released {
+                                        src_family,
+                                        dst_family,
+                                    };
+                                    barriers.image_queue_transition(
+                                        imgstate.image.inner,
+                                        imgstate.image.subresource_all(),
+                                        src_family,
+                                        dst_family,
+                                    );
                                 }
                             }
-                        },
+                        }
                         AnyResKey::Sampler(_) => {
-                            #[cfg(feature="logging")]
+                            #[cfg(feature = "logging")]
                             log::warn!("Not releasing sampler!");
                         }
                     }
-                },
-                _ => return Err(RecordError::Any(anyhow::anyhow!("Found unscheduled dependee scheduled for release"))),
+                }
+                _ => {
+                    return Err(RecordError::Any(anyhow::anyhow!(
+                        "Found unscheduled dependee scheduled for release"
+                    )))
+                }
             }
         }
 
@@ -651,31 +761,38 @@ impl<'t> Executor<'t> {
         let track_queue_family = rmg.trackid_to_queue_idx(trackid);
         //lock track while scheduling.
         //command buffer that is recorded.
-        let cb = rmg.tracks.0.get_mut(&trackid).unwrap().new_command_buffer()?;
-        unsafe{
-            rmg.ctx.device.inner.begin_command_buffer(cb.inner, &vk::CommandBufferBeginInfo::builder().flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT))?;
+        let cb = rmg
+            .tracks
+            .0
+            .get_mut(&trackid)
+            .unwrap()
+            .new_command_buffer()?;
+        unsafe {
+            rmg.ctx.device.inner.begin_command_buffer(
+                cb.inner,
+                &vk::CommandBufferBeginInfo::builder()
+                    .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT),
+            )?;
         }
         let exec_guard = rmg.tracks.0.get_mut(&trackid).unwrap().next_guard();
         //pre-build signal semaphore. This allows us to
         // add all foreign semaphores while checking node dependencies.
         let mut signal_semaphore = vec![vk::SemaphoreSubmitInfo::builder()
-                                        .semaphore(
-                                            rmg.tracks
-                                               .0
-                                               .get(exec_guard.as_ref())
-                                               .unwrap()
-                                               .sem
-                                               .inner,
-                                        )
-                                        .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                                        .value(exec_guard.wait_value())
-                                        .build()];
+            .semaphore(rmg.tracks.0.get(exec_guard.as_ref()).unwrap().sem.inner)
+            .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
+            .value(exec_guard.wait_value())
+            .build()];
 
         //prepare the used_resource collection.
-        let num_res = self.schedule.tracks.get(&trackid).unwrap().frames[frame_index].iter_indices().fold(0, |sum, node_idx| sum + self.schedule.tracks.get(&trackid).unwrap().nodes[node_idx].task.registry.num_resources());
+        let num_res = self.schedule.tracks.get(&trackid).unwrap().frames[frame_index]
+            .iter_indices()
+            .fold(0, |sum, node_idx| {
+                sum + self.schedule.tracks.get(&trackid).unwrap().nodes[node_idx]
+                    .task
+                    .registry
+                    .num_resources()
+            });
         let mut used_resources = Vec::with_capacity(num_res);
-
-
 
         //clear to collect this context
         self.guard_cache.clear();
@@ -701,10 +818,14 @@ impl<'t> Executor<'t> {
         }
 
         //get acquire barrier and start command buffer
-        let acquire_barrier = self.build_import_acquire_barrier(rmg, trackid, frame_index, exec_guard)?;
-        if acquire_barrier.has_barrier(){
-            unsafe{
-                rmg.ctx.device.inner.cmd_pipeline_barrier2(cb.inner, &acquire_barrier.as_dependency_info());
+        let acquire_barrier =
+            self.build_import_acquire_barrier(rmg, trackid, frame_index, exec_guard)?;
+        if acquire_barrier.has_barrier() {
+            unsafe {
+                rmg.ctx
+                    .device
+                    .inner
+                    .cmd_pipeline_barrier2(cb.inner, &acquire_barrier.as_dependency_info());
             }
         }
         //at this point all resources should be acquired. We can no schedule all nodes in this
@@ -715,42 +836,69 @@ impl<'t> Executor<'t> {
         {
             let mut last_use: AHashMap<AnyResKey, usize> = AHashMap::default();
             let track = self.schedule.tracks.get_mut(&trackid).unwrap();
-            for node_idx in track.frames[frame_index].iter_indices(){
+            for node_idx in track.frames[frame_index].iter_indices() {
                 //barrier builder for layout/access/stage transitions
                 let mut trans_barrier = BarrierBuilder::new();
                 //for all dependencies of the currently scheduled node, reverse scan the already scheduled nodes.
                 // If we find the dependency, check stage at which it was scheduled. Otherwise assume "none", since the acquire
                 // stage (if there was such a thing) would have waited already.
-                for dep in track.nodes[node_idx].dependencies.iter(){
-                    if let Some(last_use) = last_use.insert(dep.dep, node_idx){
+                for dep in track.nodes[node_idx].dependencies.iter() {
+                    if let Some(last_use) = last_use.insert(dep.dep, node_idx) {
                         //get the stage mask this was scheduled before for. Must be some, otherwise the last use wouldn't be set
-                        let src_stage = track.nodes[last_use].task.registry.get_stage_mask(&dep.dep).unwrap();
-                        track.nodes[node_idx].task.registry.add_diff_transition(rmg, &mut trans_barrier, dep.dep, src_stage);
-                    }else{
+                        let src_stage = track.nodes[last_use]
+                            .task
+                            .registry
+                            .get_stage_mask(&dep.dep)
+                            .unwrap();
+                        track.nodes[node_idx].task.registry.add_diff_transition(
+                            rmg,
+                            &mut trans_barrier,
+                            dep.dep,
+                            src_stage,
+                        );
+                    } else {
                         //wasn't used yet. Assume no stage flags and add to last use
-                        track.nodes[node_idx].task.registry.add_diff_transition(rmg, &mut trans_barrier, dep.dep, vk::PipelineStageFlags2::empty());
+                        track.nodes[node_idx].task.registry.add_diff_transition(
+                            rmg,
+                            &mut trans_barrier,
+                            dep.dep,
+                            vk::PipelineStageFlags2::empty(),
+                        );
                     }
                 }
                 //add barrier if there is anything
-                if trans_barrier.has_barrier(){
-                    unsafe{
-                        rmg.ctx.device.inner.cmd_pipeline_barrier2(cb.inner, &trans_barrier.as_dependency_info());
+                if trans_barrier.has_barrier() {
+                    unsafe {
+                        rmg.ctx
+                            .device
+                            .inner
+                            .cmd_pipeline_barrier2(cb.inner, &trans_barrier.as_dependency_info());
                     }
                 }
 
                 //allow the task to add a foreign semaphore, if there is any.
-                track.nodes[node_idx].task.registry.append_foreign_signal_semaphores(&mut signal_semaphore);
+                track.nodes[node_idx]
+                    .task
+                    .registry
+                    .append_foreign_signal_semaphores(&mut signal_semaphore);
 
                 //now let the node record itself
-                track.nodes[node_idx].task.task.record(&rmg.ctx.device, &cb.inner, &rmg.resources());
+                track.nodes[node_idx].task.task.record(
+                    &rmg.ctx.device,
+                    &cb.inner,
+                    &rmg.resources(),
+                );
             }
         }
 
         //finished scheduling all nodes. We can now release to all dependees that are not on this track.
         let release_barrier = self.build_release_barriers(rmg, trackid, frame_index)?;
-        if release_barrier.has_barrier(){
-            unsafe{
-                rmg.ctx.device.inner.cmd_pipeline_barrier2(cb.inner, &release_barrier.as_dependency_info());
+        if release_barrier.has_barrier() {
+            unsafe {
+                rmg.ctx
+                    .device
+                    .inner
+                    .cmd_pipeline_barrier2(cb.inner, &release_barrier.as_dependency_info());
             }
         }
 
@@ -781,20 +929,25 @@ impl<'t> Executor<'t> {
             rmg.ctx.device.inner.queue_submit2(
                 *queue.inner(),
                 &[*vk::SubmitInfo2::builder()
-                  .command_buffer_infos(&[
-                      *vk::CommandBufferSubmitInfo::builder().command_buffer(cb.inner)
-                  ])
-                  .wait_semaphore_infos(&self.submit_info_cache)
-                  //Signal this tracks value upon finish
-                  .signal_semaphore_infos(&signal_semaphore)],
+                    .command_buffer_infos(&[
+                        *vk::CommandBufferSubmitInfo::builder().command_buffer(cb.inner)
+                    ])
+                    .wait_semaphore_infos(&self.submit_info_cache)
+                    //Signal this tracks value upon finish
+                    .signal_semaphore_infos(&signal_semaphore)],
                 vk::Fence::null(),
             )?;
         }
 
         //finally build execution struct which we give back to the resource manager for
         // tracking.
-        for node in self.schedule.tracks.get(&trackid).unwrap().frames[frame_index].iter_indices(){
-            used_resources.append(&mut self.schedule.tracks.get_mut(&trackid).unwrap().nodes[node].task.registry.resource_collection);
+        for node in self.schedule.tracks.get(&trackid).unwrap().frames[frame_index].iter_indices() {
+            used_resources.append(
+                &mut self.schedule.tracks.get_mut(&trackid).unwrap().nodes[node]
+                    .task
+                    .registry
+                    .resource_collection,
+            );
         }
 
         Ok(Execution {

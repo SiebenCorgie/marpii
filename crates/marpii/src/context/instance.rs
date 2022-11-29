@@ -1,4 +1,7 @@
-use std::{ffi::{CString, CStr}, sync::Arc};
+use std::{
+    ffi::{CStr, CString},
+    sync::Arc,
+};
 
 use ash::vk;
 use const_cstr::const_cstr;
@@ -290,15 +293,11 @@ impl InstanceBuilder {
     }
 
     ///Enables all extensions that are needed for the surface behind `handle` to work.
-    pub fn for_surface(
-        mut self,
-        handle: &dyn HasRawDisplayHandle,
-    ) -> Result<Self, anyhow::Error> {
-        let required_extensions = ash_window::enumerate_required_extensions(handle.raw_display_handle())?;
+    pub fn for_surface(mut self, handle: &dyn HasRawDisplayHandle) -> Result<Self, anyhow::Error> {
+        let required_extensions =
+            ash_window::enumerate_required_extensions(handle.raw_display_handle())?;
         for r in required_extensions {
-            let st = unsafe{
-                CStr::from_ptr(*r).to_owned()
-            };
+            let st = unsafe { CStr::from_ptr(*r).to_owned() };
             self = self.with_extension(st)?;
         }
 

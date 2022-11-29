@@ -7,10 +7,17 @@ pub mod task_scheduler;
 
 use std::{fmt::Debug, sync::Arc};
 
-use marpii::{ash::vk, resources::{CommandBuffer, CommandPool}};
-use thiserror::Error;
+use crate::{
+    resources::handle::AnyHandle,
+    track::{Guard, TrackId},
+    ResourceError, Rmg, Task,
+};
+use marpii::{
+    ash::vk,
+    resources::{CommandBuffer, CommandPool},
+};
 use std::any::Any;
-use crate::{resources::handle::AnyHandle, track::{TrackId, Guard}, ResourceError, Rmg, Task};
+use thiserror::Error;
 
 use self::{executor::Executor, scheduler::Schedule, task::ResourceRegistry};
 
@@ -49,7 +56,6 @@ pub(crate) struct WaitEvent {
     ///The semaphore value that needs to be reached on the track before continuing.
     block_sem: u64,
 }
-
 
 pub struct Execution {
     ///All resources that need to be kept alive until the execution finishes

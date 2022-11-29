@@ -29,12 +29,11 @@ impl ShaderModule {
 
     pub fn new_from_bytes<'a>(
         device: &Arc<Device>,
-        bytes: &'a [u8]
-    ) -> Result<Self, anyhow::Error>{
+        bytes: &'a [u8],
+    ) -> Result<Self, anyhow::Error> {
         let words = ash::util::read_spv(&mut std::io::Cursor::new(bytes)).unwrap();
         Self::new(device, &words)
     }
-
 
     pub fn new(device: &Arc<Device>, code: &[u32]) -> Result<Self, anyhow::Error> {
         let create_info = ash::vk::ShaderModuleCreateInfo::builder().code(code);

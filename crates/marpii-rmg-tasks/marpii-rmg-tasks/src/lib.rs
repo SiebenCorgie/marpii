@@ -21,7 +21,6 @@ pub use image_blit::ImageBlit;
 //mod alpha_blend; not usabel atm
 //pub use alpha_blend::AlphaBlend;
 
-
 #[cfg(feature = "egui-task")]
 mod egui_integration;
 #[cfg(feature = "egui-task")]

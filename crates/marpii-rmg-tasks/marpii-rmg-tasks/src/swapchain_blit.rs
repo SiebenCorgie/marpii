@@ -58,7 +58,12 @@ impl Task for SwapchainBlit {
             sw_image: Some(swimage),
         }) = &self.next_blit
         {
-            registry.request_image(&src_image, vk::PipelineStageFlags2::TRANSFER, vk::AccessFlags2::TRANSFER_READ, vk::ImageLayout::TRANSFER_SRC_OPTIMAL);
+            registry.request_image(
+                &src_image,
+                vk::PipelineStageFlags2::TRANSFER,
+                vk::AccessFlags2::TRANSFER_READ,
+                vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
+            );
             //NOTE: swimage is transitioned explicitly.
             registry.register_foreign_semaphore(swimage.sem_present.clone())
         } else {
@@ -82,7 +87,7 @@ impl Task for SwapchainBlit {
         }) = &self.next_blit
         {
             //init our swapchain image to transfer-able, and move the src image to transfer
-            let img =  resources.get_image_state(src_image).image.clone();
+            let img = resources.get_image_state(src_image).image.clone();
 
             unsafe {
                 device.inner.cmd_pipeline_barrier2(

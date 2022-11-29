@@ -5,7 +5,7 @@
 use marpii::ash::vk;
 
 #[cfg(not(target_arch = "spirv"))]
-use bytemuck::{Zeroable, Pod};
+use bytemuck::{Pod, Zeroable};
 
 ///By definition when interpreted as big endian the highest byte is the handle type and the lower bytes are the actual index.
 ///
@@ -48,10 +48,9 @@ impl ResourceHandle {
 
     ///Returns true if the handle is invalid. Note that this contains **any** invalid
     /// `handle_type` bits, not just `TYPE_INVALID`
-    pub const fn is_invalid(&self) -> bool{
+    pub const fn is_invalid(&self) -> bool {
         self.handle_type() > Self::TYPE_ACCELERATION_STRUCTURE
     }
-
 
     ///Creates a new handle, panics if the type is outside the defined types, or the index exceeds (2^56)-1.
     pub const fn new_unchecked(ty: u8, index: u32) -> Self {

@@ -98,7 +98,11 @@ impl<T: marpii::bytemuck::Pod> Task for DynamicBuffer<T> {
         if !self.has_changed {
             return;
         }
-        registry.request_buffer(&self.gpu_local, vk::PipelineStageFlags2::TRANSFER, vk::AccessFlags2::TRANSFER_WRITE);
+        registry.request_buffer(
+            &self.gpu_local,
+            vk::PipelineStageFlags2::TRANSFER,
+            vk::AccessFlags2::TRANSFER_WRITE,
+        );
     }
     fn record(
         &mut self,
