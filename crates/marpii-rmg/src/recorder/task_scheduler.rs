@@ -4,7 +4,7 @@ use ahash::AHashMap;
 
 use crate::{resources::res_states::AnyResKey, track::TrackId, RecordError, Rmg};
 
-use super::{scheduler::Schedule, TaskRecord, TrackEvent};
+use super::TaskRecord;
 
 //Participant in an dependency definition
 #[derive(Debug, Clone)]

@@ -1,3 +1,18 @@
+//! The bindless descriptor implementation of RMG.
+//!
+//! It creates one descriptor-set for each "type" of descriptor. Each set
+//! has a big (usually the maximum) number of descriptors allocated. At runtime
+//! they are updated to contain resources whenever they are bound.
+//!
+//! This resource management happens only once before rendering a frame.
+//!
+//! Loosely based on:
+//! - <https://blog.traverseresearch.nl/bindless-rendering-setup-afeb678d77fc>
+//! - <https://vincent-p.github.io/posts/vulkan_bindless_descriptors/>
+//!
+//! Does not (yet) use byte addressable buffers.
+
+
 use marpii::{
     ash::vk,
     context::Device,
@@ -11,6 +26,8 @@ use std::{collections::VecDeque, fmt::Debug, sync::Arc};
 //Re-export of the handle type.
 pub use marpii_rmg_shared::ResourceHandle;
 
+
+///Handles one descriptor set of type T.
 struct SetManager<T> {
     ///Collects free'd indices that can be used
     free: VecDeque<ResourceHandle>,

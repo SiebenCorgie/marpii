@@ -7,11 +7,9 @@ use crate::{
 use fxhash::FxHashMap;
 use marpii::{
     ash::vk::{self, SemaphoreSubmitInfo},
-    resources::{CommandBuffer, CommandPool},
 };
-use std::{any::Any, sync::Arc};
 
-use super::scheduler::{Schedule, SubmitFrame, TrackRecord};
+use super::{scheduler::{Schedule, SubmitFrame, TrackRecord}, Execution};
 
 struct Exec<'rmg> {
     record: TrackRecord<'rmg>,
@@ -27,16 +25,6 @@ pub struct Executor<'rmg> {
     guard_buffer: Vec<Guard>,
 }
 
-pub struct Execution {
-    ///All resources that need to be kept alive until the execution finishes
-    #[allow(dead_code)]
-    resources: Vec<Box<dyn Any + Send>>,
-    ///The command buffer that is executed
-    #[allow(dead_code)]
-    command_buffer: CommandBuffer<Arc<CommandPool>>,
-    ///Until when it is guarded.
-    pub(crate) guard: Guard,
-}
 
 impl<'rmg> Executor<'rmg> {
     pub fn exec(rmg: &mut Rmg, schedule: Schedule<'rmg>) -> Result<Vec<Execution>, RecordError> {

@@ -3,23 +3,26 @@ use crate::{
         res_states::{AnyResKey, BufferKey, ImageKey, SamplerKey},
         Resources,
     },
-    BufferHandle, CtxRmg, ImageHandle, RecordError, SamplerHandle,
+    BufferHandle, CtxRmg, ImageHandle, RecordError, SamplerHandle, Rmg,
 };
-use ahash::AHashSet;
+use ahash::{AHashSet, AHashMap};
 use marpii::{
     ash::vk::{self, ImageLayout},
     context::Device,
 };
+use marpii_commands::BarrierBuilder;
 use std::{any::Any, ops::Deref, sync::Arc};
 
 pub struct ResourceRegistry {
-    images: AHashSet<(
-        ImageKey,
-        vk::PipelineStageFlags2,
-        vk::AccessFlags2,
-        vk::ImageLayout,
-    )>,
-    buffers: AHashSet<(BufferKey, vk::PipelineStageFlags2, vk::AccessFlags2)>,
+    images: AHashMap<
+            ImageKey,
+        (
+            vk::PipelineStageFlags2,
+            vk::AccessFlags2,
+            vk::ImageLayout,
+        )
+            >,
+    buffers: AHashMap<BufferKey, (vk::PipelineStageFlags2, vk::AccessFlags2)>,
     sampler: AHashSet<SamplerKey>,
 
     foreign_sem: Vec<Arc<vk::Semaphore>>,
@@ -31,8 +34,8 @@ pub struct ResourceRegistry {
 impl ResourceRegistry {
     pub fn new() -> Self {
         ResourceRegistry {
-            images: AHashSet::new(),
-            buffers: AHashSet::new(),
+            images: AHashMap::new(),
+            buffers: AHashMap::new(),
             sampler: AHashSet::new(),
             foreign_sem: Vec::new(),
             resource_collection: Vec::new(),
@@ -51,7 +54,7 @@ impl ResourceRegistry {
         access: vk::AccessFlags2,
         layout: ImageLayout,
     ) -> Result<(), ()> {
-        if !self.images.insert((image.key, stage, access, layout)) {
+        if self.images.insert(image.key, (stage, access, layout)).is_some() {
             return Err(());
         }
         self.resource_collection
@@ -69,7 +72,7 @@ impl ResourceRegistry {
         stage: vk::PipelineStageFlags2,
         access: vk::AccessFlags2,
     ) -> Result<(), ()> {
-        if !self.buffers.insert((buffer.key, stage, access)) {
+        if self.buffers.insert(buffer.key, (stage, access)).is_some() {
             return Err(());
         }
         self.resource_collection
@@ -105,12 +108,13 @@ impl ResourceRegistry {
 
     pub(crate) fn any_res_iter<'a>(&'a self) -> impl Iterator<Item = AnyResKey> + 'a {
         self.images
-            .iter()
-            .map(|img| AnyResKey::Image(img.0))
-            .chain(self.buffers.iter().map(|buf| AnyResKey::Buffer(buf.0)))
+            .keys()
+            .map(|img| AnyResKey::Image(*img))
+            .chain(self.buffers.keys().map(|buf| AnyResKey::Buffer(*buf)))
             .chain(self.sampler.iter().map(|sam| AnyResKey::Sampler(*sam)))
     }
 
+    /// Appends all foreign binary semaphores. Mostly used to integrate swapchains.
     pub(crate) fn append_foreign_signal_semaphores(
         &self,
         infos: &mut Vec<vk::SemaphoreSubmitInfo>,
@@ -126,6 +130,114 @@ impl ResourceRegistry {
                     .build(),
             );
         }
+    }
+
+    ///If in the registry: returns the stage flags the resource is registered for
+    pub(crate) fn get_stage_mask(&self, resource: &AnyResKey) -> Option<vk::PipelineStageFlags2>{
+        match resource{
+            AnyResKey::Buffer(buf) => if let Some(st) = self.buffers.get(buf){
+                Some(st.0)
+            }else{
+                None
+            }
+            AnyResKey::Image(img) => if let Some(st) = self.images.get(img){
+                Some(st.0)
+            }else{
+                None
+            },
+            AnyResKey::Sampler(_) => None,
+        }
+    }
+
+    pub(crate) fn contains_key(&self, resource: &AnyResKey) -> bool{
+        match resource{
+            AnyResKey::Buffer(buf) => self.buffers.contains_key(buf),
+            AnyResKey::Image(img) => self.images.contains_key(img),
+            AnyResKey::Sampler(sam) => self.sampler.contains(sam),
+        }
+    }
+
+    ///Calculates the difference between the current state of `resource`and the state it is registered in `self`. Uses `src_stage` to block
+    /// barrier until this stage is reached. This is basically the main "on queue" sync mechanism between tasks. Use `ALL_COMMANDS` if unsure and
+    /// refine later.
+    ///
+    /// If the there is a difference, a transition is calculated and appended to the `builder`. The new state is
+    /// also set in the resources state within `rmg`
+    pub(crate) fn add_diff_transition(&self, rmg: &mut Rmg, builder: &mut BarrierBuilder, resource: AnyResKey, src_stage: vk::PipelineStageFlags2){
+        match resource{
+            AnyResKey::Buffer(buf) => {
+                let bufstate = rmg.resources_mut().buffer.get_mut(buf).unwrap();
+                let target_state = self.buffers.get(&buf).unwrap();
+                let mut barrier = vk::BufferMemoryBarrier2::builder()
+                    .buffer(bufstate.buffer.inner)
+                    .offset(0)
+                    .size(vk::WHOLE_SIZE);
+                #[cfg(feature="logging")]
+                log::trace!("Trans Buffer {:?}", buf);
+                //update access mask if needed
+                if bufstate.mask != target_state.1{
+                    #[cfg(feature="logging")]
+                    log::trace!("    {:#?} -> {:#?}", bufstate.mask, target_state.1);
+                    barrier = barrier.src_access_mask(bufstate.mask)
+                        .dst_access_mask(target_state.1);
+
+                    bufstate.mask = target_state.1;
+                }
+
+                //add pipeline stages
+                #[cfg(feature="logging")]
+                log::trace!("    {:#?} -> {:#?}", src_stage, target_state.0);
+                barrier = barrier.src_stage_mask(src_stage)
+                    .dst_stage_mask(target_state.0);
+
+                //now add
+                builder.buffer_custom_barrier(*barrier);
+            },
+            AnyResKey::Image(img) => {
+                let imgstate = rmg.resources_mut().images.get_mut(img).unwrap();
+                let target_state = self.images.get(&img).unwrap();
+                let mut barrier = vk::ImageMemoryBarrier2::builder()
+                    .image(imgstate.image.inner)
+                    .subresource_range(imgstate.image.subresource_all());
+                #[cfg(feature="logging")]
+                log::trace!("Trans Image {:?}", img);
+
+                //update access mask if needed
+                if imgstate.mask != target_state.1{
+                    #[cfg(feature="logging")]
+                    log::trace!("    {:#?} -> {:#?}", imgstate.mask, target_state.1);
+                    barrier = barrier.src_access_mask(imgstate.mask)
+                                     .dst_access_mask(target_state.1);
+
+                    imgstate.mask = target_state.1;
+                }
+
+                //update layout if neede
+                if imgstate.layout != target_state.2{
+                    #[cfg(feature="logging")]
+                    log::trace!("    {:#?} -> {:#?}", imgstate.layout, target_state.2);
+                    barrier = barrier.old_layout(imgstate.layout)
+                        .new_layout(target_state.2);
+
+                    imgstate.layout = target_state.2;
+                }
+
+                //add pipeline stages
+                #[cfg(feature="logging")]
+                log::trace!("    {:#?} -> {:#?}", src_stage, target_state.0);
+                barrier = barrier.src_stage_mask(src_stage)
+                                 .dst_stage_mask(target_state.0);
+
+
+                //now add
+                builder.image_custom_barrier(*barrier);
+            },
+            AnyResKey::Sampler(_) => {} //samplers never have a state
+        }
+    }
+
+    pub(crate) fn num_resources(&self) -> usize{
+        self.resource_collection.len()
     }
 }
 

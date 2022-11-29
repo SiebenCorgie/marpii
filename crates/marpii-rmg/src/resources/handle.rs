@@ -1,3 +1,16 @@
+//! # Handles
+//!
+//! There are multiple levels of handles. The lowest levels are `*Key`s. This are the direct
+//! handles into the [Resource] structure. They do not carry any context.
+//!
+//! The next level are `ImageHandel`, `BufferHandle` and `SamplerHandle`. They carry a reference to the actual data
+//! (at the moment). They are used to detect whenever resources are not needed anymore, and when communicating
+//! with the "outside".
+//!
+//! Around both the key and handle types the `AnyKey` and `AnyHandle` types form an abstraction that allows
+//! working with somewhat anonymous resources.
+
+
 use crate::resources::res_states::{BufferKey, ImageKey, SamplerKey};
 use marpii::{
     ash::vk,

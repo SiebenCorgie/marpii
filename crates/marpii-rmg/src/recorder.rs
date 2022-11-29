@@ -5,13 +5,12 @@ pub mod task;
 pub mod task_executor;
 pub mod task_scheduler;
 
-use std::fmt::Debug;
+use std::{fmt::Debug, sync::Arc};
 
-use marpii::ash::vk;
+use marpii::{ash::vk, resources::{CommandBuffer, CommandPool}};
 use thiserror::Error;
-use tinyvec::TinyVec;
-
-use crate::{resources::handle::AnyHandle, track::TrackId, ResourceError, Rmg, Task};
+use std::any::Any;
+use crate::{resources::handle::AnyHandle, track::{TrackId, Guard}, ResourceError, Rmg, Task};
 
 use self::{executor::Executor, scheduler::Schedule, task::ResourceRegistry};
 
@@ -51,6 +50,18 @@ pub(crate) struct WaitEvent {
     block_sem: u64,
 }
 
+
+pub struct Execution {
+    ///All resources that need to be kept alive until the execution finishes
+    #[allow(dead_code)]
+    pub(crate) resources: Vec<Box<dyn Any + Send>>,
+    ///The command buffer that is executed
+    #[allow(dead_code)]
+    pub(crate) command_buffer: CommandBuffer<Arc<CommandPool>>,
+    ///Until when it is guarded.
+    pub(crate) guard: Guard,
+}
+
 impl Default for WaitEvent {
     fn default() -> Self {
         WaitEvent {
@@ -58,19 +69,6 @@ impl Default for WaitEvent {
             block_sem: 0,
         }
     }
-}
-
-///Abstract events that can occur on a track.
-///
-/// Block: A sequential block of task(s) that can be executed without having to wait for another track to finish a specific block.
-///
-/// Wait: Wait operation that waits for one or more blocks on possibly multiple other tracks.
-///
-/// Barrier: On Track barrier for resources. Theoretically there can be one in between each block. However, the scheduler should try and minimize those.
-pub(crate) enum TrackEvent<'t> {
-    Block(Vec<TaskRecord<'t>>),
-    Wait(TinyVec<[WaitEvent; 3]>),
-    Barrier,
 }
 
 pub struct TaskRecord<'t> {

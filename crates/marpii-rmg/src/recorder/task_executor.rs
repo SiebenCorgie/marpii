@@ -9,7 +9,7 @@ use crate::{
     RecordError, Rmg,
 };
 
-use super::task_scheduler::{TaskSchedule, Dependency};
+use super::{task_scheduler::{TaskSchedule, Dependency}, Execution};
 
 ///Schedule executor. Takes Frames, dependencies and dependees to build an
 /// command buffer that is immediately pushed to the GPU.
@@ -22,10 +22,12 @@ pub struct Executor<'t> {
     //For sync guards are often collected. This vector is used to prevent re-allocation each time.
     guard_cache: Vec<Guard>,
     submit_info_cache: Vec<vk::SemaphoreSubmitInfo>,
+    ///collects all executions while iterating frames.
+    execution_cache: Vec<Execution>,
 }
 
 impl<'t> Executor<'t> {
-    pub fn execute(rmg: &mut Rmg, schedule: TaskSchedule<'t>) -> Result<(), RecordError> {
+    pub fn execute(rmg: &mut Rmg, schedule: TaskSchedule<'t>) -> Result<Vec<Execution>, RecordError> {
         let next_frame = schedule
             .tracks
             .iter()
@@ -47,12 +49,15 @@ impl<'t> Executor<'t> {
             .tracks
             .values()
             .fold(0, |sum, track| sum + track.nodes.len());
+        let n_frames = schedule.tracks.iter().fold(0, |sum, track| sum + track.1.frames.len());
+
         let mut execution_order = Vec::with_capacity(n_nodes);
         let mut exec = Executor {
             schedule,
             next_frame,
             guard_cache: Vec::with_capacity(10),
             submit_info_cache: Vec::with_capacity(rmg.tracks.0.len()),
+            execution_cache: Vec::with_capacity(n_frames)
         };
 
         while exec.has_executable() {
@@ -66,11 +71,20 @@ impl<'t> Executor<'t> {
         exec.schedule_import_release_frame(rmg)?;
 
         //execute frames
-        for (trackid, frame_id) in execution_order {
-            exec.schedule_frame(rmg, trackid, frame_id)?;
+        for (trackid, frame_id) in execution_order.iter() {
+            let execution = exec.schedule_frame(rmg, *trackid, *frame_id)?;
+            exec.execution_cache.push(execution);
         }
 
-        Ok(())
+        //after executing all frames, trigger post_execution for all nodes in order
+        for (track, frame) in execution_order{
+            let track = exec.schedule.tracks.get_mut(&track).unwrap();
+            for node in track.frames[frame].iter_indices(){
+                track.nodes[node].task.task.post_execution(&mut rmg.res, &rmg.ctx)?;
+            }
+        }
+
+        Ok(exec.execution_cache)
     }
 
     ///Returns true as long as there are unexecuted frames.
@@ -625,7 +639,7 @@ impl<'t> Executor<'t> {
         rmg: &mut Rmg,
         trackid: TrackId,
         frame_index: usize,
-    ) -> Result<(), RecordError> {
+    ) -> Result<Execution, RecordError> {
         //- build the acquire semaphores by collecting all "import" dependencies and checking their current state.
         //  Wait for the guard/owner semaphore each.
         //- then build transition barriers pre/post task, maybe merge semaphore.
@@ -635,15 +649,37 @@ impl<'t> Executor<'t> {
         // TODO: assert that each acquired res was released before.
 
         let track_queue_family = rmg.trackid_to_queue_idx(trackid);
+        //lock track while scheduling.
         //command buffer that is recorded.
         let cb = rmg.tracks.0.get_mut(&trackid).unwrap().new_command_buffer()?;
         let exec_guard = rmg.tracks.0.get_mut(&trackid).unwrap().next_guard();
+        //pre-build signal semaphore. This allows us to
+        // add all foreign semaphores while checking node dependencies.
+        let mut signal_semaphore = vec![vk::SemaphoreSubmitInfo::builder()
+                                        .semaphore(
+                                            rmg.tracks
+                                               .0
+                                               .get(exec_guard.as_ref())
+                                               .unwrap()
+                                               .sem
+                                               .inner,
+                                        )
+                                        .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
+                                        .value(exec_guard.wait_value())
+                                        .build()];
+
+        //prepare the used_resource collection.
+        let num_res = self.schedule.tracks.get(&trackid).unwrap().frames[frame_index].iter_indices().fold(0, |sum, node_idx| sum + self.schedule.tracks.get(&trackid).unwrap().nodes[node_idx].task.registry.num_resources());
+        let mut used_resources = Vec::with_capacity(num_res);
+
+
+
         //clear to collect this context
         self.guard_cache.clear();
 
         #[cfg(feature = "logging")]
         {
-            let track = self.schedule.tracks.get(&trackid).unwrap();
+            let track = self.schedule.tracks.get_mut(&trackid).unwrap();
             log::trace!("Frame[{}] @ {}", frame_index, trackid);
             for i in track.frames[frame_index].iter_indices() {
                 log::trace!("    [{}] {}: ", i, track.nodes[i].task.task.name());
@@ -663,30 +699,108 @@ impl<'t> Executor<'t> {
 
         //get acquire barrier and start command buffer
         let acquire_barrier = self.build_import_acquire_barrier(rmg, trackid, frame_index, exec_guard)?;
-        unsafe{
-            rmg.ctx.device.inner.begin_command_buffer(cb.inner, &vk::CommandBufferBeginInfo::builder().flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT))?;
-            rmg.ctx.device.inner.cmd_pipeline_barrier2(cb.inner, &acquire_barrier.as_dependency_info());
+        if acquire_barrier.has_barrier(){
+            unsafe{
+                rmg.ctx.device.inner.begin_command_buffer(cb.inner, &vk::CommandBufferBeginInfo::builder().flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT))?;
+                rmg.ctx.device.inner.cmd_pipeline_barrier2(cb.inner, &acquire_barrier.as_dependency_info());
+            }
         }
-
         //at this point all resources should be acquired. We can no schedule all nodes in this
         // frame by iteratively building diff of nodes needed layout and the current layout, building the
         // transition barriers, scheduling those, then scheduling the actual node.
-        for node_idx in self.schedule.tracks.get(&trackid).unwrap().frames[frame_index].iter_indices(){
 
+        //extra scope needed to drop the track reference. We don't want to search the hash map for each node
+        {
+            let mut last_use: AHashMap<AnyResKey, usize> = AHashMap::default();
+            let track = self.schedule.tracks.get_mut(&trackid).unwrap();
+            for node_idx in track.frames[frame_index].iter_indices(){
+                //barrier builder for layout/access/stage transitions
+                let mut trans_barrier = BarrierBuilder::new();
+                //for all dependencies of the currently scheduled node, reverse scan the already scheduled nodes.
+                // If we find the dependency, check stage at which it was scheduled. Otherwise assume "none", since the acquire
+                // stage (if there was such a thing) would have waited already.
+                for dep in track.nodes[node_idx].dependencies.iter(){
+                    if let Some(last_use) = last_use.insert(dep.dep, node_idx){
+                        //get the stage mask this was scheduled before for. Must be some, otherwise the last use wouldn't be set
+                        let src_stage = track.nodes[last_use].task.registry.get_stage_mask(&dep.dep).unwrap();
+                        track.nodes[node_idx].task.registry.add_diff_transition(rmg, &mut trans_barrier, dep.dep, src_stage);
+                    }else{
+                        //wasn't used yet. Assume no stage flags and add to last use
+                        track.nodes[node_idx].task.registry.add_diff_transition(rmg, &mut trans_barrier, dep.dep, vk::PipelineStageFlags2::empty());
+                    }
+                }
+                //add barrier if there is anything
+                if trans_barrier.has_barrier(){
+                    unsafe{
+                        rmg.ctx.device.inner.begin_command_buffer(cb.inner, &vk::CommandBufferBeginInfo::builder().flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT))?;
+                        rmg.ctx.device.inner.cmd_pipeline_barrier2(cb.inner, &trans_barrier.as_dependency_info());
+                    }
+                }
+
+                //allow the task to add a foreign semaphore, if there is any.
+                track.nodes[node_idx].task.registry.append_foreign_signal_semaphores(&mut signal_semaphore);
+
+                //now let the node record itself
+                track.nodes[node_idx].task.task.record(&rmg.ctx.device, &cb.inner, &rmg.resources());
+            }
         }
 
         //finished scheduling all nodes. We can now release to all dependees that are not on this track.
         let release_barrier = self.build_release_barriers(rmg, trackid, frame_index)?;
-        unsafe{
-            rmg.ctx.device.inner.begin_command_buffer(cb.inner, &vk::CommandBufferBeginInfo::builder().flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT))?;
-            rmg.ctx.device.inner.cmd_pipeline_barrier2(cb.inner, &release_barrier.as_dependency_info());
+        if release_barrier.has_barrier(){
+            unsafe{
+                rmg.ctx.device.inner.begin_command_buffer(cb.inner, &vk::CommandBufferBeginInfo::builder().flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT))?;
+                rmg.ctx.device.inner.cmd_pipeline_barrier2(cb.inner, &release_barrier.as_dependency_info());
+            }
         }
 
         //finally build submission info from all guards that we collected over all submission operations.
         // and submit the cb to the track's queue.
+        self.build_submitinfo_cache(rmg);
 
+        //finally, when finished recording, execute by
+        unsafe {
+            rmg.ctx.device.inner.end_command_buffer(cb.inner)?;
 
+            let queue = rmg
+                .ctx
+                .device
+                .get_first_queue_for_family(track_queue_family)
+                .unwrap();
 
-        Ok(())
+            #[cfg(feature = "logging")]
+            log::trace!(
+                "Signal info: {:?}\nFamily: {}, index: {}",
+                signal_semaphore,
+                queue.family_index,
+                0
+            );
+
+            assert!(queue.family_index == track_queue_family);
+
+            rmg.ctx.device.inner.queue_submit2(
+                *queue.inner(),
+                &[*vk::SubmitInfo2::builder()
+                  .command_buffer_infos(&[
+                      *vk::CommandBufferSubmitInfo::builder().command_buffer(cb.inner)
+                  ])
+                  .wait_semaphore_infos(&self.submit_info_cache)
+                  //Signal this tracks value upon finish
+                  .signal_semaphore_infos(&signal_semaphore)],
+                vk::Fence::null(),
+            )?;
+        }
+
+        //finally build execution struct which we give back to the resource manager for
+        // tracking.
+        for node in self.schedule.tracks.get(&trackid).unwrap().frames[frame_index].iter_indices(){
+            used_resources.append(&mut self.schedule.tracks.get_mut(&trackid).unwrap().nodes[node].task.registry.resource_collection);
+        }
+
+        Ok(Execution {
+            resources: used_resources, //FIXME: collect
+            command_buffer: cb,
+            guard: exec_guard,
+        })
     }
 }

@@ -7,7 +7,7 @@ use marpii::{
 };
 use std::{fmt::Display, sync::Arc};
 
-use crate::{recorder::executor::Execution, RecordError};
+use crate::{recorder::Execution, RecordError};
 
 #[derive(Debug, Clone, Copy)]
 pub(crate) struct Guard {
