@@ -652,6 +652,9 @@ impl<'t> Executor<'t> {
         //lock track while scheduling.
         //command buffer that is recorded.
         let cb = rmg.tracks.0.get_mut(&trackid).unwrap().new_command_buffer()?;
+        unsafe{
+            rmg.ctx.device.inner.begin_command_buffer(cb.inner, &vk::CommandBufferBeginInfo::builder().flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT))?;
+        }
         let exec_guard = rmg.tracks.0.get_mut(&trackid).unwrap().next_guard();
         //pre-build signal semaphore. This allows us to
         // add all foreign semaphores while checking node dependencies.
@@ -701,7 +704,6 @@ impl<'t> Executor<'t> {
         let acquire_barrier = self.build_import_acquire_barrier(rmg, trackid, frame_index, exec_guard)?;
         if acquire_barrier.has_barrier(){
             unsafe{
-                rmg.ctx.device.inner.begin_command_buffer(cb.inner, &vk::CommandBufferBeginInfo::builder().flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT))?;
                 rmg.ctx.device.inner.cmd_pipeline_barrier2(cb.inner, &acquire_barrier.as_dependency_info());
             }
         }
@@ -732,7 +734,6 @@ impl<'t> Executor<'t> {
                 //add barrier if there is anything
                 if trans_barrier.has_barrier(){
                     unsafe{
-                        rmg.ctx.device.inner.begin_command_buffer(cb.inner, &vk::CommandBufferBeginInfo::builder().flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT))?;
                         rmg.ctx.device.inner.cmd_pipeline_barrier2(cb.inner, &trans_barrier.as_dependency_info());
                     }
                 }
@@ -749,7 +750,6 @@ impl<'t> Executor<'t> {
         let release_barrier = self.build_release_barriers(rmg, trackid, frame_index)?;
         if release_barrier.has_barrier(){
             unsafe{
-                rmg.ctx.device.inner.begin_command_buffer(cb.inner, &vk::CommandBufferBeginInfo::builder().flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT))?;
                 rmg.ctx.device.inner.cmd_pipeline_barrier2(cb.inner, &release_barrier.as_dependency_info());
             }
         }
