@@ -1,7 +1,7 @@
 use anyhow::Result;
 use marpii::{ash::vk, context::Ctx};
 use marpii_rmg::Rmg;
-use marpii_rmg_tasks::{egui, EGuiWinitIntegration, SwapchainBlit};
+use marpii_rmg_tasks::{egui, EGuiWinitIntegration, SwapchainPresent};
 
 use winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
 use winit::window::Window;
@@ -19,11 +19,11 @@ fn main() -> Result<(), anyhow::Error> {
     let ev = winit::event_loop::EventLoop::new();
     let window = winit::window::Window::new(&ev).unwrap();
     let (context, surface) = Ctx::default_with_surface(&window, true)?;
-    let mut rmg = Rmg::new(context, &surface)?;
+    let mut rmg = Rmg::new(context)?;
 
     let mut egui = EGuiWinitIntegration::new(&mut rmg, &ev)?;
 
-    let mut swapchain_blit = SwapchainBlit::new();
+    let mut swapchain_blit = SwapchainPresent::new(&mut rmg, &surface)?;
 
     let mut name = "Teddy".to_string();
     let mut age = 10u32;
@@ -51,9 +51,9 @@ fn main() -> Result<(), anyhow::Error> {
                 .unwrap();
 
                 //setup src image and blit
-                swapchain_blit.next_blit(egui.renderer().target_image().clone());
+                swapchain_blit.push_image(egui.renderer().target_image().clone());
 
-                rmg.record(window_extent(&window))
+                rmg.record()
                     .add_task(egui.renderer_mut())
                     .unwrap()
                     .add_task(&mut swapchain_blit)
@@ -77,11 +77,4 @@ fn main() -> Result<(), anyhow::Error> {
             _ => {}
         }
     })
-}
-
-fn window_extent(window: &Window) -> vk::Extent2D {
-    vk::Extent2D {
-        width: window.inner_size().width,
-        height: window.inner_size().height,
-    }
 }

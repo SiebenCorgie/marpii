@@ -64,27 +64,15 @@ pub struct Resources {
     pub(crate) images: SlotMap<ImageKey, ResImage>,
     pub(crate) buffer: SlotMap<BufferKey, ResBuffer>,
     pub(crate) sampler: SlotMap<SamplerKey, ResSampler>,
-
-    pub(crate) swapchain: Swapchain,
-    pub(crate) last_known_surface_extent: vk::Extent2D,
-
     ///Channel used by the handles to signal their drop.
     #[allow(dead_code)]
     pub(crate) handle_drop_channel: (Sender<AnyResKey>, Receiver<AnyResKey>),
 }
 
 impl Resources {
-    pub fn new(device: &Arc<Device>, surface: &Arc<Surface>) -> Result<Self, ResourceError> {
+    pub fn new(device: &Arc<Device>) -> Result<Self, ResourceError> {
         let bindless = Bindless::new_default(device)?;
         let bindless_layout = Arc::new(bindless.new_pipeline_layout(&[]));
-
-        let swapchain = Swapchain::builder(device, surface)?
-            .with(move |b| {
-                b.create_info.usage =
-                    vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::TRANSFER_DST;
-            })
-            .build()?;
-
         let handle_drop_channel = crossbeam_channel::unbounded();
 
         Ok(Resources {
@@ -93,8 +81,6 @@ impl Resources {
             buffer: SlotMap::with_key(),
             images: SlotMap::with_key(),
             sampler: SlotMap::with_key(),
-            swapchain,
-            last_known_surface_extent: vk::Extent2D::default(),
             handle_drop_channel,
         })
     }
@@ -407,50 +393,6 @@ impl Resources {
                 .map(|img| img.ownership.owner())
                 .flatten(),
             AnyResKey::Sampler(_) => None,
-        }
-    }
-
-    pub fn get_next_swapchain_image(&mut self) -> Result<SwapchainImage, ResourceError> {
-        let surface_extent = self
-            .swapchain
-            .surface
-            .get_current_extent(&self.swapchain.device.physical_device)
-            .unwrap_or(self.last_known_surface_extent);
-        if self.swapchain.images[0].extent_2d() != surface_extent {
-            #[cfg(feature = "logging")]
-            log::info!("Recreating swapchain with extent {:?}!", surface_extent);
-
-            self.swapchain.recreate(surface_extent)?;
-            self.last_known_surface_extent = vk::Extent2D {
-                width: self.swapchain.images[0].desc.extent.width,
-                height: self.swapchain.images[0].desc.extent.height,
-            };
-        }
-
-        if let Ok(img) = self.swapchain.acquire_next_image() {
-            Ok(img)
-        } else {
-            //try to recreate, otherwise panic.
-            #[cfg(feature = "logging")]
-            log::info!("Failed to get new swapchain image!");
-            return Err(ResourceError::SwapchainError);
-        }
-    }
-
-    pub fn get_surface_extent(&self) -> vk::Extent2D {
-        self.last_known_surface_extent
-    }
-
-    ///Schedules swapchain image for present
-    pub fn present_image(&mut self, image: SwapchainImage) {
-        let queue = self
-            .swapchain
-            .device
-            .first_queue_for_attribute(true, false, false)
-            .unwrap(); //FIXME use track instead
-        if let Err(e) = self.swapchain.present_image(image, &*queue.inner()) {
-            #[cfg(feature = "logging")]
-            log::error!("present failed with: {}, recreating swapchain", e);
         }
     }
 }

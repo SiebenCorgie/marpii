@@ -7,10 +7,10 @@ use marpii::{
 };
 use std::{fmt::Display, sync::Arc};
 
-use crate::{recorder::Execution, RecordError};
+use crate::{recorder::Execution, RecordError, Rmg};
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct Guard {
+pub struct Guard {
     track: TrackId,
     target_value: u64,
 }
@@ -32,8 +32,28 @@ impl Guard {
         self.target_value
     }
 
-    pub fn expired(&self, tracks: &Tracks) -> bool {
+    pub(crate) fn expired(&self, tracks: &Tracks) -> bool {
         tracks.guard_finished(self)
+    }
+
+    //Returns true if the gurad was passed on the gpu
+    pub fn is_expired(&self, rmg: &Rmg) -> bool{
+        if let Some(t) = rmg.tracks.0.get(&self.track){
+            t.latest_signaled_value > self.target_value
+        }else{
+            #[cfg(feature="logging")]
+            log::warn!("Queried guard for none existent track.");
+            false
+        }
+    }
+
+    ///Waits for the guard to expire. Fails if that is not possible
+    pub fn wait(&self, rmg: &Rmg, timeout: u64) -> Result<(), vk::Result>{
+        if let Some(t) = rmg.tracks.0.get(&self.track){
+            t.sem.wait(self.target_value, timeout)
+        }else{
+            Err(vk::Result::ERROR_UNKNOWN)
+        }
     }
 
     ///Returns guard, that guards the execution before this one

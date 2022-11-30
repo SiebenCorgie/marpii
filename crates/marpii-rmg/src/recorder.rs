@@ -95,22 +95,7 @@ pub struct Recorder<'rmg> {
 }
 
 impl<'rmg> Recorder<'rmg> {
-    pub fn new(rmg: &'rmg mut Rmg, window_extent: vk::Extent2D) -> Self {
-        let framebuffer_extent = rmg
-            .res
-            .swapchain
-            .surface
-            .get_current_extent(&rmg.ctx.device.physical_device)
-            .unwrap_or({
-                #[cfg(feature = "logging")]
-                log::info!(
-                    "Failed to get surface extent, falling back to window extent={:?}",
-                    window_extent
-                );
-                window_extent
-            });
-        rmg.res.last_known_surface_extent = framebuffer_extent;
-
+    pub fn new(rmg: &'rmg mut Rmg) -> Self {
         Recorder {
             rmg,
             records: Vec::new(),

@@ -1,20 +1,23 @@
-use marpii::{surface::Surface, swapchain::{Swapchain, SwapchainImage}, ash::vk};
-use marpii_rmg::{ImageHandle, Rmg, ResourceError, Task, RecordError};
+use marpii::{
+    ash::vk,
+    surface::Surface,
+    swapchain::{Swapchain, SwapchainImage},
+};
+use marpii_rmg::{Guard, ImageHandle, RecordError, ResourceError, Rmg, Task};
 use std::sync::Arc;
 
-
-enum PresentOp{
+enum PresentOp {
     None,
     Scheduled(ImageHandle),
-    Paired{
+    Paired {
         src_image: ImageHandle,
         sw_image: SwapchainImage,
     },
-    InFilght(SwapchainImage)
+    InFilght(SwapchainImage),
 }
 
-impl PresentOp{
-    fn take(&mut self) -> PresentOp{
+impl PresentOp {
+    fn take(&mut self) -> PresentOp {
         let mut ret = PresentOp::None;
         std::mem::swap(self, &mut ret);
         ret
@@ -22,16 +25,17 @@ impl PresentOp{
 }
 
 ///Task that handles a swapchain as well as present operation. Lets you blit any image to the swapchain.
-pub struct SwapchainPresent{
+pub struct SwapchainPresent {
     swapchain: Swapchain,
     last_known_extent: vk::Extent2D,
     ///the image that is going to be presented next.
     //TODO: Do we want to implement more fancy double buffering? Usually done by the driver tho.
-    next: PresentOp
+    next: PresentOp,
+    last_guard: Option<Guard>,
 }
 
-impl SwapchainPresent{
-    pub fn new(rmg: &mut Rmg, surface: &Arc<Surface>) -> Result<Self, ResourceError>{
+impl SwapchainPresent {
+    pub fn new(rmg: &mut Rmg, surface: &Arc<Surface>) -> Result<Self, ResourceError> {
         let swapchain = Swapchain::builder(&rmg.ctx.device, surface)?
             .with(move |b| {
                 b.create_info.usage =
@@ -41,45 +45,55 @@ impl SwapchainPresent{
 
         Ok(SwapchainPresent {
             swapchain,
-            last_known_extent: vk::Extent2D::default(),
-            next: PresentOp::None }
-        )
+            last_known_extent: vk::Extent2D {
+                width: 1,
+                height: 1,
+            },
+            next: PresentOp::None,
+            last_guard: None,
+        })
     }
 
     ///Pushes `image` to be presented whenever the task is scheduled next.
     /// Might overwrite any inflight or already pushed frames that are waiting for execution.
-    pub fn push_image(&mut self, image: ImageHandle){
+    pub fn push_image(&mut self, image: ImageHandle) {
         self.next = PresentOp::Scheduled(image);
     }
 
-    ///Returns the last known surface extent.
-    pub fn extent(&self) -> vk::Extent2D{
-        self.last_known_extent
-    }
-
-    fn next_image(&mut self) -> Result<SwapchainImage, ResourceError>{
-        let surface_extent = self
-            .swapchain
+    ///Returns the current surface extent, or, if that can't be acquired, nothing.
+    /// The latter can happen on some platforms. In that case it is easiest to check the window provider.
+    pub fn extent(&self) -> Option<vk::Extent2D> {
+        self.swapchain
             .surface
             .get_current_extent(&self.swapchain.device.physical_device)
-            .unwrap_or(self.last_known_extent);
+    }
+
+    fn recreate(&mut self, surface_extent: vk::Extent2D) -> Result<(), ResourceError> {
+        self.swapchain.recreate(surface_extent)?;
+        self.last_known_extent = vk::Extent2D {
+            width: self.swapchain.images[0].desc.extent.width,
+            height: self.swapchain.images[0].desc.extent.height,
+        };
+
+        Ok(())
+    }
+
+    pub fn set_extent(&mut self, ext: vk::Extent2D) {
+        self.last_known_extent = ext;
+    }
+
+    fn next_image(&mut self) -> Result<SwapchainImage, ResourceError> {
+        let surface_extent = self.extent().unwrap_or(self.last_known_extent);
         if self.swapchain.images[0].extent_2d() != surface_extent {
             #[cfg(feature = "logging")]
             log::info!("Recreating swapchain with extent {:?}!", surface_extent);
 
-            self.swapchain.recreate(surface_extent)?;
-            self.last_known_extent = vk::Extent2D {
-                width: self.swapchain.images[0].desc.extent.width,
-                height: self.swapchain.images[0].desc.extent.height,
-            };
+            self.recreate(surface_extent)?;
         }
 
         if let Ok(img) = self.swapchain.acquire_next_image() {
             Ok(img)
         } else {
-            //try to recreate, otherwise panic.
-            #[cfg(feature = "logging")]
-            log::info!("Failed to get new swapchain image!");
             Err(ResourceError::SwapchainError)
         }
     }
@@ -97,19 +111,25 @@ impl SwapchainPresent{
     }
 }
 
-
-impl Task for SwapchainPresent{
+impl Task for SwapchainPresent {
     fn name(&self) -> &'static str {
         "SwapchainPresent"
     }
 
-    fn pre_record(&mut self, _resources: &mut marpii_rmg::Resources, _ctx: &marpii_rmg::CtxRmg) -> Result<(), marpii_rmg::RecordError> {
+    fn pre_record(
+        &mut self,
+        _resources: &mut marpii_rmg::Resources,
+        _ctx: &marpii_rmg::CtxRmg,
+    ) -> Result<(), marpii_rmg::RecordError> {
         //fetches a new swapchain image if we have a blit image scheduled
-        if let PresentOp::Scheduled(to_blit) = self.next.take(){
+        if let PresentOp::Scheduled(to_blit) = self.next.take() {
             let img = self.next_image()?;
-            self.next = PresentOp::Paired { src_image: to_blit, sw_image: img };
-        }else{
-            #[cfg(feature="logging")]
+            self.next = PresentOp::Paired {
+                src_image: to_blit,
+                sw_image: img,
+            };
+        } else {
+            #[cfg(feature = "logging")]
             log::warn!("Swapchain queued, but no present image set.");
         }
 
@@ -122,12 +142,12 @@ impl Task for SwapchainPresent{
         _ctx: &marpii_rmg::CtxRmg,
     ) -> Result<(), RecordError> {
         //schedule image for present if there is any
-        if let PresentOp::InFilght(swimg) = self.next.take(){
+        if let PresentOp::InFilght(swimg) = self.next.take() {
             self.present_image(swimg);
             //reset state
             self.next = PresentOp::None;
-        }else{
-            #[cfg(feature="logging")]
+        } else {
+            #[cfg(feature = "logging")]
             log::warn!("Swapchain queued, but no image infilght after execution.");
         }
 
@@ -137,16 +157,27 @@ impl Task for SwapchainPresent{
     fn register(&self, registry: &mut marpii_rmg::ResourceRegistry) {
         match &self.next {
             PresentOp::InFilght(_) => {
-                #[cfg(feature="logging")]
+                #[cfg(feature = "logging")]
                 log::warn!("Got inflight swapchain image at register phase...");
             }
-            PresentOp::Paired { src_image, sw_image } => {
-                registry.request_image(&src_image, vk::PipelineStageFlags2::TRANSFER, vk::AccessFlags2::TRANSFER_READ, vk::ImageLayout::TRANSFER_SRC_OPTIMAL).unwrap();
-                registry.register_foreign_semaphore(sw_image.sem_present.clone());
+            PresentOp::Paired {
+                src_image,
+                sw_image,
+            } => {
+                registry
+                    .request_image(
+                        &src_image,
+                        vk::PipelineStageFlags2::TRANSFER,
+                        vk::AccessFlags2::TRANSFER_READ,
+                        vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
+                    )
+                    .unwrap();
+                registry.register_foreign_signal_semaphore(sw_image.sem_present.clone());
+                registry.register_foreign_wait_semaphore(sw_image.sem_acquire.clone());
                 registry.register_asset(sw_image.image.clone());
             }
             PresentOp::Scheduled(_) => {
-                #[cfg(feature="logging")]
+                #[cfg(feature = "logging")]
                 log::warn!("Got scheduled image at register phase. Do nothing and present next.");
             }
             PresentOp::None => {}
@@ -163,8 +194,11 @@ impl Task for SwapchainPresent{
         command_buffer: &vk::CommandBuffer,
         resources: &marpii_rmg::Resources,
     ) {
-
-        if let PresentOp::Paired { src_image, sw_image } = self.next.take(){
+        if let PresentOp::Paired {
+            src_image,
+            sw_image,
+        } = self.next.take()
+        {
             //NOTE: This is a little dirty, but okay since only like that for the swapchain.
             //      We take care of the swapchain image our self. We always transition from "undefined",
             //      since we don't care for the old value.
@@ -190,7 +224,6 @@ impl Task for SwapchainPresent{
                 );
             }
 
-
             //copy over
             let img = resources.get_image_state(&src_image);
             let src_region = img.image.image_region();
@@ -206,10 +239,10 @@ impl Task for SwapchainPresent{
                         .dst_image_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
                         .filter(vk::Filter::LINEAR)
                         .regions(&[*vk::ImageBlit2::builder()
-                                   .src_subresource(img.image.subresource_layers_all())
-                                   .dst_subresource(sw_image.image.subresource_layers_all())
-                                   .src_offsets(src_region.to_blit_offsets())
-                                   .dst_offsets(dst_region.to_blit_offsets())]),
+                            .src_subresource(img.image.subresource_layers_all())
+                            .dst_subresource(sw_image.image.subresource_layers_all())
+                            .src_offsets(src_region.to_blit_offsets())
+                            .dst_offsets(dst_region.to_blit_offsets())]),
                 );
             }
 
@@ -234,9 +267,13 @@ impl Task for SwapchainPresent{
 
             //change state again
             self.next = PresentOp::InFilght(sw_image);
-        }else{
-            #[cfg(feature="logging")]
+        } else {
+            #[cfg(feature = "logging")]
             log::warn!("Present scheduled, but no swapchain image present on record.");
         }
+    }
+
+    fn signal_guard(&mut self, guard: Guard) {
+        self.last_guard = Some(guard);
     }
 }

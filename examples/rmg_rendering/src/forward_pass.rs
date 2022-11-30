@@ -29,7 +29,8 @@ pub struct ForwardPass {
 
     pub sim_src: Option<BufferHandle<SimObj>>,
 
-    target_img_ext: vk::Extent2D,
+    /// the framebuffer extent that should be used.
+    pub target_img_ext: vk::Extent2D,
 
     pipeline: Arc<GraphicsPipeline>,
     push: PushConstant<shared::ForwardPush>,
@@ -76,10 +77,7 @@ impl ForwardPass {
                     | vk::BufferUsageFlags::INDEX_BUFFER
             }),
         )?;
-        rmg.record(vk::Extent2D {
-            width: 1,
-            height: 1,
-        })
+        rmg.record()
         .add_task(&mut ver_upload)
         .unwrap()
         .add_task(&mut ind_upload)
@@ -389,8 +387,7 @@ impl Task for ForwardPass {
                 height: desc.extent.height,
             }
         };
-        if resources.get_surface_extent() != img_ext {
-            self.target_img_ext = resources.get_surface_extent();
+        if self.target_img_ext != img_ext {
             self.flip_target_buffer(resources, ctx)?;
         }
 

@@ -45,7 +45,6 @@ impl Task for SwapchainBlit {
         _ctx: &CtxRmg,
     ) -> Result<(), RecordError> {
         if let Some(mut blit) = self.next_blit.take() {
-            println!("\n\n TRY PRESENT \n\n");
             if let Some(swimage) = blit.sw_image.take() {
                 resources.present_image(swimage);
             }

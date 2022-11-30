@@ -47,7 +47,7 @@ pub struct Rmg {
 }
 
 impl Rmg {
-    pub fn new(context: Ctx<Allocator>, surface: &Arc<Surface>) -> Result<Self, RmgError> {
+    pub fn new(context: Ctx<Allocator>) -> Result<Self, RmgError> {
         //Per definition we try to find at least one graphic, compute and transfer queue.
         // We then create the swapchain. It is used for image presentation and the start/end point for frame scheduling.
 
@@ -69,7 +69,7 @@ impl Rmg {
             },
         );
 
-        let res = Resources::new(&context.device, surface)?;
+        let res = Resources::new(&context.device)?;
 
         Ok(Rmg {
             res,
@@ -158,7 +158,7 @@ impl Rmg {
         Ok(self.res.add_sampler(Arc::new(sampler))?)
     }
 
-    pub fn record<'rmg>(&'rmg mut self, window_extent: vk::Extent2D) -> Recorder<'rmg> {
+    pub fn record<'rmg>(&'rmg mut self) -> Recorder<'rmg> {
         //tick all tracks to free resources
         for (_k, t) in self.tracks.0.iter_mut() {
             t.tick_frame();
@@ -166,14 +166,7 @@ impl Rmg {
         //tick resource manager as well
         self.res.tick_record(&self.tracks);
 
-        Recorder::new(self, window_extent)
-    }
-
-    pub fn record_compute_only<'rmg>(&'rmg mut self) -> Recorder<'rmg> {
-        self.record(vk::Extent2D {
-            width: 1,
-            height: 1,
-        })
+        Recorder::new(self)
     }
 
     pub fn resources(&self) -> &Resources {

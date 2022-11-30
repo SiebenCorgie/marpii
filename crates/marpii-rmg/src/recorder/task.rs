@@ -3,7 +3,7 @@ use crate::{
         res_states::{AnyResKey, BufferKey, ImageKey, SamplerKey},
         Resources,
     },
-    BufferHandle, CtxRmg, ImageHandle, RecordError, Rmg, SamplerHandle,
+    BufferHandle, CtxRmg, ImageHandle, RecordError, Rmg, SamplerHandle, track::Guard,
 };
 use ahash::{AHashMap, AHashSet};
 use marpii::{
@@ -18,7 +18,8 @@ pub struct ResourceRegistry {
     buffers: AHashMap<BufferKey, (vk::PipelineStageFlags2, vk::AccessFlags2)>,
     sampler: AHashSet<SamplerKey>,
 
-    foreign_sem: Vec<Arc<vk::Semaphore>>,
+    foreign_signal_sem: Vec<Arc<vk::Semaphore>>,
+    foreign_wait_sem: Vec<Arc<vk::Semaphore>>,
     ///Collects all resources handle used in the registry
     /// is later used to move them into an executions collector
     pub(crate) resource_collection: Vec<Box<dyn Any + Send>>,
@@ -30,7 +31,8 @@ impl ResourceRegistry {
             images: AHashMap::new(),
             buffers: AHashMap::new(),
             sampler: AHashSet::new(),
-            foreign_sem: Vec::new(),
+            foreign_signal_sem: Vec::new(),
+            foreign_wait_sem: Vec::new(),
             resource_collection: Vec::new(),
         }
     }
@@ -98,8 +100,14 @@ impl ResourceRegistry {
     }
 
     ///Registers that this foreign semaphore must be signalled after execution. Needed for swapchain stuff.
-    pub fn register_foreign_semaphore(&mut self, semaphore: Arc<vk::Semaphore>) {
-        self.foreign_sem.push(semaphore.clone());
+    pub fn register_foreign_signal_semaphore(&mut self, semaphore: Arc<vk::Semaphore>) {
+        self.foreign_signal_sem.push(semaphore.clone());
+        self.resource_collection.push(Box::new(semaphore))
+    }
+
+    ///Registers that this foreign semaphore must be waited uppon before execution. Needed for swapchain stuff.
+    pub fn register_foreign_wait_semaphore(&mut self, semaphore: Arc<vk::Semaphore>) {
+        self.foreign_wait_sem.push(semaphore.clone());
         self.resource_collection.push(Box::new(semaphore))
     }
 
@@ -116,7 +124,25 @@ impl ResourceRegistry {
         &self,
         infos: &mut Vec<vk::SemaphoreSubmitInfo>,
     ) {
-        for sem in self.foreign_sem.iter() {
+        for sem in self.foreign_signal_sem.iter() {
+            #[cfg(feature = "logging")]
+            log::trace!("Registering foreign semaphore {:?}", sem.deref().deref());
+
+            infos.push(
+                vk::SemaphoreSubmitInfo::builder()
+                    .semaphore(**sem)
+                    .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
+                    .build(),
+            );
+        }
+    }
+
+    /// Appends all foreign binary semaphores. Mostly used to integrate swapchains.
+    pub(crate) fn append_foreign_wait_semaphores(
+        &self,
+        infos: &mut Vec<vk::SemaphoreSubmitInfo>,
+    ) {
+        for sem in self.foreign_wait_sem.iter() {
             #[cfg(feature = "logging")]
             log::trace!("Registering foreign semaphore {:?}", sem.deref().deref());
 
@@ -281,6 +307,11 @@ pub trait Task {
     ///Signals the task type to the recorder. By default this is compute only.
     fn queue_flags(&self) -> vk::QueueFlags {
         vk::QueueFlags::COMPUTE
+    }
+
+    ///called whenever the task is scheduled. The guard can be queried if it has finished on the gpu when needed.
+    fn signal_guard(&mut self, guard: Guard){
+
     }
 
     ///Can be implemented to make debugging easier

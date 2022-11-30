@@ -402,15 +402,6 @@ impl<'t> Executor<'t> {
             }
         }
 
-        #[cfg(feature = "logging")]
-        log::error!("UNTESTED: is release correct?");
-
-        println!("Release header barriers");
-        for (track, barrier) in &barriers {
-            println!("    [{}]", track);
-            println!("    {:?}", barrier);
-        }
-
         //build submit infos
         self.build_submitinfo_cache(rmg);
 
@@ -976,12 +967,6 @@ impl<'t> Executor<'t> {
                     &cb.inner,
                     &rmg.resources(),
                 );
-
-                //allow the task to add a foreign semaphore, if there is any.
-                track.nodes[node_idx]
-                    .task
-                    .registry
-                    .append_foreign_signal_semaphores(&mut signal_semaphore);
             }
         }
 
@@ -1000,6 +985,24 @@ impl<'t> Executor<'t> {
         // and submit the cb to the track's queue.
         self.build_submitinfo_cache(rmg);
 
+        //append binary semaphores
+        // NOTE: Kinda dirty, but we need to clear the cache when we start...
+        {
+            let track = self.schedule.tracks.get_mut(&trackid).unwrap();
+            for node_idx in track.frames[frame_index].iter_indices() {
+                //allow the task to add a foreign semaphore, if there is any.
+                track.nodes[node_idx]
+                    .task
+                    .registry
+                    .append_foreign_signal_semaphores(&mut signal_semaphore);
+
+                track.nodes[node_idx]
+                    .task
+                    .registry
+                    .append_foreign_wait_semaphores(&mut self.submit_info_cache);
+            }
+        }
+
         //finally, when finished recording, execute by
         unsafe {
             rmg.ctx.device.inner.end_command_buffer(cb.inner)?;
@@ -1011,12 +1014,20 @@ impl<'t> Executor<'t> {
                 .unwrap();
 
             #[cfg(feature = "logging")]
-            log::trace!(
-                "Signal info: {:?}\nFamily: {}, index: {}",
-                signal_semaphore,
-                queue.family_index,
-                0
-            );
+            {
+                log::trace!(
+                    "Wait info: {:?}\nFamily: {}, index: {}",
+                    self.submit_info_cache,
+                    queue.family_index,
+                    0
+                );
+                log::trace!(
+                    "Signal info: {:?}\nFamily: {}, index: {}",
+                    signal_semaphore,
+                    queue.family_index,
+                    0
+                );
+            }
 
             assert!(queue.family_index == track_queue_family);
 

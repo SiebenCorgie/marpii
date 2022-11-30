@@ -175,6 +175,7 @@ pub use recorder::{
 };
 
 pub(crate) mod track;
+pub use track::Guard;
 
 mod rmg;
 pub use rmg::{CtxRmg, Rmg, RmgError};
