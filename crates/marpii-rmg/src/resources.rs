@@ -406,7 +406,7 @@ impl Resources {
                 .get(*k)
                 .map(|img| img.ownership.owner())
                 .flatten(),
-            AnyResKey::Sampler(k) => None,
+            AnyResKey::Sampler(_) => None,
         }
     }
 
