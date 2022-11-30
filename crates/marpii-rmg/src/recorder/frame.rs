@@ -6,7 +6,7 @@ use crate::{
     RecordError, Rmg,
 };
 
-use super::{scheduler::ResLocation, TaskRecord};
+use super::TaskRecord;
 
 #[derive(Debug, Clone)]
 pub(crate) struct Acquire {

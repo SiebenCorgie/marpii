@@ -1,9 +1,9 @@
-pub(crate) mod executor;
-pub(crate) mod frame;
-pub(crate) mod scheduler;
+//pub(crate) mod executor;
+//pub(crate) mod frame;
+//pub(crate) mod scheduler;
 pub mod task;
-pub mod task_executor;
-pub mod task_scheduler;
+pub(crate) mod task_executor;
+pub(crate) mod task_scheduler;
 
 use std::{fmt::Debug, sync::Arc};
 
@@ -19,7 +19,7 @@ use marpii::{
 use std::any::Any;
 use thiserror::Error;
 
-use self::{executor::Executor, scheduler::Schedule, task::ResourceRegistry};
+use self::{task::ResourceRegistry, task_scheduler::TaskSchedule, task_executor::Executor};
 
 #[derive(Debug, Error)]
 pub enum RecordError {
@@ -92,8 +92,6 @@ impl<'t> Debug for TaskRecord<'t> {
 pub struct Recorder<'rmg> {
     pub rmg: &'rmg mut Rmg,
     pub records: Vec<TaskRecord<'rmg>>,
-    #[allow(dead_code)]
-    framebuffer_extent: vk::Extent2D,
 }
 
 impl<'rmg> Recorder<'rmg> {
@@ -116,7 +114,6 @@ impl<'rmg> Recorder<'rmg> {
         Recorder {
             rmg,
             records: Vec::new(),
-            framebuffer_extent,
         }
     }
 
@@ -136,11 +133,8 @@ impl<'rmg> Recorder<'rmg> {
 
     ///Schedules everything for execution
     pub fn execute(self) -> Result<(), RecordError> {
-        let schedule = Schedule::from_tasks(self.rmg, self.records)?;
-        //schedule.print_schedule();
-
-        let executions = Executor::exec(self.rmg, schedule)?;
-
+        let schedule = TaskSchedule::new_from_tasks(self.rmg, self.records)?;
+        let executions = Executor::execute(self.rmg, schedule)?;
         for ex in executions {
             let track = self.rmg.tracks.0.get_mut(&ex.guard.into()).unwrap();
             track.inflight_executions.push(ex);

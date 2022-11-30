@@ -26,7 +26,14 @@ impl SwapchainBlit {
 impl Task for SwapchainBlit {
     fn pre_record(&mut self, resources: &mut Resources, _ctx: &CtxRmg) -> Result<(), RecordError> {
         if let Some(blit) = &mut self.next_blit {
-            blit.sw_image = Some(resources.get_next_swapchain_image().unwrap());
+            //try to acquire an image. Otherwise drop
+            match resources.get_next_swapchain_image(){
+                Ok(img) => blit.sw_image = Some(img),
+                Err(e) => {
+                    #[cfg(feature="logging")]
+                    log::error!("Failed to acquire swapchain: {}", e);
+                }
+            }
         }
 
         Ok(())
@@ -38,6 +45,7 @@ impl Task for SwapchainBlit {
         _ctx: &CtxRmg,
     ) -> Result<(), RecordError> {
         if let Some(mut blit) = self.next_blit.take() {
+            println!("\n\n TRY PRESENT \n\n");
             if let Some(swimage) = blit.sw_image.take() {
                 resources.present_image(swimage);
             }

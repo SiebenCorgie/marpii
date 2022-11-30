@@ -1,4 +1,5 @@
 use ahash::{AHashMap, AHashSet};
+use std::any::Any;
 use marpii::ash::vk;
 use marpii_commands::BarrierBuilder;
 
@@ -34,6 +35,13 @@ impl<'t> Executor<'t> {
         rmg: &mut Rmg,
         schedule: TaskSchedule<'t>,
     ) -> Result<Vec<Execution>, RecordError> {
+
+        #[cfg(feature="logging")]
+        {
+            log::trace!("Schedule:");
+            log::trace!("{}", schedule);
+        }
+
         let next_frame = schedule
             .tracks
             .iter()
@@ -81,8 +89,7 @@ impl<'t> Executor<'t> {
 
         //execute frames
         for (trackid, frame_id) in execution_order.iter() {
-            let execution = exec.schedule_frame(rmg, *trackid, *frame_id)?;
-            exec.execution_cache.push(execution);
+            exec.schedule_frame(rmg, *trackid, *frame_id)?;
         }
 
         //after executing all frames, trigger post_execution for all nodes in order
@@ -103,6 +110,9 @@ impl<'t> Executor<'t> {
     fn has_executable(&self) -> bool {
         for (id, next) in &self.next_frame {
             if self.schedule.tracks.get(id).unwrap().frames.len() > *next {
+                #[cfg(feature="logging")]
+                log::trace!("Possible next @ ({}, {})", id, next);
+
                 return true;
             }
         }
@@ -111,8 +121,20 @@ impl<'t> Executor<'t> {
     }
 
     ///Returns true if the node on the given task was already scheduled.
-    fn is_executed(&self, track: &TrackId, node_idx: &usize) -> bool {
-        self.next_frame.get(track).unwrap() > node_idx
+    fn is_executed(&self, trackid: &TrackId, node_idx: &usize) -> bool {
+        //check until which frame we executed on the track. Then check if the node is any of the already executed frames
+        let track = self.schedule.tracks.get(trackid).unwrap();
+        if let Some(next_frame) = self.next_frame.get(trackid){
+            for test_frame_idx in 0 .. *next_frame{
+                if track.frames[test_frame_idx].contains_idx(*node_idx){
+                    return true;
+                }
+            }
+
+            false
+        }else{
+            false
+        }
     }
 
     ///Selects the next that can be scheduled.
@@ -121,11 +143,16 @@ impl<'t> Executor<'t> {
         // dependencies are already in flight.
         //
         // NOTE: This actually "preferres" to schedule the first track id
-        //  OR   which is not really uniform.
+        //       which is not really uniform.
+        //  OR
         // TODO: It might be beneficial to use some kind of heuristic here.
         //       Maybe order by *task pressure*, or preffer tracks that haven't scheduled
         //       in a while.
         for (trackid, next_idx) in self.next_frame.iter() {
+
+            #[cfg(feature="logging")]
+            log::trace!("TEST: [{:?},{:?}]", trackid, next_idx);
+
             let is_executeable = if let Some(frame) = self
                 .schedule
                 .tracks
@@ -137,6 +164,9 @@ impl<'t> Executor<'t> {
                 //Check if all dependencies in the frame are scheduled or on same frame
                 frame.iter_indices().fold(true, |is, node_idx| {
                     //Check if node in frame is scheduleabel. Skip if we already found that it isn't.
+                    #[cfg(feature="logging")]
+                    log::trace!("    Check frame node: {}", node_idx);
+
                     if is {
                         self.schedule.tracks.get(trackid).unwrap().nodes[node_idx]
                             .dependencies
@@ -146,14 +176,21 @@ impl<'t> Executor<'t> {
                                 if is_sch {
                                     match &dep.participant {
                                         DepPart::Import => true,
-                                        DepPart::Scheduled { track, node_idx } => {
+                                        DepPart::Scheduled { track: dep_track, node_idx: dep_node } => {
                                             //always true if on same index and track
                                             // allows us to *peek into the future*.
-                                            if track == trackid && frame.contains_idx(*node_idx) {
+                                            if dep_track == trackid && frame.contains_idx(*dep_node) {
                                                 true
                                             } else {
                                                 //actually check
-                                                self.is_executed(track, node_idx)
+                                                let set = self.is_executed(dep_track, dep_node);
+
+                                                if !set{
+                                                    #[cfg(feature="logging")]
+                                                    log::trace!("({:?}, {:?}) not executed, needed for {:?}, {:?}: ", dep_track, dep_node, trackid, node_idx);
+                                                }
+
+                                                set
                                             }
                                         }
                                     }
@@ -166,10 +203,16 @@ impl<'t> Executor<'t> {
                     }
                 })
             } else {
+                #[cfg(feature="logging")]
+                log::trace!("NODE does not exist: [{:?},{:?}]", trackid, next_idx);
+
                 false
             };
 
             if is_executeable {
+                #[cfg(feature="logging")]
+                log::trace!("SCHEDULE: [{:?},{:?}]", trackid, next_idx);
+
                 return Ok((*trackid, *next_idx));
             }
         }
@@ -362,7 +405,7 @@ impl<'t> Executor<'t> {
         #[cfg(feature = "logging")]
         log::error!("UNTESTED: is release correct?");
 
-        println!("Release barriers");
+        println!("Release header barriers");
         for (track, barrier) in &barriers {
             println!("    [{}]", track);
             println!("    {:?}", barrier);
@@ -378,30 +421,39 @@ impl<'t> Executor<'t> {
             if barriers.get(trackid).unwrap().has_barrier() {
                 //allocate submission guard.
                 let release_guard = rmg.tracks.0.get_mut(trackid).unwrap().next_guard();
-                //set execution guard for each resource in a release op that is used.
-                for op in release_ops.iter().filter(|op| &op.current_owner == trackid) {
+
+                //set execution guard for each resource in a release op that is used. Then return it anonymously, to be collected by
+                // the execution struct at the end. This will keep the resources alive until the release has executed.
+                let released_resources = release_ops.iter().filter(|op| &op.current_owner == trackid).map(|op| {
                     match op.res {
                         AnyResKey::Buffer(buf) => {
-                            let guard_field =
-                                &mut rmg.resources_mut().buffer.get_mut(buf).unwrap().guard;
+                            let buffer =
+                                &mut rmg.resources_mut().buffer.get_mut(buf).unwrap();
                             assert!(
-                                guard_field.is_none(),
+                                buffer.guard.is_none(),
                                 "Resource had guard, therefore wait was scheduled wrong"
                             );
-                            *guard_field = Some(release_guard.clone());
+                            buffer.guard = Some(release_guard.clone());
+                            Box::new(buffer.buffer.clone())  as Box<dyn Any + Send + 'static>
                         }
                         AnyResKey::Image(img) => {
-                            let guard_field =
-                                &mut rmg.resources_mut().images.get_mut(img).unwrap().guard;
+                            let image  =
+                                &mut rmg.resources_mut().images.get_mut(img).unwrap();
                             assert!(
-                                guard_field.is_none(),
+                                image.guard.is_none(),
                                 "Resource had guard, therefore wait was scheduled wrong"
                             );
-                            *guard_field = Some(release_guard.clone());
+                            image.guard = Some(release_guard.clone());
+
+
+                            Box::new(image.image.clone()) as Box<dyn Any + Send + 'static>
                         }
-                        AnyResKey::Sampler(_) => {}
+                        AnyResKey::Sampler(sam) => {
+                            Box::new(rmg.resources().sampler.get(sam).unwrap().sampler.clone())  as Box<dyn Any + Send + 'static>
+                        }
                     }
-                }
+
+                }).collect();
 
                 let cb = rmg
                     .tracks
@@ -454,7 +506,14 @@ impl<'t> Executor<'t> {
                             .signal_semaphore_infos(&[*signal_info])],
                         vk::Fence::null(),
                     )?;
-                }
+                };
+
+
+                self.execution_cache.push(Execution {
+                    resources: released_resources,
+                    command_buffer: cb,
+                    guard: release_guard
+                });
             }
         }
 
@@ -534,14 +593,17 @@ impl<'t> Executor<'t> {
                             log::trace!("Init {:?} to track {:?}", buf, trackid);
                             bufstate.ownership = QueueOwnership::Owned(track_queue_family)
                         }
-                        QueueOwnership::Owned(_) => {
-                            #[cfg(feature = "logging")]
-                            log::error!(
-                                "Buffer[{:?}] ownership was not released to {} before acquire!",
-                                buf,
-                                track_queue_family
-                            );
-                            return Err(RecordError::AcquireRecord(buf.into(), track_queue_family));
+                        QueueOwnership::Owned(owner) => {
+                            //check that we already own
+                            if owner != track_queue_family{
+                                #[cfg(feature = "logging")]
+                                log::error!(
+                                    "Buffer[{:?}] ownership was not released to {} before acquire!",
+                                    buf,
+                                    track_queue_family
+                                );
+                                return Err(RecordError::AcquireRecord(buf.into(), track_queue_family));
+                            }
                         }
                     }
 
@@ -582,14 +644,17 @@ impl<'t> Executor<'t> {
                             log::trace!("Init {:?} to track {:?}", img, trackid);
                             imgstate.ownership = QueueOwnership::Owned(track_queue_family)
                         }
-                        QueueOwnership::Owned(_) => {
-                            #[cfg(feature = "logging")]
-                            log::error!(
-                                "Image[{:?}] ownership was not released to {} before acquire!",
-                                img,
-                                track_queue_family
-                            );
-                            return Err(RecordError::AcquireRecord(img.into(), track_queue_family));
+                        QueueOwnership::Owned(owner) => {
+                            //check that we acutally already own
+                            if owner != track_queue_family{
+                                #[cfg(feature = "logging")]
+                                log::error!(
+                                    "Image[{:?}] ownership was not released to {} before acquire!",
+                                    img,
+                                    track_queue_family
+                                );
+                                return Err(RecordError::AcquireRecord(img.into(), track_queue_family));
+                            }
                         }
                     }
 
@@ -749,7 +814,7 @@ impl<'t> Executor<'t> {
         rmg: &mut Rmg,
         trackid: TrackId,
         frame_index: usize,
-    ) -> Result<Execution, RecordError> {
+    ) -> Result<(), RecordError> {
         //- build the acquire semaphores by collecting all "import" dependencies and checking their current state.
         //  Wait for the guard/owner semaphore each.
         //- then build transition barriers pre/post task, maybe merge semaphore.
@@ -768,11 +833,40 @@ impl<'t> Executor<'t> {
             .unwrap()
             .new_command_buffer()?;
         unsafe {
+            //begin recording
             rmg.ctx.device.inner.begin_command_buffer(
                 cb.inner,
                 &vk::CommandBufferBeginInfo::builder()
                     .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT),
             )?;
+
+            //bind appropriate descriptor sets.
+            if trackid.0.contains(vk::QueueFlags::COMPUTE) {
+                #[cfg(feature = "logging")]
+                log::trace!("Binding to Compute");
+
+                rmg.ctx.device.inner.cmd_bind_descriptor_sets(
+                    cb.inner,
+                    vk::PipelineBindPoint::COMPUTE,
+                    rmg.res.bindless_layout.layout,
+                    0,
+                    &rmg.res.bindless.clone_raw_descriptor_sets(),
+                    &[],
+                );
+            }
+            if trackid.0.contains(vk::QueueFlags::GRAPHICS) {
+                #[cfg(feature = "logging")]
+                log::trace!("Binding to Graphics");
+
+                rmg.ctx.device.inner.cmd_bind_descriptor_sets(
+                    cb.inner,
+                    vk::PipelineBindPoint::GRAPHICS,
+                    rmg.res.bindless_layout.layout,
+                    0,
+                    &rmg.res.bindless.clone_raw_descriptor_sets(),
+                    &[],
+                );
+            }
         }
         let exec_guard = rmg.tracks.0.get_mut(&trackid).unwrap().next_guard();
         //pre-build signal semaphore. This allows us to
@@ -857,12 +951,12 @@ impl<'t> Executor<'t> {
                             src_stage,
                         );
                     } else {
-                        //wasn't used yet. Assume no stage flags and add to last use
+                        //wasn't used yet. Assume all stage flags and add to last use
                         track.nodes[node_idx].task.registry.add_diff_transition(
                             rmg,
                             &mut trans_barrier,
                             dep.dep,
-                            vk::PipelineStageFlags2::empty(),
+                            vk::PipelineStageFlags2::ALL_COMMANDS,
                         );
                     }
                 }
@@ -876,18 +970,18 @@ impl<'t> Executor<'t> {
                     }
                 }
 
-                //allow the task to add a foreign semaphore, if there is any.
-                track.nodes[node_idx]
-                    .task
-                    .registry
-                    .append_foreign_signal_semaphores(&mut signal_semaphore);
-
                 //now let the node record itself
                 track.nodes[node_idx].task.task.record(
                     &rmg.ctx.device,
                     &cb.inner,
                     &rmg.resources(),
                 );
+
+                //allow the task to add a foreign semaphore, if there is any.
+                track.nodes[node_idx]
+                    .task
+                    .registry
+                    .append_foreign_signal_semaphores(&mut signal_semaphore);
             }
         }
 
@@ -950,10 +1044,13 @@ impl<'t> Executor<'t> {
             );
         }
 
-        Ok(Execution {
+        //add execution to exec cache
+        self.execution_cache.push(Execution {
             resources: used_resources, //FIXME: collect
             command_buffer: cb,
             guard: exec_guard,
-        })
+        });
+
+        Ok(())
     }
 }

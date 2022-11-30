@@ -14,7 +14,7 @@ members = [
 "examples/rmg_rendering",
 "examples/shared",
 "examples/egui",
-"examples/scheduler_dryrun"
+#"examples/scheduler_dryrun"
 ]
 
 

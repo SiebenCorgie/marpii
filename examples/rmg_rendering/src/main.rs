@@ -122,6 +122,8 @@ fn main() -> Result<(), anyhow::Error> {
                     .unwrap()
                     .execute()
                     .unwrap();
+
+                *cf = ControlFlow::Exit;
             }
             Event::WindowEvent {
                 event:
