@@ -47,12 +47,12 @@ impl Task for CopyToGraphicsBuffer {
             &self.src_buffer,
             vk::PipelineStageFlags2::TRANSFER,
             vk::AccessFlags2::TRANSFER_READ,
-        );
+        ).unwrap();
         registry.request_buffer(
             &self.next_buffer(),
             vk::PipelineStageFlags2::TRANSFER,
             vk::AccessFlags2::TRANSFER_WRITE,
-        );
+        ).unwrap();
     }
 
     fn queue_flags(&self) -> marpii::ash::vk::QueueFlags {

@@ -65,12 +65,12 @@ impl Task for UploadImage {
             vk::PipelineStageFlags2::TRANSFER,
             vk::AccessFlags2::TRANSFER_WRITE,
             vk::ImageLayout::TRANSFER_DST_OPTIMAL,
-        );
+        ).unwrap();
         registry.request_buffer(
             &self.upload,
             vk::PipelineStageFlags2::TRANSFER,
             vk::AccessFlags2::TRANSFER_READ,
-        );
+        ).unwrap();
     }
     fn record(
         &mut self,

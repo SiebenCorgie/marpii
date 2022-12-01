@@ -762,18 +762,18 @@ impl Task for EGuiRender {
             self.index_buffer.buffer_handle(),
             vk::PipelineStageFlags2::ALL_GRAPHICS,
             vk::AccessFlags2::INDEX_READ,
-        );
+        ).unwrap();
         registry.request_buffer(
             self.vertex_buffer.buffer_handle(),
             vk::PipelineStageFlags2::ALL_GRAPHICS,
             vk::AccessFlags2::VERTEX_ATTRIBUTE_READ,
-        );
+        ).unwrap();
         registry.request_image(
             &self.target_image,
             vk::PipelineStageFlags2::ALL_GRAPHICS,
             vk::AccessFlags2::COLOR_ATTACHMENT_WRITE,
             vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-        );
+        ).unwrap();
         registry.register_asset(self.pipeline.clone());
     }
 

@@ -39,7 +39,6 @@ use marpii_rmg_tasks::{DynamicBuffer, SwapchainPresent};
 use shared::Ubo;
 use simulation::Simulation;
 use winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
-use winit::window::Window;
 use winit::{
     event::{Event, WindowEvent},
     event_loop::ControlFlow,

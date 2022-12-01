@@ -43,13 +43,13 @@ impl<const N: usize> Task for ImageBlit<N> {
             vk::PipelineStageFlags2::TRANSFER,
             vk::AccessFlags2::TRANSFER_READ,
             vk::ImageLayout::GENERAL,
-        );
+        ).unwrap();
         registry.request_image(
             &self.dst,
             vk::PipelineStageFlags2::TRANSFER,
             vk::AccessFlags2::TRANSFER_WRITE,
             vk::ImageLayout::GENERAL,
-        );
+        ).unwrap();
     }
 
     fn record(

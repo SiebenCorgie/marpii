@@ -99,7 +99,7 @@ impl Task for Simulation {
             &self.sim_buffer,
             vk::PipelineStageFlags2::COMPUTE_SHADER,
             vk::AccessFlags2::empty(),
-        );
+        ).unwrap();
         registry.register_asset(self.pipeline.clone());
     }
 

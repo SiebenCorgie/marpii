@@ -179,6 +179,3 @@ pub use track::Guard;
 
 mod rmg;
 pub use rmg::{CtxRmg, Rmg, RmgError};
-
-mod util;
-pub use util::TempLayoutChange;

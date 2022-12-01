@@ -343,35 +343,35 @@ impl Task for ForwardPass {
                 buf,
                 vk::PipelineStageFlags2::ALL_GRAPHICS,
                 vk::AccessFlags2::empty(),
-            );
+            ).unwrap();
         }
         registry.request_image(
             &self.color_image,
             vk::PipelineStageFlags2::ALL_GRAPHICS,
             vk::AccessFlags2::COLOR_ATTACHMENT_WRITE,
             vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-        );
+        ).unwrap();
         registry.request_image(
             &self.depth_image,
             vk::PipelineStageFlags2::ALL_GRAPHICS,
             vk::AccessFlags2::DEPTH_STENCIL_ATTACHMENT_WRITE,
             vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL,
-        );
+        ).unwrap();
         registry.request_buffer(
             &self.vertex_buffer,
             vk::PipelineStageFlags2::ALL_GRAPHICS,
             vk::AccessFlags2::VERTEX_ATTRIBUTE_READ,
-        );
+        ).unwrap();
         registry.request_buffer(
             &self.index_buffer,
             vk::PipelineStageFlags2::ALL_GRAPHICS,
             vk::AccessFlags2::INDEX_READ,
-        );
+        ).unwrap();
         registry.request_buffer(
             &self.ubo_buffer,
             vk::PipelineStageFlags2::ALL_GRAPHICS,
             vk::AccessFlags2::SHADER_READ,
-        );
+        ).unwrap();
         registry.register_asset(self.pipeline.clone());
     }
 

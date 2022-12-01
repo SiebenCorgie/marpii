@@ -102,7 +102,7 @@ impl<T: marpii::bytemuck::Pod> Task for DynamicBuffer<T> {
             &self.gpu_local,
             vk::PipelineStageFlags2::TRANSFER,
             vk::AccessFlags2::TRANSFER_WRITE,
-        );
+        ).unwrap();
     }
     fn record(
         &mut self,

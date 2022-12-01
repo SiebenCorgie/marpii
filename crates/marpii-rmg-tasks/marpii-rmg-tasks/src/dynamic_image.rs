@@ -85,7 +85,7 @@ impl Task for DynamicImage {
             vk::PipelineStageFlags2::TRANSFER,
             vk::AccessFlags2::TRANSFER_WRITE,
             vk::ImageLayout::GENERAL,
-        );
+        ).unwrap();
         for cp in self.staging_copies.iter() {
             registry.register_asset(cp.buffer.clone());
         }

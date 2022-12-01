@@ -1,10 +1,9 @@
 use anyhow::Result;
-use marpii::{ash::vk, context::Ctx};
+use marpii::context::Ctx;
 use marpii_rmg::Rmg;
 use marpii_rmg_tasks::{egui, EGuiWinitIntegration, SwapchainPresent};
 
 use winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
-use winit::window::Window;
 use winit::{
     event::{Event, WindowEvent},
     event_loop::ControlFlow,
