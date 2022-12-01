@@ -3,7 +3,7 @@ use marpii::{
     surface::Surface,
     swapchain::{Swapchain, SwapchainImage},
 };
-use marpii_rmg::{Guard, ImageHandle, RecordError, ResourceError, Rmg, Task};
+use marpii_rmg::{ImageHandle, RecordError, ResourceError, Rmg, Task};
 use std::sync::Arc;
 
 enum PresentOp {
@@ -31,7 +31,6 @@ pub struct SwapchainPresent {
     ///the image that is going to be presented next.
     //TODO: Do we want to implement more fancy double buffering? Usually done by the driver tho.
     next: PresentOp,
-    last_guard: Option<Guard>,
 }
 
 impl SwapchainPresent {
@@ -50,13 +49,16 @@ impl SwapchainPresent {
                 height: 1,
             },
             next: PresentOp::None,
-            last_guard: None,
         })
     }
 
     ///Pushes `image` to be presented whenever the task is scheduled next.
     /// Might overwrite any inflight or already pushed frames that are waiting for execution.
-    pub fn push_image(&mut self, image: ImageHandle) {
+    ///
+    /// `extent` should be the framebuffer extent or something smaller. Either retiev from [extent] or from your windowing
+    /// library.
+    pub fn push_image(&mut self, image: ImageHandle, extent: vk::Extent2D) {
+        self.last_known_extent = extent;
         self.next = PresentOp::Scheduled(image);
     }
 
@@ -76,10 +78,6 @@ impl SwapchainPresent {
         };
 
         Ok(())
-    }
-
-    pub fn set_extent(&mut self, ext: vk::Extent2D) {
-        self.last_known_extent = ext;
     }
 
     fn next_image(&mut self) -> Result<SwapchainImage, ResourceError> {
@@ -271,9 +269,5 @@ impl Task for SwapchainPresent {
             #[cfg(feature = "logging")]
             log::warn!("Present scheduled, but no swapchain image present on record.");
         }
-    }
-
-    fn signal_guard(&mut self, guard: Guard) {
-        self.last_guard = Some(guard);
     }
 }

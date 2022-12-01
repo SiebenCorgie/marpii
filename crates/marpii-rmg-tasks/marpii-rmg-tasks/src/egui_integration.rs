@@ -469,7 +469,7 @@ impl EGuiRender {
                     let clip_max_y = clip_max_y.round() as u32;
 
                     let texture = match self.atlas.get(&mesh.texture_id) {
-                        Some(t) => rmg.resources_mut().get_resource_handle(t.image.clone())?,
+                        Some(t) => rmg.resources_mut().resource_handle_or_bind(t.image.clone())?,
                         None => {
                             #[cfg(feature = "logging")]
                             log::error!("No texture={:?} for egui mesh", mesh.texture_id);
@@ -480,7 +480,7 @@ impl EGuiRender {
                     //TODO choose right one?
                     let sampler = rmg
                         .resources_mut()
-                        .get_resource_handle(self.linear_sampler.clone())?;
+                        .resource_handle_or_bind(self.linear_sampler.clone())?;
 
                     let command = EGuiPrimDraw {
                         sampler,

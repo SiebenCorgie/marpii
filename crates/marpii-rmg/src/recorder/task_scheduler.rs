@@ -131,7 +131,7 @@ impl<'t> TrackSchedule<'t> {
     fn has_unscheduled(&self) -> bool {
         //check if last is in last range
         match (self.frames.last(), self.nodes.last()) {
-            (Some(last_frame), Some(last_node)) => {
+            (Some(last_frame), Some(_)) => {
                 if !last_frame.contains_idx(self.nodes.len() - 1) {
                     //last node is NOT contained in last node
                     true
@@ -194,8 +194,8 @@ impl<'t> TaskSchedule<'t> {
         let tracks = rmg
             .tracks
             .0
-            .iter()
-            .map(|(id, track)| {
+            .keys()
+            .map(|id| {
                 (
                     *id,
                     TrackSchedule {
@@ -270,7 +270,7 @@ impl<'t> TaskSchedule<'t> {
                     .push(Dependency {
                         participant: DepPart::Scheduled {
                             track: node_track,
-                            node_idx: node_idx,
+                            node_idx,
                         },
                         dep: res,
                     });

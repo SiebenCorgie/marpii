@@ -82,9 +82,9 @@ impl Task for Simulation {
         resources: &mut marpii_rmg::Resources,
         _ctx: &marpii_rmg::CtxRmg,
     ) -> Result<(), marpii_rmg::RecordError> {
-        self.push.get_content_mut().sim_buffer = resources.get_resource_handle(&self.sim_buffer)?;
+        self.push.get_content_mut().sim_buffer = resources.resource_handle_or_bind(self.sim_buffer.clone())?;
         self.push.get_content_mut().img_handle =
-            resources.get_resource_handle(&self.feedback_image)?;
+            resources.resource_handle_or_bind(self.feedback_image.clone())?;
         self.push.get_content_mut().is_init = self.is_init.into();
 
         if !self.is_init {

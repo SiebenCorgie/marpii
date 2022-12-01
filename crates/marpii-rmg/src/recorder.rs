@@ -9,7 +9,7 @@ use std::{fmt::Debug, sync::Arc};
 
 use crate::{
     resources::handle::AnyHandle,
-    track::{Guard, TrackId},
+    track::Guard,
     ResourceError, Rmg, Task,
 };
 use marpii::{
@@ -50,13 +50,6 @@ pub enum RecordError {
     DeadLock,
 }
 
-pub(crate) struct WaitEvent {
-    ///The block ID we are waiting for.
-    track: TrackId,
-    ///The semaphore value that needs to be reached on the track before continuing.
-    block_sem: u64,
-}
-
 pub struct Execution {
     ///All resources that need to be kept alive until the execution finishes
     #[allow(dead_code)]
@@ -66,15 +59,6 @@ pub struct Execution {
     pub(crate) command_buffer: CommandBuffer<Arc<CommandPool>>,
     ///Until when it is guarded.
     pub(crate) guard: Guard,
-}
-
-impl Default for WaitEvent {
-    fn default() -> Self {
-        WaitEvent {
-            track: TrackId::empty(),
-            block_sem: 0,
-        }
-    }
 }
 
 pub struct TaskRecord<'t> {

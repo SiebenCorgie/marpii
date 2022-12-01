@@ -103,7 +103,6 @@ fn main() -> Result<(), anyhow::Error> {
                     width: window.inner_size().width,
                     height: window.inner_size().height
                 });
-                swapchain_blit.set_extent(framebuffer_ext);
 
                 log::info!("Start frame for {:?}", framebuffer_ext);
                 forward.target_img_ext = framebuffer_ext;
@@ -115,7 +114,7 @@ fn main() -> Result<(), anyhow::Error> {
                 forward.sim_src = Some(buffer_copy.last_buffer());
 
                 //setup src image and blit
-                swapchain_blit.push_image(forward.color_image.clone());
+                swapchain_blit.push_image(forward.color_image.clone(), framebuffer_ext);
 
                 rmg.record()
                     .add_task(&mut simulation)

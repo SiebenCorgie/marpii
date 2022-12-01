@@ -1,4 +1,4 @@
-use ahash::{AHashMap, AHashSet};
+use ahash::AHashMap;
 use std::any::Any;
 use marpii::ash::vk;
 use marpii_commands::BarrierBuilder;
@@ -11,7 +11,7 @@ use crate::{
 };
 
 use super::{
-    task_scheduler::{Dependency, TaskSchedule},
+    task_scheduler::TaskSchedule,
     Execution,
 };
 
@@ -407,7 +407,7 @@ impl<'t> Executor<'t> {
 
         //now setup semaphore values for each frame. Depending on if there is a release on that track
         // or not it might change by 1.
-        for (trackid, track) in self.schedule.tracks.iter() {
+        for trackid in self.schedule.tracks.keys() {
             //schedule on sem val and execute release barrier immediately, move semval up once.
             if barriers.get(trackid).unwrap().has_barrier() {
                 //allocate submission guard.

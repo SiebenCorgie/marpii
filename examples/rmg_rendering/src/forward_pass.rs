@@ -391,9 +391,9 @@ impl Task for ForwardPass {
             self.flip_target_buffer(resources, ctx)?;
         }
 
-        self.push.get_content_mut().ubo = resources.get_resource_handle(&self.ubo_buffer)?;
+        self.push.get_content_mut().ubo = resources.resource_handle_or_bind(self.ubo_buffer.clone())?;
         self.push.get_content_mut().sim =
-            resources.get_resource_handle(self.sim_src.as_ref().unwrap())?;
+            resources.resource_handle_or_bind(self.sim_src.as_ref().unwrap())?;
         Ok(())
     }
 

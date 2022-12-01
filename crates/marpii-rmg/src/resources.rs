@@ -3,8 +3,6 @@ use marpii::{
     ash::vk,
     context::Device,
     resources::{BufDesc, Buffer, Image, ImgDesc, PipelineLayout, SafeImageView, Sampler},
-    surface::Surface,
-    swapchain::{Swapchain, SwapchainImage},
 };
 use slotmap::SlotMap;
 use std::{marker::PhantomData, sync::Arc};
@@ -17,7 +15,7 @@ use crate::{
             BufferKey, ImageKey, QueueOwnership, ResBuffer, ResImage, ResSampler, SamplerKey,
         },
     },
-    track::{TrackId, Tracks},
+    track::Tracks,
     BufferHandle, ImageHandle, SamplerHandle,
 };
 
@@ -55,6 +53,9 @@ pub enum ResourceError {
 
     #[error("There is no Track for queue family {0}")]
     NoTrackForQueueFamily(u32),
+
+    #[error("Resource was already requested for the registry.")]
+    ResourceAlreadyRequested,
 }
 
 pub struct Resources {
@@ -236,26 +237,33 @@ impl Resources {
     }
 
     ///Tries to get the resource's bindless handle. If not already bound, tries to bind the resource
-    pub fn get_resource_handle(
+    pub fn resource_handle_or_bind(
         &mut self,
-        res: impl Into<AnyHandle>,
+        res: impl Into<AnyHandle> + Clone,
     ) -> Result<ResourceHandle, ResourceError> {
-        let res = res.into();
-        let hdl = match res.key {
+        if let Some(hdl) = self.try_resource_handle(res.clone()) {
+            return Ok(hdl);
+        } else {
+            let hdl = res.into();
+            //try to bind, try that
+            Ok(self.bind(hdl.key)?)
+        }
+    }
+
+    /// Tries to find a resource for the handle. Returns None if the resource is not bound yet.
+    pub fn try_resource_handle(&self, res: impl Into<AnyHandle>) -> Option<ResourceHandle>{
+        let hdl = res.into();
+        let hdl = match hdl.key {
             AnyResKey::Buffer(buf) => self.buffer.get(buf).unwrap().descriptor_handle,
             AnyResKey::Image(img) => self.images.get(img).unwrap().descriptor_handle,
             AnyResKey::Sampler(sam) => self.sampler.get(sam).unwrap().descriptor_handle,
         };
-
-        if let Some(hdl) = hdl {
-            return Ok(hdl);
-        } else {
-            //have to bind, try that
-            Ok(self.bind(res.key)?)
-        }
+        hdl
     }
 
-    ///Tick the resource manager that a new frame has started
+
+
+    ///tick the resource manager that a new frame has started
     //TODO: Currently we use the rendering frame to do all the cleanup. In a perfect world we'd use
     //      another thread for that to not stall the recording process
     pub(crate) fn tick_record(&mut self, tracks: &Tracks) {

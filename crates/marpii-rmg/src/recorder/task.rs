@@ -3,7 +3,7 @@ use crate::{
         res_states::{AnyResKey, BufferKey, ImageKey, SamplerKey},
         Resources,
     },
-    BufferHandle, CtxRmg, ImageHandle, RecordError, Rmg, SamplerHandle, track::Guard,
+    BufferHandle, CtxRmg, ImageHandle, RecordError, Rmg, SamplerHandle, ResourceError,
 };
 use ahash::{AHashMap, AHashSet};
 use marpii::{
@@ -48,13 +48,13 @@ impl ResourceRegistry {
         stage: vk::PipelineStageFlags2,
         access: vk::AccessFlags2,
         layout: ImageLayout,
-    ) -> Result<(), ()> {
+    ) -> Result<(), ResourceError> {
         if self
             .images
             .insert(image.key, (stage, access, layout))
             .is_some()
         {
-            return Err(());
+            return Err(ResourceError::ResourceAlreadyRequested);
         }
         self.resource_collection
             .push(Box::new(image.imgref.clone()));
@@ -64,15 +64,15 @@ impl ResourceRegistry {
     ///Registers `buffer` as needed buffer. The buffer will be available in the given `stage` when using `access`.
     ///
     ///
-    /// Returns `Err` if the image was already registered.
+    /// Returns `Err` if the buffer was already registered.
     pub fn request_buffer<T: 'static>(
         &mut self,
         buffer: &BufferHandle<T>,
         stage: vk::PipelineStageFlags2,
         access: vk::AccessFlags2,
-    ) -> Result<(), ()> {
+    ) -> Result<(), ResourceError> {
         if self.buffers.insert(buffer.key, (stage, access)).is_some() {
-            return Err(());
+            return Err(ResourceError::ResourceAlreadyRequested);
         }
         self.resource_collection
             .push(Box::new(buffer.bufref.clone()));
@@ -83,15 +83,15 @@ impl ResourceRegistry {
     ///
     ///
     ///
-    /// Returns `Err` if the image was already registered.
-    pub fn request_sampler(&mut self, sampler: &SamplerHandle) -> Result<(), ()> {
+    /// Returns `Err` if the sampler was already registered.
+    pub fn request_sampler(&mut self, sampler: &SamplerHandle) -> Result<(), ResourceError> {
         if !self.sampler.insert(sampler.key) {
-            return Err(());
+            return Err(ResourceError::ResourceAlreadyRequested);
         }
         self.resource_collection
             .push(Box::new(sampler.samref.clone()));
 
-        Err(())
+        Ok(())
     }
 
     ///Registers *any*thing to be kept alive until the task finishes its execution.
@@ -176,6 +176,7 @@ impl ResourceRegistry {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn contains_key(&self, resource: &AnyResKey) -> bool {
         match resource {
             AnyResKey::Buffer(buf) => self.buffers.contains_key(buf),
@@ -307,11 +308,6 @@ pub trait Task {
     ///Signals the task type to the recorder. By default this is compute only.
     fn queue_flags(&self) -> vk::QueueFlags {
         vk::QueueFlags::COMPUTE
-    }
-
-    ///called whenever the task is scheduled. The guard can be queried if it has finished on the gpu when needed.
-    fn signal_guard(&mut self, guard: Guard){
-
     }
 
     ///Can be implemented to make debugging easier
