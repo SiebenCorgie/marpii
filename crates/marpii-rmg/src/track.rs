@@ -37,21 +37,21 @@ impl Guard {
     }
 
     //Returns true if the gurad was passed on the gpu
-    pub fn is_expired(&self, rmg: &Rmg) -> bool{
-        if let Some(t) = rmg.tracks.0.get(&self.track){
+    pub fn is_expired(&self, rmg: &Rmg) -> bool {
+        if let Some(t) = rmg.tracks.0.get(&self.track) {
             t.latest_signaled_value > self.target_value
-        }else{
-            #[cfg(feature="logging")]
+        } else {
+            #[cfg(feature = "logging")]
             log::warn!("Queried guard for none existent track.");
             false
         }
     }
 
     ///Waits for the guard to expire. Fails if that is not possible
-    pub fn wait(&self, rmg: &Rmg, timeout: u64) -> Result<(), vk::Result>{
-        if let Some(t) = rmg.tracks.0.get(&self.track){
+    pub fn wait(&self, rmg: &Rmg, timeout: u64) -> Result<(), vk::Result> {
+        if let Some(t) = rmg.tracks.0.get(&self.track) {
             t.sem.wait(self.target_value, timeout)
-        }else{
+        } else {
             Err(vk::Result::ERROR_UNKNOWN)
         }
     }

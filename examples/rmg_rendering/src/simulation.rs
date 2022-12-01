@@ -82,7 +82,8 @@ impl Task for Simulation {
         resources: &mut marpii_rmg::Resources,
         _ctx: &marpii_rmg::CtxRmg,
     ) -> Result<(), marpii_rmg::RecordError> {
-        self.push.get_content_mut().sim_buffer = resources.resource_handle_or_bind(self.sim_buffer.clone())?;
+        self.push.get_content_mut().sim_buffer =
+            resources.resource_handle_or_bind(self.sim_buffer.clone())?;
         self.push.get_content_mut().img_handle =
             resources.resource_handle_or_bind(self.feedback_image.clone())?;
         self.push.get_content_mut().is_init = self.is_init.into();
@@ -95,11 +96,13 @@ impl Task for Simulation {
     }
 
     fn register(&self, registry: &mut marpii_rmg::ResourceRegistry) {
-        registry.request_buffer(
-            &self.sim_buffer,
-            vk::PipelineStageFlags2::COMPUTE_SHADER,
-            vk::AccessFlags2::empty(),
-        ).unwrap();
+        registry
+            .request_buffer(
+                &self.sim_buffer,
+                vk::PipelineStageFlags2::COMPUTE_SHADER,
+                vk::AccessFlags2::empty(),
+            )
+            .unwrap();
         registry.register_asset(self.pipeline.clone());
     }
 

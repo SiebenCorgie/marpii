@@ -469,7 +469,9 @@ impl EGuiRender {
                     let clip_max_y = clip_max_y.round() as u32;
 
                     let texture = match self.atlas.get(&mesh.texture_id) {
-                        Some(t) => rmg.resources_mut().resource_handle_or_bind(t.image.clone())?,
+                        Some(t) => rmg
+                            .resources_mut()
+                            .resource_handle_or_bind(t.image.clone())?,
                         None => {
                             #[cfg(feature = "logging")]
                             log::error!("No texture={:?} for egui mesh", mesh.texture_id);
@@ -758,22 +760,28 @@ impl Task for EGuiRender {
             tex.register(registry);
         }
 
-        registry.request_buffer(
-            self.index_buffer.buffer_handle(),
-            vk::PipelineStageFlags2::ALL_GRAPHICS,
-            vk::AccessFlags2::INDEX_READ,
-        ).unwrap();
-        registry.request_buffer(
-            self.vertex_buffer.buffer_handle(),
-            vk::PipelineStageFlags2::ALL_GRAPHICS,
-            vk::AccessFlags2::VERTEX_ATTRIBUTE_READ,
-        ).unwrap();
-        registry.request_image(
-            &self.target_image,
-            vk::PipelineStageFlags2::ALL_GRAPHICS,
-            vk::AccessFlags2::COLOR_ATTACHMENT_WRITE,
-            vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-        ).unwrap();
+        registry
+            .request_buffer(
+                self.index_buffer.buffer_handle(),
+                vk::PipelineStageFlags2::ALL_GRAPHICS,
+                vk::AccessFlags2::INDEX_READ,
+            )
+            .unwrap();
+        registry
+            .request_buffer(
+                self.vertex_buffer.buffer_handle(),
+                vk::PipelineStageFlags2::ALL_GRAPHICS,
+                vk::AccessFlags2::VERTEX_ATTRIBUTE_READ,
+            )
+            .unwrap();
+        registry
+            .request_image(
+                &self.target_image,
+                vk::PipelineStageFlags2::ALL_GRAPHICS,
+                vk::AccessFlags2::COLOR_ATTACHMENT_WRITE,
+                vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+            )
+            .unwrap();
         registry.register_asset(self.pipeline.clone());
     }
 

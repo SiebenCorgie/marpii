@@ -251,7 +251,7 @@ impl Resources {
     }
 
     /// Tries to find a resource for the handle. Returns None if the resource is not bound yet.
-    pub fn try_resource_handle(&self, res: impl Into<AnyHandle>) -> Option<ResourceHandle>{
+    pub fn try_resource_handle(&self, res: impl Into<AnyHandle>) -> Option<ResourceHandle> {
         let hdl = res.into();
         let hdl = match hdl.key {
             AnyResKey::Buffer(buf) => self.buffer.get(buf).unwrap().descriptor_handle,
@@ -260,8 +260,6 @@ impl Resources {
         };
         hdl
     }
-
-
 
     ///tick the resource manager that a new frame has started
     //TODO: Currently we use the rendering frame to do all the cleanup. In a perfect world we'd use

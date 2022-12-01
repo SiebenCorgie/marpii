@@ -5,7 +5,7 @@ use marpii::{
     ash::vk,
     context::Ctx,
     gpu_allocator::vulkan::Allocator,
-    resources::{BufDesc, Buffer, Image, ImgDesc, Sampler, SharingMode}
+    resources::{BufDesc, Buffer, Image, ImgDesc, Sampler, SharingMode},
 };
 use std::sync::Arc;
 use thiserror::Error;

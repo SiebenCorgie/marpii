@@ -38,18 +38,22 @@ impl<const N: usize> Task for ImageBlit<N> {
     }
 
     fn register(&self, registry: &mut marpii_rmg::ResourceRegistry) {
-        registry.request_image(
-            &self.src,
-            vk::PipelineStageFlags2::TRANSFER,
-            vk::AccessFlags2::TRANSFER_READ,
-            vk::ImageLayout::GENERAL,
-        ).unwrap();
-        registry.request_image(
-            &self.dst,
-            vk::PipelineStageFlags2::TRANSFER,
-            vk::AccessFlags2::TRANSFER_WRITE,
-            vk::ImageLayout::GENERAL,
-        ).unwrap();
+        registry
+            .request_image(
+                &self.src,
+                vk::PipelineStageFlags2::TRANSFER,
+                vk::AccessFlags2::TRANSFER_READ,
+                vk::ImageLayout::GENERAL,
+            )
+            .unwrap();
+        registry
+            .request_image(
+                &self.dst,
+                vk::PipelineStageFlags2::TRANSFER,
+                vk::AccessFlags2::TRANSFER_WRITE,
+                vk::ImageLayout::GENERAL,
+            )
+            .unwrap();
     }
 
     fn record(

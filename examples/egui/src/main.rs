@@ -50,7 +50,15 @@ fn main() -> Result<(), anyhow::Error> {
                 .unwrap();
 
                 //setup src image and blit
-                swapchain_blit.push_image(egui.renderer().target_image().clone(), swapchain_blit.extent().unwrap_or(marpii::ash::vk::Extent2D { width: window.inner_size().width, height: window.inner_size().height }));
+                swapchain_blit.push_image(
+                    egui.renderer().target_image().clone(),
+                    swapchain_blit
+                        .extent()
+                        .unwrap_or(marpii::ash::vk::Extent2D {
+                            width: window.inner_size().width,
+                            height: window.inner_size().height,
+                        }),
+                );
 
                 rmg.record()
                     .add_task(egui.renderer_mut())

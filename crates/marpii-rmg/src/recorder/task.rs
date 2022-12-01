@@ -3,7 +3,7 @@ use crate::{
         res_states::{AnyResKey, BufferKey, ImageKey, SamplerKey},
         Resources,
     },
-    BufferHandle, CtxRmg, ImageHandle, RecordError, Rmg, SamplerHandle, ResourceError,
+    BufferHandle, CtxRmg, ImageHandle, RecordError, ResourceError, Rmg, SamplerHandle,
 };
 use ahash::{AHashMap, AHashSet};
 use marpii::{
@@ -138,10 +138,7 @@ impl ResourceRegistry {
     }
 
     /// Appends all foreign binary semaphores. Mostly used to integrate swapchains.
-    pub(crate) fn append_foreign_wait_semaphores(
-        &self,
-        infos: &mut Vec<vk::SemaphoreSubmitInfo>,
-    ) {
+    pub(crate) fn append_foreign_wait_semaphores(&self, infos: &mut Vec<vk::SemaphoreSubmitInfo>) {
         for sem in self.foreign_wait_sem.iter() {
             #[cfg(feature = "logging")]
             log::trace!("Registering foreign semaphore {:?}", sem.deref().deref());

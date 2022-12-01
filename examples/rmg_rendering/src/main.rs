@@ -99,9 +99,9 @@ fn main() -> Result<(), anyhow::Error> {
                 camera.tick();
 
                 //update framebuffer extent to current one.
-                let framebuffer_ext = swapchain_blit.extent().unwrap_or(vk::Extent2D{
+                let framebuffer_ext = swapchain_blit.extent().unwrap_or(vk::Extent2D {
                     width: window.inner_size().width,
-                    height: window.inner_size().height
+                    height: window.inner_size().height,
                 });
 
                 log::info!("Start frame for {:?}", framebuffer_ext);

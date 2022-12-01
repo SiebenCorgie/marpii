@@ -78,11 +78,11 @@ impl ForwardPass {
             }),
         )?;
         rmg.record()
-        .add_task(&mut ver_upload)
-        .unwrap()
-        .add_task(&mut ind_upload)
-        .unwrap()
-        .execute()?;
+            .add_task(&mut ver_upload)
+            .unwrap()
+            .add_task(&mut ind_upload)
+            .unwrap()
+            .execute()?;
 
         let vertex_buffer = ver_upload.buffer;
         let index_buffer = ind_upload.buffer;
@@ -339,39 +339,51 @@ impl ForwardPass {
 impl Task for ForwardPass {
     fn register(&self, registry: &mut ResourceRegistry) {
         if let Some(buf) = &self.sim_src {
-            registry.request_buffer(
-                buf,
-                vk::PipelineStageFlags2::ALL_GRAPHICS,
-                vk::AccessFlags2::empty(),
-            ).unwrap();
+            registry
+                .request_buffer(
+                    buf,
+                    vk::PipelineStageFlags2::ALL_GRAPHICS,
+                    vk::AccessFlags2::empty(),
+                )
+                .unwrap();
         }
-        registry.request_image(
-            &self.color_image,
-            vk::PipelineStageFlags2::ALL_GRAPHICS,
-            vk::AccessFlags2::COLOR_ATTACHMENT_WRITE,
-            vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-        ).unwrap();
-        registry.request_image(
-            &self.depth_image,
-            vk::PipelineStageFlags2::ALL_GRAPHICS,
-            vk::AccessFlags2::DEPTH_STENCIL_ATTACHMENT_WRITE,
-            vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL,
-        ).unwrap();
-        registry.request_buffer(
-            &self.vertex_buffer,
-            vk::PipelineStageFlags2::ALL_GRAPHICS,
-            vk::AccessFlags2::VERTEX_ATTRIBUTE_READ,
-        ).unwrap();
-        registry.request_buffer(
-            &self.index_buffer,
-            vk::PipelineStageFlags2::ALL_GRAPHICS,
-            vk::AccessFlags2::INDEX_READ,
-        ).unwrap();
-        registry.request_buffer(
-            &self.ubo_buffer,
-            vk::PipelineStageFlags2::ALL_GRAPHICS,
-            vk::AccessFlags2::SHADER_READ,
-        ).unwrap();
+        registry
+            .request_image(
+                &self.color_image,
+                vk::PipelineStageFlags2::ALL_GRAPHICS,
+                vk::AccessFlags2::COLOR_ATTACHMENT_WRITE,
+                vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+            )
+            .unwrap();
+        registry
+            .request_image(
+                &self.depth_image,
+                vk::PipelineStageFlags2::ALL_GRAPHICS,
+                vk::AccessFlags2::DEPTH_STENCIL_ATTACHMENT_WRITE,
+                vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL,
+            )
+            .unwrap();
+        registry
+            .request_buffer(
+                &self.vertex_buffer,
+                vk::PipelineStageFlags2::ALL_GRAPHICS,
+                vk::AccessFlags2::VERTEX_ATTRIBUTE_READ,
+            )
+            .unwrap();
+        registry
+            .request_buffer(
+                &self.index_buffer,
+                vk::PipelineStageFlags2::ALL_GRAPHICS,
+                vk::AccessFlags2::INDEX_READ,
+            )
+            .unwrap();
+        registry
+            .request_buffer(
+                &self.ubo_buffer,
+                vk::PipelineStageFlags2::ALL_GRAPHICS,
+                vk::AccessFlags2::SHADER_READ,
+            )
+            .unwrap();
         registry.register_asset(self.pipeline.clone());
     }
 
@@ -391,7 +403,8 @@ impl Task for ForwardPass {
             self.flip_target_buffer(resources, ctx)?;
         }
 
-        self.push.get_content_mut().ubo = resources.resource_handle_or_bind(self.ubo_buffer.clone())?;
+        self.push.get_content_mut().ubo =
+            resources.resource_handle_or_bind(self.ubo_buffer.clone())?;
         self.push.get_content_mut().sim =
             resources.resource_handle_or_bind(self.sim_src.as_ref().unwrap())?;
         Ok(())

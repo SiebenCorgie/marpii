@@ -1,7 +1,7 @@
 use ahash::AHashMap;
-use std::any::Any;
 use marpii::ash::vk;
 use marpii_commands::BarrierBuilder;
+use std::any::Any;
 
 use crate::{
     recorder::task_scheduler::DepPart,
@@ -10,10 +10,7 @@ use crate::{
     RecordError, Rmg,
 };
 
-use super::{
-    task_scheduler::TaskSchedule,
-    Execution,
-};
+use super::{task_scheduler::TaskSchedule, Execution};
 
 ///Schedule executor. Takes Frames, dependencies and dependees to build an
 /// command buffer that is immediately pushed to the GPU.
@@ -35,8 +32,7 @@ impl<'t> Executor<'t> {
         rmg: &mut Rmg,
         schedule: TaskSchedule<'t>,
     ) -> Result<Vec<Execution>, RecordError> {
-
-        #[cfg(feature="logging")]
+        #[cfg(feature = "logging")]
         {
             log::trace!("Schedule:");
             log::trace!("{}", schedule);
@@ -110,7 +106,7 @@ impl<'t> Executor<'t> {
     fn has_executable(&self) -> bool {
         for (id, next) in &self.next_frame {
             if self.schedule.tracks.get(id).unwrap().frames.len() > *next {
-                #[cfg(feature="logging")]
+                #[cfg(feature = "logging")]
                 log::trace!("Possible next @ ({}, {})", id, next);
 
                 return true;
@@ -124,15 +120,15 @@ impl<'t> Executor<'t> {
     fn is_executed(&self, trackid: &TrackId, node_idx: &usize) -> bool {
         //check until which frame we executed on the track. Then check if the node is any of the already executed frames
         let track = self.schedule.tracks.get(trackid).unwrap();
-        if let Some(next_frame) = self.next_frame.get(trackid){
-            for test_frame_idx in 0 .. *next_frame{
-                if track.frames[test_frame_idx].contains_idx(*node_idx){
+        if let Some(next_frame) = self.next_frame.get(trackid) {
+            for test_frame_idx in 0..*next_frame {
+                if track.frames[test_frame_idx].contains_idx(*node_idx) {
                     return true;
                 }
             }
 
             false
-        }else{
+        } else {
             false
         }
     }
@@ -149,8 +145,7 @@ impl<'t> Executor<'t> {
         //       Maybe order by *task pressure*, or preffer tracks that haven't scheduled
         //       in a while.
         for (trackid, next_idx) in self.next_frame.iter() {
-
-            #[cfg(feature="logging")]
+            #[cfg(feature = "logging")]
             log::trace!("TEST: [{:?},{:?}]", trackid, next_idx);
 
             let is_executeable = if let Some(frame) = self
@@ -203,14 +198,14 @@ impl<'t> Executor<'t> {
                     }
                 })
             } else {
-                #[cfg(feature="logging")]
+                #[cfg(feature = "logging")]
                 log::trace!("NODE does not exist: [{:?},{:?}]", trackid, next_idx);
 
                 false
             };
 
             if is_executeable {
-                #[cfg(feature="logging")]
+                #[cfg(feature = "logging")]
                 log::trace!("SCHEDULE: [{:?},{:?}]", trackid, next_idx);
 
                 return Ok((*trackid, *next_idx));
@@ -415,36 +410,35 @@ impl<'t> Executor<'t> {
 
                 //set execution guard for each resource in a release op that is used. Then return it anonymously, to be collected by
                 // the execution struct at the end. This will keep the resources alive until the release has executed.
-                let released_resources = release_ops.iter().filter(|op| &op.current_owner == trackid).map(|op| {
-                    match op.res {
+                let released_resources = release_ops
+                    .iter()
+                    .filter(|op| &op.current_owner == trackid)
+                    .map(|op| match op.res {
                         AnyResKey::Buffer(buf) => {
-                            let buffer =
-                                &mut rmg.resources_mut().buffer.get_mut(buf).unwrap();
+                            let buffer = &mut rmg.resources_mut().buffer.get_mut(buf).unwrap();
                             assert!(
                                 buffer.guard.is_none(),
                                 "Resource had guard, therefore wait was scheduled wrong"
                             );
                             buffer.guard = Some(release_guard.clone());
-                            Box::new(buffer.buffer.clone())  as Box<dyn Any + Send + 'static>
+                            Box::new(buffer.buffer.clone()) as Box<dyn Any + Send + 'static>
                         }
                         AnyResKey::Image(img) => {
-                            let image  =
-                                &mut rmg.resources_mut().images.get_mut(img).unwrap();
+                            let image = &mut rmg.resources_mut().images.get_mut(img).unwrap();
                             assert!(
                                 image.guard.is_none(),
                                 "Resource had guard, therefore wait was scheduled wrong"
                             );
                             image.guard = Some(release_guard.clone());
 
-
                             Box::new(image.image.clone()) as Box<dyn Any + Send + 'static>
                         }
                         AnyResKey::Sampler(sam) => {
-                            Box::new(rmg.resources().sampler.get(sam).unwrap().sampler.clone())  as Box<dyn Any + Send + 'static>
+                            Box::new(rmg.resources().sampler.get(sam).unwrap().sampler.clone())
+                                as Box<dyn Any + Send + 'static>
                         }
-                    }
-
-                }).collect();
+                    })
+                    .collect();
 
                 let cb = rmg
                     .tracks
@@ -499,11 +493,10 @@ impl<'t> Executor<'t> {
                     )?;
                 };
 
-
                 self.execution_cache.push(Execution {
                     resources: released_resources,
                     command_buffer: cb,
-                    guard: release_guard
+                    guard: release_guard,
                 });
             }
         }
@@ -586,14 +579,17 @@ impl<'t> Executor<'t> {
                         }
                         QueueOwnership::Owned(owner) => {
                             //check that we already own
-                            if owner != track_queue_family{
+                            if owner != track_queue_family {
                                 #[cfg(feature = "logging")]
                                 log::error!(
                                     "Buffer[{:?}] ownership was not released to {} before acquire!",
                                     buf,
                                     track_queue_family
                                 );
-                                return Err(RecordError::AcquireRecord(buf.into(), track_queue_family));
+                                return Err(RecordError::AcquireRecord(
+                                    buf.into(),
+                                    track_queue_family,
+                                ));
                             }
                         }
                     }
@@ -637,14 +633,17 @@ impl<'t> Executor<'t> {
                         }
                         QueueOwnership::Owned(owner) => {
                             //check that we acutally already own
-                            if owner != track_queue_family{
+                            if owner != track_queue_family {
                                 #[cfg(feature = "logging")]
                                 log::error!(
                                     "Image[{:?}] ownership was not released to {} before acquire!",
                                     img,
                                     track_queue_family
                                 );
-                                return Err(RecordError::AcquireRecord(img.into(), track_queue_family));
+                                return Err(RecordError::AcquireRecord(
+                                    img.into(),
+                                    track_queue_family,
+                                ));
                             }
                         }
                     }
