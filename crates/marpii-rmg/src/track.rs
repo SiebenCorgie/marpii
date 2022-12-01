@@ -67,7 +67,6 @@ impl Guard {
 }
 
 ///Execution track. Basically a DeviceQueue and some associated data.
-#[allow(dead_code)]
 pub(crate) struct Track {
     pub(crate) queue_idx: u32,
     pub(crate) flags: vk::QueueFlags,

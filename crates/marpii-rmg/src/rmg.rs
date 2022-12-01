@@ -188,6 +188,15 @@ impl Rmg {
     pub(crate) fn trackid_to_queue_idx(&self, id: TrackId) -> u32 {
         self.tracks.0.get(&id).unwrap().queue_idx
     }
+
+    ///waits till the gpu is idle
+    pub fn wait_for_idle(&self) -> Result<(), RecordError>{
+        unsafe{
+            self.ctx.device.inner.device_wait_idle()?
+        }
+
+        Ok(())
+    }
 }
 
 impl Drop for Rmg {
