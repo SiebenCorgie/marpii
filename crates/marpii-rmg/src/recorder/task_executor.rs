@@ -993,12 +993,12 @@ impl<'t> Executor<'t> {
                 track.nodes[node_idx]
                     .task
                     .registry
-                    .append_foreign_signal_semaphores(&mut signal_semaphore);
+                    .append_binary_signal_semaphores(&mut signal_semaphore);
 
                 track.nodes[node_idx]
                     .task
                     .registry
-                    .append_foreign_wait_semaphores(&mut self.submit_info_cache);
+                    .append_binary_wait_semaphores(&mut self.submit_info_cache);
             }
         }
 

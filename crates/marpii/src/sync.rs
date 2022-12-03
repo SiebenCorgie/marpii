@@ -34,13 +34,13 @@
 
 //use crate::context::SubmitInfo;
 use crate::context::Device;
-use ash;
+use ash::{self, vk};
 use std::fmt::Debug;
 use std::sync::Arc;
 
 use std::u64;
 
-///Single [TimelineSemaphore](https://www.khronos.org/blog/vulkan-timeline-semaphores).
+///Single [TimelineSemaphore](https://www.khronos.org/blog/vulkan-timeline-semaphores). This is the preffered type of semaphores these days. However, for compatibility reasons (mostly with the swapchain) [BinarySemaphore]s exist as well.
 pub struct Semaphore {
     pub inner: ash::vk::Semaphore,
     pub device: Arc<Device>,
@@ -153,6 +153,41 @@ impl Drop for Semaphore {
 impl Debug for Semaphore {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.inner.fmt(f)
+    }
+}
+
+
+///A [BinarySempaphore](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSemaphoreType.html) has two states. Signalled and unsignalled. It can be signalled by for instace by being a member of some queue submit operation.
+///
+/// Note that modern Vulkan mostly uses timeline semaphore. They are exposed in MarpII as the [Semaphore] type. They also inherit the functions of fences in.
+pub struct BinarySemaphore{
+    pub inner: vk::Semaphore,
+    pub device: Arc<Device>
+}
+
+impl BinarySemaphore {
+    pub fn new(device: &Arc<Device>) -> Result<Self, vk::Result>{
+        let mut ci = ash::vk::SemaphoreTypeCreateInfo::builder()
+            .semaphore_type(ash::vk::SemaphoreType::BINARY);
+
+        let semaphore = unsafe {
+            let ci = ash::vk::SemaphoreCreateInfo::builder().push_next(&mut ci);
+
+            device.inner.create_semaphore(&ci, None)?
+        };
+
+        Ok(BinarySemaphore {
+            inner: semaphore,
+            device: device.clone(),
+        })
+    }
+}
+
+impl Drop for BinarySemaphore{
+    fn drop(&mut self) {
+        unsafe{
+            self.device.inner.destroy_semaphore(self.inner, None)
+        }
     }
 }
 

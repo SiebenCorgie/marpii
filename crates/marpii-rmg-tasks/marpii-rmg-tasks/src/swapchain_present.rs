@@ -170,8 +170,8 @@ impl Task for SwapchainPresent {
                         vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
                     )
                     .unwrap();
-                registry.register_foreign_signal_semaphore(sw_image.sem_present.clone());
-                registry.register_foreign_wait_semaphore(sw_image.sem_acquire.clone());
+                registry.register_binary_signal_semaphore(sw_image.sem_present.clone());
+                registry.register_binary_wait_semaphore(sw_image.sem_acquire.clone());
                 registry.register_asset(sw_image.image.clone());
             }
             PresentOp::Scheduled(_) => {

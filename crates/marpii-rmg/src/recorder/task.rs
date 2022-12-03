@@ -8,18 +8,18 @@ use crate::{
 use ahash::{AHashMap, AHashSet};
 use marpii::{
     ash::vk::{self, ImageLayout},
-    context::Device,
+    context::Device, sync::BinarySemaphore,
 };
 use marpii_commands::BarrierBuilder;
-use std::{any::Any, ops::Deref, sync::Arc};
+use std::{any::Any, sync::Arc};
 
 pub struct ResourceRegistry {
     images: AHashMap<ImageKey, (vk::PipelineStageFlags2, vk::AccessFlags2, vk::ImageLayout)>,
     buffers: AHashMap<BufferKey, (vk::PipelineStageFlags2, vk::AccessFlags2)>,
     sampler: AHashSet<SamplerKey>,
 
-    foreign_signal_sem: Vec<Arc<vk::Semaphore>>,
-    foreign_wait_sem: Vec<Arc<vk::Semaphore>>,
+    binary_signal_sem: Vec<Arc<BinarySemaphore>>,
+    binary_wait_sem: Vec<Arc<BinarySemaphore>>,
     ///Collects all resources handle used in the registry
     /// is later used to move them into an executions collector
     pub(crate) resource_collection: Vec<Box<dyn Any + Send>>,
@@ -31,8 +31,8 @@ impl ResourceRegistry {
             images: AHashMap::new(),
             buffers: AHashMap::new(),
             sampler: AHashSet::new(),
-            foreign_signal_sem: Vec::new(),
-            foreign_wait_sem: Vec::new(),
+            binary_signal_sem: Vec::new(),
+            binary_wait_sem: Vec::new(),
             resource_collection: Vec::new(),
         }
     }
@@ -100,14 +100,14 @@ impl ResourceRegistry {
     }
 
     ///Registers that this foreign semaphore must be signalled after execution. Needed for swapchain stuff.
-    pub fn register_foreign_signal_semaphore(&mut self, semaphore: Arc<vk::Semaphore>) {
-        self.foreign_signal_sem.push(semaphore.clone());
+    pub fn register_binary_signal_semaphore(&mut self, semaphore: Arc<BinarySemaphore>) {
+        self.binary_signal_sem.push(semaphore.clone());
         self.resource_collection.push(Box::new(semaphore))
     }
 
     ///Registers that this foreign semaphore must be waited uppon before execution. Needed for swapchain stuff.
-    pub fn register_foreign_wait_semaphore(&mut self, semaphore: Arc<vk::Semaphore>) {
-        self.foreign_wait_sem.push(semaphore.clone());
+    pub fn register_binary_wait_semaphore(&mut self, semaphore: Arc<BinarySemaphore>) {
+        self.binary_wait_sem.push(semaphore.clone());
         self.resource_collection.push(Box::new(semaphore))
     }
 
@@ -120,17 +120,17 @@ impl ResourceRegistry {
     }
 
     /// Appends all foreign binary semaphores. Mostly used to integrate swapchains.
-    pub(crate) fn append_foreign_signal_semaphores(
+    pub(crate) fn append_binary_signal_semaphores(
         &self,
         infos: &mut Vec<vk::SemaphoreSubmitInfo>,
     ) {
-        for sem in self.foreign_signal_sem.iter() {
+        for sem in self.binary_signal_sem.iter() {
             #[cfg(feature = "logging")]
-            log::trace!("Registering foreign semaphore {:?}", sem.deref().deref());
+            log::trace!("Registering foreign semaphore {:?}", sem.inner);
 
             infos.push(
                 vk::SemaphoreSubmitInfo::builder()
-                    .semaphore(**sem)
+                    .semaphore(sem.inner)
                     .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
                     .build(),
             );
@@ -138,14 +138,14 @@ impl ResourceRegistry {
     }
 
     /// Appends all foreign binary semaphores. Mostly used to integrate swapchains.
-    pub(crate) fn append_foreign_wait_semaphores(&self, infos: &mut Vec<vk::SemaphoreSubmitInfo>) {
-        for sem in self.foreign_wait_sem.iter() {
+    pub(crate) fn append_binary_wait_semaphores(&self, infos: &mut Vec<vk::SemaphoreSubmitInfo>) {
+        for sem in self.binary_wait_sem.iter() {
             #[cfg(feature = "logging")]
-            log::trace!("Registering foreign semaphore {:?}", sem.deref().deref());
+            log::trace!("Registering foreign semaphore {:?}", sem.inner);
 
             infos.push(
                 vk::SemaphoreSubmitInfo::builder()
-                    .semaphore(**sem)
+                    .semaphore(sem.inner)
                     .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
                     .build(),
             );

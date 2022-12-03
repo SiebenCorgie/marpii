@@ -6,7 +6,7 @@ use std::{
 use marpii::{
     ash::{self, vk},
     resources::CommandPool,
-    swapchain::{Swapchain, SwapchainImage},
+    swapchain::{Swapchain, SwapchainImage}, sync::BinarySemaphore,
 };
 use marpii::{
     context::{Device, Queue},
@@ -112,8 +112,8 @@ impl ManagedCommands {
         queue: &Queue,
         signal_semaphores: &[(Arc<Semaphore>, u64)],
         wait_semaphores: &[(Arc<Semaphore>, ash::vk::PipelineStageFlags2, u64)],
-        signal_binary_semaphores: &[Arc<vk::Semaphore>],
-        wait_binary_semaphores: &[(Arc<vk::Semaphore>, ash::vk::PipelineStageFlags2)],
+        signal_binary_semaphores: &[Arc<BinarySemaphore>],
+        wait_binary_semaphores: &[(Arc<BinarySemaphore>, ash::vk::PipelineStageFlags2)],
     ) -> Result<(), anyhow::Error> {
         //first of all, make a copy from each semaphore and include them in our captured variables
         for sem in signal_semaphores
@@ -152,7 +152,7 @@ impl ManagedCommands {
         for bsem in signal_binary_semaphores.iter() {
             signal_semaphore_infos.push(
                 vk::SemaphoreSubmitInfo::builder()
-                    .semaphore(**bsem)
+                    .semaphore(bsem.inner)
                     .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
                     .build(),
             );
@@ -182,7 +182,7 @@ impl ManagedCommands {
         for (bsem, stage) in wait_binary_semaphores.iter() {
             wait_semaphore_infos.push(
                 vk::SemaphoreSubmitInfo::builder()
-                    .semaphore(**bsem)
+                    .semaphore(bsem.inner)
                     .stage_mask(*stage)
                     .build(),
             );
