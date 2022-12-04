@@ -60,8 +60,21 @@ impl Task for UploadImage {
         vk::QueueFlags::TRANSFER
     }
     fn register(&self, registry: &mut ResourceRegistry) {
-        registry.request_image(&self.image);
-        registry.request_buffer(&self.upload);
+        registry
+            .request_image(
+                &self.image,
+                vk::PipelineStageFlags2::TRANSFER,
+                vk::AccessFlags2::TRANSFER_WRITE,
+                vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+            )
+            .unwrap();
+        registry
+            .request_buffer(
+                &self.upload,
+                vk::PipelineStageFlags2::TRANSFER,
+                vk::AccessFlags2::TRANSFER_READ,
+            )
+            .unwrap();
     }
     fn record(
         &mut self,
@@ -72,23 +85,8 @@ impl Task for UploadImage {
         let buffer = resources.get_buffer_state(&self.upload);
         let img = resources.get_image_state(&self.image);
 
-        //copy over by moving to right layout, issue copy and moving back to _old_ layout
-
+        //copy over.
         unsafe {
-            device.inner.cmd_pipeline_barrier2(
-                *command_buffer,
-                &vk::DependencyInfo::builder()
-                    .buffer_memory_barriers(&[*vk::BufferMemoryBarrier2::builder()
-                        .buffer(buffer.buffer.inner)
-                        .offset(0)
-                        .size(vk::WHOLE_SIZE)])
-                    .image_memory_barriers(&[*vk::ImageMemoryBarrier2::builder()
-                        .image(img.image.inner)
-                        .subresource_range(img.image.subresource_all())
-                        .old_layout(vk::ImageLayout::UNDEFINED)
-                        .new_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)]),
-            );
-
             device.inner.cmd_copy_buffer_to_image2(
                 *command_buffer,
                 &vk::CopyBufferToImageInfo2::builder()
@@ -102,17 +100,6 @@ impl Task for UploadImage {
                         .image_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
                         .image_subresource(img.image.subresource_layers_all())])
                     .dst_image_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL),
-            );
-
-            device.inner.cmd_pipeline_barrier2(
-                *command_buffer,
-                &vk::DependencyInfo::builder().image_memory_barriers(&[
-                    *vk::ImageMemoryBarrier2::builder()
-                        .image(img.image.inner)
-                        .subresource_range(img.image.subresource_all())
-                        .old_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
-                        .new_layout(img.layout),
-                ]),
             );
         }
     }

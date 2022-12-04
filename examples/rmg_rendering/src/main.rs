@@ -34,17 +34,15 @@ use camera_controller::Camera;
 use copy_buffer::CopyToGraphicsBuffer;
 use forward_pass::ForwardPass;
 use marpii::{ash::vk, context::Ctx};
-use marpii_rmg_tasks::{DynamicBuffer, SwapchainBlit};
 use marpii_rmg::Rmg;
+use marpii_rmg_tasks::{DynamicBuffer, SwapchainPresent};
 use shared::Ubo;
 use simulation::Simulation;
 use winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
-use winit::window::Window;
 use winit::{
     event::{Event, WindowEvent},
     event_loop::ControlFlow,
 };
-
 mod camera_controller;
 mod copy_buffer;
 mod forward_pass;
@@ -56,7 +54,7 @@ pub const OBJECT_COUNT: usize = 8192;
 
 fn main() -> Result<(), anyhow::Error> {
     simple_logger::SimpleLogger::new()
-        .with_level(log::LevelFilter::Trace)
+        .with_level(log::LevelFilter::Warn)
         .init()
         .unwrap();
 
@@ -70,7 +68,9 @@ fn main() -> Result<(), anyhow::Error> {
 
         path
     } else {
-        anyhow::bail!("No gltf path provided, try $cargo run --bin rmg_rendering -- path/to/gltf/name.gltf!");
+        anyhow::bail!(
+            "No gltf path provided, try $cargo run --bin rmg_rendering -- path/to/gltf/name.gltf!"
+        );
     };
 
     let gltf = easy_gltf::load(mesh_path).unwrap();
@@ -78,19 +78,15 @@ fn main() -> Result<(), anyhow::Error> {
     let ev = winit::event_loop::EventLoop::new();
     let window = winit::window::Window::new(&ev).unwrap();
     let (context, surface) = Ctx::default_with_surface(&window, true)?;
-    let mut rmg = Rmg::new(context, &surface)?;
+    let mut rmg = Rmg::new(context)?;
 
     let mut camera = Camera::default();
     let mut ubo_update = DynamicBuffer::new(&mut rmg, &[camera.to_ubo(&window)])?;
     let mut simulation = Simulation::new(&mut rmg)?;
     let mut buffer_copy = CopyToGraphicsBuffer::new(&mut rmg, simulation.sim_buffer.clone())?;
-    let mut forward = ForwardPass::new(
-        &mut rmg,
-        ubo_update.buffer_handle().clone(),
-        &gltf
-    )
-    .unwrap();
-    let mut swapchain_blit = SwapchainBlit::new();
+    let mut forward =
+        ForwardPass::new(&mut rmg, ubo_update.buffer_handle().clone(), &gltf).unwrap();
+    let mut swapchain_blit = SwapchainPresent::new(&mut rmg, &surface)?;
 
     ev.run(move |ev, _, cf| {
         *cf = ControlFlow::Poll;
@@ -102,6 +98,15 @@ fn main() -> Result<(), anyhow::Error> {
             Event::RedrawRequested(_) => {
                 camera.tick();
 
+                //update framebuffer extent to current one.
+                let framebuffer_ext = swapchain_blit.extent().unwrap_or(vk::Extent2D {
+                    width: window.inner_size().width,
+                    height: window.inner_size().height,
+                });
+
+                log::info!("Start frame for {:?}", framebuffer_ext);
+                forward.target_img_ext = framebuffer_ext;
+
                 //update camera
                 ubo_update.write(&[camera.to_ubo(&window)], 0).unwrap();
 
@@ -109,9 +114,9 @@ fn main() -> Result<(), anyhow::Error> {
                 forward.sim_src = Some(buffer_copy.last_buffer());
 
                 //setup src image and blit
-                swapchain_blit.next_blit(forward.color_image.clone());
+                swapchain_blit.push_image(forward.color_image.clone(), framebuffer_ext);
 
-                rmg.record(window_extent(&window))
+                rmg.record()
                     .add_task(&mut simulation)
                     .unwrap()
                     .add_task(&mut buffer_copy)
@@ -125,6 +130,7 @@ fn main() -> Result<(), anyhow::Error> {
                     .execute()
                     .unwrap();
 
+                //*cf = ControlFlow::Exit;
             }
             Event::WindowEvent {
                 event:
@@ -142,11 +148,4 @@ fn main() -> Result<(), anyhow::Error> {
             _ => {}
         }
     })
-}
-
-fn window_extent(window: &Window) -> vk::Extent2D {
-    vk::Extent2D {
-        width: window.inner_size().width,
-        height: window.inner_size().height,
-    }
 }

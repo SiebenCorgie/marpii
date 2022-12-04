@@ -63,11 +63,11 @@ impl BufDesc {
         self
     }
 
-    pub fn for_slice<T: 'static>(slice: &[T]) -> Self{
+    pub fn for_slice<T: 'static>(slice: &[T]) -> Self {
         Self::for_data::<T>(slice.len())
     }
 
-    pub fn add_usage(mut self, usage: vk::BufferUsageFlags) -> Self{
+    pub fn add_usage(mut self, usage: vk::BufferUsageFlags) -> Self {
         self.usage |= usage;
         self
     }
@@ -88,17 +88,17 @@ impl BufDesc {
     }
 
     ///Creates a new vertex buffer description for `count` times a vertex `V`.
-    pub fn vertex_buffer<V: 'static>(count: usize) -> Self{
+    pub fn vertex_buffer<V: 'static>(count: usize) -> Self {
         Self::for_data::<V>(count).with(|b| b.usage = vk::BufferUsageFlags::VERTEX_BUFFER)
     }
 
     ///Creates a new index buffer for `count` times an index of type `u32`.
-    pub fn index_buffer_u32(count: usize) -> Self{
+    pub fn index_buffer_u32(count: usize) -> Self {
         Self::for_data::<u32>(count).with(|b| b.usage = vk::BufferUsageFlags::INDEX_BUFFER)
     }
 
     ///Creates a new index buffer for `count` times an index of type `u16`.
-    pub fn index_buffer_u16(count: usize) -> Self{
+    pub fn index_buffer_u16(count: usize) -> Self {
         Self::for_data::<u16>(count).with(|b| b.usage = vk::BufferUsageFlags::INDEX_BUFFER)
     }
 }
@@ -180,7 +180,7 @@ impl Buffer {
     /// the staging buffer to read the data.
     ///
     /// Buffers created by this function are initalized to `data` and can be used as transfer source and destination. Have a look at the code for more information.
-    #[cfg(feature="bytemuck")]
+    #[cfg(feature = "bytemuck")]
     pub fn new_staging_for_data<A: Allocator + Send + Sync + 'static, T: bytemuck::Pod>(
         device: &Arc<Device>,
         allocator: &Arc<Mutex<A>>,
@@ -218,11 +218,7 @@ impl Buffer {
     /// If the buffer's allocation is currently locked (by another write or read function) an error might be returned.
     ///
     /// Hint: Use the `bytemuck` crate to create slices of bytes for data "T". Also make sure you fullfill alignment for GPUs.
-    pub fn write(
-        &self,
-        offset: usize,
-        data: &[u8],
-    ) -> Result<(), BufferMapError> {
+    pub fn write(&self, offset: usize, data: &[u8]) -> Result<(), BufferMapError> {
         //Check that we have a chance for mapping
         match &self.usage {
             MemoryUsage::GpuOnly | MemoryUsage::Unknown => {
@@ -235,7 +231,7 @@ impl Buffer {
 
         let byte_offset = offset;
         //Test region of write and shrink if necessary
-        let write_size = if (byte_offset + data.len())  > (self.desc.size as usize) {
+        let write_size = if (byte_offset + data.len()) > (self.desc.size as usize) {
             //edge case where the offset is too big, in that case the subtraction below would underflow
             if offset > (self.desc.size as usize) {
                 #[cfg(feature = "logging")]
@@ -256,18 +252,25 @@ impl Buffer {
         log::info!("Using write_size={}", write_size);
 
         //since we sanitised the write, try to map the pointer and write the actual slice
-        if let Some(slice) = self.allocation.lock().map_err(|_| BufferMapError::NotLockable)?.as_slice_mut() {
+        if let Some(slice) = self
+            .allocation
+            .lock()
+            .map_err(|_| BufferMapError::NotLockable)?
+            .as_slice_mut()
+        {
             #[cfg(feature = "logging")]
             log::info!("writing to mapped buffer[{:?}] of size {} with offset={}, data_size={}, write_size={}", self.inner, self.desc.size, offset, data.len(), write_size);
 
-            slice[offset..(offset+write_size)].copy_from_slice(&data[0..write_size]);
-
+            slice[offset..(offset + write_size)].copy_from_slice(&data[0..write_size]);
         } else {
             return Err(BufferMapError::NotMapable);
         }
 
         //check if we need to flush
-        if !self.memory_properties()?.contains(vk::MemoryPropertyFlags::HOST_COHERENT){
+        if !self
+            .memory_properties()?
+            .contains(vk::MemoryPropertyFlags::HOST_COHERENT)
+        {
             self.flush_range()?;
         }
 
@@ -282,7 +285,7 @@ impl Buffer {
     }
 
     ///Tries to flash the memory range. Does nothing if the memory is not host mappable
-    pub fn flush_range(&self) -> Result<(), BufferMapError>{
+    pub fn flush_range(&self) -> Result<(), BufferMapError> {
         match &self.usage {
             MemoryUsage::GpuOnly | MemoryUsage::Unknown => {
                 #[cfg(feature = "logging")]
@@ -292,7 +295,12 @@ impl Buffer {
             _ => {}
         }
 
-        let mut range = self.allocation.lock().map_err(|_| BufferMapError::NotLockable)?.as_memory_range().unwrap();
+        let mut range = self
+            .allocation
+            .lock()
+            .map_err(|_| BufferMapError::NotLockable)?
+            .as_memory_range()
+            .unwrap();
 
         //update range's offset and size to be in Device limits
         range.offset = self
@@ -302,8 +310,14 @@ impl Buffer {
             .device
             .offset_to_next_higher_coherent_atom_size(range.size);
 
-        #[cfg(feature="logging")]
-        log::info!("Flushing {:?} in range {}..{}={}", self.inner, range.offset, (range.offset + range.size), range.size);
+        #[cfg(feature = "logging")]
+        log::info!(
+            "Flushing {:?} in range {}..{}={}",
+            self.inner,
+            range.offset,
+            (range.offset + range.size),
+            range.size
+        );
         unsafe {
             if let Err(e) = self.device.inner.flush_mapped_memory_ranges(&[range]) {
                 #[cfg(feature = "logging")]
@@ -316,7 +330,9 @@ impl Buffer {
 
     ///Returns (if possible) a reference to the buffers data. Note that this lock the internal allocation until the value is dropped. Therefore while reading
     /// no write to the buffer can occure.
-    pub fn read<'a>(&'a self) -> Result<MutexGuard<'a, Box<dyn AnonymAllocation + Send + Sync>>, BufferMapError> {
+    pub fn read<'a>(
+        &'a self,
+    ) -> Result<MutexGuard<'a, Box<dyn AnonymAllocation + Send + Sync>>, BufferMapError> {
         match &self.usage {
             MemoryUsage::GpuOnly | MemoryUsage::Unknown => {
                 #[cfg(feature = "logging")]
@@ -326,14 +342,19 @@ impl Buffer {
             _ => {}
         }
 
-        let lock = self.allocation.lock().map_err(|_| BufferMapError::NotLockable)?;
+        let lock = self
+            .allocation
+            .lock()
+            .map_err(|_| BufferMapError::NotLockable)?;
         Ok(lock)
     }
 
-    pub fn memory_properties(&self) -> Result<vk::MemoryPropertyFlags, BufferMapError>{
-        if let Ok(lck) = self.allocation.lock(){
-           Ok(lck.memory_properties().unwrap_or(vk::MemoryPropertyFlags::empty()))
-        }else{
+    pub fn memory_properties(&self) -> Result<vk::MemoryPropertyFlags, BufferMapError> {
+        if let Ok(lck) = self.allocation.lock() {
+            Ok(lck
+                .memory_properties()
+                .unwrap_or(vk::MemoryPropertyFlags::empty()))
+        } else {
             Err(BufferMapError::NotLockable)
         }
     }

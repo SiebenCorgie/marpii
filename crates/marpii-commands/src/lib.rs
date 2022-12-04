@@ -19,3 +19,6 @@ pub use image;
 pub use image_init::image_from_data;
 #[cfg(feature = "image_loading")]
 pub use image_init::{image_from_file, image_from_image};
+
+mod barrier_builder;
+pub use barrier_builder::BarrierBuilder;

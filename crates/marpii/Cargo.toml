@@ -31,8 +31,8 @@ raw-window-handle = "0.5"
 anyhow = "1.0.56"
 thiserror = "1.0.31"
 const-cstr = "0.3"
-smallvec = "1.8.0"
 fxhash = "0.2.1"
+tinyvec.workspace = true
 
 gpu-allocator = {git = "https://github.com/SiebenCorgie/gpu-allocator.git", branch = "feature-expose-memory-properties", optional = true}
 log = {workspace = true, optional=true}

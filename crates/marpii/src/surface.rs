@@ -15,12 +15,19 @@ pub struct Surface {
 impl Surface {
     pub fn new<T>(
         instance: &Arc<crate::context::Instance>,
-        window_handle: &T
+        window_handle: &T,
     ) -> Result<Self, anyhow::Error>
-        where T: HasRawDisplayHandle + HasRawWindowHandle
+    where
+        T: HasRawDisplayHandle + HasRawWindowHandle,
     {
         let surface = unsafe {
-            ash_window::create_surface(&instance.entry, &instance.inner, window_handle.raw_display_handle(), window_handle.raw_window_handle(), None)?
+            ash_window::create_surface(
+                &instance.entry,
+                &instance.inner,
+                window_handle.raw_display_handle(),
+                window_handle.raw_window_handle(),
+                None,
+            )?
         };
         let surface_loader = ash::extensions::khr::Surface::new(&instance.entry, &instance.inner);
 

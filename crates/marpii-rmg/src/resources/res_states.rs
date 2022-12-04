@@ -5,10 +5,7 @@ use marpii::{
     resources::{Buffer, Image, ImageView, Sampler},
 };
 
-use crate::{
-    track::{Guard, TrackId, Tracks},
-    Resources, Rmg,
-};
+use crate::track::Guard;
 
 use super::descriptor::ResourceHandle;
 
@@ -35,6 +32,15 @@ pub enum QueueOwnership {
 impl QueueOwnership {
     pub fn is_initalised(&self) -> bool {
         self != &QueueOwnership::Uninitialized
+    }
+
+    ///Returns true if the ownership is released to `queue_family`
+    pub fn is_released_to(&self, family: u32) -> bool {
+        if let QueueOwnership::Released { dst_family, .. } = self {
+            *dst_family == family
+        } else {
+            false
+        }
     }
 
     ///If owned (not released), the queue family.
@@ -153,13 +159,6 @@ impl ResSampler {
     }
 }
 
-#[allow(dead_code)]
-pub(crate) enum AnyRes {
-    Image(ResImage),
-    Buffer(ResBuffer),
-    Sampler(Sampler),
-}
-
 #[derive(Clone, Copy, Hash, PartialEq, PartialOrd, Eq, Debug)]
 pub(crate) enum AnyResKey {
     Image(ImageKey),
@@ -191,102 +190,5 @@ impl From<BufferKey> for AnyResKey {
 impl From<SamplerKey> for AnyResKey {
     fn from(k: SamplerKey) -> Self {
         AnyResKey::Sampler(k)
-    }
-}
-
-impl AnyResKey {
-    ///Returns the currently owning track, or none if there is no owner. In that case the resource is probably
-    /// not initialised, released, or a sampler, which has no owner.
-    pub fn current_owner(&self, rmg: &Rmg) -> Option<TrackId> {
-        match self {
-            AnyResKey::Image(imgkey) => {
-                if let Some(img) = rmg.res.images.get(*imgkey) {
-                    img.ownership
-                        .owner()
-                        .map(|qf| rmg.queue_idx_to_trackid(qf))
-                        .flatten()
-                } else {
-                    #[cfg(feature = "logging")]
-                    log::warn!("Tried to get image for invalid key");
-                    None
-                }
-            }
-            AnyResKey::Buffer(bufkey) => {
-                if let Some(buf) = rmg.res.buffer.get(*bufkey) {
-                    buf.ownership
-                        .owner()
-                        .map(|qf| rmg.queue_idx_to_trackid(qf))
-                        .flatten()
-                } else {
-                    #[cfg(feature = "logging")]
-                    log::warn!("Tried to get buffer for invalid key");
-                    None
-                }
-            }
-            AnyResKey::Sampler(_) => None,
-        }
-    }
-
-    pub fn is_initialised(&self, rmg: &Rmg) -> bool {
-        match self {
-            AnyResKey::Image(imgkey) => {
-                if let Some(img) = rmg.res.images.get(*imgkey) {
-                    img.ownership.is_initalised() && (img.layout != vk::ImageLayout::UNDEFINED)
-                } else {
-                    false
-                }
-            }
-            AnyResKey::Buffer(bufkey) => {
-                if let Some(buf) = rmg.res.buffer.get(*bufkey) {
-                    buf.ownership.is_initalised()
-                } else {
-                    false
-                }
-            }
-            AnyResKey::Sampler(_) => true,
-        }
-    }
-
-    ///Returns the guards value, if there is any, or 0.
-    pub fn guarded_until(&self, rmg: &Rmg) -> u64 {
-        match self {
-            AnyResKey::Image(imgkey) => {
-                if let Some(img) = rmg.res.images.get(*imgkey) {
-                    img.guard.as_ref().map(|g| g.wait_value()).unwrap_or(0)
-                } else {
-                    0
-                }
-            }
-            AnyResKey::Buffer(bufkey) => {
-                if let Some(buf) = rmg.res.buffer.get(*bufkey) {
-                    buf.guard.as_ref().map(|g| g.wait_value()).unwrap_or(0)
-                } else {
-                    0
-                }
-            }
-            AnyResKey::Sampler(_) => 0,
-        }
-    }
-
-    ///Returns true if either no guard is set, or if set the guard is expired.
-    #[allow(dead_code)]
-    pub(crate) fn guard_expired(&self, res: &Resources, tracks: &Tracks) -> bool {
-        match self {
-            AnyResKey::Image(imgkey) => {
-                if let Some(img) = res.images.get(*imgkey) {
-                    img.guard.map(|g| g.expired(&tracks)).unwrap_or(true)
-                } else {
-                    true
-                }
-            }
-            AnyResKey::Buffer(bufkey) => {
-                if let Some(buf) = res.buffer.get(*bufkey) {
-                    buf.guard.map(|g| g.expired(&tracks)).unwrap_or(true)
-                } else {
-                    true
-                }
-            }
-            AnyResKey::Sampler(_) => true,
-        }
     }
 }

@@ -2,8 +2,6 @@ use easy_gltf::Scene;
 use shared::Vertex;
 
 pub fn load_model(gltf: &[Scene]) -> (Vec<Vertex>, Vec<u32>) {
-
-
     let mut vertex_buffer = Vec::new();
     let mut index_buffer = Vec::new();
 
@@ -43,17 +41,16 @@ pub fn load_model(gltf: &[Scene]) -> (Vec<Vertex>, Vec<u32>) {
 
             */
 
-
             let index_offset = vertex_buffer.len() as u32;
-            for v in model.vertices(){
-                vertex_buffer.push(Vertex{
+            for v in model.vertices() {
+                vertex_buffer.push(Vertex {
                     position: v.position.into(),
                     normal: v.normal.into(),
-                    uv: v.tex_coords.into()
+                    uv: v.tex_coords.into(),
                 });
             }
 
-            for i in model.indices().expect("Mesh has no index buffer"){
+            for i in model.indices().expect("Mesh has no index buffer") {
                 index_buffer.push(index_offset + *i as u32);
             }
         }

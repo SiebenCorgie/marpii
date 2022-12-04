@@ -1,5 +1,21 @@
+//! # Handles
+//!
+//! There are multiple levels of handles. The lowest levels are `*Key`s. This are the direct
+//! handles into the [Resource] structure. They do not carry any context.
+//!
+//! The next level are `ImageHandel`, `BufferHandle` and `SamplerHandle`. They carry a reference to the actual data
+//! (at the moment). They are used to detect whenever resources are not needed anymore, and when communicating
+//! with the "outside".
+//!
+//! Around both the key and handle types the `AnyKey` and `AnyHandle` types form an abstraction that allows
+//! working with somewhat anonymous resources.
+
 use crate::resources::res_states::{BufferKey, ImageKey, SamplerKey};
-use marpii::{resources::{Buffer, Image, Sampler, ImageType}, ash::vk, util::ImageRegion};
+use marpii::{
+    ash::vk,
+    resources::{Buffer, Image, ImageType, Sampler},
+    util::ImageRegion,
+};
 use std::{
     any::Any,
     fmt::{Debug, Display},
@@ -17,29 +33,28 @@ pub struct ImageHandle {
     pub(crate) imgref: Arc<Image>,
 }
 
-
-impl ImageHandle{
-    pub fn format(&self) -> &vk::Format{
+impl ImageHandle {
+    pub fn format(&self) -> &vk::Format {
         &self.imgref.desc.format
     }
 
-    pub fn usage_flags(&self) -> &vk::ImageUsageFlags{
+    pub fn usage_flags(&self) -> &vk::ImageUsageFlags {
         &self.imgref.desc.usage
     }
 
-    pub fn extent_2d(&self) -> vk::Extent2D{
+    pub fn extent_2d(&self) -> vk::Extent2D {
         self.imgref.extent_2d()
     }
 
-    pub fn extent_3d(&self) -> vk::Extent3D{
+    pub fn extent_3d(&self) -> vk::Extent3D {
         self.imgref.extent_3d()
     }
 
-    pub fn image_type(&self) -> &ImageType{
+    pub fn image_type(&self) -> &ImageType {
         &self.imgref.desc.img_type
     }
 
-    pub fn region_all(&self) -> ImageRegion{
+    pub fn region_all(&self) -> ImageRegion {
         self.imgref.image_region()
     }
 }
@@ -59,19 +74,20 @@ pub struct BufferHandle<T: 'static> {
     pub(crate) data_type: PhantomData<T>,
 }
 
-impl<T: 'static> BufferHandle<T>{
-
+impl<T: 'static> BufferHandle<T> {
     ///Returns the size in bytes. If you want to know how many
     /// objects of type `T` fit in the buffer, use `count`.
-    pub fn size(&self) -> u64{
+    pub fn size(&self) -> u64 {
         self.bufref.desc.size
     }
 
-    pub fn count(&self) -> usize{
-        (self.bufref.desc.size / core::mem::size_of::<T>() as u64).try_into().unwrap()
+    pub fn count(&self) -> usize {
+        (self.bufref.desc.size / core::mem::size_of::<T>() as u64)
+            .try_into()
+            .unwrap()
     }
 
-    pub fn usage_flags(&self) -> &vk::BufferUsageFlags{
+    pub fn usage_flags(&self) -> &vk::BufferUsageFlags {
         &self.bufref.desc.usage
     }
 }
@@ -156,6 +172,42 @@ impl<T: 'static> From<&BufferHandle<T>> for AnyHandle {
         AnyHandle {
             atomic_ref: Some(h.bufref.clone()),
             key: h.key.into(),
+        }
+    }
+}
+
+impl From<ImageKey> for AnyHandle {
+    fn from(k: ImageKey) -> Self {
+        AnyHandle {
+            atomic_ref: None,
+            key: k.into(),
+        }
+    }
+}
+
+impl From<&ImageKey> for AnyHandle {
+    fn from(k: &ImageKey) -> Self {
+        AnyHandle {
+            atomic_ref: None,
+            key: (*k).into(),
+        }
+    }
+}
+
+impl From<BufferKey> for AnyHandle {
+    fn from(k: BufferKey) -> Self {
+        AnyHandle {
+            atomic_ref: None,
+            key: k.into(),
+        }
+    }
+}
+
+impl From<&BufferKey> for AnyHandle {
+    fn from(k: &BufferKey) -> Self {
+        AnyHandle {
+            atomic_ref: None,
+            key: (*k).into(),
         }
     }
 }

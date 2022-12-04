@@ -74,7 +74,6 @@ pub fn compile_rust_shader(
 
 #[allow(dead_code)]
 fn build_glsl(path: &str, name: &str, target: &str) {
-
     //TODO: build all files that do not end with ".glsl". and copy to
     // RESDIR as well.
     let target_path = PathBuf::from(target).join(name);
@@ -99,8 +98,8 @@ fn build_glsl(path: &str, name: &str, target: &str) {
 
 const RESDIR: &'static str = &"../resources";
 
-pub fn ensure_res(){
-    if !PathBuf::from(RESDIR).exists(){
+pub fn ensure_res() {
+    if !PathBuf::from(RESDIR).exists() {
         std::fs::create_dir_all(RESDIR).unwrap();
     }
 }
@@ -109,7 +108,5 @@ pub fn ensure_res(){
 fn main() {
     println!("cargo:rerun-if-changed=../resources");
     ensure_res();
-    compile_rust_shader("rust_shader", "../rust_shader", RESDIR)
-        .expect("Failed to build shader");
-
+    compile_rust_shader("rust_shader", "../rust_shader", RESDIR).expect("Failed to build shader");
 }

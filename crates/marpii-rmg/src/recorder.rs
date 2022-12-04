@@ -1,20 +1,25 @@
-pub(crate) mod executor;
-pub(crate) mod frame;
-pub(crate) mod scheduler;
-pub(crate) mod task;
+//pub(crate) mod executor;
+//pub(crate) mod frame;
+//pub(crate) mod scheduler;
+pub mod task;
+pub(crate) mod task_executor;
+pub(crate) mod task_scheduler;
 
-use std::fmt::Debug;
+use std::{fmt::Debug, sync::Arc};
 
-use marpii::ash::vk;
+use crate::{resources::handle::AnyHandle, track::Guard, ResourceError, Rmg, Task};
+use marpii::{
+    ash::vk,
+    resources::{CommandBuffer, CommandPool},
+};
+use std::any::Any;
 use thiserror::Error;
 
-use crate::{resources::handle::AnyHandle, ResourceError, Rmg, Task};
-
-use self::{executor::Executor, scheduler::Schedule, task::ResourceRegistry};
+use self::{task::{ResourceRegistry, MetaTask}, task_executor::Executor, task_scheduler::TaskSchedule};
 
 #[derive(Debug, Error)]
 pub enum RecordError {
-    #[error("No fitting track for flags found")]
+    #[error("No fitting track for flags {0:?} found")]
     NoFittingTrack(vk::QueueFlags),
 
     #[error("No such resource found")]
@@ -36,9 +41,23 @@ pub enum RecordError {
 
     #[error("Record time resource error")]
     ResError(#[from] ResourceError),
+
+    #[error("Found scheduling deadlock, there might be a dependency cycle.")]
+    DeadLock,
 }
 
-pub(crate) struct TaskRecord<'t> {
+pub struct Execution {
+    ///All resources that need to be kept alive until the execution finishes
+    #[allow(dead_code)]
+    pub(crate) resources: Vec<Box<dyn Any + Send>>,
+    ///The command buffer that is executed
+    #[allow(dead_code)]
+    pub(crate) command_buffer: CommandBuffer<Arc<CommandPool>>,
+    ///Until when it is guarded.
+    pub(crate) guard: Guard,
+}
+
+pub struct TaskRecord<'t> {
     task: &'t mut dyn Task,
     registry: ResourceRegistry,
 }
@@ -52,32 +71,14 @@ impl<'t> Debug for TaskRecord<'t> {
 ///records a new execution graph blocks any access to `rmg` until the graph is executed.
 pub struct Recorder<'rmg> {
     pub rmg: &'rmg mut Rmg,
-    records: Vec<TaskRecord<'rmg>>,
-    #[allow(dead_code)]
-    framebuffer_extent: vk::Extent2D,
+    pub records: Vec<TaskRecord<'rmg>>,
 }
 
 impl<'rmg> Recorder<'rmg> {
-    pub fn new(rmg: &'rmg mut Rmg, window_extent: vk::Extent2D) -> Self {
-        let framebuffer_extent = rmg
-            .res
-            .swapchain
-            .surface
-            .get_current_extent(&rmg.ctx.device.physical_device)
-            .unwrap_or({
-                #[cfg(feature = "logging")]
-                log::info!(
-                    "Failed to get surface extent, falling back to window extent={:?}",
-                    window_extent
-                );
-                window_extent
-            });
-        rmg.res.last_known_surface_extent = framebuffer_extent;
-
+    pub fn new(rmg: &'rmg mut Rmg) -> Self {
         Recorder {
             rmg,
             records: Vec::new(),
-            framebuffer_extent,
         }
     }
 
@@ -95,13 +96,14 @@ impl<'rmg> Recorder<'rmg> {
         Ok(self)
     }
 
+    pub fn add_meta_task(self, meta_task: &'rmg mut dyn MetaTask) -> Result<Self, RecordError>{
+        meta_task.record(self)
+    }
+
     ///Schedules everything for execution
     pub fn execute(self) -> Result<(), RecordError> {
-        let schedule = Schedule::from_tasks(self.rmg, self.records)?;
-        //schedule.print_schedule();
-
-        let executions = Executor::exec(self.rmg, schedule)?;
-
+        let schedule = TaskSchedule::new_from_tasks(self.rmg, self.records)?;
+        let executions = Executor::execute(self.rmg, schedule)?;
         for ex in executions {
             let track = self.rmg.tracks.0.get_mut(&ex.guard.into()).unwrap();
             track.inflight_executions.push(ex);

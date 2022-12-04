@@ -1,37 +1,59 @@
-use marpii::{util::ImageRegion, ash::vk};
-use marpii_rmg::{ImageHandle, Task, TempLayoutChange};
-
+use marpii::{ash::vk, util::ImageRegion};
+use marpii_rmg::{ImageHandle, Task};
 
 ///Blits `N` a regions of one image to another. Always blits all subresource layers.
-pub struct ImageBlit<const N: usize>{
+pub struct ImageBlit<const N: usize> {
     pub blits: [(ImageRegion, ImageRegion); N],
     pub src: ImageHandle,
     pub dst: ImageHandle,
 }
 
-impl ImageBlit<0>{
-    pub fn new(src: ImageHandle, dst: ImageHandle) -> Self{
-        ImageBlit { blits: [], src, dst }
+impl ImageBlit<0> {
+    pub fn new(src: ImageHandle, dst: ImageHandle) -> Self {
+        ImageBlit {
+            blits: [],
+            src,
+            dst,
+        }
     }
 }
 
-impl<const N: usize> ImageBlit<N>{
-
-
+impl<const N: usize> ImageBlit<N> {
     ///Overwrites `self` to use the given (src, dst) blit operation pairs.
-    pub fn with_blits<const M: usize>(self, blit_regions: [(ImageRegion, ImageRegion); M]) -> ImageBlit<M>{
-        ImageBlit { blits: blit_regions, src: self.src, dst: self.dst }
+    pub fn with_blits<const M: usize>(
+        self,
+        blit_regions: [(ImageRegion, ImageRegion); M],
+    ) -> ImageBlit<M> {
+        ImageBlit {
+            blits: blit_regions,
+            src: self.src,
+            dst: self.dst,
+        }
     }
 }
 
-impl<const N: usize> Task for ImageBlit<N>{
+impl<const N: usize> Task for ImageBlit<N> {
     fn name(&self) -> &'static str {
         "Image Blit"
     }
 
     fn register(&self, registry: &mut marpii_rmg::ResourceRegistry) {
-        registry.request_image(&self.src);
-        registry.request_image(&self.dst);
+        registry
+            .request_image(
+                &self.src,
+                vk::PipelineStageFlags2::TRANSFER,
+                vk::AccessFlags2::TRANSFER_READ,
+                vk::ImageLayout::GENERAL,
+            )
+            .unwrap();
+        registry
+            .request_image(
+                &self.dst,
+                vk::PipelineStageFlags2::TRANSFER,
+                vk::AccessFlags2::TRANSFER_WRITE,
+                vk::ImageLayout::GENERAL,
+            )
+            .unwrap();
     }
 
     fn record(
@@ -43,22 +65,10 @@ impl<const N: usize> Task for ImageBlit<N>{
         let src_image = resources.get_image_state(&self.src);
         let dst_image = resources.get_image_state(&self.dst);
 
-        let change = TempLayoutChange::to_state(
-            resources,
-            device,
-            command_buffer,
-            [
-                (self.src.clone(), vk::AccessFlags2::empty(), vk::ImageLayout::GENERAL),
-                (self.dst.clone(), vk::AccessFlags2::empty(), vk::ImageLayout::GENERAL),
-            ]
-        );
-
-
         let mut regions = [vk::ImageBlit2::default(); N];
         let src_subresource = src_image.image.subresource_layers_all();
         let dst_subresource = dst_image.image.subresource_layers_all();
-        for (idx, blit) in self.blits.iter_mut().enumerate(){
-
+        for (idx, blit) in self.blits.iter_mut().enumerate() {
             blit.0.clamp_to(&blit.1);
             blit.1.clamp_to(&blit.0);
 
@@ -78,11 +88,11 @@ impl<const N: usize> Task for ImageBlit<N>{
             .filter(vk::Filter::LINEAR)
             .regions(&regions);
 
-        unsafe{
-            device.inner.cmd_blit_image2(*command_buffer, &blit_image_info)
+        unsafe {
+            device
+                .inner
+                .cmd_blit_image2(*command_buffer, &blit_image_info)
         }
-
-        change.revert(device, command_buffer);
     }
 
     fn queue_flags(&self) -> vk::QueueFlags {

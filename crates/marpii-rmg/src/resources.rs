@@ -2,12 +2,7 @@ use crossbeam_channel::{Receiver, Sender};
 use marpii::{
     ash::vk,
     context::Device,
-    resources::{
-        BufDesc, Buffer, Image, ImgDesc, PipelineLayout, SafeImageView,
-        Sampler,
-    },
-    surface::Surface,
-    swapchain::{Swapchain, SwapchainImage},
+    resources::{BufDesc, Buffer, Image, ImgDesc, PipelineLayout, SafeImageView, Sampler},
 };
 use slotmap::SlotMap;
 use std::{marker::PhantomData, sync::Arc};
@@ -58,6 +53,9 @@ pub enum ResourceError {
 
     #[error("There is no Track for queue family {0}")]
     NoTrackForQueueFamily(u32),
+
+    #[error("Resource was already requested for the registry.")]
+    ResourceAlreadyRequested,
 }
 
 pub struct Resources {
@@ -67,28 +65,15 @@ pub struct Resources {
     pub(crate) images: SlotMap<ImageKey, ResImage>,
     pub(crate) buffer: SlotMap<BufferKey, ResBuffer>,
     pub(crate) sampler: SlotMap<SamplerKey, ResSampler>,
-
-    pub(crate) swapchain: Swapchain,
-    pub(crate) last_known_surface_extent: vk::Extent2D,
-
     ///Channel used by the handles to signal their drop.
     #[allow(dead_code)]
     pub(crate) handle_drop_channel: (Sender<AnyResKey>, Receiver<AnyResKey>),
 }
 
 impl Resources {
-    pub fn new(device: &Arc<Device>, surface: &Arc<Surface>) -> Result<Self, ResourceError> {
+    pub fn new(device: &Arc<Device>) -> Result<Self, ResourceError> {
         let bindless = Bindless::new_default(device)?;
-        let bindless_layout =
-            Arc::new(bindless.new_pipeline_layout(&[]));
-
-        let swapchain = Swapchain::builder(device, surface)?
-            .with(move |b| {
-                b.create_info.usage =
-                    vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::TRANSFER_DST;
-            })
-            .build()?;
-
+        let bindless_layout = Arc::new(bindless.new_pipeline_layout(&[]));
         let handle_drop_channel = crossbeam_channel::unbounded();
 
         Ok(Resources {
@@ -97,8 +82,6 @@ impl Resources {
             buffer: SlotMap::with_key(),
             images: SlotMap::with_key(),
             sampler: SlotMap::with_key(),
-            swapchain,
-            last_known_surface_extent: vk::Extent2D::default(),
             handle_drop_channel,
         })
     }
@@ -254,26 +237,31 @@ impl Resources {
     }
 
     ///Tries to get the resource's bindless handle. If not already bound, tries to bind the resource
-    pub fn get_resource_handle(
+    pub fn resource_handle_or_bind(
         &mut self,
-        res: impl Into<AnyHandle>,
+        res: impl Into<AnyHandle> + Clone,
     ) -> Result<ResourceHandle, ResourceError> {
-        let res = res.into();
-        let hdl = match res.key {
+        if let Some(hdl) = self.try_resource_handle(res.clone()) {
+            return Ok(hdl);
+        } else {
+            let hdl = res.into();
+            //try to bind, try that
+            Ok(self.bind(hdl.key)?)
+        }
+    }
+
+    /// Tries to find a resource for the handle. Returns None if the resource is not bound yet.
+    pub fn try_resource_handle(&self, res: impl Into<AnyHandle>) -> Option<ResourceHandle> {
+        let hdl = res.into();
+        let hdl = match hdl.key {
             AnyResKey::Buffer(buf) => self.buffer.get(buf).unwrap().descriptor_handle,
             AnyResKey::Image(img) => self.images.get(img).unwrap().descriptor_handle,
             AnyResKey::Sampler(sam) => self.sampler.get(sam).unwrap().descriptor_handle,
         };
-
-        if let Some(hdl) = hdl {
-            return Ok(hdl);
-        } else {
-            //have to bind, try that
-            Ok(self.bind(res.key)?)
-        }
+        hdl
     }
 
-    ///Tick the resource manager that a new frame has started
+    ///tick the resource manager that a new frame has started
     //TODO: Currently we use the rendering frame to do all the cleanup. In a perfect world we'd use
     //      another thread for that to not stall the recording process
     pub(crate) fn tick_record(&mut self, tracks: &Tracks) {
@@ -397,47 +385,20 @@ impl Resources {
             .expect("Used invalid Sampler Handle")
     }
 
-    pub fn get_next_swapchain_image(&mut self) -> Result<SwapchainImage, ResourceError> {
-        let surface_extent = self
-            .swapchain
-            .surface
-            .get_current_extent(&self.swapchain.device.physical_device)
-            .unwrap_or(self.last_known_surface_extent);
-        if self.swapchain.images[0].extent_2d() != surface_extent {
-            #[cfg(feature = "logging")]
-            log::info!("Recreating swapchain with extent {:?}!", surface_extent);
-
-            self.swapchain.recreate(surface_extent)?;
-            self.last_known_surface_extent = vk::Extent2D {
-                width: self.swapchain.images[0].desc.extent.width,
-                height: self.swapchain.images[0].desc.extent.height,
-            };
-        }
-
-        if let Ok(img) = self.swapchain.acquire_next_image() {
-            Ok(img)
-        } else {
-            //try to recreate, otherwise panic.
-            #[cfg(feature = "logging")]
-            log::info!("Failed to get new swapchain image!");
-            return Err(ResourceError::SwapchainError);
-        }
-    }
-
-    pub fn get_surface_extent(&self) -> vk::Extent2D {
-        self.last_known_surface_extent
-    }
-
-    ///Schedules swapchain image for present
-    pub fn present_image(&mut self, image: SwapchainImage) {
-        let queue = self
-            .swapchain
-            .device
-            .first_queue_for_attribute(true, false, false)
-            .unwrap(); //FIXME use track instead
-        if let Err(e) = self.swapchain.present_image(image, &*queue.inner()) {
-            #[cfg(feature = "logging")]
-            log::error!("present failed with: {}, recreating swapchain", e);
+    ///Returns the current owning queue (if the res exists and is NOT a sampler).
+    pub(crate) fn get_current_owner(&self, res: impl Into<AnyResKey>) -> Option<u32> {
+        match &res.into() {
+            AnyResKey::Buffer(k) => self
+                .buffer
+                .get(*k)
+                .map(|buf| buf.ownership.owner())
+                .flatten(),
+            AnyResKey::Image(k) => self
+                .images
+                .get(*k)
+                .map(|img| img.ownership.owner())
+                .flatten(),
+            AnyResKey::Sampler(_) => None,
         }
     }
 }

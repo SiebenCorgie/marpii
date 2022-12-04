@@ -135,7 +135,8 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
         window_handle: &T,
         use_validation: bool,
     ) -> Result<(Self, Arc<crate::surface::Surface>), anyhow::Error>
-        where T: HasRawDisplayHandle + HasRawWindowHandle
+    where
+        T: HasRawDisplayHandle + HasRawWindowHandle,
     {
         let mut instance_builder = Instance::linked()?;
         instance_builder = instance_builder.for_surface(window_handle)?;
@@ -239,7 +240,8 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
         use_validation: bool,
         on_device_builder: impl FnOnce(DeviceBuilder) -> DeviceBuilder,
     ) -> Result<(Self, Option<Surface>), anyhow::Error>
-        where T: HasRawDisplayHandle + HasRawWindowHandle
+    where
+        T: HasRawDisplayHandle + HasRawWindowHandle,
     {
         let mut instance_builder = Instance::linked()?;
         if let Some(window_handle) = window_handle {

@@ -3,6 +3,7 @@
 // do not change or add/remove here, but one can add exceptions after this section
 // for more info see: <https://github.com/EmbarkStudios/rust-ecosystem/issues/59>
 //#![deny(unsafe_code)] //not practical when working with ash
+#![deny(warnings)]
 #![warn(
     clippy::all,
     clippy::await_holding_lock,
@@ -168,16 +169,14 @@ pub use resources::{
     res_states::{ResBuffer, ResImage, ResSampler},
     ResourceError, Resources,
 };
-mod recorder;
+pub mod recorder;
 pub use recorder::{
     task::{ResourceRegistry, Task},
     RecordError, Recorder,
 };
 
 pub(crate) mod track;
+pub use track::Guard;
 
 mod rmg;
 pub use rmg::{CtxRmg, Rmg, RmgError};
-
-mod util;
-pub use util::TempLayoutChange;

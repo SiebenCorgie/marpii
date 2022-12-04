@@ -23,8 +23,13 @@ pub struct DynamicImage {
 
 impl DynamicImage {
     pub fn new_from_image(image: ImageHandle) -> Result<Self, anyhow::Error> {
-        if !image.usage_flags().contains(vk::ImageUsageFlags::TRANSFER_DST){
-            return Err(anyhow::anyhow!("Image has no TRANSEFER_DST bit set, but is needed for the Task to work"));
+        if !image
+            .usage_flags()
+            .contains(vk::ImageUsageFlags::TRANSFER_DST)
+        {
+            return Err(anyhow::anyhow!(
+                "Image has no TRANSEFER_DST bit set, but is needed for the Task to work"
+            ));
         }
         Ok(DynamicImage {
             staging_copies: Vec::with_capacity(1),
@@ -75,7 +80,14 @@ impl Task for DynamicImage {
         vk::QueueFlags::TRANSFER
     }
     fn register(&self, registry: &mut marpii_rmg::ResourceRegistry) {
-        registry.request_image(&self.image);
+        registry
+            .request_image(
+                &self.image,
+                vk::PipelineStageFlags2::TRANSFER,
+                vk::AccessFlags2::TRANSFER_WRITE,
+                vk::ImageLayout::GENERAL,
+            )
+            .unwrap();
         for cp in self.staging_copies.iter() {
             registry.register_asset(cp.buffer.clone());
         }
@@ -110,6 +122,5 @@ impl Task for DynamicImage {
                 );
             }
         }
-
     }
 }

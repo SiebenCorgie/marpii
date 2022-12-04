@@ -13,4 +13,4 @@ logging = ["log"]
 [dependencies]
 marpii = {path = "../marpii", optional = true}
 log = {workspace = true, optional=true}
-bytemuck.workspace = true
+bytemuck = {workspace = true, features = ["derive"]}
