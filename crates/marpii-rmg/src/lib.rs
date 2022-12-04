@@ -3,6 +3,7 @@
 // do not change or add/remove here, but one can add exceptions after this section
 // for more info see: <https://github.com/EmbarkStudios/rust-ecosystem/issues/59>
 //#![deny(unsafe_code)] //not practical when working with ash
+#![deny(warnings)]
 #![warn(
     clippy::all,
     clippy::await_holding_lock,

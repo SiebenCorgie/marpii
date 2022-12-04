@@ -5,7 +5,7 @@
 //! ## Building
 //!
 //! Note that you need `glslangVaildator` in your `$PATH` to be able to build the crate.
-
+#![deny(warnings)]
 mod dynamic_buffer;
 pub use dynamic_buffer::DynamicBuffer;
 //mod swapchain_blit;
@@ -26,7 +26,7 @@ pub use image_blit::ImageBlit;
 #[cfg(feature = "egui-task")]
 mod egui_integration;
 #[cfg(feature = "egui-task")]
-pub use crate::egui_integration::{EGuiRender, EGuiWinitIntegration};
+pub use crate::egui_integration::{EGuiWinitIntegration, EGuiTask};
 #[cfg(feature = "egui-task")]
 pub use egui_winit::egui;
 

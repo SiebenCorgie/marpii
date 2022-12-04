@@ -15,7 +15,7 @@ use marpii::{
 use std::any::Any;
 use thiserror::Error;
 
-use self::{task::ResourceRegistry, task_executor::Executor, task_scheduler::TaskSchedule};
+use self::{task::{ResourceRegistry, MetaTask}, task_executor::Executor, task_scheduler::TaskSchedule};
 
 #[derive(Debug, Error)]
 pub enum RecordError {
@@ -94,6 +94,10 @@ impl<'rmg> Recorder<'rmg> {
         self.records.push(record);
 
         Ok(self)
+    }
+
+    pub fn add_meta_task(self, meta_task: &'rmg mut dyn MetaTask) -> Result<Self, RecordError>{
+        meta_task.record(self)
     }
 
     ///Schedules everything for execution

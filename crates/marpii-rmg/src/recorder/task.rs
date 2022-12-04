@@ -3,7 +3,7 @@ use crate::{
         res_states::{AnyResKey, BufferKey, ImageKey, SamplerKey},
         Resources,
     },
-    BufferHandle, CtxRmg, ImageHandle, RecordError, ResourceError, Rmg, SamplerHandle,
+    BufferHandle, CtxRmg, ImageHandle, RecordError, ResourceError, Rmg, SamplerHandle, Recorder,
 };
 use ahash::{AHashMap, AHashSet};
 use marpii::{
@@ -311,4 +311,15 @@ pub trait Task {
     fn name(&self) -> &'static str {
         "Unnamed Task"
     }
+}
+
+
+///Represents some a collection of tasks that are executed in a certain way. This can be used
+/// to schedule preparation tasks before executing some more sophisticated task.
+///
+/// For instance the EGuiIntegration uses this to first update all texture atlases and vertex buffers before
+/// drawing the interface. Similarly this could be used for generating mipmaps or depth buffer pyramids etc.
+pub trait MetaTask{
+    ///Allows the meta task to schedule its sub tasks at will. This allows for instance for conditional scheduling.
+    fn record<'a>(&'a mut self, recorder: Recorder<'a>) -> Result<Recorder<'a>, RecordError>;
 }
