@@ -36,7 +36,7 @@ impl<T: marpii::bytemuck::Pod> DynamicBuffer<T> {
         }); //atleast transfer dst for this pass
 
         let mappable_buffer =
-            Buffer::new_staging_for_data(&rmg.ctx.device, &rmg.ctx.allocator, None, &initial_data)?;
+            Buffer::new_staging_for_data(&rmg.ctx.device, &rmg.ctx.allocator, None, initial_data)?;
 
         let gpu_local = rmg.new_buffer_uninitialized(description, name)?;
 
@@ -58,9 +58,7 @@ impl<T: marpii::bytemuck::Pod> DynamicBuffer<T> {
     pub fn write(&mut self, data: &[T], offset_elements: usize) -> Result<(), BufferMapError> {
         let size_of_element = core::mem::size_of::<T>();
         let access_num_elements = self.buffer_handle().count();
-        if access_num_elements
-            .checked_sub(offset_elements)
-            .unwrap_or(0)
+        if access_num_elements.saturating_sub(offset_elements)
             < data.len()
         {
             return Err(BufferMapError::OffsetTooLarge);

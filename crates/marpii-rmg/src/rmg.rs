@@ -57,11 +57,8 @@ impl Rmg {
                 #[cfg(feature = "logging")]
                 log::info!("QueueType: {:#?}", q.properties.queue_flags);
                 //Make sure to only add queue, if we don't have a queue with those capabilities yet.
-                if !set.contains_key(&TrackId(q.properties.queue_flags)) {
-                    set.insert(
-                        TrackId(q.properties.queue_flags),
-                        Track::new(&context.device, q.family_index, q.properties.queue_flags),
-                    );
+                if let std::collections::hash_map::Entry::Vacant(e) = set.entry(TrackId(q.properties.queue_flags)) {
+                    e.insert(Track::new(&context.device, q.family_index, q.properties.queue_flags));
                 }
 
                 set
@@ -137,7 +134,7 @@ impl Rmg {
         self.new_buffer_uninitialized(description, name)
     }
 
-    ///Imports the buffer with the given state. Returns an error if a given queue_family index has no internal TrackId.
+    ///Imports the buffer with the given state. Returns an error if a given `queue_family` index has no internal `TrackId`.
     pub fn import_buffer<T: 'static>(
         &mut self,
         buffer: Arc<Buffer>,

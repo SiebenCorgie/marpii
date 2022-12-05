@@ -22,7 +22,7 @@ slotmap::new_key_type!(
     pub(crate) struct SamplerKey;
 );
 
-#[derive(PartialEq, Hash, Debug, Clone, Copy)]
+#[derive(PartialEq, Eq, Hash, Debug, Clone, Copy)]
 pub enum QueueOwnership {
     Uninitialized,
     Released { src_family: u32, dst_family: u32 },

@@ -57,26 +57,24 @@ impl<T> SetManager<T> {
             #[cfg(feature = "logging")]
             log::trace!("Reusing handle {:?} for descty {:#?}", hdl, self.ty);
             Some(hdl)
+        } else if self.head_idx >= self.max_idx {
+            #[cfg(feature = "logging")]
+            log::error!(
+                "Reached max index for bindless set of type: {:?} = {}",
+                self.ty,
+                self.max_idx
+            );
+            None
         } else {
-            if self.head_idx >= self.max_idx {
-                #[cfg(feature = "logging")]
-                log::error!(
-                    "Reached max index for bindless set of type: {:?} = {}",
-                    self.ty,
-                    self.max_idx
-                );
-                None
-            } else {
-                let new_idx = self.head_idx;
-                #[cfg(feature = "logging")]
-                log::trace!(
-                    "Allocating new handle {:?} for descty {:#?}",
-                    new_idx,
-                    self.ty
-                );
-                self.head_idx += 1;
-                Some(ResourceHandle::new_from_desc_ty(self.ty, new_idx))
-            }
+            let new_idx = self.head_idx;
+            #[cfg(feature = "logging")]
+            log::trace!(
+                "Allocating new handle {:?} for descty {:#?}",
+                new_idx,
+                self.ty
+            );
+            self.head_idx += 1;
+            Some(ResourceHandle::new_from_desc_ty(self.ty, new_idx))
         }
     }
 
@@ -237,11 +235,11 @@ impl<T> SetManager<T> {
 ///
 /// Has 5 main descriptor types
 ///
-/// - StorageBuffer
-/// - StorageImage
-/// - SampledImage (without combined sampler)
+/// - `StorageBuffer`
+/// - `StorageImage`
+/// - `SampledImage` (without combined sampler)
 /// - Sampler
-/// - AccellerationStructure
+/// - `AccellerationStructure`
 ///
 //TODO: Check if VK_EXT_mutable_descriptor_type works even better. We could put everything into one desc pool
 pub(crate) struct Bindless {
@@ -302,7 +300,7 @@ impl Bindless {
     const NUM_SETS: u32 = 5;
 
     ///Creates a new instance of a bindless descriptor set. The limits of max bound descriptors per descriptor type can be set. If you don't care, consider using the shorter
-    /// [new_default](BindlessDescriptor::new_default) function.
+    /// [`new_default`](BindlessDescriptor::new_default) function.
     ///
     /// `push_constant_size` describes how big the biggest push constant used with this set can be.
     ///

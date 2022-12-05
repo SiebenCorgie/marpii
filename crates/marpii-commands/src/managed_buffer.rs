@@ -139,7 +139,7 @@ impl ManagedCommands {
         self.next_finish = self.exec_semaphore.get_value() + 1;
 
         let mut signal_semaphore_infos = signal_semaphores
-            .into_iter()
+            .iter()
             .map(|(s, value)| {
                 vk::SemaphoreSubmitInfo::builder()
                     .semaphore(s.inner)
@@ -169,7 +169,7 @@ impl ManagedCommands {
         );
 
         let mut wait_semaphore_infos = wait_semaphores
-            .into_iter()
+            .iter()
             .map(|(s, stage, value)| {
                 vk::SemaphoreSubmitInfo::builder()
                     .semaphore(s.inner)
@@ -345,7 +345,7 @@ impl<'a> Recorder<'a> {
         let cmd = Box::new(cmd);
 
         //record command
-        cmd(&self.buffer.inner.pool.device(), &self.buffer.inner.inner);
+        cmd(self.buffer.inner.pool.device(), &self.buffer.inner.inner);
         //push resources into caputure
         self.buffer
             .resources

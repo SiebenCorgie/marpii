@@ -19,8 +19,8 @@ use std::sync::Arc;
 
 use crate::{model_loading::load_model, OBJECT_COUNT};
 
-const SHADER_VS: &'static [u8] = include_bytes!("../../resources/forward_vs.spv");
-const SHADER_FS: &'static [u8] = include_bytes!("../../resources/forward_fs.spv");
+const SHADER_VS: &[u8] = include_bytes!("../../resources/forward_vs.spv");
+const SHADER_FS: &[u8] = include_bytes!("../../resources/forward_fs.spv");
 
 pub struct ForwardPass {
     //    attdesc: AttachmentDescription,
@@ -147,13 +147,13 @@ impl ForwardPass {
         let shader_module_frag =
             Arc::new(ShaderModule::new_from_bytes(&rmg.ctx.device, SHADER_FS).unwrap());
         let vertex_shader_stage = ShaderStage::from_shared_module(
-            shader_module_vert.clone(),
+            shader_module_vert,
             vk::ShaderStageFlags::VERTEX,
             "main".to_owned(),
         );
 
         let fragment_shader_stage = ShaderStage::from_shared_module(
-            shader_module_frag.clone(),
+            shader_module_frag,
             vk::ShaderStageFlags::FRAGMENT,
             "main".to_owned(),
         );

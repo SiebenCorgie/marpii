@@ -410,7 +410,7 @@ impl EGuiTask {
         let layout = rmg.resources().bindless_layout();
 
         let shader_module =
-            Arc::new(ShaderModule::new_from_bytes(&rmg.ctx.device, &crate::SHADER_RUST).unwrap());
+            Arc::new(ShaderModule::new_from_bytes(&rmg.ctx.device, crate::SHADER_RUST).unwrap());
 
         let vertex_shader_stage = ShaderStage::from_shared_module(
             shader_module.clone(),
@@ -419,7 +419,7 @@ impl EGuiTask {
         );
 
         let fragment_shader_stage = ShaderStage::from_shared_module(
-            shader_module.clone(),
+            shader_module,
             vk::ShaderStageFlags::FRAGMENT,
             "egui_fs".to_owned(),
         );
@@ -827,10 +827,10 @@ impl EGuiTask {
                         },
                         None,
                     )?;
-                    tex.write_bytes(rmg, region, &dta)?;
+                    tex.write_bytes(rmg, region, dta)?;
                 } else {
                     //Fits, update region
-                    tex.write_bytes(rmg, region, &dta)?;
+                    tex.write_bytes(rmg, region, dta)?;
                 }
             } else {
                 #[cfg(feature = "logging")]
@@ -848,7 +848,7 @@ impl EGuiTask {
                     },
                     None,
                 )?;
-                tex.write_bytes(rmg, region, &dta)?;
+                tex.write_bytes(rmg, region, dta)?;
                 assert!(self.data.atlas.insert(id, tex).is_none());
             }
         }

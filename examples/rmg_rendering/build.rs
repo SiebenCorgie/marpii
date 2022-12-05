@@ -30,7 +30,7 @@ fn build_glsl(path: &str, name: &str, target: &str) {
     }
 }
 
-const RESDIR: &'static str = &"../resources";
+const RESDIR: &str = "../resources";
 
 pub fn ensure_res() {
     if !PathBuf::from(RESDIR).exists() {

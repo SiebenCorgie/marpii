@@ -154,18 +154,10 @@ impl ResourceRegistry {
     pub(crate) fn get_stage_mask(&self, resource: &AnyResKey) -> Option<vk::PipelineStageFlags2> {
         match resource {
             AnyResKey::Buffer(buf) => {
-                if let Some(st) = self.buffers.get(buf) {
-                    Some(st.0)
-                } else {
-                    None
-                }
+                self.buffers.get(buf).map(|st| st.0)
             }
             AnyResKey::Image(img) => {
-                if let Some(st) = self.images.get(img) {
-                    Some(st.0)
-                } else {
-                    None
-                }
+                self.images.get(img).map(|st| st.0)
             }
             AnyResKey::Sampler(_) => None,
         }
@@ -314,7 +306,7 @@ pub trait Task {
 ///Represents some a collection of tasks that are executed in a certain way. This can be used
 /// to schedule preparation tasks before executing some more sophisticated task.
 ///
-/// For instance the EGuiIntegration uses this to first update all texture atlases and vertex buffers before
+/// For instance the `EGuiIntegration` uses this to first update all texture atlases and vertex buffers before
 /// drawing the interface. Similarly this could be used for generating mipmaps or depth buffer pyramids etc.
 pub trait MetaTask {
     ///Allows the meta task to schedule its sub tasks at will. This allows for instance for conditional scheduling.

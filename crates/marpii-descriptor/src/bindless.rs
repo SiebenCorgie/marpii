@@ -22,7 +22,7 @@ impl ResourceHandle {
     ///Reserved *Undefined* handle.a
     pub const UNDEFINED_HANDLE: u32 = 0xff_ff_ff_ff;
 
-    const TY_MASK: u32 = 0b00000000_00000000_00000000_00000011;
+    const TY_MASK: u32 = 0b0000_0000_0000_0000_0000_0000_0000_0011;
 
     pub fn new_handle(ty: vk::DescriptorType, index: u32) -> Self {
         assert!(
@@ -96,20 +96,18 @@ impl<T> SetManagment<T> {
     fn allocate_handle(&mut self) -> Option<ResourceHandle> {
         if let Some(hdl) = self.free.pop_back() {
             Some(hdl)
+        } else if self.head_idx >= self.max_idx {
+            #[cfg(feature = "logging")]
+            log::error!(
+                "Reached max index for bindless set of type: {:?} = {}",
+                self.ty,
+                self.max_idx
+            );
+            None
         } else {
-            if self.head_idx >= self.max_idx {
-                #[cfg(feature = "logging")]
-                log::error!(
-                    "Reached max index for bindless set of type: {:?} = {}",
-                    self.ty,
-                    self.max_idx
-                );
-                None
-            } else {
-                let new_idx = self.head_idx;
-                self.head_idx += 1;
-                Some(ResourceHandle::new_handle(self.ty, new_idx))
-            }
+            let new_idx = self.head_idx;
+            self.head_idx += 1;
+            Some(ResourceHandle::new_handle(self.ty, new_idx))
         }
     }
 
