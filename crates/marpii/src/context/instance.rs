@@ -20,7 +20,7 @@ unsafe extern "system" fn vulkan_debug_callback(
     p_callback_data: *const ash::vk::DebugUtilsMessengerCallbackDataEXT,
     _p_user_data: *mut core::ffi::c_void,
 ) -> u32 {
-    if p_callback_data == core::ptr::null() {
+    if p_callback_data.is_null() {
         #[cfg(feature = "logging")]
         log::error!("MarpDebugMsg: Got Msg, but no data!");
         return 1;

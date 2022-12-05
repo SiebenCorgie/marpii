@@ -67,11 +67,7 @@ impl<A: Allocator + Send + Sync + 'static> AnonymAllocation for ManagedAllocatio
     }
 
     fn memory_properties(&self) -> Option<vk::MemoryPropertyFlags> {
-        if let Some(alloc) = &self.allocation {
-            Some(alloc.memory_properties())
-        } else {
-            None
-        }
+        self.allocation.as_ref().map(|alloc| alloc.memory_properties())
     }
 }
 
@@ -160,7 +156,7 @@ pub trait Allocator {
         //Get buffer's requirements
         let requirements = unsafe { device.get_buffer_memory_requirements(*buffer) };
         //create allocation
-        Ok(self.allocate(name, requirements, usage, false)?) //NOTE: Buffers are always "linear" in memory
+        self.allocate(name, requirements, usage, false) //NOTE: Buffers are always "linear" in memory
     }
 
     fn allocate_image(
@@ -173,6 +169,6 @@ pub trait Allocator {
     ) -> Result<Self::Allocation, Self::AllocationError> {
         let requirements = unsafe { device.get_image_memory_requirements(*image) };
 
-        Ok(self.allocate(name, requirements, usage, is_linear)?)
+        self.allocate(name, requirements, usage, is_linear)
     }
 }
