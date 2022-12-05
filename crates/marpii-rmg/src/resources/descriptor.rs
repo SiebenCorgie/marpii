@@ -320,16 +320,36 @@ impl Bindless {
         //     - setup layout
         //     return
 
-        //FIXME: whenever the fix lands that allows us to query loaded extensions at runtime, remove the error and make the check below work.
-        //       needed in VkPhysicalDeviceDescriptorIndexingFeatures: shaderInputAttachmentArrayDynamicIndexing, shaderInputAttachmentArrayNonUniformIndexing, descriptorBindingUniformBufferUpdateAfterBind
-        #[cfg(feature = "logging")]
-        log::error!("Cannot determin load state of needed extensions for bindless support!");
 
-        if let Some(_f) = device.get_extension::<vk::PhysicalDeviceDescriptorIndexingFeatures>() {
-            //TODO check that all needed flags are set
-        } else {
-            //anyhow::bail!("DescriptorIndexingFeature not loaded!")
+        let features = device.get_physical_device_features();
+        if features.shader_storage_image_array_dynamic_indexing == 0
+            || features.shader_storage_image_array_dynamic_indexing == 0
+            || features.shader_storage_buffer_array_dynamic_indexing == 0
+            || features.shader_uniform_buffer_array_dynamic_indexing == 0
+            || features.shader_sampled_image_array_dynamic_indexing == 0{
+
+                #[cfg(feature = "logging")]
+                log::error!("Some dynamic indexing features where not supported. Following was supported: {:#?}", features);
+                return Err(anyhow::anyhow!("One of the dynamic indexing features was not supported, which is needed for bindless."));
+            }
+        //check device for all needed features
+        let features2 = device.get_feature::<vk::PhysicalDeviceVulkan12Features>();
+        if features2.descriptor_indexing == 0
+            || features2.descriptor_binding_sampled_image_update_after_bind == 0
+            || features2.descriptor_binding_storage_image_update_after_bind == 0
+            || features2.descriptor_binding_storage_buffer_update_after_bind == 0
+            || features2.descriptor_binding_partially_bound == 0
+            || features2.descriptor_binding_variable_descriptor_count == 0
+            || features2.shader_storage_buffer_array_non_uniform_indexing == 0
+            || features2.shader_storage_image_array_non_uniform_indexing == 0
+            || features2.shader_sampled_image_array_non_uniform_indexing == 0
+        {
+            #[cfg(feature = "logging")]
+            log::error!("Some bindless features where not supported. Following was supported: {:#?}", features2);
+
+            return Err(anyhow::anyhow!("Device does not support PhysicalDeviceDescriptorIndexingFeatures, needed for bindless"));
         }
+
 
         if device
             .get_device_properties()

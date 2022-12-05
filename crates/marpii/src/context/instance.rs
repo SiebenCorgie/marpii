@@ -311,7 +311,7 @@ impl InstanceBuilder {
     }
 }
 
-///marpii instance. Wrapps the entry point as well as the created instance into one object.
+///marpii instance. Wraps the entry point as well as the created instance into one object.
 ///
 /// # Safety
 ///
@@ -372,7 +372,7 @@ impl Drop for Instance {
         unsafe {
             //Destroy the messenger before destroying the instance.
             if let Some(drl) = &self.debugger {
-                //destroies the messenge if it was loaded
+                //destroys the messenger if it was loaded
                 drl.debug_report_loader
                     .destroy_debug_utils_messenger(drl.debug_messenger, None);
             }
