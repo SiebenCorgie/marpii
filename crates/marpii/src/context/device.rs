@@ -81,7 +81,7 @@ impl DeviceBuilder {
         self
     }
 
-    ///Pushes the new extension. The name is usually optained from the extensions definition like this:
+    ///Pushes the new extension. The name is usually obtained from the extensions definition like this:
     ///```irgnore
     ///  builder.push_extension(ash::vk::KhrPipelineLibraryFn::name());
     ///```
@@ -90,13 +90,13 @@ impl DeviceBuilder {
     /// Pushing the same extensions is currently UB.
     //FIXME: while pushing, already check compatibility and reject either unsupported or already pushed
     //       extensions.
-    pub fn push_extensions(mut self, ext_name: &'static std::ffi::CStr) -> Self {
+    pub fn with_extensions(mut self, ext_name: &'static std::ffi::CStr) -> Self {
         self.device_extensions.push(ext_name.as_ptr());
         self
     }
 
-    ///Pushes an additional feature into the `p_next` chain
-    pub fn with_additional_feature<T: 'static>(mut self, feature: T) -> Self
+    ///Pushes an additional feature into the `p_next` chain.
+    pub fn with_feature<T: 'static>(mut self, feature: T) -> Self
     where
         T: ash::vk::ExtendsDeviceCreateInfo,
     {
@@ -445,6 +445,9 @@ impl Device {
             .non_coherent_atom_size;
         offset + (atom_size - (offset % atom_size))
     }
+
+
+
 }
 
 impl Drop for Device {

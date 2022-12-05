@@ -102,9 +102,9 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
         let device = device_candidates
             .remove(0)
             .into_device_builder(instance.clone())?
-            .push_extensions(ash::vk::KhrVulkanMemoryModelFn::name())
+            .with_extensions(ash::vk::KhrVulkanMemoryModelFn::name())
             .with(|b| b.features.shader_int16 = 1)
-            .with_additional_feature(vulkan_memory_model)
+            .with_feature(vulkan_memory_model)
             .build()?;
 
         //create allocator for device
@@ -191,9 +191,9 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
         let device = device_candidates
             .remove(0)
             .into_device_builder(instance.clone())?
-            .push_extensions(ash::extensions::khr::Swapchain::name())
-            .push_extensions(ash::vk::KhrVulkanMemoryModelFn::name())
-            .push_extensions(ash::extensions::khr::DynamicRendering::name())
+            .with_extensions(ash::extensions::khr::Swapchain::name())
+            .with_extensions(ash::vk::KhrVulkanMemoryModelFn::name())
+            .with_extensions(ash::extensions::khr::DynamicRendering::name())
             .with(|b| {
                 b.features.shader_int16 = 1;
                 b.features.shader_storage_buffer_array_dynamic_indexing = 1;
@@ -202,8 +202,8 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
                 b.features.shader_sampled_image_array_dynamic_indexing = 1;
                 b.features.robust_buffer_access = 1;
             })
-            .with_additional_feature(features12)
-            .with_additional_feature(features13)
+            .with_feature(features12)
+            .with_feature(features13)
             //.with_additional_feature(accel_structure)
             .build()?;
 
