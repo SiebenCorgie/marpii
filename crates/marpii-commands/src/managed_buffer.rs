@@ -6,7 +6,8 @@ use std::{
 use marpii::{
     ash::{self, vk},
     resources::CommandPool,
-    swapchain::{Swapchain, SwapchainImage}, sync::BinarySemaphore,
+    swapchain::{Swapchain, SwapchainImage},
+    sync::BinarySemaphore,
 };
 use marpii::{
     context::{Device, Queue},

@@ -33,11 +33,13 @@ fn main() -> Result<(), anyhow::Error> {
         match ev {
             Event::MainEventsCleared => window.request_redraw(),
             Event::RedrawRequested(_) => {
-
-                let framebuffer_extent = swapchain_blit.extent().unwrap_or(marpii::ash::vk::Extent2D {
-                    width: window.inner_size().width,
-                    height: window.inner_size().height,
-                });
+                let framebuffer_extent =
+                    swapchain_blit
+                        .extent()
+                        .unwrap_or(marpii::ash::vk::Extent2D {
+                            width: window.inner_size().width,
+                            height: window.inner_size().height,
+                        });
 
                 egui.run(&mut rmg, &window, |ctx| {
                     egui::CentralPanel::default().show(ctx, |ui| {
@@ -56,10 +58,8 @@ fn main() -> Result<(), anyhow::Error> {
                 .unwrap();
 
                 //setup src image and blit
-                swapchain_blit.push_image(
-                    egui.renderer().target_image().clone(),
-                    framebuffer_extent
-                );
+                swapchain_blit
+                    .push_image(egui.renderer().target_image().clone(), framebuffer_extent);
 
                 rmg.record()
                     .add_meta_task(egui.renderer_mut())

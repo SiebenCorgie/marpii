@@ -26,7 +26,7 @@ pub use image_blit::ImageBlit;
 #[cfg(feature = "egui-task")]
 mod egui_integration;
 #[cfg(feature = "egui-task")]
-pub use crate::egui_integration::{EGuiWinitIntegration, EGuiTask};
+pub use crate::egui_integration::{EGuiTask, EGuiWinitIntegration};
 #[cfg(feature = "egui-task")]
 pub use egui_winit::egui;
 

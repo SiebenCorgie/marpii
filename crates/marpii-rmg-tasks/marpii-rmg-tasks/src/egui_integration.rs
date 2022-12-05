@@ -26,7 +26,7 @@ use marpii::{
     util::OoS,
 };
 use marpii_rmg::recorder::task::MetaTask;
-use marpii_rmg::{ImageHandle, Rmg, RmgError, SamplerHandle, Task, BufferHandle};
+use marpii_rmg::{BufferHandle, ImageHandle, Rmg, RmgError, SamplerHandle, Task};
 use marpii_rmg_task_shared::{EGuiPush, ResourceHandle};
 use std::borrow::Cow;
 use std::collections::hash_map::Values;
@@ -128,8 +128,7 @@ impl EGuiWinitIntegration {
 
         self.task.set_resolution(rmg, resolution)?;
         self.task.set_primitives(rmg, primitives)?;
-        self.task
-            .set_texture_deltas(rmg, output.textures_delta)?;
+        self.task.set_texture_deltas(rmg, output.textures_delta)?;
 
         self.winit_state
             .handle_platform_output(window, &self.egui_context, output.platform_output);
@@ -137,10 +136,9 @@ impl EGuiWinitIntegration {
     }
 }
 
-
 ///Data task that is run whenever egui resources for
 /// the gpu change. Apart from that encapsulates all gpu data.
-struct EGuiData{
+struct EGuiData {
     vertex_buffer: DynamicBuffer<crate::egui::epaint::Vertex>,
     index_buffer: DynamicBuffer<u32>,
     //NOTE: egui uses three main resources to render its interface. A texture atlas, and a vertex/index buffer changing at a high rate
@@ -148,18 +146,17 @@ struct EGuiData{
     atlas: FxHashMap<TextureId, DynamicImage>,
     //Deferred free commands for texture_deltas. Basically the *last* free list.
     deferred_free: Vec<TextureId>,
-
 }
 
 ///handle data for all data needed to render the next frame.
-struct EGuiCall{
+struct EGuiCall {
     vertex_buffer: BufferHandle<crate::egui::epaint::Vertex>,
     index_buffer: BufferHandle<u32>,
     textures: Vec<ImageHandle>,
 }
 
 ///Render task of the renderer. Only schedules drawcall submission.
-struct EGuiRenderer{
+struct EGuiRenderer {
     linear_sampler: SamplerHandle,
     #[allow(dead_code)]
     nearest_sampler: SamplerHandle,
@@ -175,7 +172,6 @@ struct EGuiRenderer{
 
     frame_data: Option<EGuiCall>,
 }
-
 
 impl Task for EGuiRenderer {
     fn name(&self) -> &'static str {
@@ -199,8 +195,7 @@ impl Task for EGuiRenderer {
     }
 
     fn register(&self, registry: &mut marpii_rmg::ResourceRegistry) {
-
-        if let Some(call) = &self.frame_data{
+        if let Some(call) = &self.frame_data {
             registry
                 .request_buffer(
                     &call.index_buffer,
@@ -224,8 +219,15 @@ impl Task for EGuiRenderer {
                 )
                 .unwrap();
 
-            for img in call.textures.iter(){
-                registry.request_image(img, vk::PipelineStageFlags2::ALL_GRAPHICS, vk::AccessFlags2::SHADER_SAMPLED_READ, vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL).unwrap();
+            for img in call.textures.iter() {
+                registry
+                    .request_image(
+                        img,
+                        vk::PipelineStageFlags2::ALL_GRAPHICS,
+                        vk::AccessFlags2::SHADER_SAMPLED_READ,
+                        vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+                    )
+                    .unwrap();
             }
 
             registry.register_asset(self.pipeline.clone());
@@ -238,8 +240,7 @@ impl Task for EGuiRenderer {
         command_buffer: &marpii::ash::vk::CommandBuffer,
         resources: &marpii_rmg::Resources,
     ) {
-
-        if let Some(call) = self.frame_data.take(){
+        if let Some(call) = self.frame_data.take() {
             //after recording updates, schedule all draw commands
             let (targetimg, targetview) = {
                 let img_access = resources.get_image_state(&self.target_image);
@@ -336,18 +337,16 @@ impl Task for EGuiRenderer {
 
                 //end renderpass
                 device.inner.cmd_end_rendering(*command_buffer);
-
             }
         }
     }
 }
 
-
 ///Egui meta task. Make sure to supply the renderer with all `winit` events that should be taken into account, or use [EGuiIntegration] instead.
 pub struct EGuiTask {
     ///data manager and update task
     data: EGuiData,
-    renderer: EGuiRenderer
+    renderer: EGuiRenderer,
 }
 
 impl EGuiTask {
@@ -502,9 +501,8 @@ impl EGuiTask {
                 target_image,
                 pipeline,
                 push,
-                frame_data: None
+                frame_data: None,
             },
-
         })
     }
 
@@ -713,13 +711,16 @@ impl EGuiTask {
         //check if we can just write to the index/vertex buffer, or if we have to grow.
         if self.data.index_buffer.buffer_handle().count() > new_index_buffer.len() {
             //can overwrite
-            self.data.index_buffer.write(&new_index_buffer, 0).map_err(|e| {
-                anyhow::anyhow!(
-                    "Uploaded index buffer partially {}/{}",
-                    e,
-                    new_index_buffer.len()
-                )
-            })?;
+            self.data
+                .index_buffer
+                .write(&new_index_buffer, 0)
+                .map_err(|e| {
+                    anyhow::anyhow!(
+                        "Uploaded index buffer partially {}/{}",
+                        e,
+                        new_index_buffer.len()
+                    )
+                })?;
         } else {
             #[cfg(feature = "logging")]
             log::info!("Have to grow index buffer to {}", new_index_buffer.len());
@@ -736,7 +737,8 @@ impl EGuiTask {
 
         if self.data.vertex_buffer.buffer_handle().count() > new_vertex_buffer.len() {
             //can overwrite
-            self.data.vertex_buffer
+            self.data
+                .vertex_buffer
                 .write(&new_vertex_buffer, 0)
                 .map_err(|e| {
                     anyhow::anyhow!(
@@ -902,25 +904,33 @@ impl EGuiTask {
             ..Default::default()
         };
 
-        self.renderer.target_image = rmg.new_image_uninitialized(description, Some("egui target image"))?;
+        self.renderer.target_image =
+            rmg.new_image_uninitialized(description, Some("egui target image"))?;
         Ok(())
     }
 }
 
-impl MetaTask for EGuiTask{
-    fn record<'a>(&'a mut self, mut recorder: marpii_rmg::Recorder<'a>) -> Result<marpii_rmg::Recorder<'a>, marpii_rmg::RecordError> {
-
+impl MetaTask for EGuiTask {
+    fn record<'a>(
+        &'a mut self,
+        mut recorder: marpii_rmg::Recorder<'a>,
+    ) -> Result<marpii_rmg::Recorder<'a>, marpii_rmg::RecordError> {
         //setup new rendercall for renderer.
-        self.renderer.frame_data = Some(EGuiCall{
+        self.renderer.frame_data = Some(EGuiCall {
             vertex_buffer: self.data.vertex_buffer.buffer_handle().clone(),
             index_buffer: self.data.index_buffer.buffer_handle().clone(),
-            textures: self.data.atlas.values().map(|tex| tex.image.clone()).collect()
+            textures: self
+                .data
+                .atlas
+                .values()
+                .map(|tex| tex.image.clone())
+                .collect(),
         });
 
         //Add all data tasks that need to be handled.
         recorder = recorder.add_task(&mut self.data.index_buffer)?;
         recorder = recorder.add_task(&mut self.data.vertex_buffer)?;
-        for t in self.data.atlas.values_mut(){
+        for t in self.data.atlas.values_mut() {
             recorder = recorder.add_task(t)?;
         }
 

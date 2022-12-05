@@ -190,10 +190,8 @@ impl Rmg {
     }
 
     ///waits till the gpu is idle
-    pub fn wait_for_idle(&self) -> Result<(), RecordError>{
-        unsafe{
-            self.ctx.device.inner.device_wait_idle()?
-        }
+    pub fn wait_for_idle(&self) -> Result<(), RecordError> {
+        unsafe { self.ctx.device.inner.device_wait_idle()? }
 
         Ok(())
     }
