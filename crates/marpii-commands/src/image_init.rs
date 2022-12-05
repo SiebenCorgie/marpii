@@ -42,13 +42,13 @@ pub fn image_from_data<A: Allocator + Send + Sync + 'static>(
     let image_subresource = image.subresource_layers_all();
     //now schedule CB that uploads the image
     let command_pool = Arc::new(CommandPool::new(
-        &device,
+        device,
         upload_queue.family_index,
         vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER,
     )?);
     let command_buffer = command_pool.allocate_buffer(vk::CommandBufferLevel::PRIMARY)?;
     //Now launch command buffer that uploads the data
-    let mut cb = ManagedCommands::new(&device, command_buffer)?;
+    let mut cb = ManagedCommands::new(device, command_buffer)?;
     let mut recorder = cb.start_recording()?;
 
     //NOTE: Lifetime ok since we wait at the end of the function and return the image
@@ -101,7 +101,7 @@ pub fn image_from_data<A: Allocator + Send + Sync + 'static>(
 
     recorder.finish_recording()?;
 
-    cb.submit(&device, upload_queue, &[], &[])?;
+    cb.submit(device, upload_queue, &[], &[])?;
     cb.wait()?;
 
     Ok(image)

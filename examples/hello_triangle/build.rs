@@ -19,7 +19,7 @@ pub fn compile_rust_shader(
     if !shader_crate_location.exists() {
         println!("cargo:warning=no crate at: {:?}", shader_crate_location);
         return Err(SpirvBuilderError::CratePathDoesntExist(
-            shader_crate_location.to_owned(),
+            shader_crate_location,
         ));
     }
 
@@ -96,7 +96,7 @@ fn build_glsl(path: &str, name: &str, target: &str) {
     }
 }
 
-const RESDIR: &'static str = &"../resources";
+const RESDIR: &str = "../resources";
 
 pub fn ensure_res() {
     if !PathBuf::from(RESDIR).exists() {

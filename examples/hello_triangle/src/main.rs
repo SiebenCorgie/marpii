@@ -22,7 +22,7 @@ use winit::{
     event_loop::ControlFlow,
 };
 
-const SHADER: &'static [u8] = include_bytes!("../../resources/rust_shader.spv");
+const SHADER: &[u8] = include_bytes!("../../resources/rust_shader.spv");
 
 #[repr(C)]
 pub struct PushConst {

@@ -37,7 +37,7 @@ impl<'t> Display for TaskNode<'t> {
 
         for dep in &self.dependencies {
             let s = match dep.participant {
-                DepPart::Import => format!("Imp"),
+                DepPart::Import => "Imp".to_string(),
                 DepPart::Scheduled { track, node_idx } => {
                     format!("{:x}:{}", track.0.as_raw(), node_idx)
                 }
@@ -132,12 +132,7 @@ impl<'t> TrackSchedule<'t> {
         //check if last is in last range
         match (self.frames.last(), self.nodes.last()) {
             (Some(last_frame), Some(_)) => {
-                if !last_frame.contains_idx(self.nodes.len() - 1) {
-                    //last node is NOT contained in last node
-                    true
-                } else {
-                    false
-                }
+                !last_frame.contains_idx(self.nodes.len() - 1)
             }
             (None, Some(_)) => true,
             (Some(_), None) => {
@@ -239,7 +234,7 @@ impl<'t> TaskSchedule<'t> {
         //allocate node
         let node_track = rmg
             .tracks
-            .track_for_usage(task.task.queue_flags().into())
+            .track_for_usage(task.task.queue_flags())
             .ok_or(RecordError::NoFittingTrack(task.task.queue_flags()))?;
         let node_idx = self
             .tracks
@@ -337,7 +332,7 @@ impl<'t> TaskSchedule<'t> {
             for track_id in &all_tracks {
                 let mut is_first_scheduled = false;
 
-                while let Some(next) = self.tracks.get(&track_id).unwrap().next_to_schedule() {
+                while let Some(next) = self.tracks.get(track_id).unwrap().next_to_schedule() {
                     //check dependencies
                     if self.is_scheduleable(track_id, next) {
                         //if first node, add new frame, otherwise just push to last
@@ -386,9 +381,9 @@ impl<'t> Display for TaskSchedule<'t> {
             for task in &track.nodes {
                 write!(f, "----{}----", task)?;
             }
-            writeln!(f, "")?;
+            writeln!(f)?;
         }
-        writeln!(f, "")?;
+        writeln!(f)?;
 
         writeln!(f, "Frames: ")?;
         for (id, track) in &self.tracks {
@@ -397,9 +392,9 @@ impl<'t> Display for TaskSchedule<'t> {
             for frame in &track.frames {
                 write!(f, "----{}----", frame)?;
             }
-            writeln!(f, "")?;
+            writeln!(f)?;
         }
 
-        writeln!(f, "")
+        writeln!(f)
     }
 }

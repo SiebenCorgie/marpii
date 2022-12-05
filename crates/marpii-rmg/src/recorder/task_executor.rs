@@ -42,7 +42,7 @@ impl<'t> Executor<'t> {
             .tracks
             .iter()
             .filter_map(|(trackid, track)| {
-                if track.frames.len() > 0 {
+                if !track.frames.is_empty() {
                     Some((*trackid, 0))
                 } else {
                     #[cfg(feature = "logging")]
@@ -262,7 +262,7 @@ impl<'t> Executor<'t> {
     ///checks all import statements and adds release operations to the currently owning tracks, to make
     /// the frames acquire operation valid.
     ///
-    /// Similar to the build_release_barrier function, but does not operate on the whole graph.
+    /// Similar to the `build_release_barrier` function, but does not operate on the whole graph.
     //TODO: maybe we can somehow unify later?
     fn schedule_import_release_frame(&mut self, rmg: &mut Rmg) -> Result<(), RecordError> {
         //clear for this pass.
@@ -282,8 +282,7 @@ impl<'t> Executor<'t> {
             for dep in track
                 .nodes
                 .iter()
-                .map(|node| node.dependencies.iter())
-                .flatten()
+                .flat_map(|node| node.dependencies.iter())
             {
                 if let DepPart::Import = dep.participant {
                     //if there is a current owner, build release.
@@ -319,7 +318,7 @@ impl<'t> Executor<'t> {
                                 )),
                             )?,
                             destination_owner: *trackid,
-                            res: dep.dep.clone(),
+                            res: dep.dep,
                         });
                     } else {
                         #[cfg(feature = "logging")]
@@ -420,7 +419,7 @@ impl<'t> Executor<'t> {
                                 buffer.guard.is_none(),
                                 "Resource had guard, therefore wait was scheduled wrong"
                             );
-                            buffer.guard = Some(release_guard.clone());
+                            buffer.guard = Some(release_guard);
                             Box::new(buffer.buffer.clone()) as Box<dyn Any + Send + 'static>
                         }
                         AnyResKey::Image(img) => {
@@ -429,7 +428,7 @@ impl<'t> Executor<'t> {
                                 image.guard.is_none(),
                                 "Resource had guard, therefore wait was scheduled wrong"
                             );
-                            image.guard = Some(release_guard.clone());
+                            image.guard = Some(release_guard);
 
                             Box::new(image.image.clone()) as Box<dyn Any + Send + 'static>
                         }
@@ -522,7 +521,7 @@ impl<'t> Executor<'t> {
 
         let acquire_deps = self.schedule.tracks.get(&trackid).unwrap().frames[frame_index]
             .iter_indices()
-            .map(|node_idx| {
+            .flat_map(|node_idx| {
                 self.schedule.tracks.get(&trackid).unwrap().nodes[node_idx]
                     .dependencies
                     .iter()
@@ -536,8 +535,7 @@ impl<'t> Executor<'t> {
                             true
                         }
                     })
-            })
-            .flatten();
+            });
 
         for dep in acquire_deps {
             //get current state and init acquire operation.
@@ -598,7 +596,7 @@ impl<'t> Executor<'t> {
                     if let Some(guard) = bufstate.guard.take() {
                         self.guard_cache.push(guard);
                     }
-                    bufstate.guard = Some(exec_guard.clone());
+                    bufstate.guard = Some(exec_guard);
                 }
                 AnyResKey::Image(img) => {
                     //same as buffer acquire
@@ -652,7 +650,7 @@ impl<'t> Executor<'t> {
                     if let Some(guard) = imgstate.guard.take() {
                         self.guard_cache.push(guard);
                     }
-                    imgstate.guard = Some(exec_guard.clone());
+                    imgstate.guard = Some(exec_guard);
                 }
                 AnyResKey::Sampler(_) => {}
             }
@@ -674,7 +672,7 @@ impl<'t> Executor<'t> {
         //filter all dependees, that are on another track and depended on
         let releases_iter = self.schedule.tracks.get(&trackid).unwrap().frames[frame_index]
             .iter_indices()
-            .map(|node_idx| {
+            .flat_map(|node_idx| {
                 self.schedule.tracks.get(&trackid).unwrap().nodes[node_idx]
                     .dependees
                     .iter()
@@ -686,8 +684,7 @@ impl<'t> Executor<'t> {
                             false
                         }
                     })
-            })
-            .flatten();
+            });
 
         for release_to in releases_iter {
             match release_to.participant {
@@ -964,7 +961,7 @@ impl<'t> Executor<'t> {
                 track.nodes[node_idx].task.task.record(
                     &rmg.ctx.device,
                     &cb.inner,
-                    &rmg.resources(),
+                    rmg.resources(),
                 );
             }
         }

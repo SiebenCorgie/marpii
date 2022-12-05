@@ -17,7 +17,7 @@ marpii = {path = "../../marpii"}
 marpii-rmg = {path = "../../marpii-rmg"}
 marpii-rmg-task-shared = {path = "../marpii-rmg-task-shared"}
 log = {workspace = true, optional=true}
-anyhow = "1.0.56"
+anyhow.workspace = true
 
 egui-winit  = {version = "0.19", optional = true, features = ["bytemuck"]}
 egui = "0.19"

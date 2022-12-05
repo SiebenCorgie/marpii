@@ -3,12 +3,13 @@ use crate::{
         res_states::{AnyResKey, BufferKey, ImageKey, SamplerKey},
         Resources,
     },
-    BufferHandle, CtxRmg, ImageHandle, RecordError, ResourceError, Rmg, SamplerHandle, Recorder,
+    BufferHandle, CtxRmg, ImageHandle, RecordError, Recorder, ResourceError, Rmg, SamplerHandle,
 };
 use ahash::{AHashMap, AHashSet};
 use marpii::{
     ash::vk::{self, ImageLayout},
-    context::Device, sync::BinarySemaphore,
+    context::Device,
+    sync::BinarySemaphore,
 };
 use marpii_commands::BarrierBuilder;
 use std::{any::Any, sync::Arc};
@@ -120,10 +121,7 @@ impl ResourceRegistry {
     }
 
     /// Appends all foreign binary semaphores. Mostly used to integrate swapchains.
-    pub(crate) fn append_binary_signal_semaphores(
-        &self,
-        infos: &mut Vec<vk::SemaphoreSubmitInfo>,
-    ) {
+    pub(crate) fn append_binary_signal_semaphores(&self, infos: &mut Vec<vk::SemaphoreSubmitInfo>) {
         for sem in self.binary_signal_sem.iter() {
             #[cfg(feature = "logging")]
             log::trace!("Registering foreign semaphore {:?}", sem.inner);
@@ -156,18 +154,10 @@ impl ResourceRegistry {
     pub(crate) fn get_stage_mask(&self, resource: &AnyResKey) -> Option<vk::PipelineStageFlags2> {
         match resource {
             AnyResKey::Buffer(buf) => {
-                if let Some(st) = self.buffers.get(buf) {
-                    Some(st.0)
-                } else {
-                    None
-                }
+                self.buffers.get(buf).map(|st| st.0)
             }
             AnyResKey::Image(img) => {
-                if let Some(st) = self.images.get(img) {
-                    Some(st.0)
-                } else {
-                    None
-                }
+                self.images.get(img).map(|st| st.0)
             }
             AnyResKey::Sampler(_) => None,
         }
@@ -313,13 +303,12 @@ pub trait Task {
     }
 }
 
-
 ///Represents some a collection of tasks that are executed in a certain way. This can be used
 /// to schedule preparation tasks before executing some more sophisticated task.
 ///
-/// For instance the EGuiIntegration uses this to first update all texture atlases and vertex buffers before
+/// For instance the `EGuiIntegration` uses this to first update all texture atlases and vertex buffers before
 /// drawing the interface. Similarly this could be used for generating mipmaps or depth buffer pyramids etc.
-pub trait MetaTask{
+pub trait MetaTask {
     ///Allows the meta task to schedule its sub tasks at will. This allows for instance for conditional scheduling.
     fn record<'a>(&'a mut self, recorder: Recorder<'a>) -> Result<Recorder<'a>, RecordError>;
 }

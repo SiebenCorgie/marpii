@@ -156,17 +156,16 @@ impl Debug for Semaphore {
     }
 }
 
-
 ///A [BinarySempaphore](https://registry.khronos.org/vulkan/specs/1.3-extensions/man/html/VkSemaphoreType.html) has two states. Signalled and unsignalled. It can be signalled by for instace by being a member of some queue submit operation.
 ///
 /// Note that modern Vulkan mostly uses timeline semaphore. They are exposed in MarpII as the [Semaphore] type. They also inherit the functions of fences in.
-pub struct BinarySemaphore{
+pub struct BinarySemaphore {
     pub inner: vk::Semaphore,
-    pub device: Arc<Device>
+    pub device: Arc<Device>,
 }
 
 impl BinarySemaphore {
-    pub fn new(device: &Arc<Device>) -> Result<Self, vk::Result>{
+    pub fn new(device: &Arc<Device>) -> Result<Self, vk::Result> {
         let mut ci = ash::vk::SemaphoreTypeCreateInfo::builder()
             .semaphore_type(ash::vk::SemaphoreType::BINARY);
 
@@ -183,11 +182,9 @@ impl BinarySemaphore {
     }
 }
 
-impl Drop for BinarySemaphore{
+impl Drop for BinarySemaphore {
     fn drop(&mut self) {
-        unsafe{
-            self.device.inner.destroy_semaphore(self.inner, None)
-        }
+        unsafe { self.device.inner.destroy_semaphore(self.inner, None) }
     }
 }
 

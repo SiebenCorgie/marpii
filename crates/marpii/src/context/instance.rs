@@ -20,7 +20,7 @@ unsafe extern "system" fn vulkan_debug_callback(
     p_callback_data: *const ash::vk::DebugUtilsMessengerCallbackDataEXT,
     _p_user_data: *mut core::ffi::c_void,
 ) -> u32 {
-    if p_callback_data == core::ptr::null() {
+    if p_callback_data.is_null() {
         #[cfg(feature = "logging")]
         log::error!("MarpDebugMsg: Got Msg, but no data!");
         return 1;
@@ -311,7 +311,7 @@ impl InstanceBuilder {
     }
 }
 
-///marpii instance. Wrapps the entry point as well as the created instance into one object.
+///marpii instance. Wraps the entry point as well as the created instance into one object.
 ///
 /// # Safety
 ///
@@ -372,7 +372,7 @@ impl Drop for Instance {
         unsafe {
             //Destroy the messenger before destroying the instance.
             if let Some(drl) = &self.debugger {
-                //destroies the messenge if it was loaded
+                //destroys the messenger if it was loaded
                 drl.debug_report_loader
                     .destroy_debug_utils_messenger(drl.debug_messenger, None);
             }

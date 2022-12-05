@@ -1,11 +1,11 @@
-use ash::vk::QueueFlags;
+use ash::vk::{QueueFlags, TaggedStructure, self, BaseOutStructure};
 
 use crate::{resources::ImgDesc, util::image_usage_to_format_features};
 
 use super::{Queue, QueueBuilder};
 use std::{
     os::raw::c_char,
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex}, mem::MaybeUninit, ptr::addr_of_mut
 };
 
 ///Helper that lets you setup device properties and possibly needed extensions before creating the actual
@@ -27,7 +27,7 @@ pub struct DeviceBuilder {
 }
 
 //TODO / FIXME: at the moment push structures are not checked for availability. However this could be done
-//              after building the temproray device create info.
+//              after building the temporary device create info.
 impl DeviceBuilder {
     ///Checks that all device extensions are supported.
     fn check_extensions(&mut self) -> Result<(), anyhow::Error> {
@@ -81,7 +81,7 @@ impl DeviceBuilder {
         self
     }
 
-    ///Pushes the new extension. The name is usually optained from the extensions definition like this:
+    ///Pushes the new extension. The name is usually obtained from the extensions definition like this:
     ///```irgnore
     ///  builder.push_extension(ash::vk::KhrPipelineLibraryFn::name());
     ///```
@@ -90,13 +90,13 @@ impl DeviceBuilder {
     /// Pushing the same extensions is currently UB.
     //FIXME: while pushing, already check compatibility and reject either unsupported or already pushed
     //       extensions.
-    pub fn push_extensions(mut self, ext_name: &'static std::ffi::CStr) -> Self {
+    pub fn with_extensions(mut self, ext_name: &'static std::ffi::CStr) -> Self {
         self.device_extensions.push(ext_name.as_ptr());
         self
     }
 
-    ///Pushes an additional feature into the `p_next` chain
-    pub fn with_additional_feature<T: 'static>(mut self, feature: T) -> Self
+    ///Pushes an additional feature into the `p_next` chain.
+    pub fn with_feature<T: 'static>(mut self, feature: T) -> Self
     where
         T: ash::vk::ExtendsDeviceCreateInfo,
     {
@@ -263,11 +263,54 @@ impl Device {
         )
     }
 
-    ///If enabled, returns the Physical device extension `E`
-    pub fn get_extension<E: ash::vk::ExtendsPhysicalDeviceFeatures2>(&self) -> Option<&E> {
+
+    ///Returns the feature list of the currently used physical device
+    pub fn get_physical_device_features(&self) -> ash::vk::PhysicalDeviceFeatures {
+        unsafe {
+            self.instance
+                .inner
+                .get_physical_device_features(self.physical_device)
+        }
+    }
+
+    ///same as [get_physical_device_features](crate::context::Device::get_physical_device_features) but for PhysicalDeviceFetures2
+    pub fn get_physical_device_features2(&self) -> ash::vk::PhysicalDeviceFeatures2 {
+        let mut features = ash::vk::PhysicalDeviceFeatures2::default();
+        unsafe {
+            self.instance
+                .inner
+                .get_physical_device_features2(self.physical_device, &mut features)
+        };
+        features
+    }
+
+    ///Returns the queried E.
+    pub fn get_feature<E: ash::vk::ExtendsPhysicalDeviceFeatures2 + TaggedStructure>(&self) -> E {
         //What we do to get E is that we try to upcast each element of the p_next chain of out feature list to E.
-        //FIXME: waiting for https://gitlab.com/tendsinmende/marpii/-/issues/11
-        None
+
+        //Create uninited E. This makes sure we reserved enough space for E.
+        // We use zerode since this are *always* structs with 32bit per field, except for snext.
+        // This somewhat sanitzes the values if the driver does not set the
+        // zero values correctly.
+        let mut q: MaybeUninit<E> = std::mem::MaybeUninit::zeroed();
+        //cast to base struct to set stype. This lets the vulkan getter figure out what we want.
+        let qptr = q.as_mut_ptr();
+        unsafe{
+            addr_of_mut!(
+                (*(qptr as *mut BaseOutStructure)).s_type
+            ).write(E::STRUCTURE_TYPE);
+        }
+        //push into chain
+        let mut features2 = vk::PhysicalDeviceFeatures2::builder()
+            .push_next(unsafe{&mut *q.as_mut_ptr()});
+
+        //issue query
+        unsafe{
+            self.instance.inner.get_physical_device_features2(self.physical_device, &mut features2);
+        }
+        //at this point we can assume q to be init.
+        let query = unsafe{q.assume_init()};
+        query
     }
 
     pub fn get_device_properties(&self) -> ash::vk::PhysicalDeviceProperties2 {
@@ -340,14 +383,13 @@ impl Device {
     ) -> Option<ash::vk::Format> {
         formats
             .iter()
-            .filter_map(|f| {
+            .find_map(|f| {
                 if self.is_format_supported(usage, tiling, *f) {
                     Some(*f)
                 } else {
                     None
                 }
             })
-            .next()
     }
 
     ///Returns the image format properties for the given image description (`desc`), assuming the image was/is created with `create_flags`.
@@ -375,26 +417,6 @@ impl Device {
         };
 
         Ok(properties)
-    }
-
-    ///Returns the feature list of the currently used physical device
-    pub fn get_physical_device_features(&self) -> ash::vk::PhysicalDeviceFeatures {
-        unsafe {
-            self.instance
-                .inner
-                .get_physical_device_features(self.physical_device)
-        }
-    }
-
-    ///same as [get_physical_device_features](crate::context::Device::get_physical_device_features) but for PhysicalDeviceFetures2
-    pub fn get_physical_device_features2(&self) -> ash::vk::PhysicalDeviceFeatures2 {
-        let mut features = ash::vk::PhysicalDeviceFeatures2::default();
-        unsafe {
-            self.instance
-                .inner
-                .get_physical_device_features2(self.physical_device, &mut features)
-        };
-        features
     }
 
     ///Returns true if the format is usable with the intended usage. Can be used in a `Filter` iterator to select
@@ -445,6 +467,9 @@ impl Device {
             .non_coherent_atom_size;
         offset + (atom_size - (offset % atom_size))
     }
+
+
+
 }
 
 impl Drop for Device {

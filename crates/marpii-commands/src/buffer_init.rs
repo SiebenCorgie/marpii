@@ -48,13 +48,13 @@ pub fn buffer_from_data<A: Allocator + Send + Sync + 'static, T: marpii::bytemuc
         Buffer::new_staging_for_data(device, allocator, Some("StagingBuffer"), data)?;
 
     let command_pool = Arc::new(CommandPool::new(
-        &device,
+        device,
         upload_queue.family_index,
         CommandPoolCreateFlags::RESET_COMMAND_BUFFER,
     )?);
     let command_buffer = command_pool.allocate_buffer(CommandBufferLevel::PRIMARY)?;
     //Now launch command buffer that uploads the data
-    let mut cb = ManagedCommands::new(&device, command_buffer)?;
+    let mut cb = ManagedCommands::new(device, command_buffer)?;
     let mut recorder = cb.start_recording()?;
 
     let buffer_hdl = buffer.inner;
@@ -73,7 +73,7 @@ pub fn buffer_from_data<A: Allocator + Send + Sync + 'static, T: marpii::bytemuc
 
     recorder.finish_recording()?;
 
-    cb.submit(&device, upload_queue, &[], &[])?;
+    cb.submit(device, upload_queue, &[], &[])?;
     cb.wait()?;
 
     Ok(buffer)

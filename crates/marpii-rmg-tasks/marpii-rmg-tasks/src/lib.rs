@@ -26,9 +26,9 @@ pub use image_blit::ImageBlit;
 #[cfg(feature = "egui-task")]
 mod egui_integration;
 #[cfg(feature = "egui-task")]
-pub use crate::egui_integration::{EGuiWinitIntegration, EGuiTask};
+pub use crate::egui_integration::{EGuiTask, EGuiWinitIntegration};
 #[cfg(feature = "egui-task")]
 pub use egui_winit::egui;
 
 ///Rust shader byte code. Compiled ahead of the crate and included for *save* distribution.
-pub const SHADER_RUST: &'static [u8] = include_bytes!("../../resources/rshader.spv");
+pub const SHADER_RUST: &[u8] = include_bytes!("../../resources/rshader.spv");

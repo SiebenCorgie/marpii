@@ -86,8 +86,8 @@ impl Surface {
                 height: 0,
             } => None,
             vk::Extent2D {
-                width: 0x4_000,
-                height: 0x4_000,
+                width: 0x4000,
+                height: 0x4000,
             } => {
                 //FIXME: Not sure why, but on wayland+Intel this size gets reported on startup, which is wrong.
                 #[cfg(feature = "logging")]

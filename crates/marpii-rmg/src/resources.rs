@@ -194,7 +194,7 @@ impl Resources {
         })
     }
 
-    ///Imports the buffer with the given state. Returns an error if a given queue_family index has no internal TrackId.
+    ///Imports the buffer with the given state. Returns an error if a given `queue_family` index has no internal `TrackId`.
     pub(crate) fn import_buffer<T: 'static>(
         &mut self,
         tracks: &Tracks,
@@ -242,7 +242,7 @@ impl Resources {
         res: impl Into<AnyHandle> + Clone,
     ) -> Result<ResourceHandle, ResourceError> {
         if let Some(hdl) = self.try_resource_handle(res.clone()) {
-            return Ok(hdl);
+            Ok(hdl)
         } else {
             let hdl = res.into();
             //try to bind, try that
@@ -266,7 +266,7 @@ impl Resources {
     //      another thread for that to not stall the recording process
     pub(crate) fn tick_record(&mut self, tracks: &Tracks) {
         self.images.retain(|key, img| {
-            if img.is_orphaned() && img.guard.map(|g| g.expired(tracks)).unwrap_or(true) {
+            if img.is_orphaned() && img.guard.map_or(true, |g| g.expired(tracks)) {
                 #[cfg(feature = "logging")]
                 log::info!("Dropping {:?}", key);
 
@@ -284,7 +284,7 @@ impl Resources {
         });
 
         self.buffer.retain(|key, buffer| {
-            if buffer.is_orphaned() && buffer.guard.map(|g| g.expired(tracks)).unwrap_or(true) {
+            if buffer.is_orphaned() && buffer.guard.map_or(true, |g| g.expired(tracks)) {
                 #[cfg(feature = "logging")]
                 log::info!("Dropping {:?}", key);
 
@@ -367,7 +367,7 @@ impl Resources {
         self.buffer
             .get(hdl.key)
             .as_ref()
-            .expect(&format!("Used invalid BufferHandle {:?}", hdl.key))
+            .unwrap_or_else(|| panic!("Used invalid BufferHandle {:?}", hdl.key))
     }
     ///Returns the current state of the given sampler.
     ///
@@ -391,13 +391,11 @@ impl Resources {
             AnyResKey::Buffer(k) => self
                 .buffer
                 .get(*k)
-                .map(|buf| buf.ownership.owner())
-                .flatten(),
+                .and_then(|buf| buf.ownership.owner()),
             AnyResKey::Image(k) => self
                 .images
                 .get(*k)
-                .map(|img| img.ownership.owner())
-                .flatten(),
+                .and_then(|img| img.ownership.owner()),
             AnyResKey::Sampler(_) => None,
         }
     }

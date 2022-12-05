@@ -102,7 +102,7 @@ impl SwapchainPresent {
             .device
             .first_queue_for_attribute(true, false, false)
             .unwrap(); //FIXME use track instead
-        if let Err(e) = self.swapchain.present_image(image, &*queue.inner()) {
+        if let Err(e) = self.swapchain.present_image(image, &queue.inner()) {
             #[cfg(feature = "logging")]
             log::error!("present failed with: {}, recreating swapchain", e);
         }
@@ -164,7 +164,7 @@ impl Task for SwapchainPresent {
             } => {
                 registry
                     .request_image(
-                        &src_image,
+                        src_image,
                         vk::PipelineStageFlags2::TRANSFER,
                         vk::AccessFlags2::TRANSFER_READ,
                         vk::ImageLayout::TRANSFER_SRC_OPTIMAL,

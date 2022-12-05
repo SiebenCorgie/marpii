@@ -6,8 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-simple_logger = "2.1.0"
-anyhow = "1.0.56"
+simple_logger.workspace = true
+anyhow.workspace = true
 
 marpii = {path = "../../crates/marpii", features=["logging"]}
 marpii-rmg = {path = "../../crates/marpii-rmg"}

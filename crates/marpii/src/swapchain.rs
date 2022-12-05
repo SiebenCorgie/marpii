@@ -9,7 +9,8 @@ use crate::{
     allocator::{ManagedAllocation, MemoryUsage, UnmanagedAllocation, UnmanagedAllocator},
     context::Device,
     resources::{Image, ImgDesc, SharingMode},
-    surface::Surface, sync::BinarySemaphore,
+    surface::Surface,
+    sync::BinarySemaphore,
 };
 
 ///All info needed to create a swapchain
@@ -122,14 +123,10 @@ impl SwapchainBuilder {
 
         //create semaphore buffers and setup the roundtrip state for the semaphore buffers
         let acquire_semaphore = (0..images.len())
-            .map(|_| {
-                Arc::new(BinarySemaphore::new(&self.device).unwrap())
-            })
+            .map(|_| Arc::new(BinarySemaphore::new(&self.device).unwrap()))
             .collect();
         let render_finished_semaphore = (0..images.len())
-            .map(|_| {
-                Arc::new(BinarySemaphore::new(&self.device).unwrap())
-            })
+            .map(|_| Arc::new(BinarySemaphore::new(&self.device).unwrap()))
             .collect();
 
         //Update recreate info with the stuff we currently use.
@@ -475,11 +472,13 @@ impl Swapchain {
 
         //add semaphores if needed
         while self.acquire_semaphore.len() < self.images.len() {
-            self.acquire_semaphore.push(Arc::new(BinarySemaphore::new(&device)?));
+            self.acquire_semaphore
+                .push(Arc::new(BinarySemaphore::new(&device)?));
         }
 
         while self.render_finished_semaphore.len() < self.images.len() {
-            self.render_finished_semaphore.push(Arc::new(BinarySemaphore::new(&device)?));
+            self.render_finished_semaphore
+                .push(Arc::new(BinarySemaphore::new(&device)?));
         }
 
         #[cfg(feature = "logging")]

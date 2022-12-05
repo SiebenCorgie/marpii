@@ -19,6 +19,9 @@ members = [
 
 
 [workspace.dependencies]
+ash = "0.37.1"
+ash-window = "0.12"
+raw-window-handle = "0.5"
 spirv-std = { git = "https://github.com/EmbarkStudios/rust-gpu", rev="39850120ae6ca16d0cb3f7a12e5aad8e2293732b"}
 spirv-builder = { git = "https://github.com/EmbarkStudios/rust-gpu", rev="39850120ae6ca16d0cb3f7a12e5aad8e2293732b"}
 bytemuck = "1"
@@ -26,6 +29,7 @@ log = "0.4.15"
 ahash = "0.8.2"
 anyhow = "1.0.56"
 tinyvec = {version = "1.6.0", features = ["alloc"]}
+simple_logger = "4"
 
 [patch.crates-io]
 libm = { git = "https://github.com/rust-lang/libm", tag = "0.2.5" }

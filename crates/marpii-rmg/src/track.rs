@@ -61,12 +61,12 @@ impl Guard {
     pub fn guard_before(&self) -> Guard {
         Guard {
             track: self.track,
-            target_value: self.target_value.checked_sub(1).unwrap_or(0),
+            target_value: self.target_value.saturating_sub(1),
         }
     }
 }
 
-///Execution track. Basically a DeviceQueue and some associated data.
+///Execution track. Basically a `DeviceQueue` and some associated data.
 pub(crate) struct Track {
     pub(crate) queue_idx: u32,
     pub(crate) flags: vk::QueueFlags,
@@ -112,11 +112,11 @@ impl Track {
     ///Allocates the next guard for this track.
     pub fn next_guard(&mut self) -> Guard {
         self.latest_signaled_value += 1;
-        let g = Guard {
+        
+        Guard {
             track: TrackId(self.flags),
             target_value: self.latest_signaled_value,
-        };
-        g
+        }
     }
 
     pub(crate) fn wait_for_inflights(&mut self) {
