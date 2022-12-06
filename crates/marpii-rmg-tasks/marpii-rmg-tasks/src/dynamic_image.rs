@@ -85,7 +85,7 @@ impl Task for DynamicImage {
                 &self.image,
                 vk::PipelineStageFlags2::TRANSFER,
                 vk::AccessFlags2::TRANSFER_WRITE,
-                vk::ImageLayout::GENERAL,
+                vk::ImageLayout::TRANSFER_DST_OPTIMAL,
             )
             .unwrap();
         for cp in self.staging_copies.iter() {
@@ -118,7 +118,7 @@ impl Task for DynamicImage {
                         .src_buffer(cp.buffer.inner)
                         .regions(&[*copy_cmd])
                         .dst_image(image_access.image.inner)
-                        .dst_image_layout(vk::ImageLayout::GENERAL),
+                        .dst_image_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL),
                 );
             }
         }

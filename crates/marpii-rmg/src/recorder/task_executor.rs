@@ -957,6 +957,8 @@ impl<'t> Executor<'t> {
                     }
                 }
 
+                #[cfg(feature="logging")]
+                log::trace!("Record task {}", track.nodes[node_idx].task.task.name());
                 //now let the node record itself
                 track.nodes[node_idx].task.task.record(
                     &rmg.ctx.device,

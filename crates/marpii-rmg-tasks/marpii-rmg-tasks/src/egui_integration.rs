@@ -33,6 +33,10 @@ use std::collections::hash_map::Values;
 use std::sync::Arc;
 use std::time::Instant;
 
+//NOTE: There is a (buggy) glsl implementation. Keeping it here, but we use rust-gpu actually
+//const EGUI_SHADER_VERT: &'static [u8] = include_bytes!("../../resources/eguivert.spv");
+//const EGUI_SHADER_FRAG: &'static [u8] = include_bytes!("../../resources/eguifrag.spv");
+
 ///Single EGui primitive draw command
 struct EGuiPrimDraw {
     ///Offset into the vertex buffer
@@ -224,8 +228,8 @@ impl Task for EGuiRenderer {
                     .request_image(
                         img,
                         vk::PipelineStageFlags2::ALL_GRAPHICS,
-                        vk::AccessFlags2::SHADER_SAMPLED_READ,
-                        vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+                        vk::AccessFlags2::SHADER_READ,
+                        vk::ImageLayout::GENERAL,
                     )
                     .unwrap();
             }
@@ -419,7 +423,7 @@ impl EGuiTask {
         );
 
         let fragment_shader_stage = ShaderStage::from_shared_module(
-            shader_module,
+            shader_module.clone(),
             vk::ShaderStageFlags::FRAGMENT,
             "egui_fs".to_owned(),
         );

@@ -11,7 +11,7 @@ use winit::{
 
 fn main() -> Result<(), anyhow::Error> {
     simple_logger::SimpleLogger::new()
-        .with_level(log::LevelFilter::Info)
+        .with_level(log::LevelFilter::Trace)
         .init()
         .unwrap();
 

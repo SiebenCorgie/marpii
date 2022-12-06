@@ -73,12 +73,18 @@ pub fn compile_rust_shader(
 }
 
 #[allow(dead_code)]
-fn build_glsl(path: &str, target: &str) {
+fn build_glsl(path: &str, name: &str) {
     //TODO: build all files that do not end with ".glsl". and copy to
     // RESDIR as well.
 
-    if PathBuf::from(target).exists() {
-        std::fs::remove_file(target).unwrap();
+    let src = PathBuf::from(path);
+    if !src.exists(){
+        println!("cargo:warning=Shader does not exist at {:?}", src);
+        return;
+    }
+    let target = PathBuf::from(RESDIR).join(name);
+    if target.exists() {
+        std::fs::remove_file(&target).unwrap();
     }
 
     let command = std::process::Command::new("glslangValidator")
@@ -91,8 +97,8 @@ fn build_glsl(path: &str, target: &str) {
         .unwrap();
 
     if !command.status.success() {
-        println!("Out: {}", std::str::from_utf8(&command.stdout).unwrap());
-        println!("Err: {}", std::str::from_utf8(&command.stderr).unwrap());
+        println!("cargo:warning=Out: {:#?}", std::str::from_utf8(&command.stdout).unwrap());
+        println!("cargo:warning=Err: {:#?}", std::str::from_utf8(&command.stderr).unwrap());
     }
 }
 
@@ -117,4 +123,8 @@ fn main() {
 
     //build shader crate. generates a module per entry point
     compile_rust_shader("rshader", "../marpii-rmg-task-shader/", RESDIR).unwrap();
+
+    //NOTE: keeping it around for compatibility
+    //build_glsl("../marpii-rmg-task-shader/glsl/egui.vert", "eguivert.spv");
+    //build_glsl("../marpii-rmg-task-shader/glsl/egui.frag", "eguifrag.spv");
 }
