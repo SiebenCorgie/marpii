@@ -81,18 +81,11 @@ impl ResImage {
         // 2. if bound: the descriptor set
         // 3. if in flight: in the execution guarded by self.guard
 
-        //for self. If bound to a descriptor set at least two strong (was cloned once),
-        // otherwise only the one we store
-        let view_strong = if self.descriptor_handle.is_some(){
-            2
-        }else{
-            1
-        };
+        //the image itself is borrowed at least once in the image view as well
+        let image_strong = 2;
 
-        //the image itself is borrowed at least once
-        let image_strong = 1;
         //if the strong count is higher, somewhere referenced
-        Arc::strong_count(&self.image) <= image_strong && Arc::strong_count(&self.view) <= view_strong
+        Arc::strong_count(&self.image) <= image_strong
     }
 }
 

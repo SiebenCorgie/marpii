@@ -75,7 +75,7 @@ pub fn compile_rust_shader(
 }
 
 #[allow(dead_code)]
-fn build_glsl(path: &str, name: &str) {
+fn build_glsl(path: &str, name: &str, entry_point: &str) {
     //TODO: build all files that do not end with ".glsl". and copy to
     // RESDIR as well.
 
@@ -93,6 +93,10 @@ fn build_glsl(path: &str, name: &str) {
         .arg("-g")
         .arg("-V")
         .arg(path)
+        .arg("-e")
+        .arg("main")
+        .arg("--source-entrypoint")
+        .arg(entry_point)
         .arg("-o")
         .arg(target)
         .output()
@@ -127,6 +131,8 @@ fn main() {
     compile_rust_shader("rshader", "../marpii-rmg-task-shader/", RESDIR).unwrap();
 
     //NOTE: keeping it around for compatibility
-    build_glsl("../marpii-rmg-task-shader/glsl/egui.vert", "eguivert.spv");
-    build_glsl("../marpii-rmg-task-shader/glsl/egui.frag", "eguifrag.spv");
+    //build_glsl("../marpii-rmg-task-shader/glsl/egui.vert", "eguivert.spv");
+    //build_glsl("../marpii-rmg-task-shader/glsl/egui.frag", "eguifrag.spv");
+    build_glsl("../marpii-rmg-task-shader/glsl/alphablend.comp", "alphablend_f32.spv", "main_f32");
+    build_glsl("../marpii-rmg-task-shader/glsl/alphablend.comp", "alphablend_u8.spv", "main_u8");
 }

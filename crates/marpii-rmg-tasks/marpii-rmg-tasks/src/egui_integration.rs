@@ -34,8 +34,8 @@ use std::sync::Arc;
 use std::time::Instant;
 
 //NOTE: There is a (buggy) glsl implementation. Keeping it here, but we use rust-gpu actually
-const EGUI_SHADER_VERT: &'static [u8] = include_bytes!("../../resources/eguivert.spv");
-const EGUI_SHADER_FRAG: &'static [u8] = include_bytes!("../../resources/eguifrag.spv");
+//const EGUI_SHADER_VERT: &'static [u8] = include_bytes!("../../resources/eguivert.spv");
+//const EGUI_SHADER_FRAG: &'static [u8] = include_bytes!("../../resources/eguifrag.spv");
 
 ///Single EGui primitive draw command
 struct EGuiPrimDraw {
@@ -423,28 +423,32 @@ impl EGuiTask {
         #[cfg(feature="logging")]
         log::trace!("Load meta task shader module");
 
+        /*
         let shader_module_vert =
             Arc::new(ShaderModule::new_from_bytes(&rmg.ctx.device, EGUI_SHADER_VERT).unwrap());
 
         let shader_module_frag =
             Arc::new(ShaderModule::new_from_bytes(&rmg.ctx.device, EGUI_SHADER_FRAG).unwrap());
+*/
+        let shader_module =
+            Arc::new(ShaderModule::new_from_bytes(&rmg.ctx.device, crate::SHADER_RUST).unwrap());
 
         #[cfg(feature="logging")]
         log::trace!("Meta task vertex shader");
 
         let vertex_shader_stage = ShaderStage::from_shared_module(
-            shader_module_vert,
+            shader_module.clone(),
             vk::ShaderStageFlags::VERTEX,
-            "main".to_owned(),
+            "egui_vs".to_owned(),
         );
 
         #[cfg(feature="logging")]
         log::trace!("Meta task fragment shader");
 
         let fragment_shader_stage = ShaderStage::from_shared_module(
-            shader_module_frag,
+            shader_module,
             vk::ShaderStageFlags::FRAGMENT,
-            "main".to_owned(),
+            "egui_fs".to_owned(),
         );
 
         #[cfg(feature="logging")]

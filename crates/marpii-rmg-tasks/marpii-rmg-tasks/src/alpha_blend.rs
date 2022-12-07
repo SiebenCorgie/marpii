@@ -3,6 +3,9 @@ use marpii_rmg::{ImageHandle, Rmg, Task};
 use marpii_rmg_task_shared::{AlphaBlendPush, ResourceHandle};
 use std::sync::Arc;
 
+const BLEND_SHADER_F32: &'static [u8] = include_bytes!("../../resources/alphablend_f32.spv");
+const BLEND_SHADER_U8: &'static [u8] = include_bytes!("../../resources/alphablend_u8.spv");
+
 
 ///Adds one image (`add`) to another (`dst`) using `add`'s alpha channel to determin blending.
 ///
@@ -50,16 +53,24 @@ impl AlphaBlend{
             },
             vk::ShaderStageFlags::COMPUTE,
         );
-        let shader_module = ShaderModule::new_from_bytes(&rmg.ctx.device, crate::SHADER_RUST)?;
-        let entry_name = match format_type {
-            FormatType::F32 => "alpha_blend_f32",
+
+        #[cfg(feature="logging")]
+        log::trace!("Load rust shader module");
+
+        let shader_module = match format_type {
+            FormatType::F32 => ShaderModule::new_from_bytes(&rmg.ctx.device, BLEND_SHADER_F32)?,
+            FormatType::U8 => ShaderModule::new_from_bytes(&rmg.ctx.device, BLEND_SHADER_U8)?,
             _ => {
                 #[cfg(feature="logging")]
                 log::error!("FormatType {:?} not supported by alpha blending", format_type);
                 return Err(anyhow::anyhow!("FormatType {:?} not supported by alpha blending", format_type));
             }
         };
-        let shader_stage = shader_module.into_shader_stage(vk::ShaderStageFlags::COMPUTE, entry_name);
+
+        #[cfg(feature="logging")]
+        log::trace!("Load blend module for {:?}", format_type);
+
+        let shader_stage = shader_module.into_shader_stage(vk::ShaderStageFlags::COMPUTE, "main");
         //No additional descriptors for us
         let layout = rmg.resources().bindless_layout();
         let pipeline = Arc::new(ComputePipeline::new(
@@ -113,7 +124,7 @@ impl Task for AlphaBlend{
             &self.add,
             vk::PipelineStageFlags2::COMPUTE_SHADER,
             vk::AccessFlags2::SHADER_STORAGE_READ,
-            vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL
+            vk::ImageLayout::GENERAL
         ).unwrap();
         registry.request_image(
             &self.dst,
