@@ -81,16 +81,18 @@ impl ResImage {
         // 2. if bound: the descriptor set
         // 3. if in flight: in the execution guarded by self.guard
 
-        //for self
-        let mut max_strong = 1;
-        if self.descriptor_handle.is_some() {
-            max_strong += 1;
-        }
-        if self.guard.is_some() {
-            max_strong += 1;
-        }
+        //for self. If bound to a descriptor set at least two strong (was cloned once),
+        // otherwise only the one we store
+        let view_strong = if self.descriptor_handle.is_some(){
+            2
+        }else{
+            1
+        };
+
+        //the image itself is borrowed at least once
+        let image_strong = 1;
         //if the strong count is higher, somewhere referenced
-        Arc::strong_count(&self.image) <= max_strong
+        Arc::strong_count(&self.image) <= image_strong && Arc::strong_count(&self.view) <= view_strong
     }
 }
 
@@ -127,9 +129,6 @@ impl ResBuffer {
         if self.descriptor_handle.is_some() {
             max_strong += 1;
         }
-        if self.guard.is_some() {
-            max_strong += 1;
-        }
         //if the strong count is higher, somewhere referenced
         Arc::strong_count(&self.buffer) <= max_strong
     }
@@ -150,10 +149,11 @@ impl ResSampler {
         // 2. if bound: the descriptor set
 
         //for self
-        let mut max_strong = 1;
-        if self.descriptor_handle.is_some() {
-            max_strong += 1;
-        }
+        let max_strong = if self.descriptor_handle.is_some() {
+            2
+        }else{
+            1
+        };
         //if the strong count is higher, somewhere referenced
         Arc::strong_count(&self.sampler) <= max_strong
     }

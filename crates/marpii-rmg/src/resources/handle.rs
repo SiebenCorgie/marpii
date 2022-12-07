@@ -13,7 +13,7 @@
 use crate::resources::res_states::{BufferKey, ImageKey, SamplerKey};
 use marpii::{
     ash::vk,
-    resources::{Buffer, Image, ImageType, Sampler},
+    resources::{Buffer, Image, ImageType, Sampler, ImgDesc, BufDesc},
     util::ImageRegion,
 };
 use std::{
@@ -57,6 +57,10 @@ impl ImageHandle {
     pub fn region_all(&self) -> ImageRegion {
         self.imgref.image_region()
     }
+
+    pub fn image_desc(&self) -> &ImgDesc{
+        &self.imgref.desc
+    }
 }
 
 impl Debug for ImageHandle {
@@ -89,6 +93,10 @@ impl<T: 'static> BufferHandle<T> {
 
     pub fn usage_flags(&self) -> &vk::BufferUsageFlags {
         &self.bufref.desc.usage
+    }
+
+    pub fn buf_desc(&self) -> &BufDesc{
+        &self.bufref.desc
     }
 }
 
