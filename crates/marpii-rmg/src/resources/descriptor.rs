@@ -238,7 +238,7 @@ impl<T> SetManager<T> {
 /// - `StorageBuffer`
 /// - `StorageImage`
 /// - `SampledImage` (without combined sampler)
-/// - Sampler
+/// - `Sampler`
 /// - `AccellerationStructure`
 ///
 //TODO: Check if VK_EXT_mutable_descriptor_type works even better. We could put everything into one desc pool
