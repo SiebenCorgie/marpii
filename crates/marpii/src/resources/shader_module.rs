@@ -31,17 +31,25 @@ impl ShaderModule {
         device: &Arc<Device>,
         bytes: &'a [u8],
     ) -> Result<Self, anyhow::Error> {
+        #[cfg(feature="logging")]
+        log::trace!("read shader module from byte array");
         let words = ash::util::read_spv(&mut std::io::Cursor::new(bytes)).unwrap();
         Self::new(device, &words)
     }
 
     pub fn new(device: &Arc<Device>, code: &[u32]) -> Result<Self, anyhow::Error> {
+
+        #[cfg(feature="logging")]
+        log::trace!("Shader Module new");
+
         let create_info = ash::vk::ShaderModuleCreateInfo::builder().code(code);
-
         let module = unsafe { device.inner.create_shader_module(&create_info, None)? };
-
         #[cfg(feature = "shader_reflection")]
         let reflection = {
+
+            #[cfg(feature="logging")]
+            log::trace!("Reflecting shader module");
+
             //cast the code to an u8. Should be save since the create_shader_module would have paniced
             // if the shader code was not /correct/
             let len = code.len() * size_of::<u32>();
@@ -52,6 +60,10 @@ impl ShaderModule {
                 .map_err(|e| anyhow::format_err!("Reflection error: {:?}", e))?;
             reflection
         };
+
+        #[cfg(feature="logging")]
+        log::trace!("Building shader module from code");
+
         Ok(ShaderModule {
             device: device.clone(),
             inner: module,
@@ -85,7 +97,6 @@ impl ShaderModule {
     }
 
     #[cfg(feature = "shader_reflection")]
-
     pub fn get_bindings(
         &self,
         stage_flags: ash::vk::ShaderStageFlags,

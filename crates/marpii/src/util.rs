@@ -87,6 +87,16 @@ impl ImageRegion {
             },
         }
     }
+
+    ///Dissolves self into the pair (offset, extent).
+    pub fn offset_extent_2d(&self) -> ([i32; 2], [u32;2]){
+        ([self.offset.x, self.offset.y], [self.extent.width, self.extent.height])
+    }
+
+    ///Dissolves self into the pair (offset, extent).
+    pub fn offset_extent_3d(&self) -> ([i32; 3], [u32; 3]){
+        ([self.offset.x, self.offset.y, self.offset.z], [self.extent.width, self.extent.height, self.extent.depth])
+    }
 }
 
 ///Converts ImageUsageFlags to FormatFeatureFlags needed to satisfy the usage flags. This does not contain all convertions. Only the basic ones.

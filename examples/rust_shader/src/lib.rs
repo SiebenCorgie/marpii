@@ -77,7 +77,6 @@ pub fn main(
     #[spirv(descriptor_set = 0, binding = 0)] target_image: &Image!(2D, format=rgba32f, sampled=false),
 ) {
     //fake a triangle via 2d sdf
-
     let mut coord = id.xy().as_vec2();
     coord += -Vec2::from(push.offset);
     let c = Vec2::new(push.opening.sin(), push.opening.cos());

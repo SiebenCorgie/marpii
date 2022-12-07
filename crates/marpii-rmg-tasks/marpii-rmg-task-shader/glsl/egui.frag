@@ -43,6 +43,14 @@ vec4 gamma_from_linear_rgba(vec4 linear_rgba) {
     return vec4(srgb_from_linear(linear_rgba.rgb) / 255.0, linear_rgba.a);
 }
 
+// srgb to linear
+// taken from: https://github.com/MatchaChoco010/egui-winit-ash-integration/blob/main/src/shaders/src/vert.vert
+vec3 srgb_to_linear(vec3 srgb) {
+    bvec3 cutoff = lessThan(srgb, vec3(0.04045));
+    vec3 lower = srgb / vec3(12.92);
+    vec3 higher = pow((srgb + vec3(0.055)) / vec3(1.055), vec3(2.4));
+    return mix(higher, lower, cutoff);
+}
 void main() {
 
     if (!is_valid(Push.tex) || !is_valid(Push.sam)){
@@ -56,7 +64,7 @@ void main() {
     vec4 texval = texture(sampler2D(global_sampled_2d[get_index(Push.tex)], global_sampler[get_index(Push.sam)]), v_tc);
 
     // The texture is set up with `SRGB8_ALPHA8`
-    vec4 texture_in_gamma = gamma_from_linear_rgba(texval);
+    vec4 texture_in_gamma = vec4(srgb_to_linear(texval.xyz), texval.w);
 
     // Multiply vertex color with texture color (in gamma space).
     outFragColor = rgba_gamma * texture_in_gamma;

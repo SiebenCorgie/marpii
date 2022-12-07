@@ -20,3 +20,17 @@ pub struct EGuiPush {
     pub screen_size: [f32; 2],
     pub pad1: [f32; 2],
 }
+
+///Used for for alpha based blending effect
+#[cfg_attr(not(target_arch = "spirv"), derive(Pod, Zeroable))]
+#[derive(Clone, Copy)]
+#[repr(C, align(16))]
+pub struct AlphaBlendPush {
+    pub add: ResourceHandle,
+    pub dst: ResourceHandle,
+    pub pad0: [ResourceHandle; 2],
+    pub add_offset: [i32; 2],
+    pub dst_offset: [i32; 2],
+    pub extent: [u32; 2],
+    pub pad1: [u32; 2],
+}

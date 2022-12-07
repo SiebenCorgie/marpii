@@ -8,7 +8,7 @@
 
 use crate::egui::{ClippedPrimitive, TextureId, TexturesDelta};
 use crate::{DynamicBuffer, DynamicImage};
-use egui::{Color32, FontDefinitions, Pos2};
+use egui::{Color32, Pos2};
 use egui_winit::winit::event_loop::EventLoopWindowTarget;
 use egui_winit::winit::window::Window;
 use fxhash::FxHashMap;
@@ -34,8 +34,8 @@ use std::sync::Arc;
 use std::time::Instant;
 
 //NOTE: There is a (buggy) glsl implementation. Keeping it here, but we use rust-gpu actually
-//const EGUI_SHADER_VERT: &'static [u8] = include_bytes!("../../resources/eguivert.spv");
-//const EGUI_SHADER_FRAG: &'static [u8] = include_bytes!("../../resources/eguifrag.spv");
+const EGUI_SHADER_VERT: &'static [u8] = include_bytes!("../../resources/eguivert.spv");
+const EGUI_SHADER_FRAG: &'static [u8] = include_bytes!("../../resources/eguifrag.spv");
 
 ///Single EGui primitive draw command
 struct EGuiPrimDraw {
@@ -66,13 +66,16 @@ pub struct EGuiWinitIntegration {
 
 impl EGuiWinitIntegration {
     pub fn new<T>(rmg: &mut Rmg, event_loop: &EventLoopWindowTarget<T>) -> Result<Self, RmgError> {
+
+        #[cfg(feature="logging")]
+        log::trace!("Setting up winit state");
+
         let mut winit_state = egui_winit::State::new(event_loop);
         winit_state.set_max_texture_side(2048);
 
+        #[cfg(feature="logging")]
+        log::trace!("Setting up egui context");
         let egui_context: egui::Context = Default::default();
-        egui_context.set_fonts(FontDefinitions::default());
-
-        //assert!(false, "Fonts: {:?}", FontDefinitions::default());
         egui_context.set_pixels_per_point(1.0);
 
         Ok(EGuiWinitIntegration {
@@ -374,6 +377,9 @@ impl EGuiTask {
     }
 
     pub fn new(rmg: &mut Rmg) -> Result<Self, RmgError> {
+        #[cfg(feature="logging")]
+        log::trace!("Setting up EGUI render meta task");
+
         let target_format = rmg
             .ctx
             .device
@@ -413,20 +419,36 @@ impl EGuiTask {
         //Pipeline layout
         let layout = rmg.resources().bindless_layout();
 
-        let shader_module =
-            Arc::new(ShaderModule::new_from_bytes(&rmg.ctx.device, crate::SHADER_RUST).unwrap());
+
+        #[cfg(feature="logging")]
+        log::trace!("Load meta task shader module");
+
+        let shader_module_vert =
+            Arc::new(ShaderModule::new_from_bytes(&rmg.ctx.device, EGUI_SHADER_VERT).unwrap());
+
+        let shader_module_frag =
+            Arc::new(ShaderModule::new_from_bytes(&rmg.ctx.device, EGUI_SHADER_FRAG).unwrap());
+
+        #[cfg(feature="logging")]
+        log::trace!("Meta task vertex shader");
 
         let vertex_shader_stage = ShaderStage::from_shared_module(
-            shader_module.clone(),
+            shader_module_vert,
             vk::ShaderStageFlags::VERTEX,
-            "egui_vs".to_owned(),
+            "main".to_owned(),
         );
 
+        #[cfg(feature="logging")]
+        log::trace!("Meta task fragment shader");
+
         let fragment_shader_stage = ShaderStage::from_shared_module(
-            shader_module.clone(),
+            shader_module_frag,
             vk::ShaderStageFlags::FRAGMENT,
-            "egui_fs".to_owned(),
+            "main".to_owned(),
         );
+
+        #[cfg(feature="logging")]
+        log::trace!("Allocate push constant");
 
         let push = PushConstant::new(
             EGuiPush {
@@ -438,6 +460,9 @@ impl EGuiTask {
             },
             vk::ShaderStageFlags::ALL,
         );
+
+        #[cfg(feature="logging")]
+        log::trace!("Setup meta task pipeline");
 
         let pipeline = Arc::new(
             Self::pipeline(
@@ -486,6 +511,9 @@ impl EGuiTask {
                 .min_filter(vk::Filter::NEAREST)
                 .mag_filter(vk::Filter::NEAREST),
         )?;
+
+        #[cfg(feature="logging")]
+        log::trace!("Finished egui meta task creation");
 
         Ok(EGuiTask {
             data: EGuiData {

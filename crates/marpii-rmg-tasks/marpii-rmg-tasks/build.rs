@@ -38,6 +38,8 @@ pub fn compile_rust_shader(
         .capability(Capability::Int16)
         .capability(Capability::ImageQuery)
         .capability(Capability::RuntimeDescriptorArray)
+        .capability(Capability::StorageImageReadWithoutFormat)
+        .capability(Capability::StorageImageWriteWithoutFormat)
         .build()?;
 
     println!("cargo:warning=Generated following Spirv entrypoints:");
@@ -125,6 +127,6 @@ fn main() {
     compile_rust_shader("rshader", "../marpii-rmg-task-shader/", RESDIR).unwrap();
 
     //NOTE: keeping it around for compatibility
-    //build_glsl("../marpii-rmg-task-shader/glsl/egui.vert", "eguivert.spv");
-    //build_glsl("../marpii-rmg-task-shader/glsl/egui.frag", "eguifrag.spv");
+    build_glsl("../marpii-rmg-task-shader/glsl/egui.vert", "eguivert.spv");
+    build_glsl("../marpii-rmg-task-shader/glsl/egui.frag", "eguifrag.spv");
 }

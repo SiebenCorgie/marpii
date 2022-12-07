@@ -1,13 +1,37 @@
 #![cfg_attr(target_arch = "spirv", no_std)]
 
-use marpii_rmg_task_shared::glam::{vec4, Vec2, Vec3, Vec4, Vec4Swizzles};
+use marpii_rmg_task_shared::glam::{vec4, Vec2, Vec3, Vec4, Vec4Swizzles, UVec3, Vec3Swizzles};
 use spirv_std::{self, Image, RuntimeArray, Sampler};
 
 //include spirv macro
 use spirv_std::spirv;
 
+
 #[spirv(compute(threads(8, 8, 1)))]
-pub fn compute_shader() {}
+pub fn alpha_blend_f32(
+    #[spirv(global_invocation_id)] id: UVec3,
+    #[spirv(push_constant)] push: &marpii_rmg_task_shared::AlphaBlendPush,
+    #[spirv(descriptor_set = 1, binding = 0)] storage_images: &RuntimeArray<
+        Image!(2D, type=f32, sampled=false),
+    >,
+) {
+    if push.add.is_invalid() || push.dst.is_invalid(){
+        return;
+    }
+
+    let thread_id = id.xy();
+    if thread_id.x >= push.extent[0] || thread_id.y > push.extent[1]{
+        //early return outside of image
+        return;
+    }
+    //read both image if valid
+    let add: Vec4 = unsafe{storage_images.index(push.add.index() as usize)}.read(thread_id);
+    let dst: Vec4 = unsafe{storage_images.index(push.dst.index() as usize)}.read(thread_id);
+
+    //mix and store
+    let mix = dst.lerp(add, add.w);
+    unsafe{storage_images.index(push.dst.index() as usize).write(thread_id, mix)};
+}
 
 #[allow(dead_code)]
 fn srgb_from_linear(rgb: Vec3) -> Vec3 {
