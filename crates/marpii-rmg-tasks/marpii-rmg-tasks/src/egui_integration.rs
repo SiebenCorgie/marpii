@@ -174,6 +174,8 @@ struct EGuiRenderer {
 
     //target_image
     target_image: ImageHandle,
+    //true if if the target was overwritten at some point.
+    is_overwritten: bool,
     pipeline: Arc<GraphicsPipeline>,
     push: PushConstant<EGuiPush>,
 
@@ -259,6 +261,7 @@ impl Task for EGuiRenderer {
 
             let viewport = targetimg.image_region().as_viewport();
 
+
             let color_attachments = vk::RenderingAttachmentInfo::builder()
                 .clear_value(vk::ClearValue {
                     color: vk::ClearColorValue {
@@ -267,7 +270,11 @@ impl Task for EGuiRenderer {
                 })
                 .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
                 .image_view(targetview.view)
-                .load_op(vk::AttachmentLoadOp::CLEAR)
+                .load_op(if self.is_overwritten {
+                    vk::AttachmentLoadOp::LOAD
+                } else{
+                    vk::AttachmentLoadOp::CLEAR
+                })
                 .store_op(vk::AttachmentStoreOp::STORE);
 
             let render_info = vk::RenderingInfo::builder()
@@ -533,6 +540,7 @@ impl EGuiTask {
                 linear_sampler,
                 nearest_sampler,
 
+                is_overwritten: false,
                 px_per_point: 1.0,
                 target_image,
                 pipeline,
@@ -943,6 +951,14 @@ impl EGuiTask {
         self.renderer.target_image =
             rmg.new_image_uninitialized(description, Some("egui target image"))?;
         Ok(())
+    }
+
+    ///Overwrites the target image. This will set the resolution as well. Note that the image must have the color attachment bit set and must support the
+    /// COLOR_ATTACHMENT_OPTIMAL bit.
+    pub fn overwrite_target(&mut self, image: ImageHandle) {
+        assert!(image.usage_flags().contains(vk::ImageUsageFlags::COLOR_ATTACHMENT), "Set image needs to have color attachment flags set");
+        self.renderer.is_overwritten = true;
+        self.renderer.target_image = image;
     }
 }
 
