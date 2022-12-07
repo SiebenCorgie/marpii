@@ -288,6 +288,75 @@ impl ImgDesc {
 
     //TODO: add more complex init methodes. for instance difference between 2dArray vs 3d images
     //      or cube maps.
+    //
+
+    pub fn extent_3d(&self) -> ash::vk::Extent3D {
+        self.extent
+    }
+
+    ///In case of 3d image formats the depth is ignored.
+    pub fn extent_2d(&self) -> ash::vk::Extent2D {
+        ash::vk::Extent2D {
+            width: self.extent.width,
+            height: self.extent.height,
+        }
+    }
+
+    ///Returns the *whole* image region
+    pub fn image_region(&self) -> ImageRegion {
+        ImageRegion {
+            offset: vk::Offset3D { x: 0, y: 0, z: 0 },
+            extent: self.extent_3d(),
+        }
+    }
+
+    ///Returns a sub resource range that encloses the whole image.
+    pub fn subresource_all(&self) -> ash::vk::ImageSubresourceRange {
+        ash::vk::ImageSubresourceRange {
+            aspect_mask: if self
+                .usage
+                .contains(ash::vk::ImageUsageFlags::COLOR_ATTACHMENT)
+            {
+                ash::vk::ImageAspectFlags::COLOR
+            } else if self
+                .usage
+                .contains(ash::vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT)
+            {
+                //use depth only aspect flag for depth only format, otherwise use both flags
+                match self.format {
+                    vk::Format::D16_UNORM | vk::Format::D32_SFLOAT => {
+                        ash::vk::ImageAspectFlags::DEPTH
+                    }
+                    _ => ash::vk::ImageAspectFlags::DEPTH | ash::vk::ImageAspectFlags::STENCIL,
+                }
+            } else {
+                #[cfg(feature = "logging")]
+                log::warn!("Could not find COLOR_ATTACHMENT nor DEPTH_STENCIL_ATTACHMENT bit while trying to decide for an initial aspect mask. Using COLOR.");
+                ash::vk::ImageAspectFlags::COLOR
+            },
+            base_array_layer: 0,
+            base_mip_level: 0,
+            layer_count: self.img_type.layer_count(),
+            level_count: self.mip_levels,
+        }
+    }
+
+    ///Creates a subresource layer for the first mip level. It is choosen based on `Self::subresource_all`'s nase_mip_level.
+    pub fn subresource_layers_all(&self) -> ash::vk::ImageSubresourceLayers {
+        let ash::vk::ImageSubresourceRange {
+            aspect_mask,
+            base_array_layer,
+            layer_count,
+            base_mip_level,
+            ..
+        } = self.subresource_all();
+        ash::vk::ImageSubresourceLayers {
+            aspect_mask,
+            base_array_layer,
+            layer_count,
+            mip_level: base_mip_level,
+        }
+    }
 }
 
 ///Self managing image that uses the allocator `A` to allocate and free its bound memory.
@@ -379,73 +448,27 @@ impl Image {
     }
 
     pub fn extent_3d(&self) -> ash::vk::Extent3D {
-        self.desc.extent
+        self.desc.extent_3d()
     }
 
     ///In case of 3d image formats the depth is ignored.
     pub fn extent_2d(&self) -> ash::vk::Extent2D {
-        ash::vk::Extent2D {
-            width: self.desc.extent.width,
-            height: self.desc.extent.height,
-        }
+        self.desc.extent_2d()
     }
 
     ///Returns the *whole* image region
     pub fn image_region(&self) -> ImageRegion {
-        ImageRegion {
-            offset: vk::Offset3D { x: 0, y: 0, z: 0 },
-            extent: self.extent_3d(),
-        }
+        self.desc.image_region()
     }
 
     ///Returns a sub resource range that encloses the whole image.
     pub fn subresource_all(&self) -> ash::vk::ImageSubresourceRange {
-        ash::vk::ImageSubresourceRange {
-            aspect_mask: if self
-                .desc
-                .usage
-                .contains(ash::vk::ImageUsageFlags::COLOR_ATTACHMENT)
-            {
-                ash::vk::ImageAspectFlags::COLOR
-            } else if self
-                .desc
-                .usage
-                .contains(ash::vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT)
-            {
-                //use depth only aspect flag for depth only format, otherwise use both flags
-                match self.desc.format {
-                    vk::Format::D16_UNORM | vk::Format::D32_SFLOAT => {
-                        ash::vk::ImageAspectFlags::DEPTH
-                    }
-                    _ => ash::vk::ImageAspectFlags::DEPTH | ash::vk::ImageAspectFlags::STENCIL,
-                }
-            } else {
-                #[cfg(feature = "logging")]
-                log::warn!("Could not find COLOR_ATTACHMENT nor DEPTH_STENCIL_ATTACHMENT bit while trying to decide for an initial aspect mask. Using COLOR.");
-                ash::vk::ImageAspectFlags::COLOR
-            },
-            base_array_layer: 0,
-            base_mip_level: 0,
-            layer_count: self.desc.img_type.layer_count(),
-            level_count: self.desc.mip_levels,
-        }
+        self.desc.subresource_all()
     }
 
     ///Creates a subresource layer for the first mip level. It is choosen based on `Self::subresource_all`'s nase_mip_level.
     pub fn subresource_layers_all(&self) -> ash::vk::ImageSubresourceLayers {
-        let ash::vk::ImageSubresourceRange {
-            aspect_mask,
-            base_array_layer,
-            layer_count,
-            base_mip_level,
-            ..
-        } = self.subresource_all();
-        ash::vk::ImageSubresourceLayers {
-            aspect_mask,
-            base_array_layer,
-            layer_count,
-            mip_level: base_mip_level,
-        }
+        self.desc.subresource_layers_all()
     }
 
     ///Creates an [ImgViewDesc](ImgViewDesc) that encloses the whole image.

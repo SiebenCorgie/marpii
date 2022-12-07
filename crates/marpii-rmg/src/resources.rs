@@ -253,6 +253,8 @@ impl Resources {
     /// Tries to find a resource for the handle. Returns None if the resource is not bound yet.
     pub fn try_resource_handle(&self, res: impl Into<AnyHandle>) -> Option<ResourceHandle> {
         let hdl = res.into();
+        //NOTE: All available handles must be valid. Therefore the unwrap should not panic. If it does,
+        //      it is a bug.
         let hdl = match hdl.key {
             AnyResKey::Buffer(buf) => self.buffer.get(buf).unwrap().descriptor_handle,
             AnyResKey::Image(img) => self.images.get(img).unwrap().descriptor_handle,

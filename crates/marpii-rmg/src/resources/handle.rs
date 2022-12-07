@@ -120,6 +120,12 @@ pub struct AnyHandle {
     pub(crate) key: AnyResKey,
 }
 
+impl AnyHandle{
+    pub fn has_atomic_ref(&self) -> bool{
+        self.atomic_ref.is_some()
+    }
+}
+
 impl Debug for AnyHandle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "AnyHandle({:#?})", self.key)
