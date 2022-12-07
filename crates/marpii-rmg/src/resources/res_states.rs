@@ -144,7 +144,7 @@ impl ResSampler {
         //for self
         let max_strong = if self.descriptor_handle.is_some() {
             2
-        }else{
+        } else {
             1
         };
         //if the strong count is higher, somewhere referenced

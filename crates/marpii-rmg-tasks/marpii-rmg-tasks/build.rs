@@ -80,7 +80,7 @@ fn build_glsl(path: &str, name: &str, entry_point: &str) {
     // RESDIR as well.
 
     let src = PathBuf::from(path);
-    if !src.exists(){
+    if !src.exists() {
         println!("cargo:warning=Shader does not exist at {:?}", src);
         return;
     }
@@ -103,8 +103,14 @@ fn build_glsl(path: &str, name: &str, entry_point: &str) {
         .unwrap();
 
     if !command.status.success() {
-        println!("cargo:warning=Out: {:#?}", std::str::from_utf8(&command.stdout).unwrap());
-        println!("cargo:warning=Err: {:#?}", std::str::from_utf8(&command.stderr).unwrap());
+        println!(
+            "cargo:warning=Out: {:#?}",
+            std::str::from_utf8(&command.stdout).unwrap()
+        );
+        println!(
+            "cargo:warning=Err: {:#?}",
+            std::str::from_utf8(&command.stderr).unwrap()
+        );
     }
 }
 
@@ -133,6 +139,14 @@ fn main() {
     //NOTE: keeping it around for compatibility
     //build_glsl("../marpii-rmg-task-shader/glsl/egui.vert", "eguivert.spv");
     //build_glsl("../marpii-rmg-task-shader/glsl/egui.frag", "eguifrag.spv");
-    build_glsl("../marpii-rmg-task-shader/glsl/alphablend.comp", "alphablend_f32.spv", "main_f32");
-    build_glsl("../marpii-rmg-task-shader/glsl/alphablend.comp", "alphablend_u8.spv", "main_u8");
+    build_glsl(
+        "../marpii-rmg-task-shader/glsl/alphablend.comp",
+        "alphablend_f32.spv",
+        "main_f32",
+    );
+    build_glsl(
+        "../marpii-rmg-task-shader/glsl/alphablend.comp",
+        "alphablend_u8.spv",
+        "main_u8",
+    );
 }

@@ -131,9 +131,7 @@ impl<'t> TrackSchedule<'t> {
     fn has_unscheduled(&self) -> bool {
         //check if last is in last range
         match (self.frames.last(), self.nodes.last()) {
-            (Some(last_frame), Some(_)) => {
-                !last_frame.contains_idx(self.nodes.len() - 1)
-            }
+            (Some(last_frame), Some(_)) => !last_frame.contains_idx(self.nodes.len() - 1),
             (None, Some(_)) => true,
             (Some(_), None) => {
                 #[cfg(feature = "logging")]

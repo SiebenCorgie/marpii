@@ -390,14 +390,8 @@ impl Resources {
     ///Returns the current owning queue (if the res exists and is NOT a sampler).
     pub(crate) fn get_current_owner(&self, res: impl Into<AnyResKey>) -> Option<u32> {
         match &res.into() {
-            AnyResKey::Buffer(k) => self
-                .buffer
-                .get(*k)
-                .and_then(|buf| buf.ownership.owner()),
-            AnyResKey::Image(k) => self
-                .images
-                .get(*k)
-                .and_then(|img| img.ownership.owner()),
+            AnyResKey::Buffer(k) => self.buffer.get(*k).and_then(|buf| buf.ownership.owner()),
+            AnyResKey::Image(k) => self.images.get(*k).and_then(|img| img.ownership.owner()),
             AnyResKey::Sampler(_) => None,
         }
     }

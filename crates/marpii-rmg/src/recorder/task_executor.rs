@@ -279,11 +279,7 @@ impl<'t> Executor<'t> {
 
         for (trackid, track) in self.schedule.tracks.iter() {
             let track_family = rmg.trackid_to_queue_idx(*trackid);
-            for dep in track
-                .nodes
-                .iter()
-                .flat_map(|node| node.dependencies.iter())
-            {
+            for dep in track.nodes.iter().flat_map(|node| node.dependencies.iter()) {
                 if let DepPart::Import = dep.participant {
                     //if there is a current owner, build release.
                     //
@@ -957,14 +953,13 @@ impl<'t> Executor<'t> {
                     }
                 }
 
-                #[cfg(feature="logging")]
+                #[cfg(feature = "logging")]
                 log::trace!("Record task {}", track.nodes[node_idx].task.task.name());
                 //now let the node record itself
-                track.nodes[node_idx].task.task.record(
-                    &rmg.ctx.device,
-                    &cb.inner,
-                    rmg.resources(),
-                );
+                track.nodes[node_idx]
+                    .task
+                    .task
+                    .record(&rmg.ctx.device, &cb.inner, rmg.resources());
             }
         }
 

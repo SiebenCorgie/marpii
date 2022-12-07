@@ -112,7 +112,7 @@ impl Track {
     ///Allocates the next guard for this track.
     pub fn next_guard(&mut self) -> Guard {
         self.latest_signaled_value += 1;
-        
+
         Guard {
             track: TrackId(self.flags),
             target_value: self.latest_signaled_value,

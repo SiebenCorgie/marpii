@@ -5,7 +5,6 @@
 // HACK(eddyb) can't easily see warnings otherwise from `spirv-builder` builds.
 #![deny(warnings)]
 
-
 use spirv_std::glam::{UVec3, Vec2, Vec3, Vec3Swizzles};
 use spirv_std::Image;
 

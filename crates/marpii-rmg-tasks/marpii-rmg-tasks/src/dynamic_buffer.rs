@@ -58,9 +58,7 @@ impl<T: marpii::bytemuck::Pod> DynamicBuffer<T> {
     pub fn write(&mut self, data: &[T], offset_elements: usize) -> Result<(), BufferMapError> {
         let size_of_element = core::mem::size_of::<T>();
         let access_num_elements = self.buffer_handle().count();
-        if access_num_elements.saturating_sub(offset_elements)
-            < data.len()
-        {
+        if access_num_elements.saturating_sub(offset_elements) < data.len() {
             return Err(BufferMapError::OffsetTooLarge);
         }
 

@@ -1,5 +1,7 @@
 mod image;
-pub use image::{FormatType, Image, ImageType, ImageView, ImgDesc, ImgViewDesc, SafeImageView, Sampler};
+pub use image::{
+    FormatType, Image, ImageType, ImageView, ImgDesc, ImgViewDesc, SafeImageView, Sampler,
+};
 
 mod buffer;
 pub use buffer::{BufDesc, Buffer, BufferMapError};

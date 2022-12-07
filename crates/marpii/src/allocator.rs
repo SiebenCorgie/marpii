@@ -67,7 +67,9 @@ impl<A: Allocator + Send + Sync + 'static> AnonymAllocation for ManagedAllocatio
     }
 
     fn memory_properties(&self) -> Option<vk::MemoryPropertyFlags> {
-        self.allocation.as_ref().map(|alloc| alloc.memory_properties())
+        self.allocation
+            .as_ref()
+            .map(|alloc| alloc.memory_properties())
     }
 }
 

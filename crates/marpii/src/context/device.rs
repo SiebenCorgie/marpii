@@ -1,11 +1,13 @@
-use ash::vk::{QueueFlags, TaggedStructure, self, BaseOutStructure};
+use ash::vk::{self, BaseOutStructure, QueueFlags, TaggedStructure};
 
 use crate::{resources::ImgDesc, util::image_usage_to_format_features};
 
 use super::{Queue, QueueBuilder};
 use std::{
+    mem::MaybeUninit,
     os::raw::c_char,
-    sync::{Arc, Mutex}, mem::MaybeUninit, ptr::addr_of_mut
+    ptr::addr_of_mut,
+    sync::{Arc, Mutex},
 };
 
 ///Helper that lets you setup device properties and possibly needed extensions before creating the actual
@@ -263,7 +265,6 @@ impl Device {
         )
     }
 
-
     ///Returns the feature list of the currently used physical device
     pub fn get_physical_device_features(&self) -> ash::vk::PhysicalDeviceFeatures {
         unsafe {
@@ -295,21 +296,21 @@ impl Device {
         let mut q: MaybeUninit<E> = std::mem::MaybeUninit::zeroed();
         //cast to base struct to set stype. This lets the vulkan getter figure out what we want.
         let qptr = q.as_mut_ptr();
-        unsafe{
-            addr_of_mut!(
-                (*(qptr as *mut BaseOutStructure)).s_type
-            ).write(E::STRUCTURE_TYPE);
+        unsafe {
+            addr_of_mut!((*(qptr as *mut BaseOutStructure)).s_type).write(E::STRUCTURE_TYPE);
         }
         //push into chain
-        let mut features2 = vk::PhysicalDeviceFeatures2::builder()
-            .push_next(unsafe{&mut *q.as_mut_ptr()});
+        let mut features2 =
+            vk::PhysicalDeviceFeatures2::builder().push_next(unsafe { &mut *q.as_mut_ptr() });
 
         //issue query
-        unsafe{
-            self.instance.inner.get_physical_device_features2(self.physical_device, &mut features2);
+        unsafe {
+            self.instance
+                .inner
+                .get_physical_device_features2(self.physical_device, &mut features2);
         }
         //at this point we can assume q to be init.
-        let query = unsafe{q.assume_init()};
+        let query = unsafe { q.assume_init() };
         query
     }
 
@@ -381,15 +382,13 @@ impl Device {
         tiling: ash::vk::ImageTiling,
         formats: &[ash::vk::Format],
     ) -> Option<ash::vk::Format> {
-        formats
-            .iter()
-            .find_map(|f| {
-                if self.is_format_supported(usage, tiling, *f) {
-                    Some(*f)
-                } else {
-                    None
-                }
-            })
+        formats.iter().find_map(|f| {
+            if self.is_format_supported(usage, tiling, *f) {
+                Some(*f)
+            } else {
+                None
+            }
+        })
     }
 
     ///Returns the image format properties for the given image description (`desc`), assuming the image was/is created with `create_flags`.
@@ -467,9 +466,6 @@ impl Device {
             .non_coherent_atom_size;
         offset + (atom_size - (offset % atom_size))
     }
-
-
-
 }
 
 impl Drop for Device {

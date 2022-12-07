@@ -153,12 +153,8 @@ impl ResourceRegistry {
     ///If in the registry: returns the stage flags the resource is registered for
     pub(crate) fn get_stage_mask(&self, resource: &AnyResKey) -> Option<vk::PipelineStageFlags2> {
         match resource {
-            AnyResKey::Buffer(buf) => {
-                self.buffers.get(buf).map(|st| st.0)
-            }
-            AnyResKey::Image(img) => {
-                self.images.get(img).map(|st| st.0)
-            }
+            AnyResKey::Buffer(buf) => self.buffers.get(buf).map(|st| st.0),
+            AnyResKey::Image(img) => self.images.get(img).map(|st| st.0),
             AnyResKey::Sampler(_) => None,
         }
     }

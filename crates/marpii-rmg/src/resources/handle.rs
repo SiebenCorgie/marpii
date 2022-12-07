@@ -13,7 +13,7 @@
 use crate::resources::res_states::{BufferKey, ImageKey, SamplerKey};
 use marpii::{
     ash::vk,
-    resources::{Buffer, Image, ImageType, Sampler, ImgDesc, BufDesc},
+    resources::{BufDesc, Buffer, Image, ImageType, ImgDesc, Sampler},
     util::ImageRegion,
 };
 use std::{
@@ -58,7 +58,7 @@ impl ImageHandle {
         self.imgref.image_region()
     }
 
-    pub fn image_desc(&self) -> &ImgDesc{
+    pub fn image_desc(&self) -> &ImgDesc {
         &self.imgref.desc
     }
 }
@@ -95,7 +95,7 @@ impl<T: 'static> BufferHandle<T> {
         &self.bufref.desc.usage
     }
 
-    pub fn buf_desc(&self) -> &BufDesc{
+    pub fn buf_desc(&self) -> &BufDesc {
         &self.bufref.desc
     }
 }
@@ -128,8 +128,8 @@ pub struct AnyHandle {
     pub(crate) key: AnyResKey,
 }
 
-impl AnyHandle{
-    pub fn has_atomic_ref(&self) -> bool{
+impl AnyHandle {
+    pub fn has_atomic_ref(&self) -> bool {
         self.atomic_ref.is_some()
     }
 }

@@ -11,11 +11,10 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-
 ///All image format types. Note that this is different to the actual format. This directly translates to the format less types used in spirv to read/write formatless
 /// storage images.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum FormatType{
+pub enum FormatType {
     F32,
     F64,
     U8,

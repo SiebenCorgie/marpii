@@ -57,8 +57,14 @@ impl Rmg {
                 #[cfg(feature = "logging")]
                 log::info!("QueueType: {:#?}", q.properties.queue_flags);
                 //Make sure to only add queue, if we don't have a queue with those capabilities yet.
-                if let std::collections::hash_map::Entry::Vacant(e) = set.entry(TrackId(q.properties.queue_flags)) {
-                    e.insert(Track::new(&context.device, q.family_index, q.properties.queue_flags));
+                if let std::collections::hash_map::Entry::Vacant(e) =
+                    set.entry(TrackId(q.properties.queue_flags))
+                {
+                    e.insert(Track::new(
+                        &context.device,
+                        q.family_index,
+                        q.properties.queue_flags,
+                    ));
                 }
 
                 set

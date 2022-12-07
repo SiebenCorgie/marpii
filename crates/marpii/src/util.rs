@@ -89,13 +89,19 @@ impl ImageRegion {
     }
 
     ///Dissolves self into the pair (offset, extent).
-    pub fn offset_extent_2d(&self) -> ([i32; 2], [u32;2]){
-        ([self.offset.x, self.offset.y], [self.extent.width, self.extent.height])
+    pub fn offset_extent_2d(&self) -> ([i32; 2], [u32; 2]) {
+        (
+            [self.offset.x, self.offset.y],
+            [self.extent.width, self.extent.height],
+        )
     }
 
     ///Dissolves self into the pair (offset, extent).
-    pub fn offset_extent_3d(&self) -> ([i32; 3], [u32; 3]){
-        ([self.offset.x, self.offset.y, self.offset.z], [self.extent.width, self.extent.height, self.extent.depth])
+    pub fn offset_extent_3d(&self) -> ([i32; 3], [u32; 3]) {
+        (
+            [self.offset.x, self.offset.y, self.offset.z],
+            [self.extent.width, self.extent.height, self.extent.depth],
+        )
     }
 }
 

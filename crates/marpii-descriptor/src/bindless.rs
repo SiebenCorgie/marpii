@@ -325,12 +325,12 @@ impl BindlessDescriptor {
             || features.shader_storage_image_array_dynamic_indexing == 0
             || features.shader_storage_buffer_array_dynamic_indexing == 0
             || features.shader_uniform_buffer_array_dynamic_indexing == 0
-            || features.shader_sampled_image_array_dynamic_indexing == 0{
-
-                #[cfg(feature = "logging")]
-                log::error!("Some dynamic indexing features where not supported. Following was supported: {:#?}", features);
-                return Err(anyhow::anyhow!("One of the dynamic indexing features was not supported, which is needed for bindless."));
-            }
+            || features.shader_sampled_image_array_dynamic_indexing == 0
+        {
+            #[cfg(feature = "logging")]
+            log::error!("Some dynamic indexing features where not supported. Following was supported: {:#?}", features);
+            return Err(anyhow::anyhow!("One of the dynamic indexing features was not supported, which is needed for bindless."));
+        }
         //check device for all needed features
         let features2 = device.get_feature::<vk::PhysicalDeviceVulkan12Features>();
         if features2.descriptor_indexing == 0
@@ -344,7 +344,10 @@ impl BindlessDescriptor {
             || features2.shader_sampled_image_array_non_uniform_indexing == 0
         {
             #[cfg(feature = "logging")]
-            log::error!("Some bindless features where not supported. Following was supported: {:#?}", features2);
+            log::error!(
+                "Some bindless features where not supported. Following was supported: {:#?}",
+                features2
+            );
 
             return Err(anyhow::anyhow!("Device does not support PhysicalDeviceDescriptorIndexingFeatures, needed for bindless"));
         }

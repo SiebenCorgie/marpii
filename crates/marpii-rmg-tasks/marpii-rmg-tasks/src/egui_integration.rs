@@ -66,14 +66,13 @@ pub struct EGuiWinitIntegration {
 
 impl EGuiWinitIntegration {
     pub fn new<T>(rmg: &mut Rmg, event_loop: &EventLoopWindowTarget<T>) -> Result<Self, RmgError> {
-
-        #[cfg(feature="logging")]
+        #[cfg(feature = "logging")]
         log::trace!("Setting up winit state");
 
         let mut winit_state = egui_winit::State::new(event_loop);
         winit_state.set_max_texture_side(2048);
 
-        #[cfg(feature="logging")]
+        #[cfg(feature = "logging")]
         log::trace!("Setting up egui context");
         let egui_context: egui::Context = Default::default();
         egui_context.set_pixels_per_point(1.0);
@@ -261,7 +260,6 @@ impl Task for EGuiRenderer {
 
             let viewport = targetimg.image_region().as_viewport();
 
-
             let color_attachments = vk::RenderingAttachmentInfo::builder()
                 .clear_value(vk::ClearValue {
                     color: vk::ClearColorValue {
@@ -272,7 +270,7 @@ impl Task for EGuiRenderer {
                 .image_view(targetview.view)
                 .load_op(if self.is_overwritten {
                     vk::AttachmentLoadOp::LOAD
-                } else{
+                } else {
                     vk::AttachmentLoadOp::CLEAR
                 })
                 .store_op(vk::AttachmentStoreOp::STORE);
@@ -384,7 +382,7 @@ impl EGuiTask {
     }
 
     pub fn new(rmg: &mut Rmg) -> Result<Self, RmgError> {
-        #[cfg(feature="logging")]
+        #[cfg(feature = "logging")]
         log::trace!("Setting up EGUI render meta task");
 
         let target_format = rmg
@@ -426,21 +424,20 @@ impl EGuiTask {
         //Pipeline layout
         let layout = rmg.resources().bindless_layout();
 
-
-        #[cfg(feature="logging")]
+        #[cfg(feature = "logging")]
         log::trace!("Load meta task shader module");
 
         /*
-        let shader_module_vert =
-            Arc::new(ShaderModule::new_from_bytes(&rmg.ctx.device, EGUI_SHADER_VERT).unwrap());
+                let shader_module_vert =
+                    Arc::new(ShaderModule::new_from_bytes(&rmg.ctx.device, EGUI_SHADER_VERT).unwrap());
 
-        let shader_module_frag =
-            Arc::new(ShaderModule::new_from_bytes(&rmg.ctx.device, EGUI_SHADER_FRAG).unwrap());
-*/
+                let shader_module_frag =
+                    Arc::new(ShaderModule::new_from_bytes(&rmg.ctx.device, EGUI_SHADER_FRAG).unwrap());
+        */
         let shader_module =
             Arc::new(ShaderModule::new_from_bytes(&rmg.ctx.device, crate::SHADER_RUST).unwrap());
 
-        #[cfg(feature="logging")]
+        #[cfg(feature = "logging")]
         log::trace!("Meta task vertex shader");
 
         let vertex_shader_stage = ShaderStage::from_shared_module(
@@ -449,7 +446,7 @@ impl EGuiTask {
             "egui_vs".to_owned(),
         );
 
-        #[cfg(feature="logging")]
+        #[cfg(feature = "logging")]
         log::trace!("Meta task fragment shader");
 
         let fragment_shader_stage = ShaderStage::from_shared_module(
@@ -458,7 +455,7 @@ impl EGuiTask {
             "egui_fs".to_owned(),
         );
 
-        #[cfg(feature="logging")]
+        #[cfg(feature = "logging")]
         log::trace!("Allocate push constant");
 
         let push = PushConstant::new(
@@ -472,7 +469,7 @@ impl EGuiTask {
             vk::ShaderStageFlags::ALL,
         );
 
-        #[cfg(feature="logging")]
+        #[cfg(feature = "logging")]
         log::trace!("Setup meta task pipeline");
 
         let pipeline = Arc::new(
@@ -523,7 +520,7 @@ impl EGuiTask {
                 .mag_filter(vk::Filter::NEAREST),
         )?;
 
-        #[cfg(feature="logging")]
+        #[cfg(feature = "logging")]
         log::trace!("Finished egui meta task creation");
 
         Ok(EGuiTask {
@@ -956,7 +953,12 @@ impl EGuiTask {
     ///Overwrites the target image. This will set the resolution as well. Note that the image must have the color attachment bit set and must support the
     /// COLOR_ATTACHMENT_OPTIMAL bit.
     pub fn overwrite_target(&mut self, image: ImageHandle) {
-        assert!(image.usage_flags().contains(vk::ImageUsageFlags::COLOR_ATTACHMENT), "Set image needs to have color attachment flags set");
+        assert!(
+            image
+                .usage_flags()
+                .contains(vk::ImageUsageFlags::COLOR_ATTACHMENT),
+            "Set image needs to have color attachment flags set"
+        );
         self.renderer.is_overwritten = true;
         self.renderer.target_image = image;
     }

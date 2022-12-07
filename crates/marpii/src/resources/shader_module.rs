@@ -31,23 +31,21 @@ impl ShaderModule {
         device: &Arc<Device>,
         bytes: &'a [u8],
     ) -> Result<Self, anyhow::Error> {
-        #[cfg(feature="logging")]
+        #[cfg(feature = "logging")]
         log::trace!("read shader module from byte array");
         let words = ash::util::read_spv(&mut std::io::Cursor::new(bytes)).unwrap();
         Self::new(device, &words)
     }
 
     pub fn new(device: &Arc<Device>, code: &[u32]) -> Result<Self, anyhow::Error> {
-
-        #[cfg(feature="logging")]
+        #[cfg(feature = "logging")]
         log::trace!("Shader Module new");
 
         let create_info = ash::vk::ShaderModuleCreateInfo::builder().code(code);
         let module = unsafe { device.inner.create_shader_module(&create_info, None)? };
         #[cfg(feature = "shader_reflection")]
         let reflection = {
-
-            #[cfg(feature="logging")]
+            #[cfg(feature = "logging")]
             log::trace!("Reflecting shader module");
 
             //cast the code to an u8. Should be save since the create_shader_module would have paniced
@@ -61,7 +59,7 @@ impl ShaderModule {
             reflection
         };
 
-        #[cfg(feature="logging")]
+        #[cfg(feature = "logging")]
         log::trace!("Building shader module from code");
 
         Ok(ShaderModule {
