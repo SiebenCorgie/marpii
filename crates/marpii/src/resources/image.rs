@@ -346,9 +346,7 @@ impl ImgDesc {
                     _ => ash::vk::ImageAspectFlags::DEPTH | ash::vk::ImageAspectFlags::STENCIL,
                 }
             } else {
-                #[cfg(feature = "logging")]
-                log::warn!("Could not find COLOR_ATTACHMENT nor DEPTH_STENCIL_ATTACHMENT bit while trying to decide for an initial aspect mask. Using COLOR.");
-                ash::vk::ImageAspectFlags::COLOR
+                ash::vk::ImageAspectFlags::empty()
             },
             base_array_layer: 0,
             base_mip_level: 0,
