@@ -1,7 +1,7 @@
 #![cfg_attr(target_arch = "spirv", no_std)]
 
 use marpii_rmg_task_shared::glam::{
-    vec4, UVec2, UVec3, Vec2, Vec3, Vec3Swizzles, Vec4, Vec4Swizzles,
+    vec4, Vec2, Vec3, Vec4, Vec4Swizzles,
 };
 use spirv_std::{self, Image, RuntimeArray, Sampler};
 

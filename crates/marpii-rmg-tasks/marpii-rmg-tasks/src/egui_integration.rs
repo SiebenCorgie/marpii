@@ -55,7 +55,8 @@ struct EGuiPrimDraw {
 }
 
 ///Wrapper around the render task, takes care of winit events and let's you define
-/// the UI for each frame.
+/// the UI for each frame. Note that you can configure the renderer. Use that to setup a source image for instance
+/// that serves as "background". This would typically be your scene.
 pub struct EGuiWinitIntegration {
     //translation state
     winit_state: egui_winit::State,
@@ -950,9 +951,16 @@ impl EGuiTask {
         Ok(())
     }
 
-    ///Overwrites the target image. This will set the resolution as well. Note that the image must have the color attachment bit set and must support the
+    ///Overwrites the source image the pass renders to. Typically you might set that to a rendered scene or some other kind
+    /// of background image. If you don't need that, consider not overwriting the source image.
+    ///
+    ///
+    /// Note that the image is reset if [set_resolution] is called.
+    ///
+    ///
+    /// This will set the resolution as well. Note that the image must have the color attachment bit set and must support the
     /// COLOR_ATTACHMENT_OPTIMAL bit.
-    pub fn overwrite_target(&mut self, image: ImageHandle) {
+    pub fn set_source_image(&mut self, image: ImageHandle) {
         assert!(
             image
                 .usage_flags()
