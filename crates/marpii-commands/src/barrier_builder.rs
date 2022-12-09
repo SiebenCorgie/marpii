@@ -74,7 +74,7 @@ impl BarrierBuilder {
 
     ///pushes only a queue transition for the given region.
     ///
-    /// # Safety see [buffer_barrier].
+    /// # Safety see [Self::buffer_barrier].
     pub fn buffer_queue_transition(
         &mut self,
         buffer: vk::Buffer,
@@ -139,7 +139,7 @@ impl BarrierBuilder {
 
     ///pushes only a queue transition for the given region.
     ///
-    /// # Safety see [image_barrier].
+    /// # Safety see [Self::image_barrier].
     pub fn image_queue_transition(
         &mut self,
         image: vk::Image,
@@ -160,7 +160,7 @@ impl BarrierBuilder {
 
     ///pushes only a layout transition for the given region.
     ///
-    /// # Safety see [image_barrier].
+    /// # Safety see [Self::image_barrier].
     pub fn image_layout_transition(
         &mut self,
         image: vk::Image,

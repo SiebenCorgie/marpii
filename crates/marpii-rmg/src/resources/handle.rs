@@ -1,7 +1,7 @@
 //! # Handles
 //!
 //! There are multiple levels of handles. The lowest levels are `*Key`s. This are the direct
-//! handles into the [Resource] structure. They do not carry any context.
+//! handles into the [Resource](crate::resources::Resources) structure. They do not carry any context.
 //!
 //! The next level are `ImageHandel`, `BufferHandle` and `SamplerHandle`. They carry a reference to the actual data
 //! (at the moment). They are used to detect whenever resources are not needed anymore, and when communicating

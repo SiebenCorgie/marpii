@@ -355,7 +355,8 @@ impl Task for EGuiRenderer {
     }
 }
 
-///Egui meta task. Make sure to supply the renderer with all `winit` events that should be taken into account, or use [EGuiIntegration] instead.
+///Egui meta task. Make sure to supply the renderer with all `winit` events
+/// that should be taken into account, or use [EGuiWinitIntegration] instead.
 pub struct EGuiTask {
     ///data manager and update task
     data: EGuiData,
@@ -966,7 +967,7 @@ impl EGuiTask {
     /// of background image. If you don't need that, consider not overwriting the source image.
     ///
     ///
-    /// Note that the image is reset if [set_resolution] is called.
+    /// Note that the image is reset if [Self::set_resolution] is called.
     ///
     ///
     /// This will set the resolution as well. Note that the image must have the color attachment bit set and must support the

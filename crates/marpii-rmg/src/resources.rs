@@ -142,7 +142,7 @@ impl Resources {
     }
 
     ///Adds an image, assuming it is uninitialised. If the image is initialised, owned by a queue or similar,
-    /// use the [import](Self::import_image) function instead.
+    /// use the [import](crate::Rmg::new_image_uninitialized) function instead.
     pub fn add_image(&mut self, image: Arc<Image>) -> Result<ImageHandle, ResourceError> {
         let image_view_desc = image.view_all();
 
@@ -174,7 +174,7 @@ impl Resources {
     }
 
     ///Adds an buffer, assuming it is uninitialised. If the buffer is initialised, owned by a queue or similar,
-    /// use the [import](Rmg::import_buffer) function instead.
+    /// use the [import](crate::Rmg::import_buffer) function instead.
     pub fn add_buffer<T: 'static>(
         &mut self,
         buffer: Arc<Buffer>,

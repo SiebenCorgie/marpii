@@ -55,7 +55,8 @@ impl SwapchainPresent {
     ///Pushes `image` to be presented whenever the task is scheduled next.
     /// Might overwrite any inflight or already pushed frames that are waiting for execution.
     ///
-    /// `extent` should be the framebuffer extent or something smaller. Either retiev from [extent] or from your windowing
+    /// `extent` should be the framebuffer extent or something smaller. Either retrieve from
+    /// [Self::extent] or from your windowing
     /// library.
     pub fn push_image(&mut self, image: ImageHandle, extent: vk::Extent2D) {
         self.last_known_extent = extent;
