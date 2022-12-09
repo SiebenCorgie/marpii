@@ -71,7 +71,7 @@ impl EGuiWinitIntegration {
         log::trace!("Setting up winit state");
 
         let mut winit_state = egui_winit::State::new(event_loop);
-        winit_state.set_max_texture_side(2048);
+        winit_state.set_max_texture_side(EGuiTask::MAX_TEXTURE_SIDE as usize);
 
         #[cfg(feature = "logging")]
         log::trace!("Setting up egui context");
@@ -365,7 +365,7 @@ pub struct EGuiTask {
 impl EGuiTask {
     ///Default vertex buffer size (in vertices).
     pub const DEFAULT_BUF_SIZE: usize = 1024;
-
+    pub const MAX_TEXTURE_SIDE: u32 = 2048;
     pub fn texture_atlas(&self) -> Values<TextureId, DynamicImage> {
         self.data.atlas.values()
     }
@@ -825,7 +825,7 @@ impl EGuiTask {
 
             let ext = delta.image.size();
             let ext = [ext[0] as u32, ext[1] as u32];
-            let is_whole = delta.is_whole();
+            let _is_whole = delta.is_whole();
 
             let region = ImageRegion {
                 offset: vk::Offset3D {
@@ -851,11 +851,22 @@ impl EGuiTask {
             let dta: &[u8] = bytemuck::cast_slice(dta.as_slice());
 
             if let Some(tex) = self.data.atlas.get_mut(&id) {
+
+
+                tex.write_bytes(rmg, region, dta)?;
+                if (ext[0] + pos[0]) > tex.image.extent_2d().width
+                    || (ext[1] + pos[1]) > tex.image.extent_2d().height
+                {
+                    #[cfg(feature = "logging")]
+                    log::warn!("Possibly writing egui texture {:?} out of bound", id);
+                }
+                /*FIXME: egui doesnt seem to repect the texture size. So it can happen that it writes outside
+                 *       the texture bounds. We are currently ignoring that
                 if (ext[0] + pos[0]) > tex.image.extent_2d().width
                     || (ext[1] + pos[1]) > tex.image.extent_2d().height
                 {
                     //need to create a new texture, since the old one can't hold the new image
-                    assert!(is_whole, "Texture didn't fit, but was no whole texture!");
+                    //assert!(is_whole, "Texture didn't fit, but was no whole texture!");
                     *tex = DynamicImage::new(
                         rmg,
                         ImgDesc {
@@ -869,11 +880,11 @@ impl EGuiTask {
                         },
                         None,
                     )?;
-                    tex.write_bytes(rmg, region, dta)?;
                 } else {
                     //Fits, update region
                     tex.write_bytes(rmg, region, dta)?;
                 }
+                 */
             } else {
                 #[cfg(feature = "logging")]
                 log::info!("Setting up eGui texture {:?}", id);

@@ -223,7 +223,7 @@ impl Buffer {
         match &self.usage {
             MemoryUsage::GpuOnly | MemoryUsage::Unknown => {
                 #[cfg(feature = "logging")]
-                log::error!("Tried to map buffe that has usage: {:?}", self.usage);
+                log::error!("Tried to map buffer that has usage: {:?}", self.usage);
                 return Err(BufferMapError::NotMapable);
             }
             _ => {}
