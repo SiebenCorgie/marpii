@@ -96,7 +96,7 @@ fn build_glsl(path: &str, name: &str, target: &str) {
     }
 }
 
-const RESDIR: &str = "../resources";
+const RESDIR: &str = "resources/";
 
 pub fn ensure_res() {
     if !PathBuf::from(RESDIR).exists() {
@@ -106,7 +106,7 @@ pub fn ensure_res() {
 
 // Builds rust shader crate and all glsl shaders.
 fn main() {
-    println!("cargo:rerun-if-changed=../resources");
+    println!("cargo:rerun-if-changed=../rust_shader/src/");
     ensure_res();
     compile_rust_shader("rust_shader", "../rust_shader", RESDIR).expect("Failed to build shader");
 }

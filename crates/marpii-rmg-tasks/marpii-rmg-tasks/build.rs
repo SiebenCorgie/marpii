@@ -13,6 +13,8 @@ pub fn compile_rust_shader(
     shader_crate: &str,
     destination_folder: &str,
 ) -> Result<(), SpirvBuilderError> {
+
+    println!("cargo:rerun-if-changed={}", shader_crate);
     println!("compile shader crate: {}", shader_crate);
 
     let shader_crate_location = Path::new(shader_crate).canonicalize().unwrap();
@@ -114,7 +116,7 @@ fn build_glsl(path: &str, name: &str, entry_point: &str) {
     }
 }
 
-const RESDIR: &str = "../resources";
+const RESDIR: &str = "resources/";
 
 fn clean_up() {
     let path = PathBuf::from(RESDIR);
@@ -127,8 +129,9 @@ fn clean_up() {
 
 // Builds rust shader crate and all glsl shaders.
 fn main() {
-    println!("cargo:rerun-if-changed=../marpii-rmg-task-shader");
-    println!("cargo:rerun-if-changed=../resources");
+    println!("cargo:rerun-if-changed=../marpii-rmg-task-shader/src/");
+    println!("cargo:rerun-if-changed=../marpii-rmg-task-shader/glsl/");
+    //println!("cargo:rerun-if-changed=crates/marpii-rmg-tasks/resources");
 
     //cleanup resource dir
     clean_up();

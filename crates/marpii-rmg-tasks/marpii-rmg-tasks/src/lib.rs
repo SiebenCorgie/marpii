@@ -31,4 +31,4 @@ pub use crate::egui_integration::{EGuiTask, EGuiWinitIntegration};
 pub use egui_winit::egui;
 
 ///Rust shader byte code. Compiled ahead of the crate and included for *save* distribution.
-pub const SHADER_RUST: &[u8] = include_bytes!("../../resources/rshader.spv");
+pub const SHADER_RUST: &[u8] = include_bytes!("../resources/rshader.spv");

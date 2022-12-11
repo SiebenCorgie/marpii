@@ -6,8 +6,8 @@ use marpii_rmg::{ImageHandle, Rmg, Task};
 use marpii_rmg_task_shared::{AlphaBlendPush, ResourceHandle};
 use std::sync::Arc;
 
-const BLEND_SHADER_F32: &'static [u8] = include_bytes!("../../resources/alphablend_f32.spv");
-const BLEND_SHADER_U8: &'static [u8] = include_bytes!("../../resources/alphablend_u8.spv");
+const BLEND_SHADER_F32: &'static [u8] = include_bytes!("../resources/alphablend_f32.spv");
+const BLEND_SHADER_U8: &'static [u8] = include_bytes!("../resources/alphablend_u8.spv");
 
 ///Adds one image (`add`) to another (`dst`) using `add`'s alpha channel to determin blending.
 ///

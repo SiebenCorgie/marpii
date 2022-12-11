@@ -19,8 +19,8 @@ use std::sync::Arc;
 
 use crate::{model_loading::load_model, OBJECT_COUNT};
 
-const SHADER_VS: &[u8] = include_bytes!("../../resources/forward_vs.spv");
-const SHADER_FS: &[u8] = include_bytes!("../../resources/forward_fs.spv");
+const SHADER_VS: &[u8] = include_bytes!("../resources/forward_vs.spv");
+const SHADER_FS: &[u8] = include_bytes!("../resources/forward_fs.spv");
 
 pub struct ForwardPass {
     //    attdesc: AttachmentDescription,

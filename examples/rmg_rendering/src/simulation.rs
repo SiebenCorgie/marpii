@@ -7,7 +7,7 @@ use shared::{ResourceHandle, SimObj};
 use std::sync::Arc;
 
 use crate::OBJECT_COUNT;
-const SHADER_COMP: &[u8] = include_bytes!("../../resources/simulation.spv");
+const SHADER_COMP: &[u8] = include_bytes!("../resources/simulation.spv");
 
 pub struct Simulation {
     ///Simulation buffer

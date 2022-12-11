@@ -30,7 +30,7 @@ fn build_glsl(path: &str, name: &str, target: &str) {
     }
 }
 
-const RESDIR: &str = "../resources";
+const RESDIR: &str = "resources/";
 
 pub fn ensure_res() {
     if !PathBuf::from(RESDIR).exists() {
@@ -40,20 +40,20 @@ pub fn ensure_res() {
 
 // Builds rust shader crate and all glsl shaders.
 fn main() {
-    println!("cargo:rerun-if-changed=../resources");
+    println!("cargo:rerun-if-changed=glsl/");
     ensure_res();
     build_glsl(
-        "../rmg_rendering/glsl/simulation.comp",
+        "glsl/simulation.comp",
         "simulation.spv",
         RESDIR,
     );
     build_glsl(
-        "../rmg_rendering/glsl/forward.vert",
+        "glsl/forward.vert",
         "forward_vs.spv",
         RESDIR,
     );
     build_glsl(
-        "../rmg_rendering/glsl/forward.frag",
+        "glsl/forward.frag",
         "forward_fs.spv",
         RESDIR,
     );
