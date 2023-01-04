@@ -13,7 +13,6 @@ pub fn compile_rust_shader(
     shader_crate: &str,
     destination_folder: &str,
 ) -> Result<(), SpirvBuilderError> {
-
     println!("cargo:rerun-if-changed={}", shader_crate);
     println!("compile shader crate: {}", shader_crate);
 

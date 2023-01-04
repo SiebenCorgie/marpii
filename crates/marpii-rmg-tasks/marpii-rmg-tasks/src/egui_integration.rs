@@ -852,8 +852,6 @@ impl EGuiTask {
             let dta: &[u8] = bytemuck::cast_slice(dta.as_slice());
 
             if let Some(tex) = self.data.atlas.get_mut(&id) {
-
-
                 tex.write_bytes(rmg, region, dta)?;
                 if (ext[0] + pos[0]) > tex.image.extent_2d().width
                     || (ext[1] + pos[1]) > tex.image.extent_2d().height

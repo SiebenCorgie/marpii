@@ -43,7 +43,7 @@ impl<const N: usize> Task for ImageBlit<N> {
                 &self.src,
                 vk::PipelineStageFlags2::TRANSFER,
                 vk::AccessFlags2::TRANSFER_READ,
-                vk::ImageLayout::GENERAL,
+                vk::ImageLayout::TRANSFER_SRC_OPTIMAL,
             )
             .unwrap();
         registry
@@ -51,7 +51,7 @@ impl<const N: usize> Task for ImageBlit<N> {
                 &self.dst,
                 vk::PipelineStageFlags2::TRANSFER,
                 vk::AccessFlags2::TRANSFER_WRITE,
-                vk::ImageLayout::GENERAL,
+                vk::ImageLayout::TRANSFER_DST_OPTIMAL,
             )
             .unwrap();
     }
@@ -82,9 +82,9 @@ impl<const N: usize> Task for ImageBlit<N> {
 
         let blit_image_info = vk::BlitImageInfo2::builder()
             .src_image(src_image.image.inner)
-            .src_image_layout(vk::ImageLayout::GENERAL)
+            .src_image_layout(vk::ImageLayout::TRANSFER_SRC_OPTIMAL)
             .dst_image(dst_image.image.inner)
-            .dst_image_layout(vk::ImageLayout::GENERAL)
+            .dst_image_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
             .filter(vk::Filter::LINEAR)
             .regions(&regions);
 
