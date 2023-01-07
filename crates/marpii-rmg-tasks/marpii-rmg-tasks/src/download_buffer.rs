@@ -47,6 +47,7 @@ impl<T: bytemuck::Pod + 'static> DownloadBuffer<T>{
             if let Some(dta) = dta.as_slice_ref(){
                 let dta_cast: &[T] = bytemuck::cast_slice(dta);
                 let size = dta_cast.len().min(dst.len());
+                dst[0..size].copy_from_slice(&dta_cast[0..size]);
                 Ok(size)
             }else{
                 #[cfg(feature="logging")]
