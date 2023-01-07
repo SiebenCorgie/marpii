@@ -84,49 +84,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
             instance_builder = instance_builder.enable_validation(ValidationFeatures::all());
         }
         let instance = instance_builder.build()?;
-
-        let mut device_candidates = instance
-            .create_physical_device_filter()?
-            .filter_queue_flags(ash::vk::QueueFlags::GRAPHICS)
-            .release();
-
-        if device_candidates.len() == 0 {
-            anyhow::bail!("Could not find suitable physical device!");
-        }
-
-        //NOTE: By default we setup extensions in a way that we can load rust shaders.
-        let vulkan_memory_model = ash::vk::PhysicalDeviceVulkan12Features::builder()
-            .shader_int8(true)
-            .vulkan_memory_model(true);
-
-        let device = device_candidates
-            .remove(0)
-            .into_device_builder(instance.clone())?
-            .with_extensions(ash::vk::KhrVulkanMemoryModelFn::name())
-            .with(|b| b.features.shader_int16 = 1)
-            .with_feature(vulkan_memory_model)
-            .build()?;
-
-        //create allocator for device
-        let allocator =
-            gpu_allocator::vulkan::Allocator::new(&gpu_allocator::vulkan::AllocatorCreateDesc {
-                buffer_device_address: false,
-                debug_settings: gpu_allocator::AllocatorDebugSettings {
-                    log_leaks_on_shutdown: true,
-                    ..Default::default()
-                },
-                device: device.inner.clone(),
-                instance: instance.inner.clone(),
-                physical_device: device.physical_device,
-            })?;
-
-        allocator.report_memory_leaks(log::Level::Info);
-
-        Ok(Ctx {
-            allocator: Arc::new(Mutex::new(allocator)),
-            device,
-            instance,
-        })
+        Self::new_default_from_instance(instance, None)
     }
 
     ///Creates simple context that has only one graphics queue. If provided creates the instance in a way that
@@ -152,11 +110,31 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
         //create the surface, so we can check for compatible devices in the filter.
         let surface = Arc::new(crate::surface::Surface::new(&instance, window_handle)?);
 
+        let ctx = Self::new_default_from_instance(instance, Some(&surface))?;
+
+        Ok((ctx, surface))
+    }
+
+    ///Creates a default context from a given instance. This is also the base creation code for
+    /// [Self::default_with_surface] and [Self::new_headless].
+    ///
+    /// It enables multiple default features and extension that make this context work with
+    /// marpii-rmg.
+    pub fn new_default_from_instance(
+        instance: Arc<Instance>,
+        surfaces: Option<&Surface>
+    ) -> Result<Self, anyhow::Error>{
+
         let mut device_candidates = instance
             .create_physical_device_filter()?
-            .filter_queue_flags(ash::vk::QueueFlags::GRAPHICS)
-            .filter_presentable(&surface.surface_loader, &surface.surface)
-            .release();
+            .filter_queue_flags(ash::vk::QueueFlags::GRAPHICS);
+        //If we have a surface, filter for that
+        if let Some(surface) = surfaces{
+            device_candidates = device_candidates
+            .filter_presentable(&surface.surface_loader, &surface.surface);
+        }
+
+        let mut device_candidates = device_candidates.release();
 
         if device_candidates.len() == 0 {
             anyhow::bail!("Could not find suitable physical device!");
@@ -185,9 +163,9 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
         //Acceleration structure support
         /*
         let accel_structure = ash::vk::PhysicalDeviceAccelerationStructureFeaturesKHR::builder()
-            .acceleration_structure(true)
-            .descriptor_binding_acceleration_structure_update_after_bind(true);
-        */
+        .acceleration_structure(true)
+        .descriptor_binding_acceleration_structure_update_after_bind(true);
+         */
         let device = device_candidates
             .remove(0)
             .into_device_builder(instance.clone())?
@@ -204,7 +182,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
             })
             .with_feature(features12)
             .with_feature(features13)
-            //.with_additional_feature(accel_structure)
+        //.with_additional_feature(accel_structure)
             .build()?;
 
         //create allocator for device
@@ -220,14 +198,13 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
                 physical_device: device.physical_device,
             })?;
 
-        Ok((
+        Ok(
             Ctx {
                 allocator: Arc::new(Mutex::new(allocator)),
                 device,
                 instance,
-            },
-            surface,
-        ))
+            }
+        )
     }
 
     ///Creates the *best* context possible.
