@@ -87,6 +87,10 @@ impl ResImage {
         //if the strong count is higher, somewhere referenced
         Arc::strong_count(&self.image) <= image_strong
     }
+
+    pub fn guard(&self) -> Option<Guard>{
+        self.guard.clone()
+    }
 }
 
 ///Combined state of a single buffer,
@@ -124,6 +128,10 @@ impl ResBuffer {
         }
         //if the strong count is higher, somewhere referenced
         Arc::strong_count(&self.buffer) <= max_strong
+    }
+
+    pub fn guard(&self) -> Option<Guard>{
+        self.guard.clone()
     }
 }
 

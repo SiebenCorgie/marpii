@@ -2,7 +2,7 @@ use crossbeam_channel::{Receiver, Sender};
 use marpii::{
     ash::vk,
     context::Device,
-    resources::{BufDesc, Buffer, Image, ImgDesc, PipelineLayout, SafeImageView, Sampler},
+    resources::{BufDesc, Buffer, Image, ImgDesc, PipelineLayout, SafeImageView, Sampler, BufferMapError},
 };
 use slotmap::SlotMap;
 use std::{marker::PhantomData, sync::Arc};
@@ -56,6 +56,10 @@ pub enum ResourceError {
 
     #[error("Resource was already requested for the registry.")]
     ResourceAlreadyRequested,
+
+
+    #[error("Buffer mapping error while accessing resource: {0}")]
+    BufferMapError(BufferMapError),
 }
 
 pub struct Resources {
@@ -145,9 +149,7 @@ impl Resources {
     /// use the [import](crate::Rmg::new_image_uninitialized) function instead.
     pub fn add_image(&mut self, image: Arc<Image>) -> Result<ImageHandle, ResourceError> {
         let image_view_desc = image.view_all();
-
         let image_view = Arc::new(image.view(&image.device, image_view_desc)?);
-
         let key = self.images.insert(ResImage {
             image: image.clone(),
             view: image_view,
@@ -233,6 +235,54 @@ impl Resources {
             key,
             bufref: buffer,
             data_type: PhantomData,
+        })
+    }
+
+    ///Imports the image with the given state. Returns an error if a given `queue_family` index has no internal `TrackId`.
+    pub(crate) fn import_image(
+        &mut self,
+        tracks: &Tracks,
+        image: Arc<Image>,
+        queue_family: Option<u32>,
+        layout: Option<vk::ImageLayout>,
+        access_flags: Option<vk::AccessFlags2>,
+    ) -> Result<ImageHandle, ResourceError> {
+        let owner = if let Some(fam) = queue_family {
+            let track = tracks.0.iter().find_map(|(track_id, track)| {
+                if track.queue_idx == fam {
+                    Some(track_id)
+                } else {
+                    None
+                }
+            });
+            if let Some(_t) = track {
+                QueueOwnership::Owned(fam)
+            } else {
+                return Err(ResourceError::NoTrackForQueueFamily(fam));
+            }
+        } else {
+            QueueOwnership::Uninitialized
+        };
+
+        let access = access_flags.unwrap_or(vk::AccessFlags2::NONE);
+        let layout = layout.unwrap_or(vk::ImageLayout::UNDEFINED);
+
+        let image_view_desc = image.view_all();
+        let view = Arc::new(image.view(&image.device, image_view_desc)?);
+
+        let key = self.images.insert(ResImage {
+            image: image.clone(),
+            view,
+            ownership: owner,
+            mask: access,
+            guard: None,
+            layout,
+            descriptor_handle: None,
+        });
+
+        Ok(ImageHandle {
+            key,
+            imgref: image,
         })
     }
 
