@@ -13,7 +13,7 @@ use thiserror::Error;
 use crate::{
     recorder::Recorder,
     track::{Track, TrackId, Tracks},
-    BufferHandle, ImageHandle, RecordError, ResourceError, Resources, SamplerHandle,
+    BufferHandle, ImageHandle, RecordError, ResourceError, Resources, SamplerHandle
 };
 
 ///Top level Error structure.
@@ -149,6 +149,18 @@ impl Rmg {
     ) -> Result<BufferHandle<T>, ResourceError> {
         self.res
             .import_buffer(&self.tracks, buffer, queue_family, access_flags)
+    }
+
+    ///Imports the image with the given state. Returns an error if a given `queue_family` index has no internal `TrackId`.
+    pub fn import_image(
+        &mut self,
+        image: Arc<Image>,
+        queue_family: Option<u32>,
+        layout: Option<vk::ImageLayout>,
+        access_flags: Option<vk::AccessFlags2>,
+    ) -> Result<ImageHandle, ResourceError> {
+        self.res
+            .import_image(&self.tracks, image, queue_family, layout, access_flags)
     }
 
     pub fn new_sampler(

@@ -27,8 +27,11 @@ pub enum BufferMapError {
     //NOTE: Not necessarly an error, but probably a problem with the user.
     #[error("Tried to write empty buffer")]
     EmptyWrite,
+    #[error("Tried to read an none-readable buffer")]
+    NotReadable,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BufDesc {
     pub size: vk::DeviceSize,
     pub usage: vk::BufferUsageFlags,
@@ -336,7 +339,7 @@ impl Buffer {
         match &self.usage {
             MemoryUsage::GpuOnly | MemoryUsage::Unknown => {
                 #[cfg(feature = "logging")]
-                log::error!("Tried to map buffe that has usage: {:?}", self.usage);
+                log::error!("Tried to map buffer that has usage: {:?}", self.usage);
                 return Err(BufferMapError::NotMapable);
             }
             _ => {}
