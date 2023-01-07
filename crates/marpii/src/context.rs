@@ -78,7 +78,7 @@ impl<A: Allocator + Send> Ctx<A> {
 #[cfg(feature = "default_allocator")]
 impl Ctx<gpu_allocator::vulkan::Allocator> {
     ///Creates a new context that does not check for any surface availability.
-    pub fn new_headless(use_validation: bool) -> Result<Self, anyhow::Error> {
+    pub fn new_default_headless(use_validation: bool) -> Result<Self, anyhow::Error> {
         let mut instance_builder = Instance::linked()?;
         if use_validation {
             instance_builder = instance_builder.enable_validation(ValidationFeatures::all());
@@ -166,10 +166,9 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
         .acceleration_structure(true)
         .descriptor_binding_acceleration_structure_update_after_bind(true);
          */
-        let device = device_candidates
+        let mut device_builder = device_candidates
             .remove(0)
             .into_device_builder(instance.clone())?
-            .with_extensions(ash::extensions::khr::Swapchain::name())
             .with_extensions(ash::vk::KhrVulkanMemoryModelFn::name())
             .with_extensions(ash::extensions::khr::DynamicRendering::name())
             .with(|b| {
@@ -181,9 +180,14 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
                 b.features.robust_buffer_access = 1;
             })
             .with_feature(features12)
-            .with_feature(features13)
+            .with_feature(features13);
         //.with_additional_feature(accel_structure)
-            .build()?;
+
+        // only add swapchain extension if we got a surface
+        if surfaces.is_some(){
+            device_builder = device_builder.with_extensions(ash::extensions::khr::Swapchain::name());
+        }
+        let device = device_builder.build()?;
 
         //create allocator for device
         let allocator =
