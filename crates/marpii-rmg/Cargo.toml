@@ -14,10 +14,8 @@ ray-tracing = []
 
 
 [dependencies]
-anyhow.workspace = true
-thiserror = "1.0"
+thiserror.workspace = true
 slotmap = "1.0"
-fxhash = "0.2.1"
 ahash.workspace = true
 tinyvec.workspace = true
 marpii = {path = "../../crates/marpii"}

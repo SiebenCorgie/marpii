@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use crate::context::Device;
+use crate::{context::Device, error::CommandBufferError};
 
 pub struct CommandPool {
     ///Device this pool was created on.
@@ -17,7 +17,7 @@ impl CommandPool {
         device: &Arc<Device>,
         queue_family: u32,
         flags: ash::vk::CommandPoolCreateFlags,
-    ) -> Result<Self, anyhow::Error> {
+    ) -> Result<Self, CommandBufferError> {
         let create_info = ash::vk::CommandPoolCreateInfo::builder()
             .flags(flags)
             .queue_family_index(queue_family);
@@ -47,7 +47,7 @@ impl CommandBufferAllocator for CommandPool {
         &self,
         command_buffer: &ash::vk::CommandBuffer,
         release_resources: bool,
-    ) -> Result<(), anyhow::Error> {
+    ) -> Result<(), CommandBufferError> {
         if self.can_reset_buffer {
             let flag = if release_resources {
                 ash::vk::CommandBufferResetFlags::RELEASE_RESOURCES
@@ -61,13 +61,13 @@ impl CommandBufferAllocator for CommandPool {
             }
             .map_err(|e| e.into())
         } else {
-            anyhow::bail!("CommandPool can't reset buffer")
+            return Err(CommandBufferError::PoolNotResetable);
         }
     }
     fn allocate_buffer(
         self,
         level: ash::vk::CommandBufferLevel,
-    ) -> Result<CommandBuffer<Self>, anyhow::Error>
+    ) -> Result<CommandBuffer<Self>, CommandBufferError>
     where
         Self: Sized,
     {
@@ -81,7 +81,10 @@ impl CommandBufferAllocator for CommandPool {
         };
 
         if buffer.len() == 0 {
-            anyhow::bail!("Failed to allocate buffer!");
+            return Err(CommandBufferError::FailedToAllocate {
+                allocated: 0,
+                count: 1,
+            });
         }
 
         #[cfg(feature = "logging")]
@@ -108,18 +111,19 @@ impl CommandBufferAllocator for CommandPool {
     }
 }
 
+//FIXME: Currently reimplementing for non-Arc version, unify that..
 impl CommandBufferAllocator for Arc<CommandPool> {
     fn reset(
         &self,
         command_buffer: &ash::vk::CommandBuffer,
         release_resources: bool,
-    ) -> Result<(), anyhow::Error> {
+    ) -> Result<(), CommandBufferError> {
         self.as_ref().reset(command_buffer, release_resources)
     }
     fn allocate_buffer(
         self,
         level: ash::vk::CommandBufferLevel,
-    ) -> Result<CommandBuffer<Self>, anyhow::Error>
+    ) -> Result<CommandBuffer<Self>, CommandBufferError>
     where
         Self: Sized,
     {
@@ -134,7 +138,10 @@ impl CommandBufferAllocator for Arc<CommandPool> {
         };
 
         if buffer.len() == 0 {
-            anyhow::bail!("Failed to allocate buffer!");
+            return Err(CommandBufferError::FailedToAllocate {
+                allocated: 0,
+                count: 1,
+            });
         }
 
         #[cfg(feature = "logging")]
@@ -172,12 +179,12 @@ pub trait CommandBufferAllocator {
         &self,
         command_buffer: &ash::vk::CommandBuffer,
         release_resources: bool,
-    ) -> Result<(), anyhow::Error>;
+    ) -> Result<(), CommandBufferError>;
     ///Allocates a single command buffer. Might fail if no free buffers are left
     fn allocate_buffer(
         self,
         level: ash::vk::CommandBufferLevel,
-    ) -> Result<CommandBuffer<Self>, anyhow::Error>
+    ) -> Result<CommandBuffer<Self>, CommandBufferError>
     where
         Self: Sized;
     ///Allocates multiple command buffers at once. If it fails the error, and all successfuly allocated buffers are returned.
@@ -187,7 +194,7 @@ pub trait CommandBufferAllocator {
         self,
         level: ash::vk::CommandBufferLevel,
         count: u32,
-    ) -> Result<Vec<CommandBuffer<Self>>, (anyhow::Error, Vec<CommandBuffer<Self>>)>
+    ) -> Result<Vec<CommandBuffer<Self>>, (CommandBufferError, Vec<CommandBuffer<Self>>)>
     where
         Self: Sized + Clone,
     {
@@ -221,7 +228,7 @@ pub struct CommandBuffer<P: CommandBufferAllocator> {
 }
 
 impl<P: CommandBufferAllocator> CommandBuffer<P> {
-    pub fn reset(&mut self, release_resources: bool) -> Result<(), anyhow::Error> {
+    pub fn reset(&mut self, release_resources: bool) -> Result<(), CommandBufferError> {
         self.pool.reset(&self.inner, release_resources)
     }
 }

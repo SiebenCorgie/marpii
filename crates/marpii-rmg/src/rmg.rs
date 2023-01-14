@@ -1,11 +1,11 @@
-use fxhash::FxHashMap;
-
+use ahash::AHashMap;
 use marpii::{
     allocator::MemoryUsage,
     ash::vk,
     context::Ctx,
     gpu_allocator::vulkan::Allocator,
     resources::{BufDesc, Buffer, Image, ImgDesc, Sampler, SharingMode},
+    MarpiiError,
 };
 use std::sync::Arc;
 use thiserror::Error;
@@ -22,8 +22,8 @@ pub enum RmgError {
     #[error("vulkan error")]
     VkError(#[from] vk::Result),
 
-    #[error("anyhow")]
-    Any(#[from] anyhow::Error),
+    #[error("MarpII internal error: {0}")]
+    MarpiiError(#[from] MarpiiError),
 
     #[error("Recording error")]
     RecordingError(#[from] RecordError),
@@ -52,8 +52,8 @@ impl Rmg {
 
         //TODO: make the iterator return an error. Currently if track creation fails, everything fails
         let tracks = context.device.queues.iter().fold(
-            FxHashMap::default(),
-            |mut set: FxHashMap<TrackId, Track>, q| {
+            AHashMap::default(),
+            |mut set: AHashMap<TrackId, Track>, q| {
                 #[cfg(feature = "logging")]
                 log::info!("QueueType: {:#?}", q.properties.queue_flags);
                 //Make sure to only add queue, if we don't have a queue with those capabilities yet.
@@ -93,14 +93,17 @@ impl Rmg {
             return Err(RmgError::from(ResourceError::ImageNoUsageFlags));
         }
 
-        let image = Arc::new(Image::new(
-            &self.ctx.device,
-            &self.ctx.allocator,
-            description,
-            MemoryUsage::GpuOnly, //always cpu only, everything else is handled by passes directly
-            name,
-            None,
-        )?);
+        let image = Arc::new(
+            Image::new(
+                &self.ctx.device,
+                &self.ctx.allocator,
+                description,
+                MemoryUsage::GpuOnly, //always cpu only, everything else is handled by passes directly
+                name,
+                None,
+            )
+            .map_err(|e| MarpiiError::from(e))?,
+        );
 
         Ok(self.res.add_image(image)?)
     }
@@ -111,14 +114,17 @@ impl Rmg {
         description: BufDesc,
         name: Option<&str>,
     ) -> Result<BufferHandle<T>, RmgError> {
-        let buffer = Arc::new(Buffer::new(
-            &self.ctx.device,
-            &self.ctx.allocator,
-            description,
-            MemoryUsage::GpuOnly,
-            name,
-            None,
-        )?);
+        let buffer = Arc::new(
+            Buffer::new(
+                &self.ctx.device,
+                &self.ctx.allocator,
+                description,
+                MemoryUsage::GpuOnly,
+                name,
+                None,
+            )
+            .map_err(|e| MarpiiError::from(e))?,
+        );
 
         Ok(self.res.add_buffer(buffer)?)
     }
@@ -167,7 +173,8 @@ impl Rmg {
         &mut self,
         description: &vk::SamplerCreateInfoBuilder<'_>,
     ) -> Result<SamplerHandle, RmgError> {
-        let sampler = Sampler::new(&self.ctx.device, description)?;
+        let sampler =
+            Sampler::new(&self.ctx.device, description).map_err(|e| MarpiiError::from(e))?;
 
         Ok(self.res.add_sampler(Arc::new(sampler))?)
     }

@@ -5,6 +5,7 @@ use marpii::{
     resources::{
         BufDesc, Buffer, BufferMapError, Image, ImgDesc, PipelineLayout, SafeImageView, Sampler,
     },
+    MarpiiError,
 };
 use slotmap::SlotMap;
 use std::{marker::PhantomData, sync::Arc};
@@ -32,8 +33,8 @@ pub enum ResourceError {
     #[error("vulkan error")]
     VkError(#[from] vk::Result),
 
-    #[error("anyhow")]
-    Any(#[from] anyhow::Error),
+    #[error("Marpii internal error: {0}")]
+    MarpiiError(#[from] MarpiiError),
 
     #[error("Resource already existed")]
     ResourceExists(AnyHandle),
@@ -150,7 +151,11 @@ impl Resources {
     /// use the [import](crate::Rmg::new_image_uninitialized) function instead.
     pub fn add_image(&mut self, image: Arc<Image>) -> Result<ImageHandle, ResourceError> {
         let image_view_desc = image.view_all();
-        let image_view = Arc::new(image.view(&image.device, image_view_desc)?);
+        let image_view = Arc::new(
+            image
+                .view(&image.device, image_view_desc)
+                .map_err(|e| ResourceError::MarpiiError(e.into()))?,
+        );
         let key = self.images.insert(ResImage {
             image: image.clone(),
             view: image_view,
@@ -269,7 +274,11 @@ impl Resources {
         let layout = layout.unwrap_or(vk::ImageLayout::UNDEFINED);
 
         let image_view_desc = image.view_all();
-        let view = Arc::new(image.view(&image.device, image_view_desc)?);
+        let view = Arc::new(
+            image
+                .view(&image.device, image_view_desc)
+                .map_err(|e| ResourceError::MarpiiError(e.into()))?,
+        );
 
         let key = self.images.insert(ResImage {
             image: image.clone(),

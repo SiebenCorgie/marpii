@@ -1,4 +1,4 @@
-use fxhash::FxHashMap;
+use ahash::AHashMap;
 use marpii::{
     ash::vk,
     context::Device,
@@ -138,7 +138,8 @@ impl Track {
         let cb = self
             .command_buffer_pool
             .clone()
-            .allocate_buffer(vk::CommandBufferLevel::PRIMARY)?;
+            .allocate_buffer(vk::CommandBufferLevel::PRIMARY)
+            .map_err(|e| RecordError::MarpiiError(e.into()))?;
 
         Ok(cb)
     }
@@ -166,7 +167,7 @@ impl Display for TrackId {
     }
 }
 
-pub(crate) struct Tracks(pub FxHashMap<TrackId, Track>);
+pub(crate) struct Tracks(pub AHashMap<TrackId, Track>);
 
 impl Tracks {
     ///Queue capability precedence, from less important to most important.

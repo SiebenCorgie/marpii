@@ -307,12 +307,9 @@ impl<'t> Executor<'t> {
                         );
 
                         release_ops.push(ReleaseOp {
-                            current_owner: rmg.queue_idx_to_trackid(current_owner).ok_or(
-                                RecordError::Any(anyhow::anyhow!(
-                                    "no track for queue {}",
-                                    current_owner
-                                )),
-                            )?,
+                            current_owner: rmg
+                                .queue_idx_to_trackid(current_owner)
+                                .ok_or(RecordError::NoSuchTrack(current_owner))?,
                             destination_owner: *trackid,
                             res: dep.dep,
                         });
@@ -697,17 +694,13 @@ impl<'t> Executor<'t> {
                                 } => {
                                     #[cfg(feature = "logging")]
                                     log::error!("Buffer {:?} was already released {} -> {}, can not add release",  buf, src_family, dst_family);
-                                    return Err(RecordError::Any(anyhow::anyhow!(
-                                        "Buffer was already release, can not add release"
-                                    )));
+                                    return Err(RecordError::AlreadyReleased(buf.into()));
                                 }
                                 QueueOwnership::Uninitialized => {
                                     //intit to queue
                                     #[cfg(feature = "logging")]
                                     log::error!("Buffer {:?} was uninitialised on release", buf);
-                                    return Err(RecordError::Any(anyhow::anyhow!(
-                                        "Buffer was not initialised"
-                                    )));
+                                    return Err(RecordError::ReleaseUninitialised(buf.into()));
                                 }
                                 QueueOwnership::Owned(owner) => {
                                     debug_assert!(owner == src_family, "Adding release for buffer {:?} on family {}, buf was owned by {}", buf, src_family, owner);
@@ -741,17 +734,13 @@ impl<'t> Executor<'t> {
                                 } => {
                                     #[cfg(feature = "logging")]
                                     log::error!("Image {:?} was already released {} -> {}, can not add release",  img, src_family, dst_family);
-                                    return Err(RecordError::Any(anyhow::anyhow!(
-                                        "Image was already release, can not add release"
-                                    )));
+                                    return Err(RecordError::AlreadyReleased(img.into()));
                                 }
                                 QueueOwnership::Uninitialized => {
                                     //intit to queue
                                     #[cfg(feature = "logging")]
                                     log::error!("Image {:?} was uninitialised on release", img);
-                                    return Err(RecordError::Any(anyhow::anyhow!(
-                                        "Image was not initialised"
-                                    )));
+                                    return Err(RecordError::ReleaseUninitialised(img.into()));
                                 }
                                 QueueOwnership::Owned(owner) => {
                                     debug_assert!(owner == src_family, "Adding release for image {:?} on family {}, buf was owned by {}", img, src_family, owner);
@@ -781,11 +770,7 @@ impl<'t> Executor<'t> {
                         }
                     }
                 }
-                _ => {
-                    return Err(RecordError::Any(anyhow::anyhow!(
-                        "Found unscheduled dependee scheduled for release"
-                    )))
-                }
+                _ => return Err(RecordError::UnscheduledDependee),
             }
         }
 

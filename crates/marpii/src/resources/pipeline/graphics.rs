@@ -3,6 +3,7 @@ use std::sync::Arc;
 use super::PipelineLayout;
 use crate::ash::vk;
 use crate::context::Device;
+use crate::error::PipelineError;
 use crate::resources::ShaderStage;
 use crate::util::OoS;
 
@@ -52,7 +53,7 @@ impl GraphicsPipeline {
         create_info: ash::vk::GraphicsPipelineCreateInfoBuilder,
         layout: impl Into<OoS<PipelineLayout>>,
         renderpass: RenderPass,
-    ) -> Result<Self, anyhow::Error> {
+    ) -> Result<Self, PipelineError> {
         let layout = layout.into();
         let mut create_info = create_info.layout(layout.layout);
         create_info = create_info.render_pass(renderpass.inner);
@@ -71,7 +72,7 @@ impl GraphicsPipeline {
         };
 
         if pipelines.len() != 1 {
-            anyhow::bail!("Pipeline count wasn't 1, was {}", pipelines.len());
+            return Err(PipelineError::Allocation);
         }
 
         let pipeline = pipelines.remove(0);
@@ -93,7 +94,7 @@ impl GraphicsPipeline {
         shader_stages: &[ShaderStage],
         color_formats: &[vk::Format],
         depth_format: vk::Format,
-    ) -> Result<Self, anyhow::Error> {
+    ) -> Result<Self, PipelineError> {
         let layout = layout.into();
         assert!(
             device.extension_enabled_cstr(ash::extensions::khr::DynamicRendering::name()),
@@ -131,7 +132,7 @@ impl GraphicsPipeline {
         };
 
         if pipelines.len() != 1 {
-            anyhow::bail!("Pipeline count wasn't 1, was {}", pipelines.len());
+            return Err(PipelineError::Allocation);
         }
 
         let pipeline = pipelines.remove(0);

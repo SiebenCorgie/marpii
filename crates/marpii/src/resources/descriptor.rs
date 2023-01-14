@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use fxhash::FxHashMap;
 
-use crate::context::Device;
+use crate::{context::Device, error::DescriptorError};
 
 use super::ShaderModule;
 
@@ -68,7 +68,7 @@ impl DescriptorPool {
         flags: ash::vk::DescriptorPoolCreateFlags,
         sizes: &[ash::vk::DescriptorPoolSize],
         set_count: u32,
-    ) -> Result<Self, anyhow::Error> {
+    ) -> Result<Self, DescriptorError> {
         let create_info = ash::vk::DescriptorPoolCreateInfo::builder()
             .flags(flags)
             .max_sets(set_count)
@@ -101,7 +101,7 @@ impl DescriptorPool {
         flags: ash::vk::DescriptorPoolCreateFlags,
         module: &ShaderModule,
         count: u32,
-    ) -> Result<Self, anyhow::Error> {
+    ) -> Result<Self, DescriptorError> {
         //first step is to sort out our sizes.
         let mut map = FxHashMap::default();
 
@@ -138,11 +138,11 @@ pub trait DescriptorAllocator {
     fn allocate(
         self,
         layout: &ash::vk::DescriptorSetLayout,
-    ) -> Result<DescriptorSet<Self>, anyhow::Error>
+    ) -> Result<DescriptorSet<Self>, DescriptorError>
     where
         Self: Sized;
     ///Tries to free `set`. Note that `set.inner` becomes invalid by this operation
-    fn free(&self, set: &ash::vk::DescriptorSet) -> Result<(), anyhow::Error>;
+    fn free(&self, set: &ash::vk::DescriptorSet) -> Result<(), DescriptorError>;
     ///provides the device this pool was created on
     fn device(&self) -> &ash::Device;
 }
@@ -151,7 +151,7 @@ impl DescriptorAllocator for DescriptorPool {
     fn allocate(
         self,
         layout: &ash::vk::DescriptorSetLayout,
-    ) -> Result<DescriptorSet<Self>, anyhow::Error> {
+    ) -> Result<DescriptorSet<Self>, DescriptorError> {
         let create_info = ash::vk::DescriptorSetAllocateInfo::builder()
             .descriptor_pool(self.inner)
             .set_layouts(core::slice::from_ref(layout));
@@ -159,7 +159,10 @@ impl DescriptorAllocator for DescriptorPool {
         let mut sets = unsafe { self.device.inner.allocate_descriptor_sets(&create_info)? };
 
         if sets.len() == 0 {
-            anyhow::bail!("Failed to allocate descriptor set!");
+            return Err(DescriptorError::Allocation {
+                requested: 1,
+                count: 0,
+            });
         }
 
         #[cfg(feature = "logging")]
@@ -179,7 +182,7 @@ impl DescriptorAllocator for DescriptorPool {
         })
     }
 
-    fn free(&self, set: &ash::vk::DescriptorSet) -> Result<(), anyhow::Error> {
+    fn free(&self, set: &ash::vk::DescriptorSet) -> Result<(), DescriptorError> {
         if self.can_free {
             unsafe {
                 self.device
@@ -188,7 +191,7 @@ impl DescriptorAllocator for DescriptorPool {
                     .map_err(|e| e.into())
             }
         } else {
-            anyhow::bail!("DescriptorPool can not free!");
+            Err(DescriptorError::UnFreeable)
         }
     }
 
@@ -201,7 +204,7 @@ impl DescriptorAllocator for Arc<DescriptorPool> {
     fn allocate(
         self,
         layout: &ash::vk::DescriptorSetLayout,
-    ) -> Result<DescriptorSet<Self>, anyhow::Error> {
+    ) -> Result<DescriptorSet<Self>, DescriptorError> {
         let create_info = ash::vk::DescriptorSetAllocateInfo::builder()
             .descriptor_pool(self.inner)
             .set_layouts(core::slice::from_ref(layout));
@@ -209,7 +212,10 @@ impl DescriptorAllocator for Arc<DescriptorPool> {
         let mut sets = unsafe { self.device.inner.allocate_descriptor_sets(&create_info)? };
 
         if sets.len() == 0 {
-            anyhow::bail!("Failed to allocate descriptor set!");
+            return Err(DescriptorError::Allocation {
+                requested: 1,
+                count: 0,
+            });
         }
 
         #[cfg(feature = "logging")]
@@ -229,7 +235,7 @@ impl DescriptorAllocator for Arc<DescriptorPool> {
         })
     }
 
-    fn free(&self, set: &ash::vk::DescriptorSet) -> Result<(), anyhow::Error> {
+    fn free(&self, set: &ash::vk::DescriptorSet) -> Result<(), DescriptorError> {
         if self.can_free {
             unsafe {
                 self.device
@@ -238,7 +244,7 @@ impl DescriptorAllocator for Arc<DescriptorPool> {
                     .map_err(|e| e.into())
             }
         } else {
-            anyhow::bail!("DescriptorPool can not free!");
+            Err(DescriptorError::UnFreeable)
         }
     }
 

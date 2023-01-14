@@ -3,6 +3,7 @@ use ash::vk::{self, SamplerCreateInfoBuilder};
 use crate::{
     allocator::{Allocation, Allocator, AnonymAllocation, ManagedAllocation, MemoryUsage},
     context::Device,
+    error::DeviceError,
     resources::SharingMode,
     util::ImageRegion,
 };
@@ -10,22 +11,6 @@ use std::{
     hash::{Hash, Hasher},
     sync::{Arc, Mutex},
 };
-
-///All image format types. Note that this is different to the actual format. This directly translates to the format less types used in spirv to read/write formatless
-/// storage images.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum FormatType {
-    F32,
-    F64,
-    U8,
-    U16,
-    U32,
-    U64,
-    I8,
-    I16,
-    I32,
-    I64,
-}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ImageType {
@@ -419,7 +404,7 @@ impl Image {
         memory_usage: MemoryUsage,
         name: Option<&str>,
         create_flags: Option<ash::vk::ImageCreateFlags>,
-    ) -> Result<Self, anyhow::Error> {
+    ) -> Result<Self, DeviceError> {
         //per definition the image layout is undefined when creating an image.
         let initial_layout = ash::vk::ImageLayout::UNDEFINED;
 
@@ -435,13 +420,11 @@ impl Image {
         let image = unsafe { device.inner.create_image(&builder, None)? };
 
         //if we got the image successfuly, retrieve allocation information and ask the allocator for an allocation fitting the image
-        let allocation = allocator.lock().unwrap().allocate_image(
-            &device.inner,
-            name,
-            &image,
-            memory_usage,
-            true,
-        )?;
+        let allocation = allocator
+            .lock()
+            .unwrap()
+            .allocate_image(&device.inner, name, &image, memory_usage, true)
+            .map_err(|e| DeviceError::GpuAllocatorError(Box::new(e)))?;
 
         //if allocation was successfull bind image to memory
         unsafe {
@@ -512,12 +495,12 @@ impl Image {
 ///If implemented, creates a self managing image view that keeps its source image and device alive long enough
 /// to destroy the inner view when dropped.
 pub trait SafeImageView {
-    fn view(&self, device: &Arc<Device>, desc: ImgViewDesc) -> Result<ImageView, anyhow::Error>;
+    fn view(&self, device: &Arc<Device>, desc: ImgViewDesc) -> Result<ImageView, DeviceError>;
 }
 
 impl SafeImageView for Arc<Image> {
     ///Creates an image view for this image based on the based `desc`.
-    fn view(&self, device: &Arc<Device>, desc: ImgViewDesc) -> Result<ImageView, anyhow::Error> {
+    fn view(&self, device: &Arc<Device>, desc: ImgViewDesc) -> Result<ImageView, DeviceError> {
         let mut builder = ash::vk::ImageViewCreateInfo::builder().image(self.inner);
         builder = desc.set_on_builder(builder);
 
@@ -541,7 +524,7 @@ impl Sampler {
     pub fn new(
         device: &Arc<Device>,
         create_info: &SamplerCreateInfoBuilder,
-    ) -> Result<Self, anyhow::Error> {
+    ) -> Result<Self, DeviceError> {
         let sampler = unsafe { device.inner.create_sampler(create_info, None)? };
 
         Ok(Sampler {

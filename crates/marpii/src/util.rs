@@ -146,21 +146,98 @@ macro_rules! offset_of {
     }};
 }
 
+///All image format types. Note that this is different to the actual format. This directly translates to the format less types used in spirv to read/write formatless
+/// storage images.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FormatType {
+    F32,
+    F64,
+    U8,
+    U16,
+    U32,
+    U64,
+    I8,
+    I16,
+    I32,
+    I64,
+    Other,
+}
+
+impl FormatType {
+    pub fn parse(format: vk::Format) -> Self {
+        match format {
+            vk::Format::D32_SFLOAT
+            | vk::Format::R32_SFLOAT
+            | vk::Format::R32G32_SFLOAT
+            | vk::Format::R32G32B32_SFLOAT
+            | vk::Format::R32G32B32A32_SFLOAT => FormatType::F32,
+
+            vk::Format::R64_SFLOAT
+            | vk::Format::R64G64_SFLOAT
+            | vk::Format::R64G64B64_SFLOAT
+            | vk::Format::R64G64B64A64_SFLOAT => FormatType::F64,
+            vk::Format::R8_UINT
+            | vk::Format::R8G8_UINT
+            | vk::Format::B8G8R8_UINT
+            | vk::Format::R8G8B8_UINT
+            | vk::Format::A8B8G8R8_UINT_PACK32
+            | vk::Format::B8G8R8A8_UINT
+            | vk::Format::R8G8B8A8_UINT => FormatType::U8,
+            vk::Format::R16_UINT
+            | vk::Format::R16G16_UINT
+            | vk::Format::R16G16B16_UINT
+            | vk::Format::R16G16B16A16_UINT => FormatType::U16,
+            vk::Format::R32_UINT
+            | vk::Format::R32G32_UINT
+            | vk::Format::R32G32B32_UINT
+            | vk::Format::R32G32B32A32_UINT => FormatType::U32,
+            vk::Format::R64_UINT
+            | vk::Format::R64G64_UINT
+            | vk::Format::R64G64B64_UINT
+            | vk::Format::R64G64B64A64_UINT => FormatType::U64,
+            vk::Format::R8_SINT
+            | vk::Format::R8G8_SINT
+            | vk::Format::B8G8R8_SINT
+            | vk::Format::R8G8B8_SINT
+            | vk::Format::A8B8G8R8_SINT_PACK32
+            | vk::Format::B8G8R8A8_SINT
+            | vk::Format::R8G8B8A8_SINT => FormatType::I8,
+            vk::Format::R16_SINT
+            | vk::Format::R16G16_SINT
+            | vk::Format::R16G16B16_SINT
+            | vk::Format::R16G16B16A16_SINT => FormatType::I16,
+            vk::Format::R32_SINT
+            | vk::Format::R32G32_SINT
+            | vk::Format::R32G32B32_SINT
+            | vk::Format::R32G32B32A32_SINT => FormatType::I32,
+            vk::Format::R64_SINT
+            | vk::Format::R64G64_SINT
+            | vk::Format::R64G64B64_SINT
+            | vk::Format::R64G64B64A64_SINT => FormatType::I64,
+            _ => FormatType::Other,
+        }
+    }
+}
+
 ///Parsed extended set of format properties. Allows you to querry runtime information
 pub struct FormatProperties {
     ///If known, contains the number of byte per pixel. Note that this is only parsed for *core*
     /// formats
     pub byte_per_pixel: Option<u8>,
     pub is_srgb: bool,
+    ///FormatType defines the datatype per channel of that format.
+    pub format_type: FormatType,
 }
 
 impl FormatProperties {
     pub fn parse(format: vk::Format) -> Self {
         let byte_per_pixel = byte_per_pixel(format);
         let is_srgb = is_srgb(format);
+        let format_type = FormatType::parse(format);
         FormatProperties {
             byte_per_pixel,
             is_srgb,
+            format_type,
         }
     }
 }

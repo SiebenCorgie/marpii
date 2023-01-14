@@ -3,8 +3,10 @@ use std::sync::Arc;
 use ash::vk;
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
+use crate::error::InstanceError;
+
 ///using [ash-window](https://crates.io/crates/ash-window) to safely find a surface for a given window
-/// handle. Also keeps the instance alive lon enough to destroy the created surface in time.
+/// handle. Also keeps the instance alive long enough to destroy the created surface in time.
 pub struct Surface {
     ///keeps the surface alive
     pub instance: Arc<crate::context::Instance>,
@@ -16,7 +18,7 @@ impl Surface {
     pub fn new<T>(
         instance: &Arc<crate::context::Instance>,
         window_handle: &T,
-    ) -> Result<Self, anyhow::Error>
+    ) -> Result<Self, InstanceError>
     where
         T: HasRawDisplayHandle + HasRawWindowHandle,
     {
@@ -41,7 +43,7 @@ impl Surface {
     pub fn get_capabilities(
         &self,
         physical_device: &ash::vk::PhysicalDevice,
-    ) -> Result<ash::vk::SurfaceCapabilitiesKHR, anyhow::Error> {
+    ) -> Result<ash::vk::SurfaceCapabilitiesKHR, InstanceError> {
         Ok(unsafe {
             self.surface_loader
                 .get_physical_device_surface_capabilities(*physical_device, self.surface)?
@@ -51,7 +53,7 @@ impl Surface {
     pub fn get_formats(
         &self,
         physical_device: ash::vk::PhysicalDevice,
-    ) -> Result<Vec<ash::vk::SurfaceFormatKHR>, anyhow::Error> {
+    ) -> Result<Vec<ash::vk::SurfaceFormatKHR>, InstanceError> {
         Ok(unsafe {
             self.surface_loader
                 .get_physical_device_surface_formats(physical_device, self.surface)?
@@ -61,7 +63,7 @@ impl Surface {
     pub fn get_present_modes(
         &self,
         physical_device: ash::vk::PhysicalDevice,
-    ) -> Result<Vec<ash::vk::PresentModeKHR>, anyhow::Error> {
+    ) -> Result<Vec<ash::vk::PresentModeKHR>, InstanceError> {
         Ok(unsafe {
             self.surface_loader
                 .get_physical_device_surface_present_modes(physical_device, self.surface)?

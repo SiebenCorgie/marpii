@@ -6,6 +6,7 @@ use std::{
 use crate::{
     allocator::{Allocation, Allocator, AnonymAllocation, ManagedAllocation, MemoryUsage},
     context::Device,
+    error::DeviceError,
 };
 use ash::vk::{self, DeviceSize};
 use thiserror::Error;
@@ -143,7 +144,7 @@ impl Buffer {
         usage: MemoryUsage,
         name: Option<&str>,
         create_flags: Option<ash::vk::BufferCreateFlags>,
-    ) -> Result<Self, anyhow::Error> {
+    ) -> Result<Self, DeviceError> {
         let mut builder = ash::vk::BufferCreateInfo::builder();
         if let Some(flags) = create_flags {
             builder = builder.flags(flags);
@@ -153,11 +154,11 @@ impl Buffer {
 
         //create buffer handle
         let buffer = unsafe { device.inner.create_buffer(&builder, None)? };
-        let allocation =
-            allocator
-                .lock()
-                .unwrap()
-                .allocate_buffer(&device.inner, name, &buffer, usage)?;
+        let allocation = allocator
+            .lock()
+            .unwrap()
+            .allocate_buffer(&device.inner, name, &buffer, usage)
+            .map_err(|e| DeviceError::GpuAllocatorError(Box::new(e)))?;
 
         //if allocation did no fail, bind memory to buffer, update the description with the actual data and return.
         unsafe {
@@ -189,7 +190,7 @@ impl Buffer {
         allocator: &Arc<Mutex<A>>,
         name: Option<&str>,
         data: &[T],
-    ) -> Result<Self, anyhow::Error> {
+    ) -> Result<Self, DeviceError> {
         //TODO:  Do we need alignment padding? But usually we can start at 0 can't we?
         //FIXME: Check that out. Until now it worked... If it didn't also fix the upload helper passes.
         let buffer_size = core::mem::size_of::<T>() * data.len();
@@ -205,9 +206,13 @@ impl Buffer {
 
         let data = bytemuck::cast_slice(data);
         //write data to transfer buffer
-        buffer.write(0, data)?;
+        buffer
+            .write(0, data)
+            .map_err(|e| DeviceError::GpuAllocatorError(Box::new(e)))?;
         //Make sure the data is written
-        buffer.flush_range()?;
+        buffer
+            .flush_range()
+            .map_err(|e| DeviceError::GpuAllocatorError(Box::new(e)))?;
 
         Ok(buffer)
     }

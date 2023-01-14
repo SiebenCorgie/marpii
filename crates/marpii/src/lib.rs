@@ -42,3 +42,9 @@ pub mod sync;
 
 ///The infamous "utility" module contains all sorts of "nice" to have function. Stuff like type converters etc.
 pub mod util;
+
+mod error;
+pub use error::{
+    CommandBufferError, DescriptorError, DeviceError, InstanceError, MarpiiError, PipelineError,
+    ShaderError,
+};
