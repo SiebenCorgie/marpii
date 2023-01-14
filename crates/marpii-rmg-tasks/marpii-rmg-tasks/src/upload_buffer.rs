@@ -1,6 +1,7 @@
 use marpii::{
     ash::vk,
-    resources::{BufDesc, Buffer},
+    resources::{BufDesc, Buffer, BufferMapError},
+    MarpiiError,
 };
 use marpii_rmg::{BufferHandle, ResourceRegistry, Resources, Rmg, RmgError, Task};
 use std::sync::Arc;
@@ -31,12 +32,13 @@ impl<T: marpii::bytemuck::Pod> UploadBuffer<T> {
             &rmg.ctx.allocator,
             Some("Staging buffer upload"),
             data,
-        )?;
+        )
+        .map_err(|e| MarpiiError::from(e))?;
 
         staging.flush_range().map_err(|e| {
             #[cfg(feature = "logging")]
             log::error!("Flushing upload buffer failed: {}", e);
-            RmgError::Any(anyhow::anyhow!("Flushing upload buffer failed"))
+            MarpiiError::from(BufferMapError::FailedToFlush)
         })?;
 
         if !desc.usage.contains(vk::BufferUsageFlags::TRANSFER_DST) {

@@ -11,7 +11,8 @@ use marpii::{
     util::OoS,
 };
 use marpii_rmg::{
-    BufferHandle, CtxRmg, ImageHandle, ResourceRegistry, Resources, Rmg, RmgError, Task,
+    BufferHandle, CtxRmg, ImageHandle, RecordError, ResourceRegistry, Resources, Rmg, RmgError,
+    Task,
 };
 use marpii_rmg_tasks::UploadBuffer;
 use shared::{ResourceHandle, SimObj, Ubo, Vertex};
@@ -297,40 +298,46 @@ impl ForwardPass {
         let color_format = resources.get_image_desc(&self.color_image).format;
         let depth_format = resources.get_image_desc(&self.depth_image).format;
 
-        self.color_image = resources.add_image(Arc::new(Image::new(
-            &ctx.device,
-            &ctx.allocator,
-            ImgDesc {
-                extent: vk::Extent3D {
-                    width: self.target_img_ext.width,
-                    height: self.target_img_ext.height,
-                    depth: 1,
-                },
+        self.color_image = resources.add_image(Arc::new(
+            Image::new(
+                &ctx.device,
+                &ctx.allocator,
+                ImgDesc {
+                    extent: vk::Extent3D {
+                        width: self.target_img_ext.width,
+                        height: self.target_img_ext.height,
+                        depth: 1,
+                    },
 
-                format: color_format,
-                img_type: ImageType::Tex2d,
-                tiling: vk::ImageTiling::OPTIMAL,
-                usage: vk::ImageUsageFlags::COLOR_ATTACHMENT
-                    | vk::ImageUsageFlags::TRANSFER_SRC
-                    | vk::ImageUsageFlags::STORAGE,
-                ..Default::default()
-            },
-            MemoryUsage::GpuOnly,
-            None,
-            None,
-        )?))?;
-        self.depth_image = resources.add_image(Arc::new(Image::new(
-            &ctx.device,
-            &ctx.allocator,
-            ImgDesc::depth_attachment_2d(
-                self.target_img_ext.width,
-                self.target_img_ext.height,
-                depth_format,
-            ),
-            MemoryUsage::GpuOnly,
-            None,
-            None,
-        )?))?;
+                    format: color_format,
+                    img_type: ImageType::Tex2d,
+                    tiling: vk::ImageTiling::OPTIMAL,
+                    usage: vk::ImageUsageFlags::COLOR_ATTACHMENT
+                        | vk::ImageUsageFlags::TRANSFER_SRC
+                        | vk::ImageUsageFlags::STORAGE,
+                    ..Default::default()
+                },
+                MemoryUsage::GpuOnly,
+                None,
+                None,
+            )
+            .map_err(|e| RecordError::MarpiiError(e.into()))?,
+        ))?;
+        self.depth_image = resources.add_image(Arc::new(
+            Image::new(
+                &ctx.device,
+                &ctx.allocator,
+                ImgDesc::depth_attachment_2d(
+                    self.target_img_ext.width,
+                    self.target_img_ext.height,
+                    depth_format,
+                ),
+                MemoryUsage::GpuOnly,
+                None,
+                None,
+            )
+            .map_err(|e| RecordError::MarpiiError(e.into()))?,
+        ))?;
 
         Ok(())
     }

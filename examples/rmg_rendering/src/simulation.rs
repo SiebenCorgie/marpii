@@ -2,7 +2,7 @@ use marpii::{
     ash::vk,
     resources::{ComputePipeline, ImgDesc, PushConstant, ShaderModule},
 };
-use marpii_rmg::{BufferHandle, ImageHandle, Rmg, RmgError, Task};
+use marpii_rmg::{BufferHandle, ImageHandle, RecordError, Rmg, RmgError, Task};
 use shared::{ResourceHandle, SimObj};
 use std::sync::Arc;
 
@@ -38,16 +38,15 @@ impl Simulation {
             },
             vk::ShaderStageFlags::COMPUTE,
         );
-        let shader_module = ShaderModule::new_from_bytes(&rmg.ctx.device, SHADER_COMP)?;
+        let shader_module = ShaderModule::new_from_bytes(&rmg.ctx.device, SHADER_COMP)
+            .map_err(|e| RecordError::MarpiiError(e.into()))?;
         let shader_stage = shader_module.into_shader_stage(vk::ShaderStageFlags::COMPUTE, "main");
         //No additional descriptors for us
         let layout = rmg.resources().bindless_layout();
-        let pipeline = Arc::new(ComputePipeline::new(
-            &rmg.ctx.device,
-            &shader_stage,
-            None,
-            layout,
-        )?);
+        let pipeline = Arc::new(
+            ComputePipeline::new(&rmg.ctx.device, &shader_stage, None, layout)
+                .map_err(|e| RecordError::MarpiiError(e.into()))?,
+        );
 
         let feedback_image = rmg.new_image_uninitialized(
             ImgDesc::storage_image_2d(64, 64, vk::Format::R8G8B8A8_UNORM),

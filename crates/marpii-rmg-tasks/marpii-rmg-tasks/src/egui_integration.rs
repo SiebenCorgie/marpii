@@ -7,7 +7,7 @@
 //!
 
 use crate::egui::{ClippedPrimitive, TextureId, TexturesDelta};
-use crate::{DynamicBuffer, DynamicImage};
+use crate::{DynamicBuffer, DynamicImage, RmgTaskError};
 use egui::{Color32, Pos2};
 use egui_winit::winit::event_loop::EventLoopWindowTarget;
 use egui_winit::winit::window::Window;
@@ -15,6 +15,7 @@ use fxhash::FxHashMap;
 use marpii::ash::vk::{ImageUsageFlags, Rect2D};
 use marpii::resources::SharingMode;
 use marpii::util::{FormatProperties, ImageRegion};
+use marpii::MarpiiError;
 use marpii::{
     ash::vk,
     context::Device,
@@ -66,7 +67,10 @@ pub struct EGuiWinitIntegration {
 }
 
 impl EGuiWinitIntegration {
-    pub fn new<T>(rmg: &mut Rmg, event_loop: &EventLoopWindowTarget<T>) -> Result<Self, RmgError> {
+    pub fn new<T>(
+        rmg: &mut Rmg,
+        event_loop: &EventLoopWindowTarget<T>,
+    ) -> Result<Self, RmgTaskError> {
         #[cfg(feature = "logging")]
         log::trace!("Setting up winit state");
 
@@ -113,7 +117,7 @@ impl EGuiWinitIntegration {
         rmg: &mut Rmg,
         window: &Window,
         run_ui: impl FnOnce(&egui_winit::egui::Context),
-    ) -> Result<(), RmgError> {
+    ) -> Result<(), RmgTaskError> {
         let mut raw_input = self.winit_state.take_egui_input(window);
         raw_input.time = Some(self.start.elapsed().as_secs_f64());
         let resolution = vk::Extent2D {
@@ -383,7 +387,7 @@ impl EGuiTask {
         }
     }
 
-    pub fn new(rmg: &mut Rmg) -> Result<Self, RmgError> {
+    pub fn new(rmg: &mut Rmg) -> Result<Self, RmgTaskError> {
         let target_format = rmg
             .ctx
             .device
@@ -541,7 +545,7 @@ impl EGuiTask {
         pipeline_layout: impl Into<OoS<PipelineLayout>>,
         shader_stages: &[ShaderStage],
         color_formats: &[vk::Format],
-    ) -> Result<GraphicsPipeline, anyhow::Error> {
+    ) -> Result<GraphicsPipeline, MarpiiError> {
         let color_blend_attachments = vk::PipelineColorBlendAttachmentState::builder()
             .src_color_blend_factor(vk::BlendFactor::ONE)
             .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
@@ -645,7 +649,7 @@ impl EGuiTask {
         &mut self,
         rmg: &mut Rmg,
         primitives: Vec<ClippedPrimitive>,
-    ) -> Result<(), RmgError> {
+    ) -> Result<(), RmgTaskError> {
         //gather all vertices and indices into one big buffer. Annotate our dram commands.
 
         //self.commands.clear();
@@ -695,7 +699,8 @@ impl EGuiTask {
                     let texture = match self.data.atlas.get(&mesh.texture_id) {
                         Some(t) => rmg
                             .resources_mut()
-                            .resource_handle_or_bind(t.image.clone())?,
+                            .resource_handle_or_bind(t.image.clone())
+                            .map_err(|e| RmgError::ResourceError(e))?,
                         None => {
                             #[cfg(feature = "logging")]
                             log::error!("No texture={:?} for egui mesh", mesh.texture_id);
@@ -706,7 +711,8 @@ impl EGuiTask {
                     //TODO choose right one?
                     let sampler = rmg
                         .resources_mut()
-                        .resource_handle_or_bind(self.renderer.linear_sampler.clone())?;
+                        .resource_handle_or_bind(self.renderer.linear_sampler.clone())
+                        .map_err(|e| RmgError::ResourceError(e))?;
 
                     let command = EGuiPrimDraw {
                         sampler,
@@ -744,13 +750,7 @@ impl EGuiTask {
             self.data
                 .index_buffer
                 .write(&new_index_buffer, 0)
-                .map_err(|e| {
-                    anyhow::anyhow!(
-                        "Uploaded index buffer partially {}/{}",
-                        e,
-                        new_index_buffer.len()
-                    )
-                })?;
+                .map_err(|e| MarpiiError::from(e))?;
         } else {
             #[cfg(feature = "logging")]
             log::info!("Have to grow index buffer to {}", new_index_buffer.len());
@@ -770,13 +770,7 @@ impl EGuiTask {
             self.data
                 .vertex_buffer
                 .write(&new_vertex_buffer, 0)
-                .map_err(|e| {
-                    anyhow::anyhow!(
-                        "Uploaded vertex buffer partially {}/{}",
-                        e,
-                        new_vertex_buffer.len()
-                    )
-                })?;
+                .map_err(|e| MarpiiError::from(e))?;
         } else {
             #[cfg(feature = "logging")]
             log::info!("Have to grow vertex buffer to {}", new_vertex_buffer.len());

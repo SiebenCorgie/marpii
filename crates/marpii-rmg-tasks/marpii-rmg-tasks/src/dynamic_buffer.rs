@@ -2,8 +2,10 @@ use marpii::{
     ash::vk,
     resources::{BufDesc, Buffer, BufferMapError},
 };
-use marpii_rmg::{BufferHandle, ResourceRegistry, Resources, Rmg, RmgError, Task};
+use marpii_rmg::{BufferHandle, ResourceRegistry, Resources, Rmg, Task};
 use std::sync::Arc;
+
+use crate::{RmgTaskError, TaskError};
 
 ///Manages a buffer where the content can be changed from the CPU side
 /// efficiently at runtime.
@@ -30,13 +32,14 @@ impl<T: marpii::bytemuck::Pod> DynamicBuffer<T> {
         initial_data: &[T],
         description: BufDesc,
         name: Option<&str>,
-    ) -> Result<Self, RmgError> {
+    ) -> Result<Self, RmgTaskError> {
         let description = description.with(|b| {
             b.usage |= vk::BufferUsageFlags::TRANSFER_DST | vk::BufferUsageFlags::STORAGE_BUFFER
         }); //atleast transfer dst for this pass
 
         let mappable_buffer =
-            Buffer::new_staging_for_data(&rmg.ctx.device, &rmg.ctx.allocator, None, initial_data)?;
+            Buffer::new_staging_for_data(&rmg.ctx.device, &rmg.ctx.allocator, None, initial_data)
+                .map_err(|e| TaskError::Marpii(e.into()))?;
 
         let gpu_local = rmg.new_buffer_uninitialized(description, name)?;
 
@@ -48,7 +51,7 @@ impl<T: marpii::bytemuck::Pod> DynamicBuffer<T> {
     }
 
     ///creates the buffer with the given `initial_data`. Note that this data also determines the size of the buffer.
-    pub fn new(rmg: &mut Rmg, initial_data: &[T]) -> Result<Self, RmgError> {
+    pub fn new(rmg: &mut Rmg, initial_data: &[T]) -> Result<Self, RmgTaskError> {
         let desc = BufDesc::for_data::<T>(initial_data.len());
         Self::new_with_buffer(rmg, initial_data, desc, None)
     }

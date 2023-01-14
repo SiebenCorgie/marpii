@@ -2,9 +2,12 @@ use marpii::{
     ash::vk,
     surface::Surface,
     swapchain::{Swapchain, SwapchainImage},
+    MarpiiError,
 };
 use marpii_rmg::{ImageHandle, RecordError, ResourceError, Rmg, Task};
 use std::sync::Arc;
+
+use crate::RmgTaskError;
 
 enum PresentOp {
     None,
@@ -34,13 +37,14 @@ pub struct SwapchainPresent {
 }
 
 impl SwapchainPresent {
-    pub fn new(rmg: &mut Rmg, surface: &Arc<Surface>) -> Result<Self, ResourceError> {
+    pub fn new(rmg: &mut Rmg, surface: &Arc<Surface>) -> Result<Self, RmgTaskError> {
         let swapchain = Swapchain::builder(&rmg.ctx.device, surface)?
             .with(move |b| {
                 b.create_info.usage =
                     vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::TRANSFER_DST;
             })
-            .build()?;
+            .build()
+            .map_err(|e| MarpiiError::from(e))?;
 
         Ok(SwapchainPresent {
             swapchain,
@@ -71,8 +75,10 @@ impl SwapchainPresent {
             .get_current_extent(&self.swapchain.device.physical_device)
     }
 
-    fn recreate(&mut self, surface_extent: vk::Extent2D) -> Result<(), ResourceError> {
-        self.swapchain.recreate(surface_extent)?;
+    fn recreate(&mut self, surface_extent: vk::Extent2D) -> Result<(), RmgTaskError> {
+        self.swapchain
+            .recreate(surface_extent)
+            .map_err(|e| MarpiiError::from(e))?;
         self.last_known_extent = vk::Extent2D {
             width: self.swapchain.images[0].desc.extent.width,
             height: self.swapchain.images[0].desc.extent.height,
@@ -87,7 +93,8 @@ impl SwapchainPresent {
             #[cfg(feature = "logging")]
             log::info!("Recreating swapchain with extent {:?}!", surface_extent);
 
-            self.recreate(surface_extent)?;
+            self.recreate(surface_extent)
+                .map_err(|_e| ResourceError::SwapchainError)?;
         }
 
         if let Ok(img) = self.swapchain.acquire_next_image() {

@@ -4,6 +4,8 @@ use ash::{vk, LoadingError};
 
 use thiserror::Error;
 
+use crate::resources::BufferMapError;
+
 #[derive(Error, Debug)]
 pub enum DeviceError {
     #[error("Extension {0} is not supported by device")]
@@ -23,6 +25,10 @@ pub enum DeviceError {
     //FIXME: Not happy about that Box :/
     #[error("GpuAllocator error: {0}")]
     GpuAllocatorError(#[from] Box<dyn Error + Send + Sync + 'static>),
+    #[error("Usage flag {0:#?} must be set")]
+    ImageExpectUsageFlag(vk::ImageUsageFlags),
+    #[error("Usage flag {0:#?} must be set")]
+    BufferExpectUsageFlag(vk::BufferUsageFlags),
     #[error("Vulkan error: {0}")]
     VkError(#[from] vk::Result),
 }
@@ -90,6 +96,8 @@ pub enum MarpiiError {
     PipelineError(#[from] PipelineError),
     #[error("Shader/ShaderModule error: {0}")]
     ShaderError(#[from] ShaderError),
+    #[error("Data (pointer) MapError: {0}")]
+    MapError(#[from] BufferMapError),
     #[error("Other error: {0}")]
     Other(String),
 }
