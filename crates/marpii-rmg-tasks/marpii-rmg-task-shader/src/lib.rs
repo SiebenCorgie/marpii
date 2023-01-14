@@ -1,8 +1,6 @@
 #![cfg_attr(target_arch = "spirv", no_std)]
 
-use marpii_rmg_task_shared::glam::{
-    vec4, Vec2, Vec3, Vec4, Vec4Swizzles,
-};
+use marpii_rmg_task_shared::glam::{vec4, Vec2, Vec3, Vec4, Vec4Swizzles};
 use spirv_std::{self, Image, RuntimeArray, Sampler};
 
 //include spirv macro
@@ -103,7 +101,7 @@ pub fn egui_fs(
     output: &mut Vec4,
     #[spirv(push_constant)] push: &marpii_rmg_task_shared::EGuiPush,
     #[spirv(descriptor_set = 2, binding = 0)] sampled_images: &RuntimeArray<
-        Image!(2D, format=rgba8, sampled),
+        Image!(2D, format = rgba8, sampled),
     >,
     #[spirv(descriptor_set = 3, binding = 0)] sampler: &RuntimeArray<Sampler>,
 ) {

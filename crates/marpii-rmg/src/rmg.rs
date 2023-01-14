@@ -13,7 +13,7 @@ use thiserror::Error;
 use crate::{
     recorder::Recorder,
     track::{Track, TrackId, Tracks},
-    BufferHandle, ImageHandle, RecordError, ResourceError, Resources, SamplerHandle
+    BufferHandle, ImageHandle, RecordError, ResourceError, Resources, SamplerHandle,
 };
 
 ///Top level Error structure.

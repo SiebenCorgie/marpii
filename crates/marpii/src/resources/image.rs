@@ -346,8 +346,7 @@ impl ImgDesc {
                     _ => ash::vk::ImageAspectFlags::DEPTH | ash::vk::ImageAspectFlags::STENCIL,
                 }
             } else {
-
-                #[cfg(feature="logging")]
+                #[cfg(feature = "logging")]
                 log::trace!("Could not set aspect mask since no Color or Depth attachment are specified, using Color");
 
                 ash::vk::ImageAspectFlags::COLOR

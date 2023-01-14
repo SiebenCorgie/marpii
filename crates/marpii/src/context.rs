@@ -116,22 +116,21 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
     }
 
     ///Creates a default context from a given instance. This is also the base creation code for
-    /// [Self::default_with_surface] and [Self::new_headless].
+    /// [Self::default_with_surface] and [Self::new_default_headless].
     ///
     /// It enables multiple default features and extension that make this context work with
     /// marpii-rmg.
     pub fn new_default_from_instance(
         instance: Arc<Instance>,
-        surfaces: Option<&Surface>
-    ) -> Result<Self, anyhow::Error>{
-
+        surfaces: Option<&Surface>,
+    ) -> Result<Self, anyhow::Error> {
         let mut device_candidates = instance
             .create_physical_device_filter()?
             .filter_queue_flags(ash::vk::QueueFlags::GRAPHICS);
         //If we have a surface, filter for that
-        if let Some(surface) = surfaces{
-            device_candidates = device_candidates
-            .filter_presentable(&surface.surface_loader, &surface.surface);
+        if let Some(surface) = surfaces {
+            device_candidates =
+                device_candidates.filter_presentable(&surface.surface_loader, &surface.surface);
         }
 
         let mut device_candidates = device_candidates.release();
@@ -184,8 +183,9 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
         //.with_additional_feature(accel_structure)
 
         // only add swapchain extension if we got a surface
-        if surfaces.is_some(){
-            device_builder = device_builder.with_extensions(ash::extensions::khr::Swapchain::name());
+        if surfaces.is_some() {
+            device_builder =
+                device_builder.with_extensions(ash::extensions::khr::Swapchain::name());
         }
         let device = device_builder.build()?;
 
@@ -202,13 +202,11 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
                 physical_device: device.physical_device,
             })?;
 
-        Ok(
-            Ctx {
-                allocator: Arc::new(Mutex::new(allocator)),
-                device,
-                instance,
-            }
-        )
+        Ok(Ctx {
+            allocator: Arc::new(Mutex::new(allocator)),
+            device,
+            instance,
+        })
     }
 
     ///Creates the *best* context possible.

@@ -2,7 +2,9 @@ use crossbeam_channel::{Receiver, Sender};
 use marpii::{
     ash::vk,
     context::Device,
-    resources::{BufDesc, Buffer, Image, ImgDesc, PipelineLayout, SafeImageView, Sampler, BufferMapError},
+    resources::{
+        BufDesc, Buffer, BufferMapError, Image, ImgDesc, PipelineLayout, SafeImageView, Sampler,
+    },
 };
 use slotmap::SlotMap;
 use std::{marker::PhantomData, sync::Arc};
@@ -56,7 +58,6 @@ pub enum ResourceError {
 
     #[error("Resource was already requested for the registry.")]
     ResourceAlreadyRequested,
-
 
     #[error("Buffer mapping error while accessing resource: {0}")]
     BufferMapError(BufferMapError),
@@ -280,10 +281,7 @@ impl Resources {
             descriptor_handle: None,
         });
 
-        Ok(ImageHandle {
-            key,
-            imgref: image,
-        })
+        Ok(ImageHandle { key, imgref: image })
     }
 
     ///Tries to get the resource's bindless handle. If not already bound, tries to bind the resource

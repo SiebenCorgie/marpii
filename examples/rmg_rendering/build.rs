@@ -42,19 +42,7 @@ pub fn ensure_res() {
 fn main() {
     println!("cargo:rerun-if-changed=glsl/");
     ensure_res();
-    build_glsl(
-        "glsl/simulation.comp",
-        "simulation.spv",
-        RESDIR,
-    );
-    build_glsl(
-        "glsl/forward.vert",
-        "forward_vs.spv",
-        RESDIR,
-    );
-    build_glsl(
-        "glsl/forward.frag",
-        "forward_fs.spv",
-        RESDIR,
-    );
+    build_glsl("glsl/simulation.comp", "simulation.spv", RESDIR);
+    build_glsl("glsl/forward.vert", "forward_vs.spv", RESDIR);
+    build_glsl("glsl/forward.frag", "forward_fs.spv", RESDIR);
 }

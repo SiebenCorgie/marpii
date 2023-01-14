@@ -73,7 +73,11 @@ struct GradientResult(Vec3);
 pub fn main(
     #[spirv(global_invocation_id)] id: UVec3,
     #[spirv(push_constant)] push: &PushConst,
-    #[spirv(descriptor_set = 0, binding = 0)] target_image: &Image!(2D, format=rgba32f, sampled=false),
+    #[spirv(descriptor_set = 0, binding = 0)] target_image: &Image!(
+        2D,
+        format = rgba32f,
+        sampled = false
+    ),
 ) {
     //fake a triangle via 2d sdf
     let mut coord = id.xy().as_vec2();

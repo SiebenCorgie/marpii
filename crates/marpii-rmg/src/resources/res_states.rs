@@ -88,7 +88,7 @@ impl ResImage {
         Arc::strong_count(&self.image) <= image_strong
     }
 
-    pub fn guard(&self) -> Option<Guard>{
+    pub fn guard(&self) -> Option<Guard> {
         self.guard.clone()
     }
 }
@@ -130,7 +130,7 @@ impl ResBuffer {
         Arc::strong_count(&self.buffer) <= max_strong
     }
 
-    pub fn guard(&self) -> Option<Guard>{
+    pub fn guard(&self) -> Option<Guard> {
         self.guard.clone()
     }
 }
