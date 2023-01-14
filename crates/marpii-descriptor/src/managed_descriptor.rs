@@ -10,6 +10,7 @@ use marpii::{
         Buffer, DescriptorAllocator, DescriptorSet, DescriptorSetLayout, Image, ImageView,
         SafeImageView, Sampler,
     },
+    DescriptorError,
 };
 
 pub enum BindingError {
@@ -188,7 +189,7 @@ impl<P: DescriptorAllocator> ManagedDescriptorSet<P> {
         pool: P,
         layout: impl IntoIterator<Item = Binding>,
         stages: ash::vk::ShaderStageFlags,
-    ) -> Result<Self, anyhow::Error> {
+    ) -> Result<Self, DescriptorError> {
         let bindings = layout.into_iter().collect::<Vec<_>>();
         let layout_bindings = bindings
             .iter()

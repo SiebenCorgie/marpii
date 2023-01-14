@@ -44,6 +44,8 @@ pub enum CommandBufferError {
     VkError(#[from] vk::Result),
     #[error("Command pool is not resettable")]
     PoolNotResetable,
+    #[error("Submitting to queue failed with {0}")]
+    SubmitFailed(vk::Result),
     #[error("Failed to allocate command buffer. Requested {count}, got {allocated}")]
     FailedToAllocate { allocated: usize, count: usize },
 }
@@ -88,6 +90,8 @@ pub enum MarpiiError {
     PipelineError(#[from] PipelineError),
     #[error("Shader/ShaderModule error: {0}")]
     ShaderError(#[from] ShaderError),
+    #[error("Other error: {0}")]
+    Other(String),
 }
 
 #[cfg(test)]

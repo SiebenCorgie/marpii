@@ -6,6 +6,7 @@ use marpii::{
     },
     context::{Device, Queue},
     resources::{BufDesc, Buffer, CommandBufferAllocator, CommandPool, SharingMode},
+    CommandBufferError, MarpiiError,
 };
 use std::sync::{Arc, Mutex};
 
@@ -23,7 +24,7 @@ pub fn buffer_from_data<A: Allocator + Send + Sync + 'static, T: marpii::bytemuc
     name: Option<&str>,
     create_flags: Option<BufferCreateFlags>,
     data: &[T],
-) -> Result<Buffer, anyhow::Error> {
+) -> Result<Buffer, MarpiiError> {
     //TODO:  Do we need alignment padding? But usually we can start at 0 can't we?
     //FIXME: Check that out. Until now it worked... If it didn't also fix the upload helper passes.
     let buffer_size = core::mem::size_of::<T>() * data.len();
@@ -74,7 +75,7 @@ pub fn buffer_from_data<A: Allocator + Send + Sync + 'static, T: marpii::bytemuc
     recorder.finish_recording()?;
 
     cb.submit(device, upload_queue, &[], &[])?;
-    cb.wait()?;
+    cb.wait().map_err(|e| CommandBufferError::from(e))?;
 
     Ok(buffer)
 }

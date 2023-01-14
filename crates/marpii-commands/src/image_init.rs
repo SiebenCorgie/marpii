@@ -3,6 +3,7 @@ use marpii::{
     ash::vk::{self, BufferImageCopy},
     context::{Device, Queue},
     resources::{Buffer, CommandBufferAllocator, CommandPool, Image, ImgDesc, SharingMode},
+    CommandBufferError, MarpiiError,
 };
 use std::sync::{Arc, Mutex};
 
@@ -11,7 +12,7 @@ use crate::ManagedCommands;
 ///Creates a Gpu exclusive image from `data`. Assumes that `data` is in the same format as described in `image_description`.
 ///
 ///Returns when the image has finished uploading.
-/// Since this can potentually be a long operation you can either use a dedicated
+/// Since this can potentially be a long operation you can either use a dedicated
 /// uploading pass in a graph if the upload should be scheduled better, or use something like [poll-promise](https://crates.io/crates/poll-promise) to do the upload on another thread.
 pub fn image_from_data<A: Allocator + Send + Sync + 'static>(
     device: &Arc<Device>,
@@ -21,7 +22,7 @@ pub fn image_from_data<A: Allocator + Send + Sync + 'static>(
     name: Option<&str>,
     create_flags: Option<vk::ImageCreateFlags>,
     data: &[u8],
-) -> Result<Image, anyhow::Error> {
+) -> Result<Image, MarpiiError> {
     //Upload works by initing a buffer with `data`, then executing a copy command buffer.
 
     //make sure image usage transfer DST is actiavted
@@ -102,7 +103,7 @@ pub fn image_from_data<A: Allocator + Send + Sync + 'static>(
     recorder.finish_recording()?;
 
     cb.submit(device, upload_queue, &[], &[])?;
-    cb.wait()?;
+    cb.wait().map_err(|e| CommandBufferError::from(e))?;
 
     Ok(image)
 }
@@ -124,7 +125,7 @@ pub fn image_from_image<A: Allocator + Send + Sync + 'static>(
     upload_queue: &Queue,
     usage: vk::ImageUsageFlags,
     img: image::DynamicImage,
-) -> Result<Image, anyhow::Error> {
+) -> Result<Image, MarpiiError> {
     use image::GenericImageView;
     use marpii::resources::ImageType;
 
@@ -143,7 +144,11 @@ pub fn image_from_image<A: Allocator + Send + Sync + 'static>(
         image::DynamicImage::ImageRgba16(_) => vk::Format::R16G16B16A16_UNORM,
         image::DynamicImage::ImageRgb32F(_) => vk::Format::R32G32B32_SFLOAT,
         image::DynamicImage::ImageRgba32F(_) => vk::Format::R32G32B32A32_SFLOAT,
-        _ => anyhow::bail!("Unknown image format while loading from file!"),
+        _ => {
+            return Err(MarpiiError::Other(String::from(
+                "Could not translate image format to vulkan format",
+            )))
+        }
     };
 
     let desc = ImgDesc {
@@ -185,7 +190,8 @@ pub fn image_from_file<A: Allocator + Send + Sync + 'static>(
     upload_queue: &Queue,
     usage: vk::ImageUsageFlags,
     file: impl AsRef<std::path::Path>,
-) -> Result<Image, anyhow::Error> {
-    let img = image::open(file)?;
+) -> Result<Image, MarpiiError> {
+    let img = image::open(file)
+        .map_err(|e| MarpiiError::Other(format!("Failed to open image: {}", e)))?;
     image_from_image(device, allocator, upload_queue, usage, img)
 }
