@@ -8,9 +8,11 @@ use ash::vk::SwapchainCreateInfoKHRBuilder;
 use crate::{
     allocator::{ManagedAllocation, MemoryUsage, UnmanagedAllocation, UnmanagedAllocator},
     context::Device,
+    error::DeviceError,
     resources::{Image, ImgDesc, SharingMode},
     surface::Surface,
     sync::BinarySemaphore,
+    MarpiiError,
 };
 
 ///All info needed to create a swapchain
@@ -75,9 +77,9 @@ pub struct SwapchainBuilder {
 }
 
 impl SwapchainBuilder {
-    pub fn build(self) -> Result<Swapchain, anyhow::Error> {
+    pub fn build(self) -> Result<Swapchain, DeviceError> {
         if self.create_info.extent.width == 0 || self.create_info.extent.height == 0 {
-            anyhow::bail!("Could not create swapchain, choosen extent had a zero-axis");
+            return Err(DeviceError::InvalidSwapchainSize(self.create_info.extent));
         }
 
         let sharing_mode = self.create_info.sharing_mode.clone();
@@ -339,7 +341,7 @@ impl Swapchain {
     pub fn builder(
         device: &Arc<Device>,
         surface: &Arc<Surface>,
-    ) -> Result<SwapchainBuilder, anyhow::Error> {
+    ) -> Result<SwapchainBuilder, MarpiiError> {
         let formats = surface.get_formats(device.physical_device)?;
         let capabilities = surface.get_capabilities(&device.physical_device)?;
         let present_modes = surface.get_present_modes(device.physical_device)?;
@@ -379,7 +381,7 @@ impl Swapchain {
 
     ///Retrieves the next image that should be written to. Note that all required information (acquire semaphore and)
     /// a semaphore to be signalled when finished presenting is included in that image.
-    pub fn acquire_next_image(&mut self) -> Result<SwapchainImage, anyhow::Error> {
+    pub fn acquire_next_image(&mut self) -> Result<SwapchainImage, DeviceError> {
         //find right semaphores
         let acquire_semaphore = self.acquire_semaphore[self.next_semaphore].clone();
         let present_semaphore = self.render_finished_semaphore[self.next_semaphore].clone();
@@ -413,7 +415,7 @@ impl Swapchain {
     ///Recreates the swapchain with the same settings it was created from.
     //FIXME: This is not safe if the recreation failed. In that case Swapchain is partialy "new"
     //       Should not overwrite self's fields until recreation succeeded.
-    pub fn recreate(&mut self, extent: ash::vk::Extent2D) -> Result<(), anyhow::Error> {
+    pub fn recreate(&mut self, extent: ash::vk::Extent2D) -> Result<(), DeviceError> {
         let device = self.images[0].device.clone();
 
         //overwrite extent

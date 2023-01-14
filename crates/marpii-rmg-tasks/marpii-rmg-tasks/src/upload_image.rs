@@ -1,9 +1,12 @@
 use marpii::{
     ash::vk,
-    resources::{Buffer, ImgDesc},
+    resources::{Buffer, BufferMapError, ImgDesc},
+    MarpiiError,
 };
 use marpii_rmg::{BufferHandle, ImageHandle, ResourceRegistry, Resources, Rmg, RmgError, Task};
 use std::sync::Arc;
+
+use crate::RmgTaskError;
 
 ///Transfer pass that copies data to an image on the GPU.
 /// perfect if you need to initialise textures for instance.
@@ -22,18 +25,19 @@ impl UploadImage {
         rmg: &mut Rmg,
         data: &'dta [u8],
         mut desc: ImgDesc,
-    ) -> Result<Self, RmgError> {
+    ) -> Result<Self, RmgTaskError> {
         let staging = Buffer::new_staging_for_data(
             &rmg.ctx.device,
             &rmg.ctx.allocator,
             Some("StagingBuffer"),
             data,
-        )?;
+        )
+        .map_err(|e| MarpiiError::from(e))?;
 
         staging.flush_range().map_err(|e| {
             #[cfg(feature = "logging")]
             log::error!("Flushing upload image failed: {}", e);
-            RmgError::Any(anyhow::anyhow!("Flushing upload image failed"))
+            MarpiiError::from(BufferMapError::FailedToFlush)
         })?;
 
         if !desc.usage.contains(vk::ImageUsageFlags::TRANSFER_DST) {
@@ -42,7 +46,9 @@ impl UploadImage {
             desc.usage |= vk::ImageUsageFlags::TRANSFER_DST;
         }
 
-        let staging = rmg.import_buffer(Arc::new(staging), None, None)?;
+        let staging = rmg
+            .import_buffer(Arc::new(staging), None, None)
+            .map_err(|e| RmgError::from(e))?;
         let image = rmg.new_image_uninitialized(desc, None)?;
 
         Ok(UploadImage {

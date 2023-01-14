@@ -1,6 +1,8 @@
 use std::sync::Arc;
 
-use crate::{context::Device, resources::shader_module::ShaderStage, util::OoS};
+use crate::{
+    context::Device, error::PipelineError, resources::shader_module::ShaderStage, util::OoS,
+};
 
 use super::PipelineLayout;
 
@@ -21,7 +23,7 @@ impl ComputePipeline {
         stage: &'a ShaderStage,
         specialization_info: Option<&'a ash::vk::SpecializationInfo>,
         layout: impl Into<OoS<PipelineLayout>>,
-    ) -> Result<Self, anyhow::Error> {
+    ) -> Result<Self, PipelineError> {
         let layout = layout.into();
         let create_info = ash::vk::ComputePipelineCreateInfo::builder()
             .stage(*stage.as_create_info(specialization_info))
@@ -41,7 +43,7 @@ impl ComputePipeline {
         };
 
         if pipelines.len() != 1 {
-            anyhow::bail!("Pipeline count wasn't 1, was {}", pipelines.len());
+            return Err(PipelineError::Allocation);
         }
 
         let pipeline = pipelines.remove(0);

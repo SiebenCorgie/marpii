@@ -8,6 +8,7 @@ use marpii::{
     resources::CommandPool,
     swapchain::{Swapchain, SwapchainImage},
     sync::BinarySemaphore,
+    CommandBufferError,
 };
 use marpii::{
     context::{Device, Queue},
@@ -64,7 +65,7 @@ impl ManagedCommands {
     pub fn new(
         device: &Arc<Device>,
         command_buffer: CommandBuffer<Arc<CommandPool>>,
-    ) -> Result<Self, anyhow::Error> {
+    ) -> Result<Self, CommandBufferError> {
         Ok(ManagedCommands {
             inner: command_buffer,
             resources: Vec::new(),
@@ -81,7 +82,7 @@ impl ManagedCommands {
     ///Starts recording a new command buffer. Might block until any execution of this command buffer has finished.
     ///
     /// If you want prevent blocking, use `wait`.
-    pub fn start_recording<'a>(&'a mut self) -> Result<Recorder<'a>, anyhow::Error> {
+    pub fn start_recording<'a>(&'a mut self) -> Result<Recorder<'a>, CommandBufferError> {
         //wait until all execution has finished.
         self.wait()?;
         //now drop all bound resources
@@ -115,7 +116,7 @@ impl ManagedCommands {
         wait_semaphores: &[(Arc<Semaphore>, ash::vk::PipelineStageFlags2, u64)],
         signal_binary_semaphores: &[Arc<BinarySemaphore>],
         wait_binary_semaphores: &[(Arc<BinarySemaphore>, ash::vk::PipelineStageFlags2)],
-    ) -> Result<(), anyhow::Error> {
+    ) -> Result<(), CommandBufferError> {
         //first of all, make a copy from each semaphore and include them in our captured variables
         for sem in signal_semaphores
             .iter()
@@ -212,7 +213,7 @@ impl ManagedCommands {
                 queue.family_index,
                 e
             );
-            anyhow::bail!("Failed to execute command buffer on queue: {}", e)
+            Err(CommandBufferError::SubmitFailed(e))?
         }
 
         Ok(())
@@ -231,7 +232,7 @@ impl ManagedCommands {
         swapchain: &Swapchain,
         signal_semaphores: &[(Arc<Semaphore>, u64)],
         wait_semaphores: &[(Arc<Semaphore>, ash::vk::PipelineStageFlags2, u64)],
-    ) -> Result<(), anyhow::Error> {
+    ) -> Result<(), CommandBufferError> {
         assert!(queue
             .properties
             .queue_flags
@@ -267,7 +268,7 @@ impl ManagedCommands {
         queue: &Queue,
         signal_semaphores: &[(Arc<Semaphore>, u64)],
         wait_semaphores: &[(Arc<Semaphore>, ash::vk::PipelineStageFlags2, u64)],
-    ) -> Result<(), anyhow::Error> {
+    ) -> Result<(), CommandBufferError> {
         self.inner_submit(device, queue, signal_semaphores, wait_semaphores, &[], &[])
     }
 }
@@ -353,7 +354,7 @@ impl<'a> Recorder<'a> {
     }
 
     ///Finishes recording of this buffer.
-    pub fn finish_recording(mut self) -> Result<(), anyhow::Error> {
+    pub fn finish_recording(mut self) -> Result<(), CommandBufferError> {
         self.has_finished_recording = true;
         unsafe {
             self.buffer

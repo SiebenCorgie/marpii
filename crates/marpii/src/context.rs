@@ -39,7 +39,7 @@ mod physical_device;
 pub use physical_device::{PhyDeviceProperties, PhysicalDeviceFilter};
 use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
 
-use crate::{allocator::Allocator, surface::Surface};
+use crate::{allocator::Allocator, error::DeviceError, surface::Surface, MarpiiError};
 
 use self::instance::ValidationFeatures;
 
@@ -78,7 +78,7 @@ impl<A: Allocator + Send> Ctx<A> {
 #[cfg(feature = "default_allocator")]
 impl Ctx<gpu_allocator::vulkan::Allocator> {
     ///Creates a new context that does not check for any surface availability.
-    pub fn new_default_headless(use_validation: bool) -> Result<Self, anyhow::Error> {
+    pub fn new_default_headless(use_validation: bool) -> Result<Self, MarpiiError> {
         let mut instance_builder = Instance::linked()?;
         if use_validation {
             instance_builder = instance_builder.enable_validation(ValidationFeatures::all());
@@ -92,7 +92,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
     pub fn default_with_surface<T>(
         window_handle: &T,
         use_validation: bool,
-    ) -> Result<(Self, Arc<crate::surface::Surface>), anyhow::Error>
+    ) -> Result<(Self, Arc<crate::surface::Surface>), MarpiiError>
     where
         T: HasRawDisplayHandle + HasRawWindowHandle,
     {
@@ -123,7 +123,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
     pub fn new_default_from_instance(
         instance: Arc<Instance>,
         surfaces: Option<&Surface>,
-    ) -> Result<Self, anyhow::Error> {
+    ) -> Result<Self, MarpiiError> {
         let mut device_candidates = instance
             .create_physical_device_filter()?
             .filter_queue_flags(ash::vk::QueueFlags::GRAPHICS);
@@ -136,7 +136,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
         let mut device_candidates = device_candidates.release();
 
         if device_candidates.len() == 0 {
-            anyhow::bail!("Could not find suitable physical device!");
+            return Err(DeviceError::NoPhysicalDevice)?;
         }
 
         //NOTE: By default we setup extensions in a way that we can load rust shaders.
@@ -200,7 +200,8 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
                 device: device.inner.clone(),
                 instance: instance.inner.clone(),
                 physical_device: device.physical_device,
-            })?;
+            })
+            .map_err(|e| DeviceError::GpuAllocatorError(Box::new(e)))?;
 
         Ok(Ctx {
             allocator: Arc::new(Mutex::new(allocator)),
@@ -218,7 +219,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
         window_handle: Option<&T>,
         use_validation: bool,
         on_device_builder: impl FnOnce(DeviceBuilder) -> DeviceBuilder,
-    ) -> Result<(Self, Option<Surface>), anyhow::Error>
+    ) -> Result<(Self, Option<Surface>), MarpiiError>
     where
         T: HasRawDisplayHandle + HasRawWindowHandle,
     {
@@ -253,10 +254,10 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
         let mut device_candidates = physical_device_filter.release();
 
         if device_candidates.len() == 0 {
-            anyhow::bail!("Could not find suitable physical device!");
+            return Err(DeviceError::NoPhysicalDevice)?;
         }
 
-        //Find the *best* we try to get a dicrete one, of not then we use the integrated
+        //Find the *best* we try to get a discrete one, of not then we use the integrated
         device_candidates.sort_by(|a, b| {
             match (a.properties.device_type, b.properties.device_type) {
                 (vk::PhysicalDeviceType::DISCRETE_GPU, vk::PhysicalDeviceType::DISCRETE_GPU) => {
@@ -297,7 +298,8 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
                 device: device.inner.clone(),
                 instance: instance.inner.clone(),
                 physical_device: device.physical_device,
-            })?;
+            })
+            .map_err(|e| DeviceError::GpuAllocatorError(Box::new(e)))?;
 
         Ok((
             Ctx {

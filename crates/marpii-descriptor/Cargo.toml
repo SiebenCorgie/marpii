@@ -16,6 +16,5 @@ bindless-wrapper = []
 
 [dependencies]
 marpii = {path = "../marpii"}
-fxhash = "0.2.1"
-anyhow.workspace = true
+ahash.workspace = true
 log = {workspace = true, optional=true}

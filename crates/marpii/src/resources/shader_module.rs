@@ -1,4 +1,4 @@
-use crate::context::Device;
+use crate::{context::Device, error::ShaderError};
 use std::{ffi::CString, mem::size_of, path::Path, sync::Arc};
 
 use super::Reflection;
@@ -8,7 +8,7 @@ pub struct ShaderModule {
     pub device: Arc<Device>,
     pub inner: ash::vk::ShaderModule,
     ///saves the descriptor interface of this module where each bindings `shader_stage` is marked as `ALL`.
-    /// for best performance those might be optimitzed by the user.
+    /// for best performance those might be optimised by the user.
     #[cfg(feature = "shader_reflection")]
     pub reflection: Reflection,
 }
@@ -18,7 +18,7 @@ impl ShaderModule {
     pub fn new_from_file(
         device: &Arc<Device>,
         file: impl AsRef<Path>,
-    ) -> Result<Self, anyhow::Error> {
+    ) -> Result<Self, ShaderError> {
         //try to read the file. Throws an error if it is none-existent etc.
         let mut file = std::fs::File::open(file)?;
         let code = ash::util::read_spv(&mut file)?;
@@ -27,17 +27,14 @@ impl ShaderModule {
         Self::new(device, &code)
     }
 
-    pub fn new_from_bytes<'a>(
-        device: &Arc<Device>,
-        bytes: &'a [u8],
-    ) -> Result<Self, anyhow::Error> {
+    pub fn new_from_bytes<'a>(device: &Arc<Device>, bytes: &'a [u8]) -> Result<Self, ShaderError> {
         #[cfg(feature = "logging")]
         log::trace!("read shader module from byte array");
         let words = ash::util::read_spv(&mut std::io::Cursor::new(bytes)).unwrap();
         Self::new(device, &words)
     }
 
-    pub fn new(device: &Arc<Device>, code: &[u32]) -> Result<Self, anyhow::Error> {
+    pub fn new(device: &Arc<Device>, code: &[u32]) -> Result<Self, ShaderError> {
         #[cfg(feature = "logging")]
         log::trace!("Shader Module new");
 
@@ -55,7 +52,7 @@ impl ShaderModule {
             //FIXME: currently the reflection error can't be cast to anyhow's error. Should be fixed when
             //       https://github.com/Traverse-Research/rspirv-reflect/pull/24 is merged.
             let reflection = Reflection::new_from_code(code)
-                .map_err(|e| anyhow::format_err!("Reflection error: {:?}", e))?;
+                .map_err(|e| ShaderError::ReflectionError(format!("{}", e)))?;
             reflection
         };
 
@@ -77,13 +74,13 @@ impl ShaderModule {
     #[cfg(feature = "shader_reflection")]
     pub fn create_descriptor_set_layouts(
         &self,
-    ) -> Result<Vec<(u32, super::DescriptorSetLayout)>, anyhow::Error> {
+    ) -> Result<Vec<(u32, super::DescriptorSetLayout)>, ShaderError> {
         use super::DescriptorSetLayout;
 
         let bindings = self
             .reflection
             .get_bindings(ash::vk::ShaderStageFlags::ALL)
-            .map_err(|e| anyhow::format_err!("Reflection error: {:?}", e))?;
+            .map_err(|e| ShaderError::ReflectionError(format!("{}", e)))?;
 
         let mut layouts = Vec::with_capacity(bindings.len());
         for (setid, bindings) in &bindings {

@@ -2,9 +2,12 @@ use marpii::{
     ash::vk,
     resources::{Buffer, ImgDesc},
     util::ImageRegion,
+    DeviceError, MarpiiError,
 };
 use marpii_rmg::{ImageHandle, Rmg, RmgError, Task};
 use std::sync::Arc;
+
+use crate::RmgTaskError;
 
 pub struct DynImgCmd {
     region: ImageRegion,
@@ -22,14 +25,14 @@ pub struct DynamicImage {
 }
 
 impl DynamicImage {
-    pub fn new_from_image(image: ImageHandle) -> Result<Self, anyhow::Error> {
+    pub fn new_from_image(image: ImageHandle) -> Result<Self, RmgTaskError> {
         if !image
             .usage_flags()
             .contains(vk::ImageUsageFlags::TRANSFER_DST)
         {
-            return Err(anyhow::anyhow!(
-                "Image has no TRANSEFER_DST bit set, but is needed for the Task to work"
-            ));
+            return Err(MarpiiError::from(DeviceError::ImageExpectUsageFlag(
+                vk::ImageUsageFlags::TRANSFER_DST,
+            )))?;
         }
         Ok(DynamicImage {
             staging_copies: Vec::with_capacity(1),
@@ -63,7 +66,8 @@ impl DynamicImage {
             &rmg.ctx.allocator,
             Some("DynamicImageSrcBuffer"),
             bytes,
-        )?;
+        )
+        .map_err(|e| MarpiiError::from(e))?;
         self.staging_copies.push(DynImgCmd {
             region,
             buffer: Arc::new(buffer),

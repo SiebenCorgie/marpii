@@ -1,9 +1,18 @@
-use marpii::{
-    ash::vk,
-    resources::{Buffer, BufferMapError},
-};
-use marpii_rmg::{BufferHandle, Guard, ResourceError, Rmg, Task};
+use marpii::{ash::vk, resources::Buffer, DeviceError, MarpiiError};
+use marpii_rmg::{BufferHandle, Guard, Rmg, Task};
 use std::sync::Arc;
+
+use crate::TaskError;
+
+use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum DownloadError {
+    #[error("Buffer can't be read by the cpu. Therfore it can't be mapped to a pointer.")]
+    BufferCPUNotReadable,
+    #[error("Task was not yet scheduled, we therfore can't wait for the download to finish.")]
+    TaskNotScheduled,
+}
 
 ///Downloads some GPU resident buffer into CPU accessible memory.
 /// Note that you can resubmit the task if you want to update the cpu accessible buffer.
@@ -19,21 +28,26 @@ pub struct DownloadBuffer<T: bytemuck::Pod + 'static> {
 }
 
 impl<T: bytemuck::Pod + 'static> DownloadBuffer<T> {
-    pub fn new(rmg: &mut Rmg, buffer: BufferHandle<T>) -> Result<Self, ResourceError> {
+    pub fn new(rmg: &mut Rmg, buffer: BufferHandle<T>) -> Result<Self, TaskError<DownloadError>> {
         //buffer we use for download
-        let cpu_access = Arc::new(Buffer::new(
-            &rmg.ctx.device,
-            &rmg.ctx.allocator,
-            buffer
-                .buf_desc()
-                .clone()
-                .add_usage(vk::BufferUsageFlags::TRANSFER_DST),
-            marpii::allocator::MemoryUsage::GpuToCpu,
-            None,
-            None,
-        )?);
+        let cpu_access = Arc::new(
+            Buffer::new(
+                &rmg.ctx.device,
+                &rmg.ctx.allocator,
+                buffer
+                    .buf_desc()
+                    .clone()
+                    .add_usage(vk::BufferUsageFlags::TRANSFER_DST),
+                marpii::allocator::MemoryUsage::GpuToCpu,
+                None,
+                None,
+            )
+            .map_err(|e| TaskError::Marpii(e.into()))?,
+        );
         //NOTE: using the import function to have tightest controll over creation
-        let cpuhdl = rmg.import_buffer(cpu_access.clone(), None, None)?;
+        let cpuhdl = rmg
+            .import_buffer(cpu_access.clone(), None, None)
+            .map_err(|e| TaskError::RmgError(e.into()))?;
 
         Ok(DownloadBuffer {
             gpu_buffer: buffer,
@@ -45,16 +59,21 @@ impl<T: bytemuck::Pod + 'static> DownloadBuffer<T> {
 
     ///Downloads buffer into `dst`. Does nothing if the task wasn't scheduled yet.
     ///
-    /// If successful, returns the number of elments that where downloaded
-    pub fn download(&self, rmg: &mut Rmg, dst: &mut [T]) -> Result<usize, ResourceError> {
+    /// If successful, returns the number of elements that where downloaded
+    pub fn download(
+        &self,
+        rmg: &mut Rmg,
+        dst: &mut [T],
+    ) -> Result<usize, TaskError<DownloadError>> {
         if let Some(g) = &self.execution_guard {
-            g.wait(rmg, u64::MAX)?;
+            g.wait(rmg, u64::MAX)
+                .map_err(|e| TaskError::Marpii(DeviceError::from(e).into()))?;
 
             //use bytemuck to copy over
             let dta = self
                 .cpu_access
                 .read()
-                .map_err(|maperr| ResourceError::BufferMapError(maperr))?;
+                .map_err(|maperr| MarpiiError::from(maperr))?;
             if let Some(dta) = dta.as_slice_ref() {
                 let dta_cast: &[T] = bytemuck::cast_slice(dta);
                 let size = dta_cast.len().min(dst.len());
@@ -63,12 +82,10 @@ impl<T: bytemuck::Pod + 'static> DownloadBuffer<T> {
             } else {
                 #[cfg(feature = "logging")]
                 log::error!("Can not map cpu access buffer.");
-                Err(ResourceError::BufferMapError(BufferMapError::NotReadable))
+                Err(TaskError::Task(DownloadError::BufferCPUNotReadable))?
             }
         } else {
-            Err(ResourceError::Any(anyhow::anyhow!(
-                "Download Task not yet scheduled!"
-            )))
+            Err(TaskError::Task(DownloadError::TaskNotScheduled))
         }
     }
 }

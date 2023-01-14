@@ -7,6 +7,8 @@ use ash::vk;
 use const_cstr::const_cstr;
 use raw_window_handle::HasRawDisplayHandle;
 
+use crate::error::InstanceError;
+
 use super::PhysicalDeviceFilter;
 const_cstr! {
     UNKNOWNID = "unknown id";
@@ -27,7 +29,6 @@ unsafe extern "system" fn vulkan_debug_callback(
     }
 
     //use log if the layer is enabled, otherwise use println
-
     #[cfg(feature = "logging")]
     {
         let (id, idname) = if !(*p_callback_data).p_message_id_name.is_null() {
@@ -140,7 +141,7 @@ pub struct InstanceBuilder {
 impl InstanceBuilder {
     ///Builds the instance from the current information.
     ///if `validation_layers` is enabled and no `debugger` is supplied a default debugger will be used.
-    pub fn build(mut self) -> Result<Arc<Instance>, anyhow::Error> {
+    pub fn build(mut self) -> Result<Arc<Instance>, InstanceError> {
         //check if validation is enabled, in that case push the validation layers
         let has_val_layers = self.validation_layers.is_some();
         if has_val_layers {
@@ -259,7 +260,7 @@ impl InstanceBuilder {
     }
 
     ///adds an extensions with the given name, if it was not added yet.
-    pub fn with_extension(mut self, name: CString) -> Result<Self, anyhow::Error> {
+    pub fn with_extension(mut self, name: CString) -> Result<Self, InstanceError> {
         for e in &self.enabled_extensions {
             #[cfg(feature = "logging")]
             log::warn!("Tried to enable extension twice: {:?}", name);
@@ -276,7 +277,7 @@ impl InstanceBuilder {
     }
 
     ///adds an layer with the given name to the list of layers
-    pub fn with_layer(mut self, name: CString) -> Result<Self, anyhow::Error> {
+    pub fn with_layer(mut self, name: CString) -> Result<Self, InstanceError> {
         for l in &self.enabled_layers {
             #[cfg(feature = "logging")]
             log::warn!("Tried to enable layer twice: {:?}", name);
@@ -293,7 +294,7 @@ impl InstanceBuilder {
     }
 
     ///Enables all extensions that are needed for the surface behind `handle` to work.
-    pub fn for_surface(mut self, handle: &dyn HasRawDisplayHandle) -> Result<Self, anyhow::Error> {
+    pub fn for_surface(mut self, handle: &dyn HasRawDisplayHandle) -> Result<Self, InstanceError> {
         let required_extensions =
             ash_window::enumerate_required_extensions(handle.raw_display_handle())?;
         for r in required_extensions {
@@ -332,7 +333,7 @@ impl Instance {
     pub const API_VERSION_PATCH: u32 = 0;
 
     ///Creates instance loaded by using [Entry::load](ash::Entry::load)
-    pub fn load() -> Result<InstanceBuilder, anyhow::Error> {
+    pub fn load() -> Result<InstanceBuilder, InstanceError> {
         let entry = unsafe { ash::Entry::load()? };
 
         Ok(InstanceBuilder {
@@ -344,7 +345,7 @@ impl Instance {
     }
 
     ///Creates instance loaded by using [Entry::linked](ash::Entry::linked)
-    pub fn linked() -> Result<InstanceBuilder, anyhow::Error> {
+    pub fn linked() -> Result<InstanceBuilder, InstanceError> {
         let entry = ash::Entry::linked();
 
         Ok(InstanceBuilder {
@@ -357,11 +358,11 @@ impl Instance {
 }
 
 pub trait GetDeviceFilter {
-    fn create_physical_device_filter(&self) -> Result<PhysicalDeviceFilter, anyhow::Error>;
+    fn create_physical_device_filter(&self) -> Result<PhysicalDeviceFilter, InstanceError>;
 }
 
 impl GetDeviceFilter for Arc<Instance> {
-    fn create_physical_device_filter(&self) -> Result<PhysicalDeviceFilter, anyhow::Error> {
+    fn create_physical_device_filter(&self) -> Result<PhysicalDeviceFilter, InstanceError> {
         let devices = unsafe { self.inner.enumerate_physical_devices()? };
         Ok(PhysicalDeviceFilter::new(&self.inner, devices))
     }

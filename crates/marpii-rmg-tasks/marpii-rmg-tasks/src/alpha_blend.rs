@@ -1,13 +1,24 @@
 use marpii::{
     ash::vk,
-    resources::{ComputePipeline, FormatType, PushConstant, ShaderModule},
+    resources::{ComputePipeline, PushConstant, ShaderModule},
+    util::FormatType,
+    MarpiiError,
 };
 use marpii_rmg::{ImageHandle, Rmg, Task};
 use marpii_rmg_task_shared::{AlphaBlendPush, ResourceHandle};
 use std::sync::Arc;
+use thiserror::Error;
+
+use crate::TaskError;
 
 const BLEND_SHADER_F32: &'static [u8] = include_bytes!("../resources/alphablend_f32.spv");
 const BLEND_SHADER_U8: &'static [u8] = include_bytes!("../resources/alphablend_u8.spv");
+
+#[derive(Error, Debug)]
+pub enum AlphBlendError {
+    #[error("FormatType {0:?} not supported by alpha blending")]
+    UnsupportedError(FormatType),
+}
 
 ///Adds one image (`add`) to another (`dst`) using `add`'s alpha channel to determin blending.
 ///
@@ -48,7 +59,7 @@ impl AlphaBlend {
         dst_offset: vk::Offset2D,
         extent: vk::Extent2D,
         format_type: FormatType,
-    ) -> Result<Self, anyhow::Error> {
+    ) -> Result<Self, TaskError<AlphBlendError>> {
         let push_constant = PushConstant::new(
             AlphaBlendPush {
                 add: ResourceHandle::INVALID,
@@ -66,18 +77,19 @@ impl AlphaBlend {
         log::trace!("Load rust shader module");
 
         let shader_module = match format_type {
-            FormatType::F32 => ShaderModule::new_from_bytes(&rmg.ctx.device, BLEND_SHADER_F32)?,
-            FormatType::U8 => ShaderModule::new_from_bytes(&rmg.ctx.device, BLEND_SHADER_U8)?,
+            FormatType::F32 => ShaderModule::new_from_bytes(&rmg.ctx.device, BLEND_SHADER_F32)
+                .map_err(|e| MarpiiError::from(e))?,
+            FormatType::U8 => ShaderModule::new_from_bytes(&rmg.ctx.device, BLEND_SHADER_U8)
+                .map_err(|e| MarpiiError::from(e))?,
             _ => {
                 #[cfg(feature = "logging")]
                 log::error!(
                     "FormatType {:?} not supported by alpha blending",
                     format_type
                 );
-                return Err(anyhow::anyhow!(
-                    "FormatType {:?} not supported by alpha blending",
-                    format_type
-                ));
+                return Err(TaskError::Task(AlphBlendError::UnsupportedError(
+                    format_type,
+                )));
             }
         };
 
@@ -87,12 +99,10 @@ impl AlphaBlend {
         let shader_stage = shader_module.into_shader_stage(vk::ShaderStageFlags::COMPUTE, "main");
         //No additional descriptors for us
         let layout = rmg.resources().bindless_layout();
-        let pipeline = Arc::new(ComputePipeline::new(
-            &rmg.ctx.device,
-            &shader_stage,
-            None,
-            layout,
-        )?);
+        let pipeline = Arc::new(
+            ComputePipeline::new(&rmg.ctx.device, &shader_stage, None, layout)
+                .map_err(|e| MarpiiError::from(e))?,
+        );
 
         Ok(AlphaBlend {
             add,

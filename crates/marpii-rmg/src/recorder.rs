@@ -11,6 +11,7 @@ use crate::{resources::handle::AnyHandle, track::Guard, ResourceError, Rmg, Task
 use marpii::{
     ash::vk,
     resources::{CommandBuffer, CommandPool},
+    MarpiiError,
 };
 use std::any::Any;
 use thiserror::Error;
@@ -29,6 +30,9 @@ pub enum RecordError {
     #[error("No such resource found")]
     NoSuchResource(AnyHandle),
 
+    #[error("No track for queue_index {0}")]
+    NoSuchTrack(u32),
+
     #[error("Resource {0} was owned still owned by {1} while trying to acquire.")]
     AcquireRecord(AnyHandle, u32),
     #[error("Resource {0} was already released from {1} to {2} while trying to release.")]
@@ -37,11 +41,17 @@ pub enum RecordError {
     #[error("Resource {0} was not owned while trying to release.")]
     ReleaseUninitialised(AnyHandle),
 
+    #[error("Resource {0} was already release.")]
+    AlreadyReleased(AnyHandle),
+
+    #[error("Found unscheduled dependee scheduled for release")]
+    UnscheduledDependee,
+
     #[error("Vulkan recording error")]
     VkError(#[from] vk::Result),
 
-    #[error("anyhow")]
-    Any(#[from] anyhow::Error),
+    #[error("MarpII internal error: {0}")]
+    MarpiiError(#[from] MarpiiError),
 
     #[error("Record time resource error")]
     ResError(#[from] ResourceError),

@@ -12,6 +12,7 @@
 //!
 //! Does not (yet) use byte addressable buffers.
 
+use ahash::AHashMap;
 use marpii::{
     ash::vk,
     context::Device,
@@ -19,6 +20,7 @@ use marpii::{
         Buffer, DescriptorPool, DescriptorSet, DescriptorSetLayout, ImageView, PipelineLayout,
         Sampler,
     },
+    DescriptorError, DeviceError, MarpiiError,
 };
 use std::{collections::VecDeque, fmt::Debug, sync::Arc};
 
@@ -29,7 +31,7 @@ pub use marpii_rmg_shared::ResourceHandle;
 struct SetManager<T> {
     ///Collects free'd indices that can be used
     free: VecDeque<ResourceHandle>,
-    stored: fxhash::FxHashMap<ResourceHandle, T>,
+    stored: AHashMap<ResourceHandle, T>,
     //maximum index that can be bound
     max_idx: u32,
     //biggest index that was allocated until now,
@@ -90,7 +92,7 @@ impl<T> SetManager<T> {
         ty: vk::DescriptorType,
         max_count: u32,
         //binding_id: u32,
-    ) -> Result<Self, anyhow::Error> {
+    ) -> Result<Self, MarpiiError> {
         let binding_layout = vk::DescriptorSetLayoutBinding {
             binding: 0,
             descriptor_type: ty,
@@ -113,13 +115,16 @@ impl<T> SetManager<T> {
         log::trace!("    {:#?}", binding_layout);
 
         let layout = unsafe {
-            device.inner.create_descriptor_set_layout(
-                &vk::DescriptorSetLayoutCreateInfo::builder()
-                    .bindings(core::slice::from_ref(&binding_layout))
-                    .flags(vk::DescriptorSetLayoutCreateFlags::UPDATE_AFTER_BIND_POOL)
-                    .push_next(&mut ext_flags),
-                None,
-            )?
+            device
+                .inner
+                .create_descriptor_set_layout(
+                    &vk::DescriptorSetLayoutCreateInfo::builder()
+                        .bindings(core::slice::from_ref(&binding_layout))
+                        .flags(vk::DescriptorSetLayoutCreateFlags::UPDATE_AFTER_BIND_POOL)
+                        .push_next(&mut ext_flags),
+                    None,
+                )
+                .map_err(|e| DescriptorError::VkError(e))?
         };
 
         //wrap into the marpii wrapper
@@ -143,7 +148,8 @@ impl<T> SetManager<T> {
             layout
                 .device
                 .inner
-                .allocate_descriptor_sets(&descriptor_set_info)?
+                .allocate_descriptor_sets(&descriptor_set_info)
+                .map_err(|e| DescriptorError::VkError(e))?
         };
         assert!(
             descriptor_set.len() == 1,
@@ -158,7 +164,7 @@ impl<T> SetManager<T> {
 
         Ok(SetManager {
             ty,
-            stored: fxhash::FxHashMap::default(),
+            stored: AHashMap::default(),
             free: VecDeque::with_capacity(10), //NOTE: seems sane. But IDK, maybe its overkill
             max_idx: max_count,
             head_idx: 0,
@@ -313,7 +319,7 @@ impl Bindless {
         max_storage_buffer: u32,
         max_sampler: u32,
         #[cfg(feature = "ray-tracing")] max_acceleration_structure: u32,
-    ) -> Result<Self, anyhow::Error> {
+    ) -> Result<Self, MarpiiError> {
         //TODO - check that all flags are set
         //     - setup layout
         //     return
@@ -327,7 +333,9 @@ impl Bindless {
         {
             #[cfg(feature = "logging")]
             log::error!("Some dynamic indexing features where not supported. Following was supported: {:#?}", features);
-            return Err(anyhow::anyhow!("One of the dynamic indexing features was not supported, which is needed for bindless."));
+            return Err(DeviceError::UnsupportedFeature(String::from(
+                "DynamicArrayDescriptorIndexing",
+            )))?;
         }
         //check device for all needed features
         let features2 = device.get_feature::<vk::PhysicalDeviceVulkan12Features>();
@@ -347,7 +355,9 @@ impl Bindless {
                 features2
             );
 
-            return Err(anyhow::anyhow!("Device does not support PhysicalDeviceDescriptorIndexingFeatures, needed for bindless"));
+            return Err(DeviceError::UnsupportedFeature(String::from(
+                "DescriptorUpdateAfterBind, PartiallyBound, VariableCount or NonUniformIndexing",
+            )))?;
         }
 
         if device
@@ -357,10 +367,10 @@ impl Bindless {
             .max_bound_descriptor_sets
             < Self::NUM_SETS
         {
-            anyhow::bail!(
-                "Device does not support {} bound descriptor sets at a time",
+            Err(DeviceError::UnsupportedFeature(String::from(format!(
+                "Max bound descriptor setst < {}",
                 Self::NUM_SETS
-            );
+            ))))?;
         }
 
         let descriptor_sizes = [
@@ -495,7 +505,7 @@ impl Bindless {
 
     ///Creates a `BindlessDescriptor` where the maximum numbers of bound descriptors is a sane minimum of the `MAX_*` constants, and the reported upper limits of the device.
     #[cfg(feature = "ray-tracing")]
-    pub fn new_default(device: &Arc<Device>) -> Result<Self, anyhow::Error> {
+    pub fn new_default(device: &Arc<Device>) -> Result<Self, MarpiiError> {
         let limits = device.get_device_properties().properties.limits;
         Self::new(
             device,
@@ -510,7 +520,7 @@ impl Bindless {
 
     ///Creates a `BindlessDescriptor` where the maximum numbers of bound descriptors is a sane minimum of the `MAX_*` constants, and the reported upper limits of the device.
     #[cfg(not(feature = "ray-tracing"))]
-    pub fn new_default(device: &Arc<Device>) -> Result<Self, anyhow::Error> {
+    pub fn new_default(device: &Arc<Device>) -> Result<Self, MarpiiError> {
         let limits = device.get_device_properties().properties.limits;
         Self::new(
             device,

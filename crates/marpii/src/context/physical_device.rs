@@ -1,7 +1,9 @@
+use crate::error::DeviceError;
+
 use super::{DeviceBuilder, QueueBuilder};
 use std::sync::Arc;
 
-///Collection off all properties for this physical device. Can be used to easyly create a [DeviceBuilder](DeviceBuilder).
+///Collection off all properties for this physical device. Can be used to easily create a [DeviceBuilder](DeviceBuilder).
 /// Is usually acquired from a [PhysicaldeviceFilter](PhysicalDeviceFilter), or by using `new`.
 pub struct PhyDeviceProperties {
     pub phydev: ash::vk::PhysicalDevice,
@@ -27,7 +29,7 @@ impl PhyDeviceProperties {
     pub fn into_device_builder(
         self,
         instance: Arc<crate::context::Instance>,
-    ) -> Result<DeviceBuilder, anyhow::Error> {
+    ) -> Result<DeviceBuilder, DeviceError> {
         Ok(DeviceBuilder {
             instance,
             physical_device: self.phydev,
@@ -125,24 +127,23 @@ impl PhysicalDeviceFilter {
         surface: &ash::vk::SurfaceKHR,
     ) -> Self {
         self.pdevices = self.pdevices.into_iter().filter_map(|mut pdev|{
-	    //check each queue if it is presentable, if not filter out queue
-	    pdev.queue_properties = pdev.queue_properties.into_iter().filter(|(qidx, _queue)| {
-		if let Ok(res) = unsafe{surface_loader.get_physical_device_surface_support(pdev.phydev, *qidx as u32, *surface)}{
-		    res
-		}else{
-		    #[cfg(feature="logging")]
-		    log::warn!("Failed to query surface capability on queue family {} of physical device: {:?}", qidx, pdev.properties.device_name);
-		    false
-		}
-	    }).collect();
-	    //Check if any family is left, otherwise remove device compleatly
-	    if pdev.queue_properties.len() > 0{
-		Some(pdev)
-	    }else{
-		None
-	    }
-	}).collect();
-
+            //check each queue if it is presentable, if not filter out queue
+            pdev.queue_properties = pdev.queue_properties.into_iter().filter(|(qidx, _queue)| {
+                if let Ok(res) = unsafe{surface_loader.get_physical_device_surface_support(pdev.phydev, *qidx as u32, *surface)}{
+                    res
+                }else{
+                    #[cfg(feature="logging")]
+                    log::warn!("Failed to query surface capability on queue family {} of physical device: {:?}", qidx, pdev.properties.device_name);
+                    false
+                }
+            }).collect();
+            //Check if any family is left, otherwise remove device completely
+            if pdev.queue_properties.len() > 0{
+                Some(pdev)
+            }else{
+                None
+            }
+        }).collect();
         self
     }
 

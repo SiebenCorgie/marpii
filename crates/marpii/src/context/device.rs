@@ -1,6 +1,6 @@
 use ash::vk::{self, BaseOutStructure, QueueFlags, TaggedStructure};
 
-use crate::{resources::ImgDesc, util::image_usage_to_format_features};
+use crate::{error::DeviceError, resources::ImgDesc, util::image_usage_to_format_features};
 
 use super::{Queue, QueueBuilder};
 use std::{
@@ -32,7 +32,7 @@ pub struct DeviceBuilder {
 //              after building the temporary device create info.
 impl DeviceBuilder {
     ///Checks that all device extensions are supported.
-    fn check_extensions(&mut self) -> Result<(), anyhow::Error> {
+    fn check_extensions(&mut self) -> Result<(), DeviceError> {
         let all_supported = unsafe {
             self.instance
                 .inner
@@ -70,7 +70,7 @@ impl DeviceBuilder {
                 .to_owned();
 
             if !all_supported_names.contains(&ext_as_str) {
-                anyhow::bail!("Extensions {:?} was not supported", ext_as_str);
+                return Err(DeviceError::UnsupportedExtension(ext_as_str));
             }
         }
 
@@ -106,7 +106,7 @@ impl DeviceBuilder {
         self
     }
 
-    pub fn build<'a>(mut self) -> Result<Arc<Device>, anyhow::Error> {
+    pub fn build<'a>(mut self) -> Result<Arc<Device>, DeviceError> {
         //before starting anything, check that the extensions are supported
         self.check_extensions()?;
 
@@ -195,7 +195,7 @@ impl Device {
         physical_device: ash::vk::PhysicalDevice,
         device_create_info: &ash::vk::DeviceCreateInfo,
         queue_builder: &[QueueBuilder],
-    ) -> Result<Arc<Self>, anyhow::Error> {
+    ) -> Result<Arc<Self>, DeviceError> {
         //finally create the queues and device
         let device = instance
             .inner
@@ -427,7 +427,7 @@ impl Device {
         tiling: ash::vk::ImageTiling,
         usage: ash::vk::ImageUsageFlags,
         crate_flags: ash::vk::ImageCreateFlags,
-    ) -> Result<ash::vk::ImageFormatProperties, anyhow::Error> {
+    ) -> Result<ash::vk::ImageFormatProperties, DeviceError> {
         match unsafe {
             self.instance
                 .inner
@@ -443,7 +443,7 @@ impl Device {
             Err(e) => {
                 #[cfg(feature = "logging")]
                 log::error!("Failed to get image format properties: {e}");
-                anyhow::bail!("Failed to get image format properties: {e}")
+                return Err(DeviceError::GetFormatProperties { format, error: e });
             }
             Ok(o) => Ok(o),
         }

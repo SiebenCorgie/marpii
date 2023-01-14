@@ -13,7 +13,6 @@ image_loading = ["image"]
 
 [dependencies]
 marpii = {path = "../marpii"}
-anyhow.workspace = true
 log = {workspace = true, optional=true}
 image = {version = "0.24", optional = true}
 tinyvec.workspace = true
