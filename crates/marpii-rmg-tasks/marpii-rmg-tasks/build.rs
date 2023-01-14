@@ -122,7 +122,6 @@ fn clean_up() {
     if path.exists() {
         std::fs::remove_dir_all(&path).unwrap();
     }
-
     std::fs::create_dir(&path).unwrap();
 }
 

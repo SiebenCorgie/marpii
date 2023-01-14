@@ -17,7 +17,8 @@ layout (location = 0) out vec4 outFragColor;
 layout( push_constant ) uniform push{
   ResHandle tex;
   ResHandle sam;
-  ResHandle pad0[2];
+  ResHandle pad0;
+  uint flags;
   vec2 screen_size;
   vec2 pad1;
 } Push;
@@ -63,9 +64,12 @@ void main() {
     
     vec4 texval = texture(sampler2D(global_sampled_2d[get_index(Push.tex)], global_sampler[get_index(Push.sam)]), v_tc);
 
-    // The texture is set up with `SRGB8_ALPHA8`
-    vec4 texture_in_gamma = vec4(srgb_to_linear(texval.xyz), texval.w);
 
+    // The texture is set up with `SRGB8_ALPHA8`
+    vec4 texture_in_gamma = texval;
+    if ((Push.flags & 0x1) == 0){
+        texture_in_gamma = vec4(srgb_to_linear(texval.xyz), texval.w);
+    }
     // Multiply vertex color with texture color (in gamma space).
     outFragColor = rgba_gamma * texture_in_gamma;
 }

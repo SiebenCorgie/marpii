@@ -14,7 +14,7 @@ use egui_winit::winit::window::Window;
 use fxhash::FxHashMap;
 use marpii::ash::vk::{ImageUsageFlags, Rect2D};
 use marpii::resources::SharingMode;
-use marpii::util::ImageRegion;
+use marpii::util::{FormatProperties, ImageRegion};
 use marpii::{
     ash::vk,
     context::Device,
@@ -384,9 +384,6 @@ impl EGuiTask {
     }
 
     pub fn new(rmg: &mut Rmg) -> Result<Self, RmgError> {
-        #[cfg(feature = "logging")]
-        log::trace!("Setting up EGUI render meta task");
-
         let target_format = rmg
             .ctx
             .device
@@ -423,11 +420,10 @@ impl EGuiTask {
             Some("egui target img"),
         )?;
 
+        let target_image_property = FormatProperties::parse(target_format);
+
         //Pipeline layout
         let layout = rmg.resources().bindless_layout();
-
-        #[cfg(feature = "logging")]
-        log::trace!("Load meta task shader module");
 
         /*
                 let shader_module_vert =
@@ -439,17 +435,11 @@ impl EGuiTask {
         let shader_module =
             Arc::new(ShaderModule::new_from_bytes(&rmg.ctx.device, crate::SHADER_RUST).unwrap());
 
-        #[cfg(feature = "logging")]
-        log::trace!("Meta task vertex shader");
-
         let vertex_shader_stage = ShaderStage::from_shared_module(
             shader_module.clone(),
             vk::ShaderStageFlags::VERTEX,
             "egui_vs".to_owned(),
         );
-
-        #[cfg(feature = "logging")]
-        log::trace!("Meta task fragment shader");
 
         let fragment_shader_stage = ShaderStage::from_shared_module(
             shader_module,
@@ -457,22 +447,22 @@ impl EGuiTask {
             "egui_fs".to_owned(),
         );
 
-        #[cfg(feature = "logging")]
-        log::trace!("Allocate push constant");
+        let mut flags = 0;
+        if target_image_property.is_srgb {
+            flags |= 0x0;
+        }
 
         let push = PushConstant::new(
             EGuiPush {
                 texture: ResourceHandle::INVALID,
                 sampler: ResourceHandle::INVALID,
-                pad0: [ResourceHandle::INVALID; 2],
+                pad0: ResourceHandle::INVALID,
+                flags,
                 screen_size: [1.0, 1.0],
                 pad1: [0.0; 2],
             },
             vk::ShaderStageFlags::ALL,
         );
-
-        #[cfg(feature = "logging")]
-        log::trace!("Setup meta task pipeline");
 
         let pipeline = Arc::new(
             Self::pipeline(
@@ -521,9 +511,6 @@ impl EGuiTask {
                 .min_filter(vk::Filter::NEAREST)
                 .mag_filter(vk::Filter::NEAREST),
         )?;
-
-        #[cfg(feature = "logging")]
-        log::trace!("Finished egui meta task creation");
 
         Ok(EGuiTask {
             data: EGuiData {
@@ -845,7 +832,7 @@ impl EGuiTask {
             let dta = match &delta.image {
                 egui_winit::egui::epaint::ImageData::Color(img) => Cow::Borrowed(&img.pixels),
                 egui_winit::egui::epaint::ImageData::Font(img) => {
-                    Cow::Owned(img.srgba_pixels(1.0).collect::<Vec<Color32>>())
+                    Cow::Owned(img.srgba_pixels(None).collect::<Vec<Color32>>())
                 }
             };
 
