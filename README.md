@@ -59,7 +59,7 @@ A list of dependencies used in the crates of this project. Have a look at the `C
 - anyhow: convenient error handling. Otherwise we'd have either one really big error ENum, or multiple small ones. Either way, there are a lot of different error states that are not really recoverable. So a simple string like error is enough in most cases.
 - const-cstr: Allows defining constant CStrings. They are used for default messages in the debug callback. 
 - small-vec: Whenever only small collections are needed this allows us to uses arrays in the general case and Vecs if those are not big enough.
-- fxhash: in the cases where we need a hash map/set fx-hash is used for speed.
+- ahash: in the cases where we need a hash map/set ahash is used for speed.
 - gpu-allocator: standard Vulkan memory allocator
 - log: logging if enabled
 - puffin: profiling if enabled
@@ -70,7 +70,7 @@ A list of dependencies used in the crates of this project. Have a look at the `C
 - marpii/marpii-commands/marpii-descriptor: marpii binding
 - anyhow: convenient error handling
 - thiserror: convenient error handling
-- fxhash: in the cases where we need a hash map/set fx-hash is used for speed.
+- ahash: in the cases where we need a hash map/set ahash is used for speed.
 - slotmap: Fast and safe Vec-like mapping from handles to internal resource
 - log: logging if enabled
 - winit: swapchain handling
@@ -86,7 +86,7 @@ A list of dependencies used in the crates of this project. Have a look at the `C
 
 - marpii: marpii binding
 - anyhow: convenient error handling.
-- fxhash: in the cases where we need a hash map/set fx-hash is used for speed.
+- ahash: in the cases where we need a hash map/set ahash is used for speed.
 - log: logging if enabled
 
 ## Contributing

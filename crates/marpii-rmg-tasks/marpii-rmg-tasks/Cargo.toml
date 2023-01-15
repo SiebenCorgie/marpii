@@ -10,7 +10,7 @@ default = ["logging", "egui-task"]
 logging = ["log"]
 
 #If enabled, compiles the egui shader and integration tasks.
-egui-task = ["egui-winit", "fxhash"]
+egui-task = ["egui-winit", "ahash"]
 
 [dependencies]
 marpii = {path = "../../marpii"}
@@ -20,7 +20,7 @@ log = {workspace = true, optional=true}
 thiserror.workspace = true
 egui-winit  = {version = "0.20", optional = true, features = ["bytemuck"]}
 egui = "0.20"
-fxhash = {version = "0.2.1", optional = true}
+ahash = {workspace = true, optional = true}
 bytemuck.workspace = true
 
 [build-dependencies]

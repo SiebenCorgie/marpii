@@ -30,7 +30,7 @@ ash-window.workspace = true
 raw-window-handle.workspace = true
 thiserror.workspace = true
 const-cstr = "0.3"
-fxhash = "0.2.1"
+ahash.workspace = true
 tinyvec.workspace = true
 
 gpu-allocator = {git = "https://github.com/SiebenCorgie/gpu-allocator.git", branch = "feature-expose-memory-properties", optional = true}

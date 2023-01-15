@@ -8,10 +8,10 @@
 
 use crate::egui::{ClippedPrimitive, TextureId, TexturesDelta};
 use crate::{DynamicBuffer, DynamicImage, RmgTaskError};
+use ahash::AHashMap;
 use egui::{Color32, Pos2};
 use egui_winit::winit::event_loop::EventLoopWindowTarget;
 use egui_winit::winit::window::Window;
-use fxhash::FxHashMap;
 use marpii::ash::vk::{ImageUsageFlags, Rect2D};
 use marpii::resources::SharingMode;
 use marpii::util::{FormatProperties, ImageRegion};
@@ -154,7 +154,7 @@ struct EGuiData {
     index_buffer: DynamicBuffer<u32>,
     //NOTE: egui uses three main resources to render its interface. A texture atlas, and a vertex/index buffer changing at a high rate
     //      we take our own DynamicBuffer and DynamicImage for those tasks.
-    atlas: FxHashMap<TextureId, DynamicImage>,
+    atlas: AHashMap<TextureId, DynamicImage>,
     //Deferred free commands for texture_deltas. Basically the *last* free list.
     deferred_free: Vec<TextureId>,
 }
@@ -520,7 +520,7 @@ impl EGuiTask {
             data: EGuiData {
                 vertex_buffer,
                 index_buffer,
-                atlas: FxHashMap::default(),
+                atlas: AHashMap::default(),
                 deferred_free: Vec::new(),
             },
 

@@ -257,7 +257,7 @@ impl Buffer {
         };
 
         #[cfg(feature = "logging")]
-        log::info!("Using write_size={}", write_size);
+        log::trace!("Using write_size={}", write_size);
 
         //since we sanitised the write, try to map the pointer and write the actual slice
         if let Some(slice) = self
@@ -267,7 +267,7 @@ impl Buffer {
             .as_slice_mut()
         {
             #[cfg(feature = "logging")]
-            log::info!("writing to mapped buffer[{:?}] of size {} with offset={}, data_size={}, write_size={}", self.inner, self.desc.size, offset, data.len(), write_size);
+            log::trace!("writing to mapped buffer[{:?}] of size {} with offset={}, data_size={}, write_size={}", self.inner, self.desc.size, offset, data.len(), write_size);
 
             slice[offset..(offset + write_size)].copy_from_slice(&data[0..write_size]);
         } else {
@@ -319,7 +319,7 @@ impl Buffer {
             .offset_to_next_higher_coherent_atom_size(range.size);
 
         #[cfg(feature = "logging")]
-        log::info!(
+        log::trace!(
             "Flushing {:?} in range {}..{}={}",
             self.inner,
             range.offset,

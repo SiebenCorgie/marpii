@@ -1,8 +1,7 @@
-use std::sync::Arc;
-
-use fxhash::FxHashMap;
+use ahash::AHashMap;
 
 use crate::{context::Device, error::DescriptorError};
+use std::sync::Arc;
 
 use super::ShaderModule;
 
@@ -49,7 +48,7 @@ pub struct DescriptorPool {
     ///actual inner set
     pub inner: ash::vk::DescriptorPool,
     ///Allocatable sizes
-    pub sizes: FxHashMap<ash::vk::DescriptorType, u32>,
+    pub sizes: AHashMap<ash::vk::DescriptorType, u32>,
 
     ///True if descriptor sets can be freed for this pool
     pub can_free: bool,
@@ -82,7 +81,7 @@ impl DescriptorPool {
             can_free,
             device: device.clone(),
             inner: pool,
-            sizes: sizes.iter().fold(FxHashMap::default(), |mut map, size| {
+            sizes: sizes.iter().fold(AHashMap::default(), |mut map, size| {
                 if let Some(count) = map.get_mut(&size.ty) {
                     *count += size.descriptor_count;
                 } else {
@@ -103,7 +102,7 @@ impl DescriptorPool {
         count: u32,
     ) -> Result<Self, DescriptorError> {
         //first step is to sort out our sizes.
-        let mut map = FxHashMap::default();
+        let mut map = AHashMap::default();
 
         //FIXME: currently the reflection error can't be cast to anyhow's error. Should be fixed when
         //       https://github.com/Traverse-Research/rspirv-reflect/pull/24 is merged.
