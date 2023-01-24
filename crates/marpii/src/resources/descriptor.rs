@@ -3,6 +3,7 @@ use ahash::AHashMap;
 use crate::{context::Device, error::DescriptorError};
 use std::sync::Arc;
 
+#[cfg(feature = "shader_reflection")]
 use super::ShaderModule;
 
 #[cfg(feature = "shader_reflection")]

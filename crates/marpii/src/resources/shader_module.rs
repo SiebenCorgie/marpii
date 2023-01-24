@@ -1,7 +1,10 @@
-use crate::{context::Device, error::ShaderError};
-use std::{ffi::CString, mem::size_of, path::Path, sync::Arc};
-
+#[cfg(feature = "shader_reflection")]
 use super::Reflection;
+#[cfg(feature = "shader_reflection")]
+use std::mem::size_of;
+
+use crate::{context::Device, error::ShaderError};
+use std::{ffi::CString, path::Path, sync::Arc};
 
 ///Single shader module
 pub struct ShaderModule {
