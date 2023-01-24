@@ -142,19 +142,18 @@ impl ForwardPass {
         //No additional descriptors for us
         let layout = rmg.resources().bindless_layout();
 
-        let shader_module_vert =
-            Arc::new(ShaderModule::new_from_bytes(&rmg.ctx.device, SHADER_VS).unwrap());
+        let shader_module_vert = ShaderModule::new_from_bytes(&rmg.ctx.device, SHADER_VS).unwrap();
 
-        let shader_module_frag =
-            Arc::new(ShaderModule::new_from_bytes(&rmg.ctx.device, SHADER_FS).unwrap());
-        let vertex_shader_stage = ShaderStage::from_shared_module(
-            shader_module_vert,
+        let shader_module_frag = ShaderModule::new_from_bytes(&rmg.ctx.device, SHADER_FS).unwrap();
+
+        let vertex_shader_stage = ShaderStage::from_module(
+            shader_module_vert.into(),
             vk::ShaderStageFlags::VERTEX,
             "main".to_owned(),
         );
 
-        let fragment_shader_stage = ShaderStage::from_shared_module(
-            shader_module_frag,
+        let fragment_shader_stage = ShaderStage::from_module(
+            shader_module_frag.into(),
             vk::ShaderStageFlags::FRAGMENT,
             "main".to_owned(),
         );

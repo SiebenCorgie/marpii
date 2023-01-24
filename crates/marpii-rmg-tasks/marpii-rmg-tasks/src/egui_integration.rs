@@ -436,16 +436,16 @@ impl EGuiTask {
                 let shader_module_frag =
                     Arc::new(ShaderModule::new_from_bytes(&rmg.ctx.device, EGUI_SHADER_FRAG).unwrap());
         */
-        let shader_module =
-            Arc::new(ShaderModule::new_from_bytes(&rmg.ctx.device, crate::SHADER_RUST).unwrap());
+        let mut shader_module =
+            OoS::new(ShaderModule::new_from_bytes(&rmg.ctx.device, crate::SHADER_RUST).unwrap());
 
-        let vertex_shader_stage = ShaderStage::from_shared_module(
-            shader_module.clone(),
+        let vertex_shader_stage = ShaderStage::from_module(
+            shader_module.share(),
             vk::ShaderStageFlags::VERTEX,
             "egui_vs".to_owned(),
         );
 
-        let fragment_shader_stage = ShaderStage::from_shared_module(
+        let fragment_shader_stage = ShaderStage::from_module(
             shader_module,
             vk::ShaderStageFlags::FRAGMENT,
             "egui_fs".to_owned(),

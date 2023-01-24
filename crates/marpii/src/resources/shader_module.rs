@@ -1,3 +1,5 @@
+use oos::OoS;
+
 #[cfg(feature = "shader_reflection")]
 use super::Reflection;
 #[cfg(feature = "shader_reflection")]
@@ -110,7 +112,7 @@ impl ShaderModule {
         entry_name: impl Into<String>,
     ) -> ShaderStage {
         ShaderStage {
-            module: StageModule::Owned(self),
+            module: OoS::new(self),
             stage,
             entry_name: CString::new(entry_name.into()).unwrap(),
         }
@@ -123,46 +125,33 @@ impl Drop for ShaderModule {
     }
 }
 
-enum StageModule {
-    Owned(ShaderModule),
-    Shared(Arc<ShaderModule>),
-}
-
-impl StageModule {
-    fn module(&self) -> &ShaderModule {
-        match self {
-            StageModule::Owned(s) => &s,
-            StageModule::Shared(s) => &s,
-        }
-    }
-}
 ///Build from a [ShaderModule] this type knows its entry point name as well as the shader stage at which it is executed.
 pub struct ShaderStage {
     ///Keeps the referenced shader module alive until the stage is dropped.
-    module: StageModule,
+    module: OoS<ShaderModule>,
     pub stage: ash::vk::ShaderStageFlags,
     pub entry_name: CString,
 }
 
 impl ShaderStage {
-    ///Creates shader stage from a shared module. Panics if the entry_name is not utf8
-    pub fn from_shared_module(
-        module: Arc<ShaderModule>,
+    ///Creates shader stage from a possibly shared module. Panics if the entry_name is not utf8
+    pub fn from_module(
+        module: OoS<ShaderModule>,
         stage: ash::vk::ShaderStageFlags,
         entry_name: String,
     ) -> Self {
         ShaderStage {
-            module: StageModule::Shared(module),
+            module,
             stage,
             entry_name: CString::new(entry_name).unwrap(),
         }
     }
 
     pub fn module(&self) -> &ShaderModule {
-        self.module.module()
+        &self.module
     }
     pub fn inner(&self) -> &ash::vk::ShaderModule {
-        &self.module.module().inner
+        &self.module.inner
     }
 
     pub fn as_create_info<'a>(
@@ -171,7 +160,7 @@ impl ShaderStage {
     ) -> ash::vk::PipelineShaderStageCreateInfoBuilder<'a> {
         let mut builder = ash::vk::PipelineShaderStageCreateInfo::builder()
             .stage(self.stage)
-            .module(self.module.module().inner)
+            .module(self.module.inner)
             .name(self.entry_name.as_c_str());
 
         if let Some(special) = specialization_info {
