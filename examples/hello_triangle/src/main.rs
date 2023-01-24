@@ -4,6 +4,7 @@
 use anyhow::Result;
 use marpii::gpu_allocator::vulkan::Allocator;
 use marpii::resources::{CommandBufferAllocator, CommandPool, ComputePipeline, DescriptorPool};
+use marpii::OoS;
 use marpii::{
     ash::{
         self,
@@ -33,7 +34,7 @@ pub struct PushConst {
 
 struct PassData {
     //image that is rendered to
-    image: Arc<Image>,
+    image: OoS<Image>,
 
     command_buffer: ManagedCommands,
 
@@ -49,7 +50,7 @@ impl PassData {
     pub fn new(ctx: &Ctx<Allocator>, width: u32, height: u32) -> Result<Self, anyhow::Error> {
         println!("Recreate image for: {}x{}", width, height);
 
-        let image = Arc::new(Image::new(
+        let mut image = OoS::new(Image::new(
             &ctx.device,
             &ctx.allocator,
             ImgDesc::color_attachment_2d(width, height, ash::vk::Format::R8G8B8A8_UNORM)
@@ -59,7 +60,7 @@ impl PassData {
             Some("RenderTarget"),
             None,
         )?);
-        let image_view = Arc::new(image.view(&ctx.device, image.view_all())?);
+        let image_view = Arc::new(image.share().view(image.view_all())?);
 
         let push_constant = Arc::new(Mutex::new(PushConstant::new(
             PushConst {
@@ -202,8 +203,8 @@ impl PassData {
             //Since this is the record for first time submit:
             //Move the attachment image and the swapchain image from undefined to shader_write / transfer_dst
             recorder.record({
-                let image = self.image.clone();
                 let swimg = swapchain_image.image.clone();
+                let image = self.image.share();
 
                 move |dev, cmd| unsafe {
                     dev.cmd_pipeline_barrier(
@@ -257,7 +258,7 @@ impl PassData {
 
         //Issue a barrier to wait for the compute shader and move the images to transfer src/dst
         recorder.record({
-            let img = self.image.clone();
+            let img = self.image.share();
             let swimg = swapchain_image.image.clone();
             move |dev, cmd| unsafe {
                 dev.cmd_pipeline_barrier(
@@ -294,7 +295,7 @@ impl PassData {
 
         //now blit to the swapchain image
         recorder.record({
-            let img = self.image.clone();
+            let img = self.image.share();
             let swimg = swapchain_image.image.clone();
             move |dev, cmd| unsafe {
                 dev.cmd_blit_image(
@@ -332,7 +333,7 @@ impl PassData {
 
         //finally move swapchain image back to present and compute image back to general
         recorder.record({
-            let img = self.image.clone();
+            let img = self.image.share();
             let swimg = swapchain_image.image.clone();
             move |dev, cmd| unsafe {
                 dev.cmd_pipeline_barrier(

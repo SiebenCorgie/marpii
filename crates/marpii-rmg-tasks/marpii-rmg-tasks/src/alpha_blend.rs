@@ -2,7 +2,7 @@ use marpii::{
     ash::vk,
     resources::{ComputePipeline, PushConstant, ShaderModule},
     util::FormatType,
-    MarpiiError,
+    MarpiiError, OoS,
 };
 use marpii_rmg::{ImageHandle, Rmg, Task};
 use marpii_rmg_task_shared::{AlphaBlendPush, ResourceHandle};
@@ -100,8 +100,13 @@ impl AlphaBlend {
         //No additional descriptors for us
         let layout = rmg.resources().bindless_layout();
         let pipeline = Arc::new(
-            ComputePipeline::new(&rmg.ctx.device, &shader_stage, None, layout)
-                .map_err(|e| MarpiiError::from(e))?,
+            ComputePipeline::new(
+                &rmg.ctx.device,
+                &shader_stage,
+                None,
+                OoS::new_shared(layout),
+            )
+            .map_err(|e| MarpiiError::from(e))?,
         );
 
         Ok(AlphaBlend {

@@ -1,4 +1,5 @@
 use ash::vk::{self, SamplerCreateInfoBuilder};
+use oos::OoS;
 
 use crate::{
     allocator::{Allocation, Allocator, AnonymAllocation, ManagedAllocation, MemoryUsage},
@@ -127,7 +128,8 @@ pub struct ImageView {
     pub desc: ImgViewDesc,
     pub device: Arc<crate::context::Device>,
     pub view: ash::vk::ImageView,
-    pub src_img: Arc<Image>,
+    ///Original image this view is based on.
+    pub src_img: OoS<Image>,
 }
 
 impl Drop for ImageView {
@@ -495,22 +497,39 @@ impl Image {
 ///If implemented, creates a self managing image view that keeps its source image and device alive long enough
 /// to destroy the inner view when dropped.
 pub trait SafeImageView {
-    fn view(&self, device: &Arc<Device>, desc: ImgViewDesc) -> Result<ImageView, DeviceError>;
+    fn view(self, desc: ImgViewDesc) -> Result<ImageView, DeviceError>;
 }
 
-impl SafeImageView for Arc<Image> {
+impl SafeImageView for Image {
     ///Creates an image view for this image based on the based `desc`.
-    fn view(&self, device: &Arc<Device>, desc: ImgViewDesc) -> Result<ImageView, DeviceError> {
+    fn view(self, desc: ImgViewDesc) -> Result<ImageView, DeviceError> {
         let mut builder = ash::vk::ImageViewCreateInfo::builder().image(self.inner);
         builder = desc.set_on_builder(builder);
 
-        let view = unsafe { device.inner.create_image_view(&builder, None)? };
+        let view = unsafe { self.device.inner.create_image_view(&builder, None)? };
 
         Ok(ImageView {
             desc,
-            device: device.clone(),
+            device: self.device.clone(),
             view,
-            src_img: self.clone(),
+            src_img: OoS::new(self),
+        })
+    }
+}
+
+impl SafeImageView for OoS<Image> {
+    ///Creates an image view for this image based on the based `desc`.
+    fn view(self, desc: ImgViewDesc) -> Result<ImageView, DeviceError> {
+        let mut builder = ash::vk::ImageViewCreateInfo::builder().image(self.inner);
+        builder = desc.set_on_builder(builder);
+
+        let view = unsafe { self.device.inner.create_image_view(&builder, None)? };
+
+        Ok(ImageView {
+            desc,
+            device: self.device.clone(),
+            view,
+            src_img: self,
         })
     }
 }

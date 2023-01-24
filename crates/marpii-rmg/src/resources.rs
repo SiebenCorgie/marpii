@@ -5,7 +5,7 @@ use marpii::{
     resources::{
         BufDesc, Buffer, BufferMapError, Image, ImgDesc, PipelineLayout, SafeImageView, Sampler,
     },
-    MarpiiError,
+    MarpiiError, OoS,
 };
 use slotmap::SlotMap;
 use std::{marker::PhantomData, sync::Arc};
@@ -149,15 +149,22 @@ impl Resources {
 
     ///Adds an image, assuming it is uninitialised. If the image is initialised, owned by a queue or similar,
     /// use the [import](crate::Rmg::new_image_uninitialized) function instead.
-    pub fn add_image(&mut self, image: Arc<Image>) -> Result<ImageHandle, ResourceError> {
+    pub fn add_image(
+        &mut self,
+        image: impl Into<OoS<Image>>,
+    ) -> Result<ImageHandle, ResourceError> {
+        //always convert into arc since rmg is using arcs everywhere incl.
+        // the garbage collector
+        let mut image: OoS<Image> = image.into();
+        let image_arc: Arc<Image> = image.share().shared_arc();
         let image_view_desc = image.view_all();
         let image_view = Arc::new(
             image
-                .view(&image.device, image_view_desc)
+                .view(image_view_desc)
                 .map_err(|e| ResourceError::MarpiiError(e.into()))?,
         );
         let key = self.images.insert(ResImage {
-            image: image.clone(),
+            image: image_arc.clone(),
             view: image_view,
             ownership: QueueOwnership::Uninitialized,
             mask: vk::AccessFlags2::empty(),
@@ -166,7 +173,10 @@ impl Resources {
             descriptor_handle: None,
         });
 
-        Ok(ImageHandle { key, imgref: image })
+        Ok(ImageHandle {
+            key,
+            imgref: image_arc,
+        })
     }
 
     pub fn add_sampler(&mut self, sampler: Arc<Sampler>) -> Result<SamplerHandle, ResourceError> {
@@ -248,7 +258,7 @@ impl Resources {
     pub(crate) fn import_image(
         &mut self,
         tracks: &Tracks,
-        image: Arc<Image>,
+        image: impl Into<OoS<Image>>,
         queue_family: Option<u32>,
         layout: Option<vk::ImageLayout>,
         access_flags: Option<vk::AccessFlags2>,
@@ -273,15 +283,17 @@ impl Resources {
         let access = access_flags.unwrap_or(vk::AccessFlags2::NONE);
         let layout = layout.unwrap_or(vk::ImageLayout::UNDEFINED);
 
-        let image_view_desc = image.view_all();
+        let mut image = image.into();
+        let image_arc = image.share().shared_arc();
+        let image_view_desc = image.share().view_all();
         let view = Arc::new(
             image
-                .view(&image.device, image_view_desc)
+                .view(image_view_desc)
                 .map_err(|e| ResourceError::MarpiiError(e.into()))?,
         );
 
         let key = self.images.insert(ResImage {
-            image: image.clone(),
+            image: image_arc.clone(),
             view,
             ownership: owner,
             mask: access,
@@ -290,7 +302,10 @@ impl Resources {
             descriptor_handle: None,
         });
 
-        Ok(ImageHandle { key, imgref: image })
+        Ok(ImageHandle {
+            key,
+            imgref: image_arc,
+        })
     }
 
     ///Tries to get the resource's bindless handle. If not already bound, tries to bind the resource

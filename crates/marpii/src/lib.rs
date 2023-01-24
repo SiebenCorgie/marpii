@@ -20,6 +20,8 @@ pub use gpu_allocator;
 #[cfg(feature = "bytemuck")]
 pub use bytemuck;
 
+pub use oos::OoS;
+
 ///Allocator related details. MarpII allows for custom allocators (usually the `A` parameter on the [Context](context::Ctx)).
 pub mod allocator;
 

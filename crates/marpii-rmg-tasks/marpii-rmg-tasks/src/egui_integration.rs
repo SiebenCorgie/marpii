@@ -24,7 +24,7 @@ use marpii::{
         BufDesc, GraphicsPipeline, ImageType, ImgDesc, PipelineLayout, PushConstant, ShaderModule,
         ShaderStage,
     },
-    util::OoS,
+    OoS,
 };
 use marpii_rmg::recorder::task::MetaTask;
 use marpii_rmg::{BufferHandle, ImageHandle, Rmg, RmgError, SamplerHandle, Task};
@@ -471,7 +471,7 @@ impl EGuiTask {
         let pipeline = Arc::new(
             Self::pipeline(
                 &rmg.ctx.device,
-                layout,
+                OoS::new_shared(layout),
                 &[vertex_shader_stage, fragment_shader_stage],
                 &[target_format],
             )

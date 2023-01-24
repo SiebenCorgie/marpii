@@ -1,5 +1,4 @@
 use ash::vk;
-use std::{ops::Deref, sync::Arc};
 
 ///Converts a [Extent3D](ash::vk::Extent3D) to an offset. Needed for instance to convert
 /// an image's extent to the offset parameter for image-blit or copy operations.
@@ -378,77 +377,5 @@ pub fn is_srgb(format: vk::Format) -> bool {
         | vk::Format::ETC2_R8G8B8A1_SRGB_BLOCK
         | vk::Format::ETC2_R8G8B8A8_SRGB_BLOCK => true,
         _ => false,
-    }
-}
-
-///Helper that allows either owning, or sharing data (Owned-or-Shared).
-/// Used interally by structures that own some allocated data that could possibly
-/// be used by something else simultaneously. This is mostly Pipeline and DescriptorSetLayouts.
-///
-/// Note that any data inside is strictly immutable.
-pub struct OoS<T: 'static> {
-    inner: Option<OwendOrShared<T>>,
-}
-
-//Helper for take op
-enum OwendOrShared<T: 'static> {
-    Owned(T),
-    Shared(Arc<T>),
-}
-
-impl<T: 'static> OoS<T> {
-    pub fn is_shared(&self) -> bool {
-        if let OwendOrShared::Shared(_) = self.inner.as_ref().unwrap() {
-            true
-        } else {
-            false
-        }
-    }
-    ///Clones if already shared, otherwise transforms self into shared and clones the Arc.
-    pub fn share(&mut self) -> Self {
-        if !self.is_shared() {
-            if let Some(OwendOrShared::Owned(o)) = self.inner.take() {
-                self.inner = Some(OwendOrShared::Shared(Arc::new(o)));
-            } else {
-                //Can't happen because we checked above. Anyways we never want to fail silently.
-                panic!("OoW was corrupted, this is a bug, please report");
-            }
-        }
-
-        //sure that we are sharing, clone now
-        if let Some(OwendOrShared::Shared(arc)) = &self.inner {
-            return Self {
-                inner: Some(OwendOrShared::Shared(arc.clone())),
-            };
-        } else {
-            //Can't happen because we checked above. Anyways we never want to fail silently.
-            panic!("OoW was corrupted, this is a bug, please report");
-        }
-    }
-}
-
-impl<T: 'static> From<T> for OoS<T> {
-    fn from(t: T) -> Self {
-        OoS {
-            inner: Some(OwendOrShared::Owned(t)),
-        }
-    }
-}
-
-impl<T: 'static> From<Arc<T>> for OoS<T> {
-    fn from(t: Arc<T>) -> Self {
-        OoS {
-            inner: Some(OwendOrShared::Shared(t)),
-        }
-    }
-}
-
-impl<T> Deref for OoS<T> {
-    type Target = T;
-    fn deref(&self) -> &Self::Target {
-        match self.inner.as_ref().unwrap() {
-            OwendOrShared::Owned(t) => t,
-            OwendOrShared::Shared(t) => t.deref(),
-        }
     }
 }

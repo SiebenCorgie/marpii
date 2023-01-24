@@ -32,6 +32,7 @@ thiserror.workspace = true
 const-cstr = "0.3"
 ahash.workspace = true
 tinyvec.workspace = true
+oos.workspace = true
 
 gpu-allocator = {git = "https://github.com/SiebenCorgie/gpu-allocator.git", branch = "feature-expose-memory-properties", optional = true}
 log = {workspace = true, optional=true}

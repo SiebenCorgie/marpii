@@ -8,7 +8,7 @@ use marpii::{
         BufDesc, GraphicsPipeline, Image, ImageType, ImgDesc, PipelineLayout, PushConstant,
         ShaderModule, ShaderStage,
     },
-    util::OoS,
+    OoS,
 };
 use marpii_rmg::{
     BufferHandle, CtxRmg, ImageHandle, RecordError, ResourceRegistry, Resources, Rmg, RmgError,
@@ -162,7 +162,7 @@ impl ForwardPass {
         let pipeline = Arc::new(
             Self::forward_pipeline(
                 &rmg.ctx.device,
-                layout,
+                OoS::new_shared(layout),
                 &[vertex_shader_stage, fragment_shader_stage],
                 &[color_format],
                 depth_format,

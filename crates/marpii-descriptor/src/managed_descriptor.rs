@@ -10,7 +10,7 @@ use marpii::{
         Buffer, DescriptorAllocator, DescriptorSet, DescriptorSetLayout, Image, ImageView,
         SafeImageView, Sampler,
     },
-    DescriptorError,
+    DescriptorError, OoS,
 };
 
 pub enum BindingError {
@@ -94,8 +94,9 @@ impl Binding {
         }
     }
 
-    pub fn new_whole_image(image: Arc<Image>, layout: ash::vk::ImageLayout) -> Self {
-        let view = image.view(&image.device, image.view_all()).unwrap();
+    pub fn new_whole_image(image: OoS<Image>, layout: ash::vk::ImageLayout) -> Self {
+        let view_info = image.view_all();
+        let view = image.view(view_info).unwrap();
         Self::new_image(Arc::new(view), layout)
     }
 
@@ -113,11 +114,12 @@ impl Binding {
     }
 
     pub fn new_whole_sampled_image(
-        image: Arc<Image>,
+        image: OoS<Image>,
         layout: ash::vk::ImageLayout,
         sampler: Arc<Sampler>,
     ) -> Self {
-        let view = image.view(&image.device, image.view_all()).unwrap();
+        let view_info = image.view_all();
+        let view = image.view(view_info).unwrap();
         Self::new_sampled_image(Arc::new(view), layout, sampler)
     }
 
