@@ -20,7 +20,7 @@ use marpii::{
         Buffer, DescriptorPool, DescriptorSet, DescriptorSetLayout, ImageView, PipelineLayout,
         Sampler,
     },
-    DescriptorError, DeviceError, MarpiiError,
+    DescriptorError, DeviceError, MarpiiError, OoS,
 };
 use std::{collections::VecDeque, fmt::Debug, sync::Arc};
 
@@ -39,7 +39,7 @@ struct SetManager<T> {
 
     ty: vk::DescriptorType,
     layout: DescriptorSetLayout,
-    descriptor_set: Arc<DescriptorSet<Arc<DescriptorPool>>>,
+    descriptor_set: Arc<DescriptorSet>,
 }
 
 impl<T> Debug for SetManager<T> {
@@ -88,7 +88,7 @@ impl<T> SetManager<T> {
 
     fn new(
         device: &Arc<Device>,
-        pool: &Arc<DescriptorPool>,
+        pool: OoS<DescriptorPool>,
         ty: vk::DescriptorType,
         max_count: u32,
         //binding_id: u32,
@@ -157,7 +157,7 @@ impl<T> SetManager<T> {
             descriptor_set.len()
         );
         let descriptor_set = DescriptorSet {
-            parent_pool: pool.clone(),
+            parent_pool: pool,
             is_freed: false,
             inner: descriptor_set.remove(0),
         };
@@ -397,7 +397,7 @@ impl Bindless {
             },
         ];
 
-        let desc_pool = Arc::new(DescriptorPool::new(
+        let mut desc_pool = OoS::new(DescriptorPool::new(
             device,
             vk::DescriptorPoolCreateFlags::UPDATE_AFTER_BIND
                 | vk::DescriptorPoolCreateFlags::FREE_DESCRIPTOR_SET,
@@ -419,29 +419,33 @@ impl Bindless {
 
         let saimage = SetManager::new(
             device,
-            &desc_pool,
+            desc_pool.share(),
             vk::DescriptorType::SAMPLED_IMAGE,
             max_sampled_image,
         )?;
         let stimage = SetManager::new(
             device,
-            &desc_pool,
+            desc_pool.share(),
             vk::DescriptorType::STORAGE_IMAGE,
             max_storage_image,
         )?;
         let stbuffer = SetManager::new(
             device,
-            &desc_pool,
+            desc_pool.share(),
             vk::DescriptorType::STORAGE_BUFFER,
             max_storage_buffer,
         )?;
-        let sampler =
-            SetManager::new(device, &desc_pool, vk::DescriptorType::SAMPLER, max_sampler)?;
+        let sampler = SetManager::new(
+            device,
+            desc_pool.share(),
+            vk::DescriptorType::SAMPLER,
+            max_sampler,
+        )?;
 
         #[cfg(feature = "ray-tracing")]
         let accel = SetManager::new(
             device,
-            &desc_pool,
+            desc_pool.share(),
             vk::DescriptorType::ACCELERATION_STRUCTURE_KHR,
             max_acceleration_structure,
         )?;
@@ -643,9 +647,7 @@ impl Bindless {
     }
 
     #[allow(dead_code)]
-    pub fn clone_descriptor_sets(
-        &self,
-    ) -> [Arc<DescriptorSet<Arc<DescriptorPool>>>; Self::NUM_SETS as usize] {
+    pub fn clone_descriptor_sets(&self) -> [Arc<DescriptorSet>; Self::NUM_SETS as usize] {
         [
             self.stbuffer.descriptor_set.clone(),
             self.stimage.descriptor_set.clone(),

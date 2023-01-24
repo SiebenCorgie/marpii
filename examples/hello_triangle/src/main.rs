@@ -38,7 +38,7 @@ struct PassData {
 
     command_buffer: ManagedCommands,
 
-    descriptor_set: Arc<ManagedDescriptorSet<DescriptorPool>>,
+    descriptor_set: Arc<ManagedDescriptorSet>,
 
     pipeline: Arc<ComputePipeline>,
     push_constant: Arc<Mutex<PushConstant<PushConst>>>,
@@ -87,7 +87,7 @@ impl PassData {
 
             let set = ManagedDescriptorSet::new(
                 &ctx.device,
-                pool,
+                pool.into(),
                 [Binding::new_image(
                     image_view,
                     ash::vk::ImageLayout::GENERAL,
