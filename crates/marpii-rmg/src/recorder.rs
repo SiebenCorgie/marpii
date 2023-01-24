@@ -5,14 +5,10 @@ pub mod task;
 pub(crate) mod task_executor;
 pub(crate) mod task_scheduler;
 
-use std::{fmt::Debug, sync::Arc};
+use std::fmt::Debug;
 
 use crate::{resources::handle::AnyHandle, track::Guard, ResourceError, Rmg, Task};
-use marpii::{
-    ash::vk,
-    resources::{CommandBuffer, CommandPool},
-    MarpiiError,
-};
+use marpii::{ash::vk, resources::CommandBuffer, MarpiiError};
 use std::any::Any;
 use thiserror::Error;
 
@@ -66,7 +62,7 @@ pub struct Execution {
     pub(crate) resources: Vec<Box<dyn Any + Send>>,
     ///The command buffer that is executed
     #[allow(dead_code)]
-    pub(crate) command_buffer: CommandBuffer<Arc<CommandPool>>,
+    pub(crate) command_buffer: CommandBuffer,
     ///Until when it is guarded.
     pub(crate) guard: Guard,
 }

@@ -3,7 +3,7 @@ use marpii::{
     ash::vk::{self, BufferImageCopy},
     context::{Device, Queue},
     resources::{Buffer, CommandBufferAllocator, CommandPool, Image, ImgDesc, SharingMode},
-    CommandBufferError, MarpiiError,
+    CommandBufferError, MarpiiError, OoS,
 };
 use std::sync::{Arc, Mutex};
 
@@ -42,7 +42,7 @@ pub fn image_from_data<A: Allocator + Send + Sync + 'static>(
     )?;
     let image_subresource = image.subresource_layers_all();
     //now schedule CB that uploads the image
-    let command_pool = Arc::new(CommandPool::new(
+    let command_pool = OoS::new(CommandPool::new(
         device,
         upload_queue.family_index,
         vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER,

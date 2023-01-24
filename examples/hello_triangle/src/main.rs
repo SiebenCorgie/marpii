@@ -126,7 +126,7 @@ impl PassData {
             )?;
 
             let command_buffer =
-                Arc::new(command_pool).allocate_buffer(ash::vk::CommandBufferLevel::PRIMARY)?;
+                OoS::new(command_pool).allocate_buffer(ash::vk::CommandBufferLevel::PRIMARY)?;
 
             ManagedCommands::new(&ctx.device, command_buffer)?
         };

@@ -6,7 +6,7 @@ use marpii::{
     },
     context::{Device, Queue},
     resources::{BufDesc, Buffer, CommandBufferAllocator, CommandPool, SharingMode},
-    CommandBufferError, MarpiiError,
+    CommandBufferError, MarpiiError, OoS,
 };
 use std::sync::{Arc, Mutex};
 
@@ -48,7 +48,7 @@ pub fn buffer_from_data<A: Allocator + Send + Sync + 'static, T: marpii::bytemuc
     let transfer_buffer =
         Buffer::new_staging_for_data(device, allocator, Some("StagingBuffer"), data)?;
 
-    let command_pool = Arc::new(CommandPool::new(
+    let command_pool = OoS::new(CommandPool::new(
         device,
         upload_queue.family_index,
         CommandPoolCreateFlags::RESET_COMMAND_BUFFER,

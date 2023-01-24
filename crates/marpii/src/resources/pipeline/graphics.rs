@@ -35,7 +35,7 @@ impl Drop for RenderPass {
 
 ///Pipeline that manages its own lifetime and keeps resources alive needed for its correct execution.
 ///
-/// Note that marpii preferes the [dynamic-rendering](https://lesleylai.info/en/vk-khr-dynamic-rendering/) based graphics pipeline creation. Therefore `renderpass` will usually be None.
+/// Note that marpii prefers the [dynamic-rendering](https://lesleylai.info/en/vk-khr-dynamic-rendering/) based graphics pipeline creation. Therefore `renderpass` will usually be None.
 pub struct GraphicsPipeline {
     pub device: Arc<Device>,
     pub pipeline: ash::vk::Pipeline,

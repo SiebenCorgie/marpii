@@ -4,6 +4,7 @@ use marpii::{
     context::Device,
     resources::{CommandBuffer, CommandBufferAllocator, CommandPool},
     sync::Semaphore,
+    OoS,
 };
 use std::{fmt::Display, sync::Arc};
 
@@ -72,7 +73,7 @@ pub(crate) struct Track {
     pub(crate) flags: vk::QueueFlags,
     pub(crate) sem: Arc<Semaphore>,
 
-    pub(crate) command_buffer_pool: Arc<CommandPool>,
+    pub(crate) command_buffer_pool: OoS<CommandPool>,
     pub(crate) inflight_executions: Vec<Execution>,
 
     //Latest known value that is going to be signaled eventually.
@@ -88,7 +89,7 @@ impl Track {
             queue_idx,
             flags,
             sem,
-            command_buffer_pool: Arc::new(
+            command_buffer_pool: OoS::new(
                 CommandPool::new(
                     device,
                     queue_idx,
@@ -134,10 +135,10 @@ impl Track {
         self.inflight_executions.clear();
     }
 
-    pub fn new_command_buffer(&mut self) -> Result<CommandBuffer<Arc<CommandPool>>, RecordError> {
+    pub fn new_command_buffer(&mut self) -> Result<CommandBuffer, RecordError> {
         let cb = self
             .command_buffer_pool
-            .clone()
+            .share()
             .allocate_buffer(vk::CommandBufferLevel::PRIMARY)
             .map_err(|e| RecordError::MarpiiError(e.into()))?;
 

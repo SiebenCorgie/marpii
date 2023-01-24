@@ -1,5 +1,7 @@
 use std::sync::Arc;
 
+use oos::OoS;
+
 use crate::{context::Device, error::CommandBufferError};
 
 pub struct CommandPool {
@@ -42,7 +44,7 @@ impl Drop for CommandPool {
     }
 }
 
-impl CommandBufferAllocator for CommandPool {
+impl CommandBufferAllocator for OoS<CommandPool> {
     fn reset(
         &self,
         command_buffer: &ash::vk::CommandBuffer,
@@ -67,67 +69,10 @@ impl CommandBufferAllocator for CommandPool {
     fn allocate_buffer(
         self,
         level: ash::vk::CommandBufferLevel,
-    ) -> Result<CommandBuffer<Self>, CommandBufferError>
+    ) -> Result<CommandBuffer, CommandBufferError>
     where
         Self: Sized,
     {
-        let mut buffer = unsafe {
-            self.device.inner.allocate_command_buffers(
-                &ash::vk::CommandBufferAllocateInfo::builder()
-                    .command_pool(self.inner)
-                    .command_buffer_count(1)
-                    .level(level),
-            )?
-        };
-
-        if buffer.len() == 0 {
-            return Err(CommandBufferError::FailedToAllocate {
-                allocated: 0,
-                count: 1,
-            });
-        }
-
-        #[cfg(feature = "logging")]
-        if buffer.len() > 1 {
-            log::warn!(
-                "Allocated too many command buffer, expected 1, got {}",
-                buffer.len()
-            )
-        }
-
-        let buffer = buffer.remove(0);
-
-        Ok(CommandBuffer {
-            pool: self,
-            inner: buffer,
-        })
-    }
-
-    fn device(&self) -> &ash::Device {
-        &self.device.inner
-    }
-    fn raw(&self) -> &ash::vk::CommandPool {
-        &self.inner
-    }
-}
-
-//FIXME: Currently reimplementing for non-Arc version, unify that..
-impl CommandBufferAllocator for Arc<CommandPool> {
-    fn reset(
-        &self,
-        command_buffer: &ash::vk::CommandBuffer,
-        release_resources: bool,
-    ) -> Result<(), CommandBufferError> {
-        self.as_ref().reset(command_buffer, release_resources)
-    }
-    fn allocate_buffer(
-        self,
-        level: ash::vk::CommandBufferLevel,
-    ) -> Result<CommandBuffer<Self>, CommandBufferError>
-    where
-        Self: Sized,
-    {
-        //Custom implementation that moves self into the command buffer
         let mut buffer = unsafe {
             self.device.inner.allocate_command_buffers(
                 &ash::vk::CommandBufferAllocateInfo::builder()
@@ -184,7 +129,7 @@ pub trait CommandBufferAllocator {
     fn allocate_buffer(
         self,
         level: ash::vk::CommandBufferLevel,
-    ) -> Result<CommandBuffer<Self>, CommandBufferError>
+    ) -> Result<CommandBuffer, CommandBufferError>
     where
         Self: Sized;
     ///Allocates multiple command buffers at once. If it fails the error, and all successfuly allocated buffers are returned.
@@ -194,7 +139,7 @@ pub trait CommandBufferAllocator {
         self,
         level: ash::vk::CommandBufferLevel,
         count: u32,
-    ) -> Result<Vec<CommandBuffer<Self>>, (CommandBufferError, Vec<CommandBuffer<Self>>)>
+    ) -> Result<Vec<CommandBuffer>, (CommandBufferError, Vec<CommandBuffer>)>
     where
         Self: Sized + Clone,
     {
@@ -220,20 +165,20 @@ pub trait CommandBufferAllocator {
     fn raw(&self) -> &ash::vk::CommandPool;
 }
 
-pub struct CommandBuffer<P: CommandBufferAllocator> {
+pub struct CommandBuffer {
     ///Pool this command buffer was created from. Used for reset operations, and freeing on drop.
-    pub pool: P,
+    pub pool: OoS<CommandPool>,
     ///the raw vulkan handle
     pub inner: ash::vk::CommandBuffer,
 }
 
-impl<P: CommandBufferAllocator> CommandBuffer<P> {
+impl CommandBuffer {
     pub fn reset(&mut self, release_resources: bool) -> Result<(), CommandBufferError> {
         self.pool.reset(&self.inner, release_resources)
     }
 }
 
-impl<P: CommandBufferAllocator> Drop for CommandBuffer<P> {
+impl Drop for CommandBuffer {
     fn drop(&mut self) {
         unsafe {
             self.pool

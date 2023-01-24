@@ -5,7 +5,6 @@ use std::{
 
 use marpii::{
     ash::{self, vk},
-    resources::CommandPool,
     swapchain::{Swapchain, SwapchainImage},
     sync::BinarySemaphore,
     CommandBufferError,
@@ -49,7 +48,7 @@ impl Signal {
 /// Note that this opinionated on the command buffer pool type.
 pub struct ManagedCommands {
     ///Assosiated command buffer
-    pub inner: CommandBuffer<Arc<CommandPool>>,
+    pub inner: CommandBuffer,
     ///All resources needed for the current `inner` command buffer to be valid.
     pub resources: Vec<Captured>,
 
@@ -64,7 +63,7 @@ impl ManagedCommands {
     /// [Recorder] creation fails.
     pub fn new(
         device: &Arc<Device>,
-        command_buffer: CommandBuffer<Arc<CommandPool>>,
+        command_buffer: CommandBuffer,
     ) -> Result<Self, CommandBufferError> {
         Ok(ManagedCommands {
             inner: command_buffer,
