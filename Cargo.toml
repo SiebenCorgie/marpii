@@ -31,3 +31,4 @@ anyhow = "1.0.56"
 thiserror = "1.0"
 tinyvec = {version = "1.6.0", features = ["alloc"]}
 simple_logger = "4"
+oos = {git = "https://gitlab.com/tendsinmende/oos.git"}

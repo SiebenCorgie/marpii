@@ -1,6 +1,7 @@
 use marpii::{
     ash::vk,
     resources::{ComputePipeline, ImgDesc, PushConstant, ShaderModule},
+    OoS,
 };
 use marpii_rmg::{BufferHandle, ImageHandle, RecordError, Rmg, RmgError, Task};
 use shared::{ResourceHandle, SimObj};
@@ -44,8 +45,13 @@ impl Simulation {
         //No additional descriptors for us
         let layout = rmg.resources().bindless_layout();
         let pipeline = Arc::new(
-            ComputePipeline::new(&rmg.ctx.device, &shader_stage, None, layout)
-                .map_err(|e| RecordError::MarpiiError(e.into()))?,
+            ComputePipeline::new(
+                &rmg.ctx.device,
+                &shader_stage,
+                None,
+                OoS::new_shared(layout),
+            )
+            .map_err(|e| RecordError::MarpiiError(e.into()))?,
         );
 
         let feedback_image = rmg.new_image_uninitialized(

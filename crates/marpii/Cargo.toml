@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [features]
 
-default = ["default_allocator", "logging", "shader_reflection", "shader_reflection_verbose", "bytemuck"]
+default = ["default_allocator", "logging", "bytemuck"]
 # if enabled, includes the default allocator implementation based
 # on TraverseResearche's gpu-allocator crate
 default_allocator = ["gpu-allocator"]
@@ -32,6 +32,7 @@ thiserror.workspace = true
 const-cstr = "0.3"
 ahash.workspace = true
 tinyvec.workspace = true
+oos.workspace = true
 
 gpu-allocator = {git = "https://github.com/SiebenCorgie/gpu-allocator.git", branch = "feature-expose-memory-properties", optional = true}
 log = {workspace = true, optional=true}

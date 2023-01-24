@@ -311,3 +311,15 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
         ))
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use static_assertions::assert_impl_all;
+
+    #[test]
+    fn impl_send_sync() {
+        assert_impl_all!(Ctx<gpu_allocator::vulkan::Allocator>: Send, Sync);
+        assert_impl_all!(Device: Send, Sync);
+    }
+}

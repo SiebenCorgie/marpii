@@ -4,6 +4,7 @@ use marpii_rmg::{ImageHandle, Task};
 ///Blits `N` a regions of one image to another. Always blits all subresource layers.
 pub struct ImageBlit<const N: usize> {
     pub blits: [(ImageRegion, ImageRegion); N],
+    pub filter: vk::Filter,
     pub src: ImageHandle,
     pub dst: ImageHandle,
 }
@@ -12,6 +13,7 @@ impl ImageBlit<0> {
     pub fn new(src: ImageHandle, dst: ImageHandle) -> Self {
         ImageBlit {
             blits: [],
+            filter: vk::Filter::LINEAR,
             src,
             dst,
         }
@@ -26,9 +28,15 @@ impl<const N: usize> ImageBlit<N> {
     ) -> ImageBlit<M> {
         ImageBlit {
             blits: blit_regions,
+            filter: vk::Filter::LINEAR,
             src: self.src,
             dst: self.dst,
         }
+    }
+
+    pub fn with_filter(mut self, filter: vk::Filter) -> Self {
+        self.filter = filter;
+        self
     }
 }
 
@@ -85,7 +93,7 @@ impl<const N: usize> Task for ImageBlit<N> {
             .src_image_layout(vk::ImageLayout::TRANSFER_SRC_OPTIMAL)
             .dst_image(dst_image.image.inner)
             .dst_image_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
-            .filter(vk::Filter::LINEAR)
+            .filter(self.filter)
             .regions(&regions);
 
         unsafe {

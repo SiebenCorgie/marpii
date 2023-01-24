@@ -5,7 +5,7 @@ use crate::ash::vk;
 use crate::context::Device;
 use crate::error::PipelineError;
 use crate::resources::ShaderStage;
-use crate::util::OoS;
+use oos::OoS;
 
 ///Renderpass describing the order of shader invocation. Note that this is only a thin wrapper over the creation and destruction process. If possible try to use the dnamic_rendering extension which
 /// integrates much better with marpii.
@@ -35,7 +35,7 @@ impl Drop for RenderPass {
 
 ///Pipeline that manages its own lifetime and keeps resources alive needed for its correct execution.
 ///
-/// Note that marpii preferes the [dynamic-rendering](https://lesleylai.info/en/vk-khr-dynamic-rendering/) based graphics pipeline creation. Therefore `renderpass` will usually be None.
+/// Note that marpii prefers the [dynamic-rendering](https://lesleylai.info/en/vk-khr-dynamic-rendering/) based graphics pipeline creation. Therefore `renderpass` will usually be None.
 pub struct GraphicsPipeline {
     pub device: Arc<Device>,
     pub pipeline: ash::vk::Pipeline,

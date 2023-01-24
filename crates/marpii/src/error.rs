@@ -41,6 +41,7 @@ pub enum ShaderError {
     FileError(#[from] std::io::Error),
     //FIXME: The actual error is not sendable atm.
     #[cfg_attr(feature = "shader_reflection", error("Reflection error: {0}"))]
+    #[cfg(feature = "shader_reflection")]
     ReflectionError(String),
 }
 

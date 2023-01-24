@@ -7,10 +7,10 @@ use marpii::{
     ash::{self, vk::DescriptorType},
     context::Device,
     resources::{
-        Buffer, DescriptorAllocator, DescriptorSet, DescriptorSetLayout, Image, ImageView,
-        SafeImageView, Sampler,
+        Buffer, DescriptorAllocator, DescriptorPool, DescriptorSet, DescriptorSetLayout, Image,
+        ImageView, SafeImageView, Sampler,
     },
-    DescriptorError,
+    DescriptorError, OoS,
 };
 
 pub enum BindingError {
@@ -94,8 +94,9 @@ impl Binding {
         }
     }
 
-    pub fn new_whole_image(image: Arc<Image>, layout: ash::vk::ImageLayout) -> Self {
-        let view = image.view(&image.device, image.view_all()).unwrap();
+    pub fn new_whole_image(image: OoS<Image>, layout: ash::vk::ImageLayout) -> Self {
+        let view_info = image.view_all();
+        let view = image.view(view_info).unwrap();
         Self::new_image(Arc::new(view), layout)
     }
 
@@ -113,11 +114,12 @@ impl Binding {
     }
 
     pub fn new_whole_sampled_image(
-        image: Arc<Image>,
+        image: OoS<Image>,
         layout: ash::vk::ImageLayout,
         sampler: Arc<Sampler>,
     ) -> Self {
-        let view = image.view(&image.device, image.view_all()).unwrap();
+        let view_info = image.view_all();
+        let view = image.view(view_info).unwrap();
         Self::new_sampled_image(Arc::new(view), layout, sampler)
     }
 
@@ -164,9 +166,9 @@ impl Binding {
 
 ///Wrapps the standard [DescriptorSet](marpii::resources::DescriptorSet) and keeps all resources that have
 /// been written to the set alive.
-pub struct ManagedDescriptorSet<P: DescriptorAllocator> {
+pub struct ManagedDescriptorSet {
     #[allow(dead_code)]
-    inner: DescriptorSet<P>,
+    inner: DescriptorSet,
     ///bound resources
     #[allow(dead_code)]
     bindings: Vec<Binding>,
@@ -175,7 +177,7 @@ pub struct ManagedDescriptorSet<P: DescriptorAllocator> {
     layout: DescriptorSetLayout,
 }
 
-impl<P: DescriptorAllocator> ManagedDescriptorSet<P> {
+impl ManagedDescriptorSet {
     ///creates a descriptorset that binds each item to the descriptor set.
     ///
     /// The binding id is derived from the location of each binding in the iterator.
@@ -186,7 +188,7 @@ impl<P: DescriptorAllocator> ManagedDescriptorSet<P> {
     //TODO: also expose a version where the user can set the binding id?
     pub fn new(
         device: &Arc<Device>,
-        pool: P,
+        pool: OoS<DescriptorPool>,
         layout: impl IntoIterator<Item = Binding>,
         stages: ash::vk::ShaderStageFlags,
     ) -> Result<Self, DescriptorError> {

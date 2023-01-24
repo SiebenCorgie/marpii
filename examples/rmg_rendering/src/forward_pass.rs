@@ -8,7 +8,7 @@ use marpii::{
         BufDesc, GraphicsPipeline, Image, ImageType, ImgDesc, PipelineLayout, PushConstant,
         ShaderModule, ShaderStage,
     },
-    util::OoS,
+    OoS,
 };
 use marpii_rmg::{
     BufferHandle, CtxRmg, ImageHandle, RecordError, ResourceRegistry, Resources, Rmg, RmgError,
@@ -142,19 +142,18 @@ impl ForwardPass {
         //No additional descriptors for us
         let layout = rmg.resources().bindless_layout();
 
-        let shader_module_vert =
-            Arc::new(ShaderModule::new_from_bytes(&rmg.ctx.device, SHADER_VS).unwrap());
+        let shader_module_vert = ShaderModule::new_from_bytes(&rmg.ctx.device, SHADER_VS).unwrap();
 
-        let shader_module_frag =
-            Arc::new(ShaderModule::new_from_bytes(&rmg.ctx.device, SHADER_FS).unwrap());
-        let vertex_shader_stage = ShaderStage::from_shared_module(
-            shader_module_vert,
+        let shader_module_frag = ShaderModule::new_from_bytes(&rmg.ctx.device, SHADER_FS).unwrap();
+
+        let vertex_shader_stage = ShaderStage::from_module(
+            shader_module_vert.into(),
             vk::ShaderStageFlags::VERTEX,
             "main".to_owned(),
         );
 
-        let fragment_shader_stage = ShaderStage::from_shared_module(
-            shader_module_frag,
+        let fragment_shader_stage = ShaderStage::from_module(
+            shader_module_frag.into(),
             vk::ShaderStageFlags::FRAGMENT,
             "main".to_owned(),
         );
@@ -162,7 +161,7 @@ impl ForwardPass {
         let pipeline = Arc::new(
             Self::forward_pipeline(
                 &rmg.ctx.device,
-                layout,
+                OoS::new_shared(layout),
                 &[vertex_shader_stage, fragment_shader_stage],
                 &[color_format],
                 depth_format,

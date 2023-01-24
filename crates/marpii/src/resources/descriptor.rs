@@ -1,8 +1,10 @@
 use ahash::AHashMap;
+use oos::OoS;
 
 use crate::{context::Device, error::DescriptorError};
 use std::sync::Arc;
 
+#[cfg(feature = "shader_reflection")]
 use super::ShaderModule;
 
 #[cfg(feature = "shader_reflection")]
@@ -128,29 +130,37 @@ impl DescriptorPool {
         //now we can use the default create function
         Self::new(device, flags, &sizes, count)
     }
+
+    fn free(&self, set: &ash::vk::DescriptorSet) -> Result<(), DescriptorError> {
+        if self.can_free {
+            unsafe {
+                self.device
+                    .inner
+                    .free_descriptor_sets(self.inner, core::slice::from_ref(set))
+                    .map_err(|e| e.into())
+            }
+        } else {
+            Err(DescriptorError::UnFreeable)
+        }
+    }
+
+    fn device(&self) -> &Arc<Device> {
+        &self.device
+    }
 }
 
-///Trait that exposes allocation and freeing capabilities of a descriptor pool implementation. The simplest implementation is the
-/// [DescriptorPool](DescriptorPool). Other implementations might implement self-growth of the pool or other techniques.
 pub trait DescriptorAllocator {
-    ///Tries to allocate a descriptor set of `layout`. Might fail, for instance if no descriptors of a certain type are left.
     fn allocate(
         self,
         layout: &ash::vk::DescriptorSetLayout,
-    ) -> Result<DescriptorSet<Self>, DescriptorError>
-    where
-        Self: Sized;
-    ///Tries to free `set`. Note that `set.inner` becomes invalid by this operation
-    fn free(&self, set: &ash::vk::DescriptorSet) -> Result<(), DescriptorError>;
-    ///provides the device this pool was created on
-    fn device(&self) -> &ash::Device;
+    ) -> Result<DescriptorSet, DescriptorError>;
 }
 
-impl DescriptorAllocator for DescriptorPool {
+impl DescriptorAllocator for OoS<DescriptorPool> {
     fn allocate(
         self,
         layout: &ash::vk::DescriptorSetLayout,
-    ) -> Result<DescriptorSet<Self>, DescriptorError> {
+    ) -> Result<DescriptorSet, DescriptorError> {
         let create_info = ash::vk::DescriptorSetAllocateInfo::builder()
             .descriptor_pool(self.inner)
             .set_layouts(core::slice::from_ref(layout));
@@ -179,94 +189,18 @@ impl DescriptorAllocator for DescriptorPool {
             is_freed: false,
             parent_pool: self,
         })
-    }
-
-    fn free(&self, set: &ash::vk::DescriptorSet) -> Result<(), DescriptorError> {
-        if self.can_free {
-            unsafe {
-                self.device
-                    .inner
-                    .free_descriptor_sets(self.inner, core::slice::from_ref(set))
-                    .map_err(|e| e.into())
-            }
-        } else {
-            Err(DescriptorError::UnFreeable)
-        }
-    }
-
-    fn device(&self) -> &ash::Device {
-        &self.device.inner
-    }
-}
-
-impl DescriptorAllocator for Arc<DescriptorPool> {
-    fn allocate(
-        self,
-        layout: &ash::vk::DescriptorSetLayout,
-    ) -> Result<DescriptorSet<Self>, DescriptorError> {
-        let create_info = ash::vk::DescriptorSetAllocateInfo::builder()
-            .descriptor_pool(self.inner)
-            .set_layouts(core::slice::from_ref(layout));
-
-        let mut sets = unsafe { self.device.inner.allocate_descriptor_sets(&create_info)? };
-
-        if sets.len() == 0 {
-            return Err(DescriptorError::Allocation {
-                requested: 1,
-                count: 0,
-            });
-        }
-
-        #[cfg(feature = "logging")]
-        if sets.len() > 1 {
-            log::warn!(
-                "Allocate too many descriptor sets, expected 1 got {}",
-                sets.len()
-            );
-        }
-
-        let set = sets.remove(0);
-
-        Ok(DescriptorSet {
-            inner: set,
-            is_freed: false,
-            parent_pool: self,
-        })
-    }
-
-    fn free(&self, set: &ash::vk::DescriptorSet) -> Result<(), DescriptorError> {
-        if self.can_free {
-            unsafe {
-                self.device
-                    .inner
-                    .free_descriptor_sets(self.inner, core::slice::from_ref(set))
-                    .map_err(|e| e.into())
-            }
-        } else {
-            Err(DescriptorError::UnFreeable)
-        }
-    }
-
-    fn device(&self) -> &ash::Device {
-        &self.device.inner
     }
 }
 
 ///Simple wrapper around [ash::vk::DescriptorSet](ash::vk::DescriptorSet). On its own it does only implement tracking of it internal `freed` state. If true this means an implementation of [DescriptorAllocator] might have freed `self.inner` at some point.
-pub struct DescriptorSet<P>
-where
-    P: DescriptorAllocator,
-{
+pub struct DescriptorSet {
     ///The pool this set was allocated from. Is used when dropping `self` if the pool implements freeing allocations.
-    pub parent_pool: P,
+    pub parent_pool: OoS<DescriptorPool>,
     pub is_freed: bool,
     pub inner: ash::vk::DescriptorSet,
 }
 
-impl<P> DescriptorSet<P>
-where
-    P: DescriptorAllocator,
-{
+impl DescriptorSet {
     ///Executes the write operation on the descriptor set. Does no checking agains the descriptor sets layout. If validation is
     ///activated this might fail.
     ///
@@ -281,15 +215,13 @@ where
         unsafe {
             self.parent_pool
                 .device()
+                .inner
                 .update_descriptor_sets(core::slice::from_ref(&write), &[])
         }
     }
 }
 
-impl<P> Drop for DescriptorSet<P>
-where
-    P: DescriptorAllocator,
-{
+impl Drop for DescriptorSet {
     fn drop(&mut self) {
         self.is_freed = true;
         if let Err(e) = self.parent_pool.free(&self.inner) {
