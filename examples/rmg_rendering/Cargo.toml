@@ -16,6 +16,6 @@ marpii-descriptor = {path = "../../crates/marpii-descriptor"}
 winit.workspace = true
 log = "*"
 image = "0.24.3"
-glam = "0.22"
-easy-gltf = "0.1.5"
+glam = "0.23"
+easy-gltf = "1.0.0"
 shared = {path = "../shared"}
