@@ -187,8 +187,8 @@ impl Device {
     /// The function assumes that device and queues can be created from the device. No additional checking is done.
     ///
     /// # Safety
-    /// The biggest concern when using this function should be that the queue_families of the `queue_builder` actully exist in that way,
-    /// and that possibly enabled extensions in the `deviec_create_info` exist. Otherwise this either panics or fails, depending on the
+    /// The biggest concern when using this function should be that the queue_families of the `queue_builder` actually exist in that way,
+    /// and that possibly enabled extensions in the `device_create_info` exist. Otherwise this either panics or fails, depending on the
     /// configured validation.
     pub unsafe fn new_from_info(
         instance: Arc<crate::context::Instance>,

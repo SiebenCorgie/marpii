@@ -10,5 +10,5 @@ anyhow.workspace = true
 simple_logger.workspace = true
 marpii = {path = "../../crates/marpii", features=["logging"]}
 marpii-rmg = {path = "../../crates/marpii-rmg"}
-winit = "0.27"
+winit.workspace = true
 log.workspace = true

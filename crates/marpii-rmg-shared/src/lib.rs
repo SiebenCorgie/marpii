@@ -52,6 +52,11 @@ impl ResourceHandle {
         self.handle_type() > Self::TYPE_ACCELERATION_STRUCTURE
     }
 
+    ///Returns true whenever this is a valid handle type. **Don't confuse with [is_invalid]**
+    pub const fn is_valid(&self) -> bool {
+        !self.is_invalid()
+    }
+
     ///Creates a new handle, panics if the type is outside the defined types, or the index exceeds (2^56)-1.
     pub const fn new_unchecked(ty: u8, index: u32) -> Self {
         let bytes = (index << 8) | ty as u32;

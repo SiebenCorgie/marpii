@@ -22,7 +22,7 @@ marpii = {path = "../../crates/marpii"}
 marpii-commands = {path = "../../crates/marpii-commands"}
 marpii-descriptor = {path = "../../crates/marpii-descriptor"}
 marpii-rmg-shared = {path = "../../crates/marpii-rmg-shared", features = ["std"]}
-winit = "0.27"
+winit.workspace = true
 
 log = {workspace = true, optional = true}
 

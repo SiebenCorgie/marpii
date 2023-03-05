@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 log.workspace = true
 simple_logger.workspace = true
-winit = "0.27"
+winit.workspace = true
 anyhow.workspace = true
 
 marpii = {path = "../../crates/marpii", features=["logging"]}

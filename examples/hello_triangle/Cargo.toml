@@ -12,7 +12,7 @@ anyhow.workspace = true
 marpii = {path = "../../crates/marpii", features = ["shader_reflection"]}
 marpii-commands = {path = "../../crates/marpii-commands"}
 marpii-descriptor = {path = "../../crates/marpii-descriptor"}
-winit = "0.27"
+winit.workspace = true
 
 [build-dependencies]
 spirv-builder.workspace = true
