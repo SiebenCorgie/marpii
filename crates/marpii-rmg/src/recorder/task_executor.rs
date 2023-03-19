@@ -899,6 +899,8 @@ impl<'t> Executor<'t> {
             let mut last_use: AHashMap<AnyResKey, usize> = AHashMap::default();
             let track = self.schedule.tracks.get_mut(&trackid).unwrap();
             for node_idx in track.frames[frame_index].iter_indices() {
+                #[cfg(feature = "logging")]
+                log::trace!("Recording Node [{} @ {:?}]", node_idx, trackid);
                 //barrier builder for layout/access/stage transitions
                 let mut trans_barrier = BarrierBuilder::new();
                 //for all dependencies of the currently scheduled node, reverse scan the already scheduled nodes.
@@ -906,19 +908,29 @@ impl<'t> Executor<'t> {
                 // stage (if there was such a thing) would have waited already.
                 for dep in track.nodes[node_idx].dependencies.iter() {
                     if let Some(last_use) = last_use.insert(dep.dep, node_idx) {
+                        #[cfg(feature = "logging")]
+                        log::trace!("    Res[{:?}] was already used in {}", dep.dep, last_use);
                         //get the stage mask this was scheduled before for. Must be some, otherwise the last use wouldn't be set
-                        let src_stage = track.nodes[last_use]
-                            .task
-                            .registry
-                            .get_stage_mask(&dep.dep)
-                            .unwrap();
-                        track.nodes[node_idx].task.registry.add_diff_transition(
-                            rmg,
-                            &mut trans_barrier,
-                            dep.dep,
-                            src_stage,
-                        );
+                        if let Some(src_stage) =
+                            track.nodes[last_use].task.registry.get_stage_mask(&dep.dep)
+                        {
+                            track.nodes[node_idx].task.registry.add_diff_transition(
+                                rmg,
+                                &mut trans_barrier,
+                                dep.dep,
+                                src_stage,
+                            );
+                        } else {
+                            #[cfg(feature = "logging")]
+                            log::trace!(
+                                "    Res[{:?}] has no stage mask, not transitioning.",
+                                dep.dep
+                            );
+                        }
                     } else {
+                        #[cfg(feature = "logging")]
+                        log::trace!("   Unused Res[{:?}], scheduling at {}", dep.dep, node_idx);
+
                         //wasn't used yet. Assume all stage flags and add to last use
                         track.nodes[node_idx].task.registry.add_diff_transition(
                             rmg,

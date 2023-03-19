@@ -14,8 +14,6 @@ use thiserror::Error;
 
 mod dynamic_buffer;
 pub use dynamic_buffer::DynamicBuffer;
-//mod swapchain_blit;
-//pub use swapchain_blit::SwapchainBlit;
 mod swapchain_present;
 pub use swapchain_present::SwapchainPresent;
 mod upload_buffer;

@@ -156,6 +156,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
             .vulkan_memory_model(true);
 
         let features13 = ash::vk::PhysicalDeviceVulkan13Features::builder()
+            .maintenance4(true)
             .dynamic_rendering(true)
             .synchronization2(true);
 
