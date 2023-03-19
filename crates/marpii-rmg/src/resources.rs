@@ -64,6 +64,8 @@ pub enum ResourceError {
     BufferMapError(BufferMapError),
 }
 
+///Rmg's resource management. This bundles all state that outlifes a single frame. Meaning Images, buffers and samplers.
+/// It also caches the bindless resources and takes care that only resources for which no handle exists anymore are retired.
 pub struct Resources {
     pub(crate) bindless: Bindless,
     pub(crate) bindless_layout: Arc<PipelineLayout>,

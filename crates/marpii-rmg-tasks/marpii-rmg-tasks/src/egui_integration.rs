@@ -427,7 +427,7 @@ impl EGuiTask {
         let target_image_property = FormatProperties::parse(target_format);
 
         //Pipeline layout
-        let layout = rmg.resources().bindless_layout();
+        let layout = rmg.resources.bindless_layout();
 
         /*
                 let shader_module_vert =
@@ -698,7 +698,7 @@ impl EGuiTask {
 
                     let texture = match self.data.atlas.get(&mesh.texture_id) {
                         Some(t) => rmg
-                            .resources_mut()
+                            .resources
                             .resource_handle_or_bind(t.image.clone())
                             .map_err(|e| RmgError::ResourceError(e))?,
                         None => {
@@ -710,7 +710,7 @@ impl EGuiTask {
 
                     //TODO choose right one?
                     let sampler = rmg
-                        .resources_mut()
+                        .resources
                         .resource_handle_or_bind(self.renderer.linear_sampler.clone())
                         .map_err(|e| RmgError::ResourceError(e))?;
 

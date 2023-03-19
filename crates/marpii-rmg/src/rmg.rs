@@ -37,7 +37,7 @@ pub type CtxRmg = Ctx<Allocator>;
 ///Main RMG interface.
 pub struct Rmg {
     ///Resource management
-    pub(crate) res: Resources,
+    pub resources: Resources,
 
     ///maps a capability pattern to a index in `Device`'s queue list. Each queue type defines a QueueTrack type.
     pub(crate) tracks: Tracks,
@@ -74,7 +74,7 @@ impl Rmg {
         let res = Resources::new(&context.device)?;
 
         Ok(Rmg {
-            res,
+            resources: res,
             tracks: Tracks(tracks),
             ctx: context,
         })
@@ -105,7 +105,7 @@ impl Rmg {
             .map_err(|e| MarpiiError::from(e))?,
         );
 
-        Ok(self.res.add_image(image)?)
+        Ok(self.resources.add_image(image)?)
     }
 
     ///Creates a buffer that holds `n`-times data of type `T`. Where `n = buffer.size / size_of::<T>()`.
@@ -126,7 +126,7 @@ impl Rmg {
             .map_err(|e| MarpiiError::from(e))?,
         );
 
-        Ok(self.res.add_buffer(buffer)?)
+        Ok(self.resources.add_buffer(buffer)?)
     }
 
     ///Creates a new (storage)buffer that can hold at max `size` times `T`.
@@ -153,7 +153,7 @@ impl Rmg {
         queue_family: Option<u32>,
         access_flags: Option<vk::AccessFlags2>,
     ) -> Result<BufferHandle<T>, ResourceError> {
-        self.res
+        self.resources
             .import_buffer(&self.tracks, buffer, queue_family, access_flags)
     }
 
@@ -165,7 +165,7 @@ impl Rmg {
         layout: Option<vk::ImageLayout>,
         access_flags: Option<vk::AccessFlags2>,
     ) -> Result<ImageHandle, ResourceError> {
-        self.res
+        self.resources
             .import_image(&self.tracks, image, queue_family, layout, access_flags)
     }
 
@@ -176,7 +176,7 @@ impl Rmg {
         let sampler =
             Sampler::new(&self.ctx.device, description).map_err(|e| MarpiiError::from(e))?;
 
-        Ok(self.res.add_sampler(Arc::new(sampler))?)
+        Ok(self.resources.add_sampler(Arc::new(sampler))?)
     }
 
     pub fn record<'rmg>(&'rmg mut self) -> Recorder<'rmg> {
@@ -185,17 +185,9 @@ impl Rmg {
             t.tick_frame();
         }
         //tick resource manager as well
-        self.res.tick_record(&self.tracks);
+        self.resources.tick_record(&self.tracks);
 
         Recorder::new(self)
-    }
-
-    pub fn resources(&self) -> &Resources {
-        &self.res
-    }
-
-    pub fn resources_mut(&mut self) -> &mut Resources {
-        &mut self.res
     }
 
     pub(crate) fn queue_idx_to_trackid(&self, idx: u32) -> Option<TrackId> {

@@ -94,7 +94,7 @@ impl<'rmg> Recorder<'rmg> {
 
     ///Adds `task` to the execution plan. Optionally naming the task's attachments (in order of definition) with the given names.
     pub fn add_task(mut self, task: &'rmg mut dyn Task) -> Result<Self, RecordError> {
-        task.pre_record(&mut self.rmg.res, &self.rmg.ctx)?;
+        task.pre_record(&mut self.rmg.resources, &self.rmg.ctx)?;
         //build registry
         let mut registry = ResourceRegistry::new();
         task.register(&mut registry);

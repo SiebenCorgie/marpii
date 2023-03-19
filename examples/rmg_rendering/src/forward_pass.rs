@@ -140,7 +140,7 @@ impl ForwardPass {
         let depth_image = rmg.new_image_uninitialized(depth_desc, None)?;
 
         //No additional descriptors for us
-        let layout = rmg.resources().bindless_layout();
+        let layout = rmg.resources.bindless_layout();
 
         let shader_module_vert = ShaderModule::new_from_bytes(&rmg.ctx.device, SHADER_VS).unwrap();
 

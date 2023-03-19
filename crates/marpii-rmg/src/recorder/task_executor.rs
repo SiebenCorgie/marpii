@@ -95,7 +95,7 @@ impl<'t> Executor<'t> {
                 track.nodes[node]
                     .task
                     .task
-                    .post_execution(&mut rmg.res, &rmg.ctx)?;
+                    .post_execution(&mut rmg.resources, &rmg.ctx)?;
             }
         }
 
@@ -287,7 +287,7 @@ impl<'t> Executor<'t> {
                     // 1. Res is a sampler
                     // 2. Res is uninitialised. In that case the access/layout transition implicitly takes care of initialising
                     //    queue ownership.
-                    if let Some(current_owner) = rmg.resources().get_current_owner(dep.dep) {
+                    if let Some(current_owner) = rmg.resources.get_current_owner(dep.dep) {
                         //Do not have to acquire if it is already on the same track/queue_family
                         if current_owner == track_family {
                             #[cfg(feature = "logging")]
@@ -341,7 +341,7 @@ impl<'t> Executor<'t> {
             match &op.res {
                 AnyResKey::Buffer(buf) => {
                     let state = rmg
-                        .resources_mut()
+                        .resources
                         .buffer
                         .get_mut(*buf)
                         .ok_or(RecordError::NoSuchResource(buf.into()))?;
@@ -365,7 +365,7 @@ impl<'t> Executor<'t> {
                 }
                 AnyResKey::Image(img) => {
                     let state = rmg
-                        .resources_mut()
+                        .resources
                         .images
                         .get_mut(*img)
                         .ok_or(RecordError::NoSuchResource(img.into()))?;
@@ -407,7 +407,7 @@ impl<'t> Executor<'t> {
                     .filter(|op| &op.current_owner == trackid)
                     .map(|op| match op.res {
                         AnyResKey::Buffer(buf) => {
-                            let buffer = &mut rmg.resources_mut().buffer.get_mut(buf).unwrap();
+                            let buffer = &mut rmg.resources.buffer.get_mut(buf).unwrap();
                             assert!(
                                 buffer.guard.is_none(),
                                 "Resource had guard, therefore wait was scheduled wrong"
@@ -416,7 +416,7 @@ impl<'t> Executor<'t> {
                             Box::new(buffer.buffer.clone()) as Box<dyn Any + Send + 'static>
                         }
                         AnyResKey::Image(img) => {
-                            let image = &mut rmg.resources_mut().images.get_mut(img).unwrap();
+                            let image = &mut rmg.resources.images.get_mut(img).unwrap();
                             assert!(
                                 image.guard.is_none(),
                                 "Resource had guard, therefore wait was scheduled wrong"
@@ -426,7 +426,7 @@ impl<'t> Executor<'t> {
                             Box::new(image.image.clone()) as Box<dyn Any + Send + 'static>
                         }
                         AnyResKey::Sampler(sam) => {
-                            Box::new(rmg.resources().sampler.get(sam).unwrap().sampler.clone())
+                            Box::new(rmg.resources.sampler.get(sam).unwrap().sampler.clone())
                                 as Box<dyn Any + Send + 'static>
                         }
                     })
@@ -538,7 +538,7 @@ impl<'t> Executor<'t> {
             // - set new execution guard
             match dep.dep {
                 AnyResKey::Buffer(buf) => {
-                    let bufstate = rmg.res.buffer.get_mut(buf).unwrap();
+                    let bufstate = rmg.resources.buffer.get_mut(buf).unwrap();
                     //update ownership,  and if needed push acquire
                     match bufstate.ownership {
                         QueueOwnership::Released {
@@ -593,7 +593,7 @@ impl<'t> Executor<'t> {
                 }
                 AnyResKey::Image(img) => {
                     //same as buffer acquire
-                    let imgstate = rmg.res.images.get_mut(img).unwrap();
+                    let imgstate = rmg.resources.images.get_mut(img).unwrap();
                     //update ownership,  and if needed push acquire
                     match imgstate.ownership {
                         QueueOwnership::Released {
@@ -686,7 +686,7 @@ impl<'t> Executor<'t> {
                     //add release op for images and buffers, and update ownership accordingly
                     match release_to.dep {
                         AnyResKey::Buffer(buf) => {
-                            let bufstate = rmg.res.buffer.get_mut(buf).unwrap();
+                            let bufstate = rmg.resources.buffer.get_mut(buf).unwrap();
                             match bufstate.ownership {
                                 QueueOwnership::Released {
                                     src_family,
@@ -726,7 +726,7 @@ impl<'t> Executor<'t> {
                             }
                         }
                         AnyResKey::Image(img) => {
-                            let imgstate = rmg.res.images.get_mut(img).unwrap();
+                            let imgstate = rmg.resources.images.get_mut(img).unwrap();
                             match imgstate.ownership {
                                 QueueOwnership::Released {
                                     src_family,
@@ -816,9 +816,9 @@ impl<'t> Executor<'t> {
                 rmg.ctx.device.inner.cmd_bind_descriptor_sets(
                     cb.inner,
                     vk::PipelineBindPoint::COMPUTE,
-                    rmg.res.bindless_layout.layout,
+                    rmg.resources.bindless_layout.layout,
                     0,
-                    &rmg.res.bindless.clone_raw_descriptor_sets(),
+                    &rmg.resources.bindless.clone_raw_descriptor_sets(),
                     &[],
                 );
             }
@@ -829,9 +829,9 @@ impl<'t> Executor<'t> {
                 rmg.ctx.device.inner.cmd_bind_descriptor_sets(
                     cb.inner,
                     vk::PipelineBindPoint::GRAPHICS,
-                    rmg.res.bindless_layout.layout,
+                    rmg.resources.bindless_layout.layout,
                     0,
-                    &rmg.res.bindless.clone_raw_descriptor_sets(),
+                    &rmg.resources.bindless.clone_raw_descriptor_sets(),
                     &[],
                 );
             }
@@ -944,7 +944,7 @@ impl<'t> Executor<'t> {
                 track.nodes[node_idx]
                     .task
                     .task
-                    .record(&rmg.ctx.device, &cb.inner, rmg.resources());
+                    .record(&rmg.ctx.device, &cb.inner, &rmg.resources);
             }
         }
 

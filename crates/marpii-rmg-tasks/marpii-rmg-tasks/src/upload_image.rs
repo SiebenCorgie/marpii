@@ -11,6 +11,7 @@ use crate::RmgTaskError;
 ///Transfer pass that copies data to an image on the GPU.
 /// perfect if you need to initialise textures for instance.
 pub struct UploadImage {
+    ///The GPU-Local image, which will contain `new`'s `data` after this pass was submitted.
     pub image: ImageHandle,
     upload: BufferHandle<u8>,
 }

@@ -183,7 +183,7 @@ impl ResourceRegistry {
     ) {
         match resource {
             AnyResKey::Buffer(buf) => {
-                let bufstate = rmg.resources_mut().buffer.get_mut(buf).unwrap();
+                let bufstate = rmg.resources.buffer.get_mut(buf).unwrap();
                 let target_state = self.buffers.get(&buf).unwrap();
                 let mut barrier = vk::BufferMemoryBarrier2::builder()
                     .buffer(bufstate.buffer.inner)
@@ -213,7 +213,7 @@ impl ResourceRegistry {
                 builder.buffer_custom_barrier(*barrier);
             }
             AnyResKey::Image(img) => {
-                let imgstate = rmg.resources_mut().images.get_mut(img).unwrap();
+                let imgstate = rmg.resources.images.get_mut(img).unwrap();
                 let target_state = self.images.get(&img).unwrap();
                 let mut barrier = vk::ImageMemoryBarrier2::builder()
                     .image(imgstate.image.inner)

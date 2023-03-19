@@ -98,7 +98,7 @@ impl AlphaBlend {
 
         let shader_stage = shader_module.into_shader_stage(vk::ShaderStageFlags::COMPUTE, "main");
         //No additional descriptors for us
-        let layout = rmg.resources().bindless_layout();
+        let layout = rmg.resources.bindless_layout();
         let pipeline = Arc::new(
             ComputePipeline::new(
                 &rmg.ctx.device,
