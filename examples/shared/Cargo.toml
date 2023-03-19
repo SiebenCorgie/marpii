@@ -7,5 +7,5 @@ edition = "2021"
 
 [dependencies]
 marpii-rmg-shared = {path = "../../crates/marpii-rmg-shared"}
-spirv-std = { workspace=true, features = ["glam"]}
+spirv-std = { workspace=true}
 bytemuck.workspace = true

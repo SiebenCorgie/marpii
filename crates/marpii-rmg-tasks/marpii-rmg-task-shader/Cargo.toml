@@ -11,5 +11,4 @@ crate-type = ["lib", "dylib"]
 
 [dependencies]
 marpii-rmg-task-shared = {path = "../marpii-rmg-task-shared"}
-spirv-std = { workspace=true, features = ["glam"]}
-
+spirv-std = { workspace=true}
