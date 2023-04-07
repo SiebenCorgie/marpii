@@ -173,6 +173,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
             .with_extensions(ash::extensions::khr::DynamicRendering::name())
             .with(|b| {
                 b.features.shader_int16 = 1;
+                b.features.shader_float64 = 1;
                 b.features.shader_storage_buffer_array_dynamic_indexing = 1;
                 b.features.shader_storage_image_array_dynamic_indexing = 1;
                 b.features.shader_uniform_buffer_array_dynamic_indexing = 1;

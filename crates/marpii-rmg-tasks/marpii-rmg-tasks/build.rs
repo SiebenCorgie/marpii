@@ -150,4 +150,9 @@ fn main() {
         "alphablend_u8.spv",
         "main_u8",
     );
+    build_glsl(
+        "../marpii-rmg-task-shader/glsl/downsample.comp",
+        "downsample.spv",
+        "main",
+    );
 }

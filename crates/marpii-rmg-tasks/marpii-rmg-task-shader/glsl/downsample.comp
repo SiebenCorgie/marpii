@@ -1,0 +1,87 @@
+#version 460
+
+#extension GL_GOOGLE_include_directive : enable
+#extension GL_EXT_nonuniform_qualifier : require
+
+#include "shared.glsl"
+
+
+//push constants block
+layout( push_constant ) uniform constants{
+    ResHandle img;
+    ResHandle pad0[3];
+    uint mip_level;
+    uint pad1[3];
+} Push;
+
+layout(set = 1, binding = 0, rgba32f) uniform image2D global_images_2d_f32[];
+layout(set = 1, binding = 0, rgba8) uniform image2D global_images_2d_u8[];
+
+layout (local_size_x = 64, local_size_y = 64, local_size_z = 1) in;
+
+//Workgroup shared pixel buffer. Basically the part we can access
+//for neighbour information while doing one reduce call.
+shared vec4 pixel_buffer[64][64];
+//Currently worked on mip level
+shared uint level;
+//Offset of this wave. Basically each index n,m in pixel_buffer is offseted by this for the image_local coordinate.
+shared ivec2 wave_offset;
+
+vec4 mip(ivec2 id, uint level){
+    //Our id does not do work on that level
+    if (id.x > (1 << level) || id.y > (1 << level)){
+        return vec4(0.0);
+    }
+    ivec2 refid = id * 2;
+    //we are within the mip-level
+    //read sourounding 4 pixel, and return
+    //average
+    return (pixel_buffer[refid.x][refid.y] + pixel_buffer[refid.x + 1][refid.y] + pixel_buffer[refid.x][refid.y + 1] + pixel_buffer[refid.x + 1][refid.y + 1]) / 4.0;
+}
+
+void main(){
+
+  if (!is_valid(Push.img)){
+    return;
+  }
+
+  ivec2 thread_id = ivec2(gl_GlobalInvocationID.xy);
+  uint local_thread_index = gl_LocalInvocationIndex;
+
+  //start up
+  //
+  //1.setup level
+  if (local_thread_index == 0){
+      level = Push.mip_level;
+      wave_offset = thread_id;
+  }
+  //barrier all invocations
+  barrier();
+
+  ivec2 local_thread_coord = thread_id - wave_offset;
+
+  //Now read image at level 0 and setup our local shared pixel_buffer.
+  pixel_buffer[local_thread_coord.x][local_thread_coord.y] = imageLoad(
+      global_images_2d_f32[get_index(Push.img)],
+      thread_id
+  );
+  //sync again.
+  barrier();
+
+  //now we write out each mip until we reduced to a singe pixel
+  for (int i = min(int(level), 6); i>0; i--){
+      vec4 interpolated = mip(local_thread_coord, i-1);
+      barrier();
+      //write interpolated to image and shared buffer
+
+      //now barrier for next mip
+      barrier();
+  }
+
+
+  imageStore(
+      global_images_2d_f32[get_index(Push.img)],
+      thread_id,
+      vec4(0.0)
+    );
+}

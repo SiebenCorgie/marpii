@@ -28,6 +28,10 @@ mod alpha_blend;
 pub use alpha_blend::AlphaBlend;
 mod download_buffer;
 pub use download_buffer::{DownloadBuffer, DownloadError};
+
+mod downsample;
+pub use downsample::Downsample;
+
 #[cfg(feature = "egui-task")]
 mod egui_integration;
 #[cfg(feature = "egui-task")]

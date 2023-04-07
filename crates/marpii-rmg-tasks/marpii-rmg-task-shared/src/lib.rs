@@ -38,3 +38,14 @@ pub struct AlphaBlendPush {
     pub extent: [u32; 2],
     pub pad1: [u32; 2],
 }
+
+///Used for for alpha based blending effect
+#[cfg_attr(not(target_arch = "spirv"), derive(Pod, Zeroable))]
+#[derive(Clone, Copy)]
+#[repr(C, align(16))]
+pub struct DownsamplePush {
+    pub img: ResourceHandle,
+    pub pad0: [ResourceHandle; 3],
+    pub mip_level: u32,
+    pub pad1: [u32; 3],
+}

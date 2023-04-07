@@ -574,6 +574,16 @@ impl Bindless {
             return Err(image);
         }
 
+        if !image
+            .src_img
+            .desc
+            .usage
+            .contains(vk::ImageUsageFlags::SAMPLED)
+        {
+            #[cfg(feature = "logging")]
+            log::warn!("Tried to bind as storage image, that has also the SAMPLED bit set");
+        }
+
         #[cfg(feature = "logging")]
         log::trace!("Binding storage image!");
 
@@ -607,6 +617,16 @@ impl Bindless {
             #[cfg(feature = "logging")]
             log::error!("Tried to bind as sampled image, but has no sample usage!");
             return Err(image);
+        }
+
+        if !image
+            .src_img
+            .desc
+            .usage
+            .contains(vk::ImageUsageFlags::STORAGE)
+        {
+            #[cfg(feature = "logging")]
+            log::warn!("Tried to bind as sampled image, that has also the STORAGE bit set");
         }
 
         #[cfg(feature = "logging")]
