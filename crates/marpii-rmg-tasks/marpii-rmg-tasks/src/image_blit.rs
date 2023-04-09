@@ -77,8 +77,8 @@ impl<const N: usize> Task for ImageBlit<N> {
         let src_subresource = src_image.image.subresource_layers_all();
         let dst_subresource = dst_image.image.subresource_layers_all();
         for (idx, blit) in self.blits.iter_mut().enumerate() {
-            blit.0.clamp_to(&blit.1);
-            blit.1.clamp_to(&blit.0);
+            //blit.0.clamp_to(&blit.1);
+            //blit.1.clamp_to(&blit.0);
 
             regions[idx] = vk::ImageBlit2::builder()
                 .src_offsets(blit.0.to_blit_offsets())

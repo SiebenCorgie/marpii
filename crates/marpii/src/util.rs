@@ -30,6 +30,15 @@ pub struct ImageRegion {
 }
 
 impl ImageRegion {
+    pub const ZERO: ImageRegion = ImageRegion {
+        offset: vk::Offset3D { x: 0, y: 0, z: 0 },
+        extent: vk::Extent3D {
+            width: 0,
+            height: 0,
+            depth: 0,
+        },
+    };
+
     pub fn to_blit_offsets(&self) -> [vk::Offset3D; 2] {
         [
             self.offset,
