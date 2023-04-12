@@ -20,7 +20,6 @@ pub fn image_from_data<A: Allocator + Send + Sync + 'static>(
     upload_queue: &Queue,
     mut description: ImgDesc,
     name: Option<&str>,
-    create_flags: Option<vk::ImageCreateFlags>,
     data: &[u8],
 ) -> Result<Image, MarpiiError> {
     //Upload works by initing a buffer with `data`, then executing a copy command buffer.
@@ -32,14 +31,7 @@ pub fn image_from_data<A: Allocator + Send + Sync + 'static>(
     let staging_buffer =
         Buffer::new_staging_for_data(device, allocator, Some("ImageStagingBuffer"), data)?;
     //init image
-    let image = Image::new(
-        device,
-        allocator,
-        description,
-        MemoryUsage::GpuOnly,
-        name,
-        create_flags,
-    )?;
+    let image = Image::new(device, allocator, description, MemoryUsage::GpuOnly, name)?;
     let image_subresource = image.subresource_layers_all();
     //now schedule CB that uploads the image
     let command_pool = OoS::new(CommandPool::new(
@@ -164,17 +156,10 @@ pub fn image_from_image<A: Allocator + Send + Sync + 'static>(
         sharing_mode: SharingMode::Exclusive,
         tiling: vk::ImageTiling::LINEAR,
         usage,
+        ..Default::default()
     };
 
-    image_from_data(
-        device,
-        allocator,
-        upload_queue,
-        desc,
-        None,
-        None,
-        img.as_bytes(),
-    )
+    image_from_data(device, allocator, upload_queue, desc, None, img.as_bytes())
 }
 
 ///Loads an image from `file`.

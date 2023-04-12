@@ -156,6 +156,7 @@ pub struct ImgDesc {
     pub tiling: ash::vk::ImageTiling,
     pub usage: ash::vk::ImageUsageFlags,
     pub sharing_mode: SharingMode,
+    pub create_flags: vk::ImageCreateFlags,
 }
 
 impl Default for ImgDesc {
@@ -175,6 +176,7 @@ impl Default for ImgDesc {
             tiling: ash::vk::ImageTiling::OPTIMAL,
             usage: ash::vk::ImageUsageFlags::COLOR_ATTACHMENT,
             sharing_mode: SharingMode::Exclusive,
+            create_flags: vk::ImageCreateFlags::empty(),
         }
     }
 }
@@ -207,6 +209,7 @@ impl ImgDesc {
             .array_layers(self.img_type.layer_count())
             .samples(self.samples)
             .tiling(self.tiling)
+            .flags(self.create_flags)
             .usage(self.usage);
 
         match &self.sharing_mode {
@@ -228,6 +231,13 @@ impl ImgDesc {
     ///Appends the additional usage
     pub fn add_usage(mut self, usage: ash::vk::ImageUsageFlags) -> Self {
         self.usage |= usage;
+        self
+    }
+
+    ///Adds the given flags to the already assigned ones. To reset flags,
+    /// consider overwriting the field directly
+    pub fn add_create_flag(mut self, flags: vk::ImageCreateFlags) -> Self {
+        self.create_flags |= flags;
         self
     }
 
@@ -285,6 +295,20 @@ impl ImgDesc {
             },
             format,
             usage: ash::vk::ImageUsageFlags::SAMPLED | ash::vk::ImageUsageFlags::TRANSFER_DST,
+            ..Default::default()
+        }
+    }
+
+    pub fn cubemap_sampled(width: u32, height: u32, format: ash::vk::Format) -> Self {
+        ImgDesc {
+            img_type: ImageType::Cube,
+            format,
+            extent: vk::Extent3D {
+                width,
+                height,
+                depth: 1,
+            },
+            usage: vk::ImageUsageFlags::SAMPLED,
             ..Default::default()
         }
     }
@@ -405,16 +429,11 @@ impl Image {
         description: ImgDesc,
         memory_usage: MemoryUsage,
         name: Option<&str>,
-        create_flags: Option<ash::vk::ImageCreateFlags>,
     ) -> Result<Self, DeviceError> {
         //per definition the image layout is undefined when creating an image.
         let initial_layout = ash::vk::ImageLayout::UNDEFINED;
 
         let mut builder = ash::vk::ImageCreateInfo::builder().initial_layout(initial_layout);
-        if let Some(flags) = create_flags {
-            builder = builder.flags(flags);
-        }
-
         //now apply the description
         builder = description.set_on_builder(builder);
 

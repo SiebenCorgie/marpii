@@ -80,7 +80,6 @@ pub struct Downsample {
 impl Downsample {
     pub fn new(rmg: &mut Rmg, image: ImageHandle) -> Result<Self, TaskError<DownsampleError>> {
         let levels = image.image_desc().mip_levels as usize;
-        println!("Downsample for {} levels", levels);
         let mut mips: Vec<MipCopy> = Vec::with_capacity(levels);
         let mut downsample_ops = Vec::with_capacity(levels - 1);
 

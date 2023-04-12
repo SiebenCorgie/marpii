@@ -100,7 +100,6 @@ impl Rmg {
                 description,
                 MemoryUsage::GpuOnly, //always cpu only, everything else is handled by passes directly
                 name,
-                None,
             )
             .map_err(|e| MarpiiError::from(e))?,
         );
@@ -121,7 +120,6 @@ impl Rmg {
                 description,
                 MemoryUsage::GpuOnly,
                 name,
-                None,
             )
             .map_err(|e| MarpiiError::from(e))?,
         );
@@ -142,6 +140,7 @@ impl Rmg {
                 | vk::BufferUsageFlags::TRANSFER_SRC
                 | vk::BufferUsageFlags::TRANSFER_DST,
             sharing: SharingMode::Exclusive,
+            ..Default::default()
         };
         self.new_buffer_uninitialized(description, name)
     }

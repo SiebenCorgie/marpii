@@ -318,7 +318,6 @@ impl ForwardPass {
                 },
                 MemoryUsage::GpuOnly,
                 None,
-                None,
             )
             .map_err(|e| RecordError::MarpiiError(e.into()))?,
         ))?;
@@ -332,7 +331,6 @@ impl ForwardPass {
                     depth_format,
                 ),
                 MemoryUsage::GpuOnly,
-                None,
                 None,
             )
             .map_err(|e| RecordError::MarpiiError(e.into()))?,

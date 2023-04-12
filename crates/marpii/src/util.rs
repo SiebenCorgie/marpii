@@ -343,6 +343,7 @@ pub fn byte_per_pixel(format: vk::Format) -> Option<u8> {
         | vk::Format::R32G32B32A32_SINT
         | vk::Format::R32G32B32A32_SFLOAT => Some(16),
 
+        vk::Format::E5B9G9R9_UFLOAT_PACK32 => Some(4),
         _ => {
             #[cfg(feature = "logging")]
             log::error!("Format {:#?} is not supported by byte_per_pixel()", format);

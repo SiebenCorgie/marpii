@@ -58,7 +58,6 @@ impl PassData {
                 .add_usage(ash::vk::ImageUsageFlags::STORAGE),
             marpii::allocator::MemoryUsage::GpuOnly,
             Some("RenderTarget"),
-            None,
         )?);
         let image_view = Arc::new(image.share().view(image.view_all())?);
 

@@ -40,7 +40,6 @@ impl<T: bytemuck::Pod + 'static> DownloadBuffer<T> {
                     .add_usage(vk::BufferUsageFlags::TRANSFER_DST),
                 marpii::allocator::MemoryUsage::GpuToCpu,
                 None,
-                None,
             )
             .map_err(|e| TaskError::Marpii(e.into()))?,
         );

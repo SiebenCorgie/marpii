@@ -1,8 +1,7 @@
 use marpii::{
     allocator::{Allocator, MemoryUsage},
     ash::vk::{
-        BufferCopy, BufferCreateFlags, BufferUsageFlags, CommandBufferLevel,
-        CommandPoolCreateFlags, DeviceSize,
+        BufferCopy, BufferUsageFlags, CommandBufferLevel, CommandPoolCreateFlags, DeviceSize,
     },
     context::{Device, Queue},
     resources::{BufDesc, Buffer, CommandBufferAllocator, CommandPool, SharingMode},
@@ -22,7 +21,6 @@ pub fn buffer_from_data<A: Allocator + Send + Sync + 'static, T: marpii::bytemuc
     upload_queue: &Queue,
     buffer_usage: BufferUsageFlags,
     name: Option<&str>,
-    create_flags: Option<BufferCreateFlags>,
     data: &[T],
 ) -> Result<Buffer, MarpiiError> {
     //TODO:  Do we need alignment padding? But usually we can start at 0 can't we?
@@ -34,16 +32,10 @@ pub fn buffer_from_data<A: Allocator + Send + Sync + 'static, T: marpii::bytemuc
         sharing: SharingMode::Exclusive,
         size: buffer_size as DeviceSize,
         usage: buffer_usage | BufferUsageFlags::TRANSFER_DST, //make sure copy works
+        ..Default::default()
     };
 
-    let buffer = Buffer::new(
-        device,
-        allocator,
-        desc,
-        MemoryUsage::GpuOnly,
-        name,
-        create_flags,
-    )?;
+    let buffer = Buffer::new(device, allocator, desc, MemoryUsage::GpuOnly, name)?;
 
     let transfer_buffer =
         Buffer::new_staging_for_data(device, allocator, Some("StagingBuffer"), data)?;

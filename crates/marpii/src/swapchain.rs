@@ -114,6 +114,7 @@ impl SwapchainBuilder {
                         sharing_mode: sharing_mode.clone(),
                         tiling: ash::vk::ImageTiling::OPTIMAL,
                         usage: self.create_info.usage,
+                        ..Default::default()
                     },
                     usage: MemoryUsage::GpuOnly, //FIXME: maybe incorrect... might depend on the implementation?
                     inner: swimage,
@@ -463,6 +464,7 @@ impl Swapchain {
                         sharing_mode: self.recreate_info.sharing_mode.clone(),
                         tiling: ash::vk::ImageTiling::OPTIMAL,
                         usage: self.recreate_info.usage,
+                        ..Default::default()
                     },
                     inner: img,
                     usage: MemoryUsage::GpuOnly,

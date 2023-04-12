@@ -5,6 +5,7 @@
 //! The recorder records commands on this command buffer and caputures all needed resources. After submitting the recorder to a queue all caputured resources are assosiated with a
 //! fence that gets signaled when the command buffer has finished its execution. This way the resources have to stay valid for the duration of the command buffer's execution.
 //!
+#![deny(warnings)]
 
 mod managed_buffer;
 pub use managed_buffer::{Captured, ManagedCommands, Recorder, Signal, SignalState};

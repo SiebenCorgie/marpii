@@ -37,6 +37,18 @@ pub struct BufDesc {
     pub size: vk::DeviceSize,
     pub usage: vk::BufferUsageFlags,
     pub sharing: SharingMode,
+    pub create_flags: vk::BufferCreateFlags,
+}
+
+impl Default for BufDesc {
+    fn default() -> Self {
+        BufDesc {
+            size: 0,
+            usage: vk::BufferUsageFlags::empty(),
+            sharing: SharingMode::Exclusive,
+            create_flags: vk::BufferCreateFlags::empty(),
+        }
+    }
 }
 
 impl BufDesc {
@@ -44,8 +56,10 @@ impl BufDesc {
         &'a self,
         mut builder: vk::BufferCreateInfoBuilder<'a>,
     ) -> vk::BufferCreateInfoBuilder<'a> {
-        builder = builder.size(self.size).usage(self.usage);
-
+        builder = builder
+            .size(self.size)
+            .usage(self.usage)
+            .flags(self.create_flags);
         match &self.sharing {
             super::SharingMode::Exclusive => {
                 builder = builder.sharing_mode(vk::SharingMode::EXCLUSIVE)
@@ -76,6 +90,13 @@ impl BufDesc {
         self
     }
 
+    ///Adds the given flags to the already assigned ones. To reset flags,
+    /// consider overwriting the field directly
+    pub fn add_create_flag(mut self, flags: vk::BufferCreateFlags) -> Self {
+        self.create_flags |= flags;
+        self
+    }
+
     ///Creates a buffer description that could hold `size` elements of type `T`. Note that no usage is set.
     pub fn for_data<T: 'static>(size: usize) -> Self {
         let size = (core::mem::size_of::<T>() * size) as u64;
@@ -83,6 +104,7 @@ impl BufDesc {
             size,
             usage: vk::BufferUsageFlags::empty(),
             sharing: SharingMode::Exclusive,
+            create_flags: vk::BufferCreateFlags::empty(),
         }
     }
 
@@ -143,12 +165,8 @@ impl Buffer {
         description: BufDesc,
         usage: MemoryUsage,
         name: Option<&str>,
-        create_flags: Option<ash::vk::BufferCreateFlags>,
     ) -> Result<Self, DeviceError> {
         let mut builder = ash::vk::BufferCreateInfo::builder();
-        if let Some(flags) = create_flags {
-            builder = builder.flags(flags);
-        }
 
         builder = description.set_on_builder(builder);
 
@@ -200,9 +218,10 @@ impl Buffer {
             sharing: SharingMode::Exclusive,
             size: buffer_size as DeviceSize,
             usage: vk::BufferUsageFlags::TRANSFER_SRC | vk::BufferUsageFlags::TRANSFER_DST, //make sure copy works
+            ..Default::default()
         };
 
-        let buffer = Buffer::new(device, allocator, desc, MemoryUsage::CpuToGpu, name, None)?;
+        let buffer = Buffer::new(device, allocator, desc, MemoryUsage::CpuToGpu, name)?;
 
         let data = bytemuck::cast_slice(data);
         //write data to transfer buffer
