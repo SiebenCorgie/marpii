@@ -19,7 +19,7 @@ pub use swapchain_present::SwapchainPresent;
 mod upload_buffer;
 pub use upload_buffer::UploadBuffer;
 mod upload_image;
-pub use upload_image::UploadImage;
+pub use upload_image::{MipOffset, UploadImage};
 
 mod dynamic_image;
 pub use dynamic_image::DynamicImage;

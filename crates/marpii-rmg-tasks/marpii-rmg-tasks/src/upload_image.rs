@@ -150,16 +150,17 @@ impl Task for UploadImage {
                 .build(),
         );
 
+        let mut offset = 0;
+
         //If we have mip copies, copy those as well.
         if let Some(mips) = &self.mip_maps {
-            for mip in mips {
                 let mut subres = img.image.subresource_layers_all();
                 subres.mip_level = mip.mip_level;
                 subres.base_array_layer = 0;
                 subres.layer_count = mip.layer_count;
                 copies.push(
                     vk::BufferImageCopy2::builder()
-                        .buffer_offset(mip.offset)
+                        .buffer_offset(offset)
                         .buffer_row_length(0)
                         .buffer_image_height(0)
                         .image_extent(mip.extent)
@@ -167,6 +168,7 @@ impl Task for UploadImage {
                         .image_subresource(subres)
                         .build(),
                 );
+                offset += mip.offset * u64::from(mip.layer_count);
             }
         }
 
