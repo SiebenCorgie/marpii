@@ -154,6 +154,7 @@ impl Task for UploadImage {
 
         //If we have mip copies, copy those as well.
         if let Some(mips) = &self.mip_maps {
+            for mip in mips {
                 let mut subres = img.image.subresource_layers_all();
                 subres.mip_level = mip.mip_level;
                 subres.base_array_layer = 0;
