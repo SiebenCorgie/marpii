@@ -1,5 +1,6 @@
 use marpii::{
     ash::vk,
+    resources::ImgDesc,
     surface::Surface,
     swapchain::{Swapchain, SwapchainImage},
     MarpiiError,
@@ -73,6 +74,16 @@ impl SwapchainPresent {
         self.swapchain
             .surface
             .get_current_extent(&self.swapchain.device.physical_device)
+    }
+
+    ///Returns the swapchain image's format.
+    pub fn format(&self) -> vk::Format {
+        self.swapchain.images[0].desc.format
+    }
+
+    ///Returns the description all current swapchain images are created with.
+    pub fn image_desc(&self) -> &ImgDesc {
+        &self.swapchain.images[0].desc
     }
 
     fn recreate(&mut self, surface_extent: vk::Extent2D) -> Result<(), RmgTaskError> {

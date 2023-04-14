@@ -16,13 +16,10 @@ use bytemuck::{Pod, Zeroable};
 pub struct EGuiPush {
     pub texture: ResourceHandle,
     pub sampler: ResourceHandle,
-    pub pad0: ResourceHandle,
-    ///Rendering flags.
-    ///
-    /// If first bit is set, the receiving image is srgb, therefor no srgb conversion needs to happen.
-    pub flags: u32,
+    pub pad0: [ResourceHandle; 2],
     pub screen_size: [f32; 2],
-    pub pad1: [f32; 2],
+    pub gamma: f32,
+    pub pad1: f32,
 }
 
 ///Used for for alpha based blending effect

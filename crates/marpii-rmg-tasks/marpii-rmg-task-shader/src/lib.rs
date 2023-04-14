@@ -115,8 +115,8 @@ pub fn egui_fs(
     let tex_val: Vec4 = image.sample(*sampler, in_v_tc);
 
     let texture_in_gamma = srgb_to_linear(tex_val.xyz()).extend(tex_val.w);
-    let rgba_gamma = texture_in_gamma * in_rgba_gamma;
-    *output = rgba_gamma;
+    let rgba = (texture_in_gamma * in_rgba_gamma).powf(push.gamma);
+    *output = rgba;
 }
 
 #[spirv(vertex)]

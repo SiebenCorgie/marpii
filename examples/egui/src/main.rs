@@ -1,5 +1,6 @@
 use anyhow::Result;
 use marpii::context::Ctx;
+use marpii::util::FormatProperties;
 use marpii_rmg::Rmg;
 use marpii_rmg_tasks::{egui, EGuiWinitIntegration, SwapchainPresent};
 
@@ -23,6 +24,13 @@ fn main() -> Result<(), anyhow::Error> {
     let mut egui = EGuiWinitIntegration::new(&mut rmg, &ev)?;
 
     let mut swapchain_blit = SwapchainPresent::new(&mut rmg, &surface)?;
+
+    let swapchain_properties = FormatProperties::parse(swapchain_blit.format());
+    if swapchain_properties.is_srgb {
+        egui.set_gamma(2.2);
+    } else {
+        egui.set_gamma(1.0);
+    }
 
     let mut name = "Teddy".to_string();
     let mut age = 10u32;

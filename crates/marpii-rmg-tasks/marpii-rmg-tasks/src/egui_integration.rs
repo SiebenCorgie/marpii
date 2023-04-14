@@ -14,7 +14,7 @@ use egui_winit::winit::event_loop::EventLoopWindowTarget;
 use egui_winit::winit::window::Window;
 use marpii::ash::vk::{ImageUsageFlags, Rect2D};
 use marpii::resources::SharingMode;
-use marpii::util::{FormatProperties, ImageRegion};
+use marpii::util::ImageRegion;
 use marpii::MarpiiError;
 use marpii::{
     ash::vk,
@@ -111,6 +111,14 @@ impl EGuiWinitIntegration {
         &self.task
     }
 
+    ///Sets a gamma value for the output.
+    ///
+    /// Should be 1.0 if you are using the pass in a linear-context (before tone mapping and gamma correction).
+    /// Otherwise it should be 2.2.
+    pub fn set_gamma(&mut self, gamma: f32) {
+        self.task.renderer.gamma = gamma;
+    }
+
     ///runs `run_ui` on this context. Use the closure to encode the next "to be rendered" egui.
     pub fn run(
         &mut self,
@@ -175,7 +183,7 @@ struct EGuiRenderer {
     commands: Vec<EGuiPrimDraw>,
 
     px_per_point: f32,
-
+    gamma: f32,
     //target_image
     target_image: ImageHandle,
     //true if if the target was overwritten at some point.
@@ -204,6 +212,7 @@ impl Task for EGuiRenderer {
         let width_in_points = self.target_image.extent_2d().width as f32 / self.px_per_point;
         let height_in_points = self.target_image.extent_2d().height as f32 / self.px_per_point;
         self.push.get_content_mut().screen_size = [width_in_points, height_in_points];
+        self.push.get_content_mut().gamma = self.gamma;
         Ok(())
     }
 
@@ -397,6 +406,9 @@ impl EGuiTask {
                     | vk::ImageUsageFlags::TRANSFER_SRC
                     | vk::ImageUsageFlags::TRANSFER_DST,
                 vk::ImageTiling::OPTIMAL,
+                //NOTE on the format: We don't use any srgb formats.
+                //     Since we are in an *engine* context mostly we don't do linear->srgb
+                //     Since that will be handled by the engine mostly.
                 &[
                     vk::Format::R8G8B8A8_UNORM,
                     vk::Format::B8G8R8A8_UNORM,
@@ -424,8 +436,6 @@ impl EGuiTask {
             Some("egui target img"),
         )?;
 
-        let target_image_property = FormatProperties::parse(target_format);
-
         //Pipeline layout
         let layout = rmg.resources.bindless_layout();
 
@@ -451,19 +461,14 @@ impl EGuiTask {
             "egui_fs".to_owned(),
         );
 
-        let mut flags = 0;
-        if target_image_property.is_srgb {
-            flags |= 0x0;
-        }
-
         let push = PushConstant::new(
             EGuiPush {
                 texture: ResourceHandle::INVALID,
                 sampler: ResourceHandle::INVALID,
-                pad0: ResourceHandle::INVALID,
-                flags,
+                pad0: [ResourceHandle::INVALID; 2],
+                gamma: 1.0,
                 screen_size: [1.0, 1.0],
-                pad1: [0.0; 2],
+                pad1: 0.0,
             },
             vk::ShaderStageFlags::ALL,
         );
@@ -535,6 +540,7 @@ impl EGuiTask {
                 target_image,
                 pipeline,
                 push,
+                gamma: 1.0,
                 frame_data: None,
             },
         })
