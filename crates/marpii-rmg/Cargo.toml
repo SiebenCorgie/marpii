@@ -5,9 +5,13 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [features]
-default = ["logging"]
+default = ["logging", "debug_marker"]
 # if enabled, uses the log crate for messages. Note that the graph prints reasoning of decissions into the tracing level
 logging = ["log"]
+
+# if enabled, adds Vulkan's debug marker to images, buffers and samplers (all objects managed by RMG).
+# Also markes command buffer regions by the Task's name.
+debug_marker = []
 
 # if enabled, enables rmg to bind and build acceleration structures.
 ray-tracing = []

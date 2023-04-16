@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use ash::vk;
+use ash::vk::{self, ObjectType};
 use const_cstr::const_cstr;
 use raw_window_handle::HasRawDisplayHandle;
 
@@ -88,9 +88,30 @@ unsafe extern "system" fn vulkan_debug_callback(
     1
 }
 
+///Helper that gets usually initialised by activating validation layers.
+/// Allows to use all `VK_EXT_DEBUG_UTILS` functions.
 pub struct Debugger {
     pub debug_report_loader: ash::extensions::ext::DebugUtils,
     pub debug_messenger: ash::vk::DebugUtilsMessengerEXT,
+}
+
+impl Debugger {
+    pub fn name_object(
+        &self,
+        device: &vk::Device,
+        handle: u64,
+        ty: ObjectType,
+        name: &CStr,
+    ) -> Result<(), vk::Result> {
+        let info = vk::DebugUtilsObjectNameInfoEXT::builder()
+            .object_name(name)
+            .object_handle(handle)
+            .object_type(ty);
+        unsafe {
+            self.debug_report_loader
+                .set_debug_utils_object_name(*device, &info)
+        }
+    }
 }
 
 ///Signales enabled and disabled validation layer features
@@ -354,6 +375,10 @@ impl Instance {
             enabled_layers: Vec::new(),
             validation_layers: None,
         })
+    }
+
+    pub fn get_debugger(&self) -> Option<&Debugger> {
+        self.debugger.as_ref()
     }
 }
 

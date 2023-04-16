@@ -16,6 +16,12 @@ use crate::{
     BufferHandle, ImageHandle, RecordError, ResourceError, Resources, SamplerHandle,
 };
 
+#[cfg(feature = "debug_marker")]
+use marpii::ash::vk::{Handle, ObjectType};
+
+#[cfg(feature = "debug_marker")]
+use std::any::type_name;
+
 ///Top level Error structure.
 #[derive(Debug, Error)]
 pub enum RmgError {
@@ -46,6 +52,10 @@ pub struct Rmg {
 }
 
 impl Rmg {
+    ///Creates a new ResourceManagingGraph for this context. Note that the context must be created for
+    /// Vulkan 1.3, since it depends on multiple core-1.3 features and extensions.
+    ///
+    /// When in doubt, use [Ctx::new_default_from_instance].
     pub fn new(context: Ctx<Allocator>) -> Result<Self, RmgError> {
         //Per definition we try to find at least one graphic, compute and transfer queue.
         // We then create the swapchain. It is used for image presentation and the start/end point for frame scheduling.
@@ -93,6 +103,13 @@ impl Rmg {
             return Err(RmgError::from(ResourceError::ImageNoUsageFlags));
         }
 
+        #[cfg(feature = "debug_marker")]
+        let dbg_name = std::ffi::CString::new(name.unwrap_or(&format!(
+            "Image: {:?} {:#?}",
+            description.img_type, description.format
+        )))
+        .unwrap_or(std::ffi::CString::new("Unnamed Image").unwrap());
+
         let image = Arc::new(
             Image::new(
                 &self.ctx.device,
@@ -104,6 +121,21 @@ impl Rmg {
             .map_err(|e| MarpiiError::from(e))?,
         );
 
+        #[cfg(feature = "debug_marker")]
+        {
+            if let Some(dbg) = self.ctx.device.instance.get_debugger() {
+                if let Err(e) = dbg.name_object(
+                    &self.ctx.device.inner.handle(),
+                    image.inner.as_raw(),
+                    ObjectType::IMAGE,
+                    &dbg_name,
+                ) {
+                    #[cfg(feature = "logging")]
+                    log::error!("Could not name image: {}", e);
+                }
+            }
+        }
+
         Ok(self.resources.add_image(image)?)
     }
 
@@ -113,6 +145,10 @@ impl Rmg {
         description: BufDesc,
         name: Option<&str>,
     ) -> Result<BufferHandle<T>, RmgError> {
+        #[cfg(feature = "debug_marker")]
+        let dbg_name = std::ffi::CString::new(name.unwrap_or(&format!("{}", type_name::<T>())))
+            .unwrap_or(std::ffi::CString::new("Unnamed Buffer").unwrap());
+
         let buffer = Arc::new(
             Buffer::new(
                 &self.ctx.device,
@@ -123,6 +159,21 @@ impl Rmg {
             )
             .map_err(|e| MarpiiError::from(e))?,
         );
+
+        #[cfg(feature = "debug_marker")]
+        {
+            if let Some(dbg) = self.ctx.device.instance.get_debugger() {
+                if let Err(e) = dbg.name_object(
+                    &self.ctx.device.inner.handle(),
+                    buffer.inner.as_raw(),
+                    ObjectType::BUFFER,
+                    &dbg_name,
+                ) {
+                    #[cfg(feature = "logging")]
+                    log::error!("Could not name buffer: {}", e);
+                }
+            }
+        }
 
         Ok(self.resources.add_buffer(buffer)?)
     }

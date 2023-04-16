@@ -12,6 +12,9 @@ use crate::{
 
 use super::{task_scheduler::TaskSchedule, Execution};
 
+#[cfg(feature = "debug_marker")]
+use std::ffi::CString;
+
 ///Schedule executor. Takes Frames, dependencies and dependees to build an
 /// command buffer that is immediately pushed to the GPU.
 pub struct Executor<'t> {
@@ -952,11 +955,34 @@ impl<'t> Executor<'t> {
 
                 #[cfg(feature = "logging")]
                 log::trace!("Record task {}", track.nodes[node_idx].task.task.name());
+
+                #[cfg(feature = "debug_marker")]
+                {
+                    let string: CString = CString::new(track.nodes[node_idx].task.task.name())
+                        .unwrap_or(CString::new("INVALID TASK NAME").unwrap());
+                    let label = vk::DebugUtilsLabelEXT::builder()
+                        .color([0.0, 1.0, 0.0, 1.0])
+                        .label_name(&string);
+                    if let Some(dbg) = rmg.ctx.device.instance.get_debugger() {
+                        unsafe {
+                            dbg.debug_report_loader
+                                .cmd_begin_debug_utils_label(cb.inner, &label)
+                        };
+                    }
+                };
+
                 //now let the node record itself
                 track.nodes[node_idx]
                     .task
                     .task
                     .record(&rmg.ctx.device, &cb.inner, &rmg.resources);
+
+                #[cfg(feature = "debug_marker")]
+                {
+                    if let Some(dbg) = rmg.ctx.device.instance.get_debugger() {
+                        unsafe { dbg.debug_report_loader.cmd_end_debug_utils_label(cb.inner) };
+                    }
+                };
             }
         }
 
@@ -1019,6 +1045,19 @@ impl<'t> Executor<'t> {
                 );
             }
 
+            #[cfg(feature = "debug_marker")]
+            {
+                if let Some(dbg) = rmg.ctx.device.instance.get_debugger() {
+                    let string = CString::new(format!("{:#?}", queue.properties.queue_flags))
+                        .unwrap_or(CString::new("UNAMED_QUEUE").unwrap());
+                    let queue_label = vk::DebugUtilsLabelEXT::builder()
+                        .color([0.0, 0.0, 1.0, 1.0])
+                        .label_name(&string);
+                    dbg.debug_report_loader
+                        .queue_begin_debug_utils_label(*queue.inner(), &queue_label);
+                }
+            }
+
             assert!(queue.family_index == track_queue_family);
 
             rmg.ctx.device.inner.queue_submit2(
@@ -1032,6 +1071,14 @@ impl<'t> Executor<'t> {
                     .signal_semaphore_infos(&signal_semaphore)],
                 vk::Fence::null(),
             )?;
+
+            #[cfg(feature = "debug_marker")]
+            {
+                if let Some(dbg) = rmg.ctx.device.instance.get_debugger() {
+                    dbg.debug_report_loader
+                        .queue_end_debug_utils_label(*queue.inner());
+                }
+            }
         }
 
         //finally build execution struct which we give back to the resource manager for

@@ -165,6 +165,7 @@ impl Resources {
                 .view(image_view_desc)
                 .map_err(|e| ResourceError::MarpiiError(e.into()))?,
         );
+
         let key = self.images.insert(ResImage {
             image: image_arc.clone(),
             view: image_view,
