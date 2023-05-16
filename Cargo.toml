@@ -33,3 +33,5 @@ tinyvec = {version = "1.6.0", features = ["alloc"]}
 simple_logger = "4"
 oos = {git = "https://gitlab.com/tendsinmende/oos.git"}
 winit = "0.28.2"
+puffin = "0.15"
+rspirv-reflect = "0.8.0"

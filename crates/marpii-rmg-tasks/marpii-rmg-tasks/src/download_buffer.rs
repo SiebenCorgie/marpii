@@ -1,4 +1,8 @@
-use marpii::{ash::vk, resources::Buffer, DeviceError, MarpiiError};
+use marpii::{
+    ash::vk,
+    resources::{BufDesc, Buffer},
+    DeviceError, MarpiiError,
+};
 use marpii_rmg::{BufferHandle, Guard, Rmg, Task};
 use std::sync::Arc;
 
@@ -54,6 +58,20 @@ impl<T: bytemuck::Pod + 'static> DownloadBuffer<T> {
             cpu_access_hdl: cpuhdl,
             execution_guard: None,
         })
+    }
+
+    ///Creates a new download buffer for `element_count` elements of type `T`. If you are unsure, just use `T: u8` and `size_of(Type)` for your
+    /// elements. Then use `bytemuck`-crate to cast into a slice of whatever you need.
+    pub fn new_for(rmg: &mut Rmg, element_count: usize) -> Result<Self, TaskError<DownloadError>> {
+        //create the buffer, then call `new`
+
+        let download_buffer_hdl = {
+            let mut desc = BufDesc::storage_buffer::<T>(element_count);
+            desc = desc.add_usage(vk::BufferUsageFlags::TRANSFER_SRC);
+            rmg.new_buffer_uninitialized(desc, Some("DownloadBuffer"))
+                .map_err(|e| TaskError::RmgError(e))?
+        };
+        Self::new(rmg, download_buffer_hdl)
     }
 
     ///Downloads buffer into `dst`. Does nothing if the task wasn't scheduled yet.

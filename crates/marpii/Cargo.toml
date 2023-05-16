@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [features]
 
-default = ["default_allocator", "logging", "bytemuck"]
+default = ["default_allocator", "logging", "bytemuck", "shader_reflection"]
 # if enabled, includes the default allocator implementation based
 # on TraverseResearche's gpu-allocator crate
 default_allocator = ["gpu-allocator"]
@@ -36,8 +36,8 @@ oos.workspace = true
 
 gpu-allocator = {git = "https://github.com/SiebenCorgie/gpu-allocator.git", branch = "feature-expose-memory-properties", optional = true}
 log = {workspace = true, optional=true}
-puffin = {version = "0.14", optional = true}
-rspirv-reflect = {version = "0.7.0", optional = true}
+puffin = {workspace = true, optional = true}
+rspirv-reflect = {workspace = true, optional = true}
 bytemuck = {workspace = true, optional = true}
 
 [dev-dependencies]
