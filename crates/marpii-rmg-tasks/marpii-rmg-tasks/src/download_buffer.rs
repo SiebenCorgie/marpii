@@ -105,6 +105,18 @@ impl<T: bytemuck::Pod + 'static> DownloadBuffer<T> {
             Err(TaskError::Task(DownloadError::TaskNotScheduled))
         }
     }
+
+    ///Returns the handle to the GPU accessible buffer handle. Use that to reference
+    /// this buffer in a shader. Mostly for writing data to it for later download.
+    pub fn gpu_handle(&self) -> BufferHandle<T> {
+        self.gpu_buffer.clone()
+    }
+
+    ///Returns the handle to the CPU accessible buffer handle. This is the buffer used to copy
+    /// the data into `dst` of [download].
+    pub fn cpu_handle(&self) -> BufferHandle<T> {
+        self.cpu_access_hdl.clone()
+    }
 }
 
 impl<T: bytemuck::Pod + 'static> Task for DownloadBuffer<T> {

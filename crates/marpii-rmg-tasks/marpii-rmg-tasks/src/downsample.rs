@@ -133,7 +133,7 @@ impl MetaTask for Downsample {
 }
 
 /* TODO: I actually wanted to do the fancy "downsample in one go" trick from AMD. However, this needs that the image is bound as an array,
- *       or at least each mip level as a singel ImageHandel. Which is currently not possible in rmg. Instead
+ *       or at least each mip level as a singel ImageHandle. Which is currently not possible in rmg. Instead
  *       We implement a meta pass for now that build separate views and uses image blit instead.
 ///Single pass downsample task inspired by AMD's [FidelityFx downsampler](https://github.com/GPUOpen-Effects/FidelityFX-SPD).
 /// Can downsample up to 4096²px textures.
