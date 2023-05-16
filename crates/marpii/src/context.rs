@@ -194,6 +194,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
         //create allocator for device
         let allocator =
             gpu_allocator::vulkan::Allocator::new(&gpu_allocator::vulkan::AllocatorCreateDesc {
+                allocation_sizes: Default::default(),
                 buffer_device_address: false,
                 debug_settings: gpu_allocator::AllocatorDebugSettings {
                     log_leaks_on_shutdown: true,
@@ -292,6 +293,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
         //create allocator for device
         let allocator =
             gpu_allocator::vulkan::Allocator::new(&gpu_allocator::vulkan::AllocatorCreateDesc {
+                allocation_sizes: Default::default(),
                 buffer_device_address: false,
                 debug_settings: gpu_allocator::AllocatorDebugSettings {
                     log_leaks_on_shutdown: true,

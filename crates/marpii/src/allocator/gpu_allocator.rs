@@ -1,5 +1,8 @@
 use ash::vk;
-use gpu_allocator::{vulkan::AllocationCreateDesc, MemoryLocation};
+use gpu_allocator::{
+    vulkan::{AllocationCreateDesc, AllocationScheme},
+    MemoryLocation,
+};
 
 use super::{Allocation, MemoryUsage};
 
@@ -51,6 +54,7 @@ impl super::Allocator for gpu_allocator::vulkan::Allocator {
         is_linear: bool,
     ) -> Result<Self::Allocation, Self::AllocationError> {
         let alloc_desc = AllocationCreateDesc {
+            allocation_scheme: AllocationScheme::GpuAllocatorManaged,
             linear: is_linear,
             location: memory_usage_to_location(usage),
             name: name.unwrap_or("marpii allocation"),
