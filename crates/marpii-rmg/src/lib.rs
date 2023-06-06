@@ -180,3 +180,15 @@ pub use track::Guard;
 
 mod rmg;
 pub use rmg::{CtxRmg, Rmg, RmgError};
+
+#[cfg(test)]
+mod test {
+    use static_assertions::assert_impl_all;
+
+    use crate::RmgError;
+
+    #[test]
+    fn assure_send_sync() {
+        assert_impl_all!(RmgError: Send, Sync);
+    }
+}

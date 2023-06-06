@@ -36,9 +36,21 @@ pub enum RmgError {
 
     #[error("Resource error")]
     ResourceError(#[from] ResourceError),
+
+    #[error("Missing Vulkan feature, make sure to activate the ones flagged: \n: {0:#?}")]
+    MissingFeatures(Vec<String>),
 }
 
 pub type CtxRmg = Ctx<Allocator>;
+
+macro_rules! check_feature {
+    ($vkf:ident, $name:ident, $missing:ident, $any_needed:ident) => {
+        if $vkf.$name == 0 {
+            $any_needed = true;
+            $missing.push(format!("{}::{}", stringify!($vkf), stringify!($name)));
+        }
+    };
+}
 
 ///Main RMG interface.
 pub struct Rmg {
@@ -52,6 +64,115 @@ pub struct Rmg {
 }
 
 impl Rmg {
+    fn check_features(context: &Ctx<Allocator>) -> Result<(), RmgError> {
+        //Right now we are hardcoding all needed features.
+
+        let mut missing = Vec::new();
+        let mut any_needed = false;
+
+        let vk10 = context.device.get_physical_device_features();
+        let _vk11 = context
+            .device
+            .get_feature::<vk::PhysicalDeviceVulkan11Features>();
+        let vk12 = context
+            .device
+            .get_feature::<vk::PhysicalDeviceVulkan12Features>();
+        let vk13 = context
+            .device
+            .get_feature::<vk::PhysicalDeviceVulkan13Features>();
+
+        check_feature!(vk10, shader_int16, missing, any_needed);
+        check_feature!(vk10, shader_float64, missing, any_needed);
+        check_feature!(
+            vk10,
+            shader_storage_buffer_array_dynamic_indexing,
+            missing,
+            any_needed
+        );
+        check_feature!(
+            vk10,
+            shader_storage_image_array_dynamic_indexing,
+            missing,
+            any_needed
+        );
+        check_feature!(
+            vk10,
+            shader_uniform_buffer_array_dynamic_indexing,
+            missing,
+            any_needed
+        );
+        check_feature!(
+            vk10,
+            shader_sampled_image_array_dynamic_indexing,
+            missing,
+            any_needed
+        );
+        check_feature!(vk10, robust_buffer_access, missing, any_needed);
+
+        check_feature!(vk12, shader_int8, missing, any_needed);
+        check_feature!(vk12, runtime_descriptor_array, missing, any_needed);
+        check_feature!(vk12, timeline_semaphore, missing, any_needed);
+        check_feature!(vk12, descriptor_indexing, missing, any_needed);
+        check_feature!(
+            vk12,
+            descriptor_binding_partially_bound,
+            missing,
+            any_needed
+        );
+        check_feature!(
+            vk12,
+            descriptor_binding_sampled_image_update_after_bind,
+            missing,
+            any_needed
+        );
+        check_feature!(
+            vk12,
+            descriptor_binding_storage_image_update_after_bind,
+            missing,
+            any_needed
+        );
+        check_feature!(
+            vk12,
+            descriptor_binding_storage_buffer_update_after_bind,
+            missing,
+            any_needed
+        );
+        check_feature!(
+            vk12,
+            descriptor_binding_variable_descriptor_count,
+            missing,
+            any_needed
+        );
+        check_feature!(
+            vk12,
+            shader_storage_buffer_array_non_uniform_indexing,
+            missing,
+            any_needed
+        );
+        check_feature!(
+            vk12,
+            shader_storage_image_array_non_uniform_indexing,
+            missing,
+            any_needed
+        );
+        check_feature!(
+            vk12,
+            shader_sampled_image_array_non_uniform_indexing,
+            missing,
+            any_needed
+        );
+        check_feature!(vk12, vulkan_memory_model, missing, any_needed);
+
+        check_feature!(vk13, maintenance4, missing, any_needed);
+        check_feature!(vk13, dynamic_rendering, missing, any_needed);
+        check_feature!(vk13, synchronization2, missing, any_needed);
+        if any_needed {
+            Err(RmgError::MissingFeatures(missing))
+        } else {
+            Ok(())
+        }
+    }
+
     ///Creates a new ResourceManagingGraph for this context. Note that the context must be created for
     /// Vulkan 1.3, since it depends on multiple core-1.3 features and extensions.
     ///
@@ -59,6 +180,9 @@ impl Rmg {
     pub fn new(context: Ctx<Allocator>) -> Result<Self, RmgError> {
         //Per definition we try to find at least one graphic, compute and transfer queue.
         // We then create the swapchain. It is used for image presentation and the start/end point for frame scheduling.
+
+        //query context for features
+        Self::check_features(&context)?;
 
         //TODO: make the iterator return an error. Currently if track creation fails, everything fails
         let tracks = context.device.queues.iter().fold(
