@@ -1,3 +1,6 @@
+//! Example that shows how to use RMG and the EGUI standard task
+//! to render a simple user interface.
+
 use anyhow::Result;
 use marpii::context::Ctx;
 use marpii::util::FormatProperties;

@@ -1,9 +1,11 @@
 use std::{
     ffi::{CStr, CString},
+    mem::MaybeUninit,
+    ptr::addr_of_mut,
     sync::Arc,
 };
 
-use ash::vk::{self, ObjectType};
+use ash::vk::{self, BaseOutStructure, ObjectType, TaggedStructure};
 use const_cstr::const_cstr;
 use raw_window_handle::HasRawDisplayHandle;
 
@@ -379,6 +381,58 @@ impl Instance {
 
     pub fn get_debugger(&self) -> Option<&Debugger> {
         self.debugger.as_ref()
+    }
+
+    ///Returns the feature list of the currently used physical device
+    pub fn get_physical_device_features(
+        &self,
+        physical_device: &ash::vk::PhysicalDevice,
+    ) -> ash::vk::PhysicalDeviceFeatures {
+        unsafe { self.inner.get_physical_device_features(*physical_device) }
+    }
+
+    ///same as [get_physical_device_features](crate::context::Device::get_physical_device_features) but for PhysicalDeviceFetures2
+    pub fn get_physical_device_features2(
+        &self,
+        physical_device: &ash::vk::PhysicalDevice,
+    ) -> ash::vk::PhysicalDeviceFeatures2 {
+        let mut features = ash::vk::PhysicalDeviceFeatures2::default();
+        unsafe {
+            self.inner
+                .get_physical_device_features2(*physical_device, &mut features)
+        };
+        features
+    }
+
+    ///Returns the queried E.
+    pub fn get_feature<E: ash::vk::ExtendsPhysicalDeviceFeatures2 + TaggedStructure>(
+        &self,
+        physical_device: &ash::vk::PhysicalDevice,
+    ) -> E {
+        //What we do to get E is that we try to upcast each element of the p_next chain of out feature list to E.
+
+        //Create uninited E. This makes sure we reserved enough space for E.
+        // We use zerode since this are *always* structs with 32bit per field, except for snext.
+        // This somewhat sanitzes the values if the driver does not set the
+        // zero values correctly.
+        let mut q: MaybeUninit<E> = std::mem::MaybeUninit::zeroed();
+        //cast to base struct to set stype. This lets the vulkan getter figure out what we want.
+        let qptr = q.as_mut_ptr();
+        unsafe {
+            addr_of_mut!((*(qptr as *mut BaseOutStructure)).s_type).write(E::STRUCTURE_TYPE);
+        }
+        //push into chain
+        let mut features2 =
+            vk::PhysicalDeviceFeatures2::builder().push_next(unsafe { &mut *q.as_mut_ptr() });
+
+        //issue query
+        unsafe {
+            self.inner
+                .get_physical_device_features2(*physical_device, &mut features2);
+        }
+        //at this point we can assume q to be init.
+        let query = unsafe { q.assume_init() };
+        query
     }
 }
 

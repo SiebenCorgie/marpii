@@ -1,12 +1,10 @@
-use ash::vk::{self, BaseOutStructure, QueueFlags, TaggedStructure};
+use ash::vk::{QueueFlags, TaggedStructure};
 
 use crate::{error::DeviceError, resources::ImgDesc, util::image_usage_to_format_features};
 
 use super::{Queue, QueueBuilder};
 use std::{
-    mem::MaybeUninit,
     os::raw::c_char,
-    ptr::addr_of_mut,
     sync::{Arc, Mutex},
 };
 
@@ -58,7 +56,7 @@ impl DeviceBuilder {
         {
             log::trace!("Supported extensions");
             for ext in all_supported_names.iter() {
-                log::info!("  {}", ext);
+                log::trace!("  {}", ext);
             }
         }
 
@@ -136,7 +134,7 @@ impl DeviceBuilder {
         //if there is a p_next queue, build the pointer queue and add it to the builder
         let mut create_info = device_creation_info.build();
         if p_next.len() > 0 {
-            //Chain the featuers together similar to the builders push
+            //Chain the features together similar to the builders push
             let chain = p_next
                 .iter_mut()
                 .fold(
@@ -226,9 +224,6 @@ impl Device {
                 .inner
                 .enumerate_device_extension_properties(physical_device)?;
 
-            #[cfg(feature = "logging")]
-            log::debug!("Extension properties:\n{:#?}", &extension_properties);
-
             extension_properties
                 .iter()
                 .map(|ext| {
@@ -267,51 +262,19 @@ impl Device {
 
     ///Returns the feature list of the currently used physical device
     pub fn get_physical_device_features(&self) -> ash::vk::PhysicalDeviceFeatures {
-        unsafe {
-            self.instance
-                .inner
-                .get_physical_device_features(self.physical_device)
-        }
+        self.instance
+            .get_physical_device_features(&self.physical_device)
     }
 
     ///same as [get_physical_device_features](crate::context::Device::get_physical_device_features) but for PhysicalDeviceFetures2
     pub fn get_physical_device_features2(&self) -> ash::vk::PhysicalDeviceFeatures2 {
-        let mut features = ash::vk::PhysicalDeviceFeatures2::default();
-        unsafe {
-            self.instance
-                .inner
-                .get_physical_device_features2(self.physical_device, &mut features)
-        };
-        features
+        self.instance
+            .get_physical_device_features2(&self.physical_device)
     }
 
     ///Returns the queried E.
     pub fn get_feature<E: ash::vk::ExtendsPhysicalDeviceFeatures2 + TaggedStructure>(&self) -> E {
-        //What we do to get E is that we try to upcast each element of the p_next chain of out feature list to E.
-
-        //Create uninited E. This makes sure we reserved enough space for E.
-        // We use zerode since this are *always* structs with 32bit per field, except for snext.
-        // This somewhat sanitzes the values if the driver does not set the
-        // zero values correctly.
-        let mut q: MaybeUninit<E> = std::mem::MaybeUninit::zeroed();
-        //cast to base struct to set stype. This lets the vulkan getter figure out what we want.
-        let qptr = q.as_mut_ptr();
-        unsafe {
-            addr_of_mut!((*(qptr as *mut BaseOutStructure)).s_type).write(E::STRUCTURE_TYPE);
-        }
-        //push into chain
-        let mut features2 =
-            vk::PhysicalDeviceFeatures2::builder().push_next(unsafe { &mut *q.as_mut_ptr() });
-
-        //issue query
-        unsafe {
-            self.instance
-                .inner
-                .get_physical_device_features2(self.physical_device, &mut features2);
-        }
-        //at this point we can assume q to be init.
-        let query = unsafe { q.assume_init() };
-        query
+        self.instance.get_feature(&self.physical_device)
     }
 
     pub fn get_device_properties(&self) -> ash::vk::PhysicalDeviceProperties2 {

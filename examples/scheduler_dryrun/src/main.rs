@@ -1,3 +1,6 @@
+//! Simple example that shows how to use RMG and implement a custom task (that, in this case does nothing)
+//! using RMG and RMG's `Task` trait.
+
 use anyhow::Result;
 use marpii::{ash::vk, context::Ctx};
 use marpii_rmg::Rmg;

@@ -1,4 +1,4 @@
-//! A simple marpii application that uses marpii's `Ctx` abstraction to automaticaly create a context for a window.
+//! A simple marpii application that uses marpii's `Ctx` abstraction to automatically create a context for a window.
 //! For each frame a compute shader is executed that writes to a swapchain image.
 
 use anyhow::Result;
