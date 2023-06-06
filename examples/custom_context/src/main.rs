@@ -12,7 +12,7 @@ fn main() {
     let ev = winit::event_loop::EventLoop::new();
     let window_handle = winit::window::Window::new(&ev).unwrap();
 
-    let ctx = marpii::context::Ctx::custom_context(Some(&window_handle), true, |mut builder| {
+    let _ctx = marpii::context::Ctx::custom_context(Some(&window_handle), true, |mut builder| {
         //The simplest thing we might want to check is if a extension is supported.
         let dynamic = builder
             .instance
@@ -58,6 +58,17 @@ fn main() {
                     .build(),
             );
         }
+
+        //Similar to the feature query, you can also a property query if you need further information
+        // regarding the GPU's properties.
+        println!(
+            "Test Property: {:#?}",
+            builder
+                .instance
+                .get_property::<marpii::ash::vk::PhysicalDeviceVulkan13Properties>(
+                    &builder.physical_device
+                )
+        );
 
         builder
     })

@@ -166,6 +166,7 @@ impl Rmg {
         check_feature!(vk13, maintenance4, missing, any_needed);
         check_feature!(vk13, dynamic_rendering, missing, any_needed);
         check_feature!(vk13, synchronization2, missing, any_needed);
+
         if any_needed {
             Err(RmgError::MissingFeatures(missing))
         } else {

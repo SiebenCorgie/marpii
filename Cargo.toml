@@ -23,8 +23,8 @@ members = [
 ash = "0.37.1"
 ash-window = "0.12"
 raw-window-handle = "0.5"
-spirv-std = { git = "https://github.com/LykenSol/rust-gpu", branch = "buffer-interface-block" }
-spirv-builder = { git = "https://github.com/LykenSol/rust-gpu", branch = "buffer-interface-block" }
+spirv-std = { git = "https://github.com/LykenSol/rust-gpu", rev = "d78df7e40f860efe85ef369fed10da2f2940bb70" }
+spirv-builder = { git = "https://github.com/LykenSol/rust-gpu", rev = "d78df7e40f860efe85ef369fed10da2f2940bb70" }
 bytemuck = "1"
 log = "0.4.15"
 ahash = "0.8.2"

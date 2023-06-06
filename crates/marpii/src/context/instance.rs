@@ -434,6 +434,31 @@ impl Instance {
         let query = unsafe { q.assume_init() };
         query
     }
+
+    pub fn get_property<P: vk::ExtendsPhysicalDeviceProperties2 + TaggedStructure>(
+        &self,
+        physical_device: &ash::vk::PhysicalDevice,
+    ) -> P {
+        //Similar to how we get the feature above
+        let mut q: MaybeUninit<P> = std::mem::MaybeUninit::zeroed();
+        //cast to base struct to set stype. This lets the vulkan getter figure out what we want.
+        let qptr = q.as_mut_ptr();
+        unsafe {
+            addr_of_mut!((*(qptr as *mut BaseOutStructure)).s_type).write(P::STRUCTURE_TYPE);
+        }
+        //push into chain
+        let mut properties2 =
+            vk::PhysicalDeviceProperties2::builder().push_next(unsafe { &mut *q.as_mut_ptr() });
+
+        //issue query
+        unsafe {
+            self.inner
+                .get_physical_device_properties2(*physical_device, &mut properties2);
+        }
+        //at this point we can assume q to be init.
+        let query = unsafe { q.assume_init() };
+        query
+    }
 }
 
 pub trait GetDeviceFilter {

@@ -277,6 +277,12 @@ impl Device {
         self.instance.get_feature(&self.physical_device)
     }
 
+    pub fn get_property<P: ash::vk::ExtendsPhysicalDeviceProperties2 + TaggedStructure>(
+        &self,
+    ) -> P {
+        self.instance.get_property(&self.physical_device)
+    }
+
     pub fn get_device_properties(&self) -> ash::vk::PhysicalDeviceProperties2 {
         let mut properties = ash::vk::PhysicalDeviceProperties2::default();
         unsafe {
