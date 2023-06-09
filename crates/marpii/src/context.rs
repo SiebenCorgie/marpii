@@ -33,6 +33,7 @@ mod device;
 pub use device::{Device, DeviceBuilder};
 
 mod queue;
+use oos::OoS;
 pub use queue::{Queue, QueueBuilder};
 
 mod physical_device;
@@ -92,7 +93,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
     pub fn default_with_surface<T>(
         window_handle: &T,
         use_validation: bool,
-    ) -> Result<(Self, Arc<crate::surface::Surface>), MarpiiError>
+    ) -> Result<(Self, OoS<crate::surface::Surface>), MarpiiError>
     where
         T: HasRawDisplayHandle + HasRawWindowHandle,
     {
@@ -108,7 +109,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
         let instance = instance_builder.build()?;
 
         //create the surface, so we can check for compatible devices in the filter.
-        let surface = Arc::new(crate::surface::Surface::new(&instance, window_handle)?);
+        let surface = OoS::new(crate::surface::Surface::new(&instance, window_handle)?);
 
         let ctx = Self::new_default_from_instance(instance, Some(&surface))?;
 
@@ -222,7 +223,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
         window_handle: Option<&T>,
         use_validation: bool,
         on_device_builder: impl FnOnce(DeviceBuilder) -> DeviceBuilder,
-    ) -> Result<(Self, Option<Surface>), MarpiiError>
+    ) -> Result<(Self, Option<OoS<Surface>>), MarpiiError>
     where
         T: HasRawDisplayHandle + HasRawWindowHandle,
     {
@@ -240,7 +241,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
 
         //create the surface, so we can check for compatible devices in the filter.
         let surface = if let Some(handle) = window_handle {
-            Some(Surface::new(&instance, handle)?)
+            Some(OoS::new(Surface::new(&instance, handle)?))
         } else {
             None
         };
@@ -287,6 +288,12 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
             .into_device_builder(instance.clone())?;
 
         device_builder = on_device_builder(device_builder);
+
+        // only add swapchain extension if we got a surface
+        if surface.is_some() {
+            device_builder =
+                device_builder.with_extensions(ash::extensions::khr::Swapchain::name());
+        }
 
         let device = device_builder.build()?;
 

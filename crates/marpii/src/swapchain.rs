@@ -4,6 +4,7 @@ use std::{
 };
 
 use ash::vk::SwapchainCreateInfoKHRBuilder;
+use oos::OoS;
 
 use crate::{
     allocator::{ManagedAllocation, MemoryUsage, UnmanagedAllocation, UnmanagedAllocator},
@@ -67,7 +68,7 @@ impl RecreateInfo {
 
 pub struct SwapchainBuilder {
     ///Surface based on which the swapchain will be build.
-    pub surface: Arc<Surface>,
+    pub surface: OoS<Surface>,
     ///Device for which the swapchain will be build.
     pub device: Arc<Device>,
     pub create_info: RecreateInfo,
@@ -314,7 +315,7 @@ pub struct Swapchain {
     pub device: Arc<Device>,
 
     ///assosiated surface. Needed to keep the surface alive until the swapchain is dropped.
-    pub surface: Arc<Surface>,
+    pub surface: OoS<Surface>,
 
     ///all images of the swapchain.
     ///
@@ -341,7 +342,7 @@ impl Swapchain {
     /// It can happen that the surfaces "supported" extend is `u32::MAX` on all axis. In that case you'll have to manually set the the correct extent.
     pub fn builder(
         device: &Arc<Device>,
-        surface: &Arc<Surface>,
+        surface: OoS<Surface>,
     ) -> Result<SwapchainBuilder, MarpiiError> {
         let formats = surface.get_formats(device.physical_device)?;
         let capabilities = surface.get_capabilities(&device.physical_device)?;
@@ -351,7 +352,7 @@ impl Swapchain {
         let present_mode = present_modes[0];
 
         Ok(SwapchainBuilder {
-            surface: surface.clone(),
+            surface,
             device: device.clone(),
             format_preference: formats,
             present_mode_preference: present_modes,

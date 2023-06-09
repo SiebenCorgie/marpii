@@ -86,7 +86,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut buffer_copy = CopyToGraphicsBuffer::new(&mut rmg, simulation.sim_buffer.clone())?;
     let mut forward =
         ForwardPass::new(&mut rmg, ubo_update.buffer_handle().clone(), &gltf).unwrap();
-    let mut swapchain_blit = SwapchainPresent::new(&mut rmg, &surface)?;
+    let mut swapchain_blit = SwapchainPresent::new(&mut rmg, surface)?;
 
     ev.run(move |ev, _, cf| {
         *cf = ControlFlow::Poll;

@@ -26,7 +26,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     let mut egui = EGuiWinitIntegration::new(&mut rmg, &ev)?;
 
-    let mut swapchain_blit = SwapchainPresent::new(&mut rmg, &surface)?;
+    let mut swapchain_blit = SwapchainPresent::new(&mut rmg, surface)?;
 
     let swapchain_properties = FormatProperties::parse(swapchain_blit.format());
     if swapchain_properties.is_srgb {

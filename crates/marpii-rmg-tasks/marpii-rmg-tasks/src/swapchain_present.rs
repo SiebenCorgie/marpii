@@ -3,7 +3,7 @@ use marpii::{
     resources::ImgDesc,
     surface::Surface,
     swapchain::{Swapchain, SwapchainImage},
-    MarpiiError,
+    MarpiiError, OoS,
 };
 use marpii_rmg::{ImageHandle, RecordError, ResourceError, Rmg, Task};
 use std::sync::Arc;
@@ -38,7 +38,7 @@ pub struct SwapchainPresent {
 }
 
 impl SwapchainPresent {
-    pub fn new(rmg: &mut Rmg, surface: &Arc<Surface>) -> Result<Self, RmgTaskError> {
+    pub fn new(rmg: &mut Rmg, surface: OoS<Surface>) -> Result<Self, RmgTaskError> {
         let swapchain = Swapchain::builder(&rmg.ctx.device, surface)?
             .with(move |b| {
                 b.create_info.usage =

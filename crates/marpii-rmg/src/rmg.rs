@@ -174,6 +174,53 @@ impl Rmg {
         }
     }
 
+    ///Returns pre filled vulkan device feature sets needed for rmg to run.
+    ///
+    /// You might want to use those to add you application dependent additional features before creating a [marpii::Ctx].
+    pub fn get_required_features() -> (
+        vk::PhysicalDeviceFeatures,
+        vk::PhysicalDeviceVulkan11Features,
+        vk::PhysicalDeviceVulkan12Features,
+        vk::PhysicalDeviceVulkan13Features,
+    ) {
+        (
+            vk::PhysicalDeviceFeatures {
+                shader_int16: 1,
+                shader_float64: 1,
+                shader_storage_buffer_array_dynamic_indexing: 1,
+                shader_storage_image_array_dynamic_indexing: 1,
+                shader_uniform_buffer_array_dynamic_indexing: 1,
+                shader_sampled_image_array_dynamic_indexing: 1,
+                robust_buffer_access: 1,
+                ..Default::default()
+            },
+            vk::PhysicalDeviceVulkan11Features::default(),
+            vk::PhysicalDeviceVulkan12Features {
+                shader_int8: 1,
+                vulkan_memory_model: 1,
+                runtime_descriptor_array: 1,
+                timeline_semaphore: 1,
+                descriptor_indexing: 1,
+                descriptor_binding_partially_bound: 1,
+                descriptor_binding_storage_buffer_update_after_bind: 1,
+                descriptor_binding_storage_image_update_after_bind: 1,
+                descriptor_binding_uniform_buffer_update_after_bind: 1,
+                descriptor_binding_sampled_image_update_after_bind: 1,
+                descriptor_binding_variable_descriptor_count: 1,
+                shader_storage_image_array_non_uniform_indexing: 1,
+                shader_sampled_image_array_non_uniform_indexing: 1,
+                shader_storage_buffer_array_non_uniform_indexing: 1,
+                ..Default::default()
+            },
+            vk::PhysicalDeviceVulkan13Features {
+                maintenance4: 1,
+                dynamic_rendering: 1,
+                synchronization2: 1,
+                ..Default::default()
+            },
+        )
+    }
+
     ///Creates a new ResourceManagingGraph for this context. Note that the context must be created for
     /// Vulkan 1.3, since it depends on multiple core-1.3 features and extensions.
     ///
