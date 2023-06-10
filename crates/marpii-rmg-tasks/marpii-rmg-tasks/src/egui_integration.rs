@@ -751,7 +751,7 @@ impl EGuiTask {
         }
 
         //check if we can just write to the index/vertex buffer, or if we have to grow.
-        if self.data.index_buffer.buffer_handle().count() > new_index_buffer.len() {
+        if self.data.index_buffer.buffer_handle().count() >= new_index_buffer.len() {
             //can overwrite
             self.data
                 .index_buffer
@@ -759,7 +759,7 @@ impl EGuiTask {
                 .map_err(|e| MarpiiError::from(e))?;
         } else {
             #[cfg(feature = "logging")]
-            log::info!("Have to grow index buffer to {}", new_index_buffer.len());
+            log::info!("Have to grow index buffer {}", new_index_buffer.len());
 
             self.data.index_buffer = DynamicBuffer::new_with_buffer(
                 rmg,
@@ -771,7 +771,7 @@ impl EGuiTask {
             )?;
         }
 
-        if self.data.vertex_buffer.buffer_handle().count() > new_vertex_buffer.len() {
+        if self.data.vertex_buffer.buffer_handle().count() >= new_vertex_buffer.len() {
             //can overwrite
             self.data
                 .vertex_buffer

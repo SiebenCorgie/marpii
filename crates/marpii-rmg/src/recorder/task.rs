@@ -50,6 +50,46 @@ impl ResourceRegistry {
         access: vk::AccessFlags2,
         layout: ImageLayout,
     ) -> Result<(), ResourceError> {
+        //Check usage flags against access flags.
+        // NOTE: We are not checking *all*, but most common ones
+        match access {
+            vk::AccessFlags2::SHADER_STORAGE_READ | vk::AccessFlags2::SHADER_STORAGE_WRITE => {
+                if !image.usage_flags().contains(vk::ImageUsageFlags::STORAGE) {
+                    return Err(ResourceError::InvalidAccess(access));
+                }
+            }
+            vk::AccessFlags2::TRANSFER_WRITE => {
+                if !image
+                    .usage_flags()
+                    .contains(vk::ImageUsageFlags::TRANSFER_DST)
+                {
+                    return Err(ResourceError::InvalidAccess(access));
+                }
+            }
+            vk::AccessFlags2::TRANSFER_READ => {
+                if !image
+                    .usage_flags()
+                    .contains(vk::ImageUsageFlags::TRANSFER_SRC)
+                {
+                    return Err(ResourceError::InvalidAccess(access));
+                }
+            }
+            vk::AccessFlags2::SHADER_SAMPLED_READ => {
+                if !image.usage_flags().contains(vk::ImageUsageFlags::SAMPLED) {
+                    return Err(ResourceError::InvalidAccess(access));
+                }
+            }
+            vk::AccessFlags2::INPUT_ATTACHMENT_READ => {
+                if !image
+                    .usage_flags()
+                    .contains(vk::ImageUsageFlags::INPUT_ATTACHMENT)
+                {
+                    return Err(ResourceError::InvalidAccess(access));
+                }
+            }
+            _ => {}
+        }
+
         if self
             .images
             .insert(image.key, (stage, access, layout))
@@ -72,6 +112,51 @@ impl ResourceRegistry {
         stage: vk::PipelineStageFlags2,
         access: vk::AccessFlags2,
     ) -> Result<(), ResourceError> {
+        match access {
+            vk::AccessFlags2::SHADER_STORAGE_READ | vk::AccessFlags2::SHADER_STORAGE_WRITE => {
+                if !buffer
+                    .usage_flags()
+                    .contains(vk::BufferUsageFlags::STORAGE_BUFFER)
+                {
+                    return Err(ResourceError::InvalidAccess(access));
+                }
+            }
+            vk::AccessFlags2::TRANSFER_WRITE => {
+                if !buffer
+                    .usage_flags()
+                    .contains(vk::BufferUsageFlags::TRANSFER_DST)
+                {
+                    return Err(ResourceError::InvalidAccess(access));
+                }
+            }
+            vk::AccessFlags2::TRANSFER_READ => {
+                if !buffer
+                    .usage_flags()
+                    .contains(vk::BufferUsageFlags::TRANSFER_SRC)
+                {
+                    return Err(ResourceError::InvalidAccess(access));
+                }
+            }
+            vk::AccessFlags2::UNIFORM_READ => {
+                if !buffer
+                    .usage_flags()
+                    .contains(vk::BufferUsageFlags::UNIFORM_BUFFER)
+                {
+                    return Err(ResourceError::InvalidAccess(access));
+                }
+            }
+            vk::AccessFlags2::ACCELERATION_STRUCTURE_READ_KHR
+            | vk::AccessFlags2::ACCELERATION_STRUCTURE_WRITE_KHR => {
+                if !buffer
+                    .usage_flags()
+                    .contains(vk::BufferUsageFlags::ACCELERATION_STRUCTURE_STORAGE_KHR)
+                {
+                    return Err(ResourceError::InvalidAccess(access));
+                }
+            }
+            _ => {}
+        }
+
         if self.buffers.insert(buffer.key, (stage, access)).is_some() {
             return Err(ResourceError::ResourceAlreadyRequested);
         }

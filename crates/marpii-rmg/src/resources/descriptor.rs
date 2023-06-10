@@ -44,7 +44,7 @@ struct SetManager<T> {
 
 impl<T> Debug for SetManager<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        writeln!(f, "SetManager:")?;
+        writeln!(f, "SetManager[{:#?}]:", self.ty)?;
         for k in self.stored.keys() {
             writeln!(f, "    {}@{}", k.index(), k.handle_type())?
         }
@@ -55,9 +55,11 @@ impl<T> Debug for SetManager<T> {
 
 impl<T> SetManager<T> {
     fn allocate_handle(&mut self) -> Option<ResourceHandle> {
-        if let Some(hdl) = self.free.pop_back() {
+        if let Some(mut hdl) = self.free.pop_back() {
+            //Possibly resettig shared usage
+            hdl = ResourceHandle::new(ResourceHandle::descriptor_type_to_u8(self.ty), hdl.index());
             #[cfg(feature = "logging")]
-            log::trace!("Reusing handle {:?} for descty {:#?}", hdl, self.ty);
+            log::info!("Reusing handle {:?} for descty {:#?}", hdl, self.ty);
             Some(hdl)
         } else if self.head_idx >= self.max_idx {
             #[cfg(feature = "logging")]
@@ -70,7 +72,7 @@ impl<T> SetManager<T> {
         } else {
             let new_idx = self.head_idx;
             #[cfg(feature = "logging")]
-            log::trace!(
+            log::info!(
                 "Allocating new handle {:?} for descty {:#?}",
                 new_idx,
                 self.ty
@@ -80,9 +82,83 @@ impl<T> SetManager<T> {
         }
     }
 
-    #[allow(dead_code)]
+    fn allocate_common<O>(&mut self, other: &mut SetManager<O>) -> Option<ResourceHandle> {
+        //Similar to allocate_handle, but we do that in parallel for both sets
+        // to find a common descriptor index.
+
+        //try to resuse one in both, otherwise jump to the back
+        let mut free_index = None;
+        for (fidx, f) in self.free.iter().enumerate() {
+            for (ofidx, of) in other.free.iter().enumerate() {
+                if of.index() == f.index() {
+                    free_index = Some(((fidx, ofidx), of.index()));
+                    break;
+                }
+            }
+        }
+
+        if let Some(reuse) = free_index {
+            log::trace!(
+                "Found common free index: {} @ {} / {}",
+                reuse.1,
+                reuse.0 .0,
+                reuse.0 .1
+            );
+            //remove both from free list
+            let this_hdl = self.free.remove(reuse.0 .0).unwrap();
+            let other_hdl = other.free.remove(reuse.0 .1).unwrap();
+
+            assert!(this_hdl.index() == other_hdl.index());
+
+            //build new common handle
+            let hdl = ResourceHandle::new(
+                this_hdl.handle_type() | other_hdl.handle_type(),
+                this_hdl.index(),
+            );
+            Some(hdl)
+        } else {
+            #[cfg(feature = "logging")]
+            log::info!(
+                "Did not found common index for \n{:#?}\n{:#?}",
+                self.ty,
+                other.ty
+            );
+            let max_idx = self.head_idx.max(other.head_idx);
+            //Mark whole region till that index free for both sets
+            #[cfg(feature = "logging")]
+            {
+                log::info!("Marking {:#?} {}..{} free", self.ty, self.head_idx, max_idx);
+                log::info!(
+                    "Marking {:#?} {}..{} free",
+                    other.ty,
+                    other.head_idx,
+                    max_idx
+                );
+            }
+            for idx in self.head_idx..max_idx {
+                self.free
+                    .push_back(ResourceHandle::new_from_desc_ty(self.ty, idx));
+            }
+            for idx in other.head_idx..max_idx {
+                other
+                    .free
+                    .push_back(ResourceHandle::new_from_desc_ty(other.ty, idx));
+            }
+            //now increase both since we want to use that handle
+            self.head_idx = max_idx + 1;
+            other.head_idx = max_idx + 1;
+
+            //finally build new, combinde resource handle
+            Some(ResourceHandle::new(
+                ResourceHandle::descriptor_type_to_u8(self.ty)
+                    | ResourceHandle::descriptor_type_to_u8(other.ty),
+                max_idx as u32,
+            ))
+        }
+    }
+
     fn free_handle(&mut self, hdl: ResourceHandle) {
-        assert!(hdl.descriptor_ty() == self.ty);
+        assert!((ResourceHandle::descriptor_type_to_u8(self.ty) & hdl.handle_type()) > 0);
         self.free.push_front(hdl);
     }
 
@@ -178,16 +254,23 @@ impl<T> SetManager<T> {
         &mut self,
         dta: T,
         mut write_instruction: vk::WriteDescriptorSetBuilder<'_>,
+        allocated_slot: Option<ResourceHandle>,
     ) -> Result<ResourceHandle, T> {
-        let hdl = if let Some(hdl) = self.allocate_handle() {
-            hdl
+        let hdl = if let Some(h) = allocated_slot {
+            h
         } else {
-            return Err(dta);
+            if let Some(hdl) = self.allocate_handle() {
+                hdl
+            } else {
+                return Err(dta);
+            }
         };
 
         assert!(
             !self.stored.contains_key(&hdl),
-            "Allocated handle was in use, \nnew_handle: {:?},\nstore: {:?}!",
+            "{:?}: Allocated handle {} was in use, \nnew_handle: {:?},\nstore: {:?}!",
+            self.ty,
+            hdl.index(),
             hdl,
             self.stored.keys()
         );
@@ -551,7 +634,7 @@ impl Bindless {
             .buffer_info(core::slice::from_ref(&buffer_info))
             .descriptor_type(vk::DescriptorType::STORAGE_BUFFER);
 
-        let hdl = self.stbuffer.bind(buffer, write_instruction)?;
+        let hdl = self.stbuffer.bind(buffer, write_instruction, None)?;
         Ok(hdl) //wrap handle into correct type and exit
     }
 
@@ -595,7 +678,7 @@ impl Bindless {
             .image_info(core::slice::from_ref(&image_info))
             .descriptor_type(vk::DescriptorType::STORAGE_IMAGE);
 
-        let hdl = self.stimage.bind(image, write_instruction)?;
+        let hdl = self.stimage.bind(image, write_instruction, None)?;
         Ok(hdl) //wrap handle into correct type and exit
     }
 
@@ -640,8 +723,68 @@ impl Bindless {
             .image_info(core::slice::from_ref(&image_info))
             .descriptor_type(vk::DescriptorType::SAMPLED_IMAGE);
 
-        let hdl = self.saimage.bind(image, write_instruction)?;
+        let hdl = self.saimage.bind(image, write_instruction, None)?;
         Ok(hdl) //wrap handle into correct type and exit
+    }
+
+    pub fn bind_sampled_storage_image(
+        &mut self,
+        image: Arc<ImageView>,
+    ) -> Result<ResourceHandle, Arc<ImageView>> {
+        if !image
+            .src_img
+            .desc
+            .usage
+            .contains(vk::ImageUsageFlags::SAMPLED | vk::ImageUsageFlags::STORAGE)
+        {
+            #[cfg(feature = "logging")]
+            log::error!(
+                "Tried to bind as sampled&storage image, but lacks one of those usages: {:#?}!",
+                image.src_img.desc.usage
+            );
+            return Err(image);
+        }
+
+        #[cfg(feature = "logging")]
+        log::trace!("Binding sampled+storage image!");
+
+        //prepare our write instruction, then submit
+        let image_info = vk::DescriptorImageInfo::builder()
+            .image_layout(vk::ImageLayout::GENERAL) //FIXME: works but is suboptimal. Might tag images
+            .image_view(image.view);
+
+        let allocated_hdl =
+            if let Some(pre_fetched_hdl) = self.saimage.allocate_common(&mut self.stimage) {
+                pre_fetched_hdl
+            } else {
+                log::error!("Failed to pre-allocate handle for common sampled + storage image!");
+                return Err(image);
+            };
+
+        let write_instruction_sampled = vk::WriteDescriptorSet::builder()
+            .image_info(core::slice::from_ref(&image_info))
+            .descriptor_type(vk::DescriptorType::SAMPLED_IMAGE);
+
+        let write_instruction_storage = vk::WriteDescriptorSet::builder()
+            .image_info(core::slice::from_ref(&image_info))
+            .descriptor_type(vk::DescriptorType::STORAGE_IMAGE);
+
+        let hdl_sa = self.saimage.bind(
+            image.clone(),
+            write_instruction_sampled,
+            Some(allocated_hdl),
+        )?;
+
+        let hdl_st = self
+            .stimage
+            .bind(image, write_instruction_storage, Some(allocated_hdl))?;
+
+        assert!(
+            hdl_sa.index() == hdl_st.index(),
+            "Failed to allocate commonly-indexed, dual bound storage + sampled image handle!"
+        );
+
+        Ok(allocated_hdl) //wrap handle into correct type and exit
     }
 
     pub fn remove_sampled_image(&mut self, handle: ResourceHandle) {
@@ -658,7 +801,7 @@ impl Bindless {
             .image_info(core::slice::from_ref(&image_info))
             .descriptor_type(vk::DescriptorType::SAMPLER);
 
-        let hdl = self.sampler.bind(sampler, write_instruction)?;
+        let hdl = self.sampler.bind(sampler, write_instruction, None)?;
         Ok(hdl) //wrap handle into correct type and exit
     }
 

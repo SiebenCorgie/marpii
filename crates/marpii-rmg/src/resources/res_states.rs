@@ -72,6 +72,9 @@ impl ResImage {
     pub fn is_sampled_image(&self) -> bool {
         self.image.desc.usage.contains(vk::ImageUsageFlags::SAMPLED)
     }
+    pub fn is_storage_image(&self) -> bool {
+        self.image.desc.usage.contains(vk::ImageUsageFlags::STORAGE)
+    }
 
     ///Check if there are no public references anymore to this image
     pub fn is_orphaned(&self) -> bool {

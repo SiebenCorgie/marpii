@@ -48,6 +48,9 @@ pub enum ResourceError {
     #[error("Image has none of SAMPLED and STORAGE flags set. Can't decide which to use")]
     ImageNoUsageFlags,
 
+    #[error("Resource has no usage flag set that allows access of type {0:?}")]
+    InvalidAccess(vk::AccessFlags2),
+
     #[error("Binding a resource failed")]
     BindingFailed,
 
@@ -119,19 +122,38 @@ impl Resources {
                 if let Some(hdl) = &image.descriptor_handle {
                     return Err(ResourceError::AlreadyBound(res.into(), *hdl));
                 }
-                if image.is_sampled_image() {
-                    image.descriptor_handle = Some(
-                        self.bindless
-                            .bind_sampled_image(image.view.clone())
-                            .map_err(|_| ResourceError::BindingFailed)?,
-                    );
-                } else {
-                    image.descriptor_handle = Some(
-                        self.bindless
-                            .bind_storage_image(image.view.clone())
-                            .map_err(|_| ResourceError::BindingFailed)?,
-                    );
+
+                match (image.is_sampled_image(), image.is_storage_image()) {
+                    (true, true) => {
+                        #[cfg(feature = "logging")]
+                        log::info!("Binding image to both, sampled, and storage descriptor set");
+                        image.descriptor_handle = Some(
+                            self.bindless
+                                .bind_sampled_storage_image(image.view.clone())
+                                .map_err(|_| ResourceError::BindingFailed)?,
+                        );
+                    }
+                    (true, false) => {
+                        image.descriptor_handle = Some(
+                            self.bindless
+                                .bind_sampled_image(image.view.clone())
+                                .map_err(|_| ResourceError::BindingFailed)?,
+                        );
+                    }
+                    (false, true) => {
+                        image.descriptor_handle = Some(
+                            self.bindless
+                                .bind_storage_image(image.view.clone())
+                                .map_err(|_| ResourceError::BindingFailed)?,
+                        );
+                    }
+                    (false, false) => {
+                        #[cfg(feature = "logging")]
+                        log::error!("Failed to bind image, neither STORAGE, nor SAMPLED bit set");
+                        return Err(ResourceError::BindingFailed);
+                    }
                 }
+
                 Ok(image.descriptor_handle.unwrap())
             }
             AnyResKey::Sampler(sam) => {
@@ -348,10 +370,22 @@ impl Resources {
                 log::info!("Dropping {:?}", key);
 
                 if let Some(hdl) = img.descriptor_handle {
-                    if img.is_sampled_image() {
-                        self.bindless.remove_sampled_image(hdl);
-                    } else {
-                        self.bindless.remove_storage_image(hdl);
+                    match (img.is_sampled_image(), img.is_storage_image()){
+                        (true, true) => {
+                            self.bindless.remove_sampled_image(hdl);
+                            self.bindless.remove_storage_image(hdl);
+                        },
+                        (true, false) => {
+
+                            self.bindless.remove_sampled_image(hdl);
+                        },
+                        (false, true) => {
+                            self.bindless.remove_storage_image(hdl);
+                        },
+                        (false, false) => {
+                            #[cfg(feature = "logging")]
+                            log::error!("Cannot drop image resource thats not STORAGE nor SAMPLED tagged: {:?}", key);
+                        }
                     }
                 }
                 false

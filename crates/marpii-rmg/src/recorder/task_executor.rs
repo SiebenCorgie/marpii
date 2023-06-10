@@ -148,9 +148,6 @@ impl<'t> Executor<'t> {
         //       Maybe order by *task pressure*, or preffer tracks that haven't scheduled
         //       in a while.
         for (trackid, next_idx) in self.next_frame.iter() {
-            #[cfg(feature = "logging")]
-            log::trace!("TEST: [{:?},{:?}]", trackid, next_idx);
-
             let is_executeable = if let Some(frame) = self
                 .schedule
                 .tracks
@@ -243,6 +240,8 @@ impl<'t> Executor<'t> {
             },
         );
         for (track_id, sem_value) in track_biggest_pairs {
+            #[cfg(feature = "logging")]
+            log::trace!("Add Wait for track {:#?} until {}", track_id.0, sem_value);
             //turn each track-value pair into a submit info
             rmg.tracks
                 .0
@@ -709,10 +708,10 @@ impl<'t> Executor<'t> {
                                     debug_assert!(owner == src_family, "Adding release for buffer {:?} on family {}, buf was owned by {}", buf, src_family, owner);
                                     #[cfg(feature = "logging")]
                                     log::trace!(
-                                        "Releasing Buffer {:?} {} -> {} !",
+                                        "Releasing Buffer {:?} {:#?} -> {:#?} !",
                                         buf,
-                                        src_family,
-                                        dst_family
+                                        trackid.0,
+                                        track.0
                                     );
                                     bufstate.ownership = QueueOwnership::Released {
                                         src_family,
@@ -749,10 +748,10 @@ impl<'t> Executor<'t> {
                                     debug_assert!(owner == src_family, "Adding release for image {:?} on family {}, buf was owned by {}", img, src_family, owner);
                                     #[cfg(feature = "logging")]
                                     log::trace!(
-                                        "Releasing Image {:?} {} -> {} !",
+                                        "Releasing Image {:?} {:#?} -> {:#?} !",
                                         img,
-                                        src_family,
-                                        dst_family
+                                        trackid.0,
+                                        track.0
                                     );
                                     imgstate.ownership = QueueOwnership::Released {
                                         src_family,
@@ -768,8 +767,8 @@ impl<'t> Executor<'t> {
                             }
                         }
                         AnyResKey::Sampler(_) => {
-                            #[cfg(feature = "logging")]
-                            log::warn!("Not releasing sampler!");
+                            //#[cfg(feature = "logging")]
+                            //log::warn!("Not releasing sampler!");
                         }
                     }
                 }
@@ -842,6 +841,12 @@ impl<'t> Executor<'t> {
         let exec_guard = rmg.tracks.0.get_mut(&trackid).unwrap().next_guard();
         //pre-build signal semaphore. This allows us to
         // add all foreign semaphores while checking node dependencies.
+        #[cfg(feature = "logging")]
+        log::trace!(
+            "Signalling {:#?}'s semaphore to {}",
+            trackid.0,
+            exec_guard.wait_value()
+        );
         let mut signal_semaphore = vec![vk::SemaphoreSubmitInfo::builder()
             .semaphore(rmg.tracks.0.get(exec_guard.as_ref()).unwrap().sem.inner)
             .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
@@ -1032,13 +1037,13 @@ impl<'t> Executor<'t> {
             #[cfg(feature = "logging")]
             {
                 log::trace!(
-                    "Wait info: {:?}\nFamily: {}, index: {}",
+                    "Wait info:\n {:#?}\nFamily: {}, index: {}",
                     self.submit_info_cache,
                     queue.family_index,
                     0
                 );
                 log::trace!(
-                    "Signal info: {:?}\nFamily: {}, index: {}",
+                    "Signal info:\n {:#?}\nFamily: {}, index: {}",
                     signal_semaphore,
                     queue.family_index,
                     0

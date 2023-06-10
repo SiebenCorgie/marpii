@@ -66,7 +66,7 @@ impl<T: marpii::bytemuck::Pod> DynamicBuffer<T> {
         }
 
         #[cfg(feature = "logging")]
-        log::info!(
+        log::trace!(
             "Write to staging buffer {:?}@{}",
             self.cpu_local.inner,
             offset_elements

@@ -1,6 +1,5 @@
 #![no_std]
 //! Resources that are needed in multiple crates. Mostly RustGpu shader crates, and marpii-rmg itself.
-
 #[cfg(feature = "marpii")]
 use marpii::ash::vk;
 
@@ -23,8 +22,8 @@ impl ResourceHandle {
     pub const TYPE_STORAGE_BUFFER: u8 = 0x0;
     pub const TYPE_STORAGE_IMAGE: u8 = 0x1;
     pub const TYPE_SAMPLED_IMAGE: u8 = 0x2;
-    pub const TYPE_SAMPLER: u8 = 0x3;
-    pub const TYPE_ACCELERATION_STRUCTURE: u8 = 0x4;
+    pub const TYPE_SAMPLER: u8 = 0x4;
+    pub const TYPE_ACCELERATION_STRUCTURE: u8 = 0x8;
     pub const TYPE_INVALID: u8 = 0xff;
 
     pub const INVALID: Self = Self::new_unchecked(Self::TYPE_INVALID, 0);
@@ -90,7 +89,15 @@ impl ResourceHandle {
 
     #[cfg(feature = "marpii")]
     pub fn new_from_desc_ty(ty: vk::DescriptorType, index: u32) -> Self {
-        let ty = match ty {
+        let ty = Self::descriptor_type_to_u8(ty);
+
+        Self::new(ty, index)
+    }
+
+    ///Builds the u8 for this descriptor type
+    #[cfg(feature = "marpii")]
+    pub fn descriptor_type_to_u8(ty: vk::DescriptorType) -> u8 {
+        match ty {
             vk::DescriptorType::SAMPLED_IMAGE => Self::TYPE_SAMPLED_IMAGE,
             vk::DescriptorType::STORAGE_IMAGE => Self::TYPE_STORAGE_IMAGE,
             vk::DescriptorType::STORAGE_BUFFER => Self::TYPE_STORAGE_BUFFER,
@@ -105,9 +112,7 @@ impl ResourceHandle {
 
                 Self::TYPE_STORAGE_BUFFER
             }
-        };
-
-        Self::new(ty, index)
+        }
     }
 }
 
@@ -132,6 +137,10 @@ mod tests {
         let sa = ResourceHandle::new_from_desc_ty(vk::DescriptorType::SAMPLER, 10);
         let acc =
             ResourceHandle::new_from_desc_ty(vk::DescriptorType::ACCELERATION_STRUCTURE_KHR, 45);
+        let combined = ResourceHandle::new_from_desc_ty(
+            vk::DescriptorType::STORAGE_IMAGE | vk::DescriptorType::SAMPLED_IMAGE,
+            46,
+        );
 
         assert!(sa_img.index() == 42, "42 != {}", sa_img.index());
         assert!(sa_img.descriptor_ty() == vk::DescriptorType::SAMPLED_IMAGE);
