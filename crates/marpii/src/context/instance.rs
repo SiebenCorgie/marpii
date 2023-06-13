@@ -313,7 +313,15 @@ impl InstanceBuilder {
             if let Ok(str_name) =
                 std::str::from_utf8(bytemuck::cast_slice(al.layer_name.as_slice()))
             {
-                if str_name == name {
+                #[cfg(feature = "logging")]
+                log::trace!(
+                    "Checked {} - {}",
+                    String::from_utf8_lossy(bytemuck::cast_slice(al.layer_name.as_slice())),
+                    name
+                );
+                if str_name.contains(name) {
+                    #[cfg(feature = "logging")]
+                    log::trace!("Found {}", name);
                     return true;
                 }
             } else {
