@@ -1,4 +1,4 @@
-use std::error::Error;
+use std::{error::Error, ffi::CString};
 
 use ash::{vk, LoadingError};
 
@@ -63,6 +63,8 @@ pub enum InstanceError {
     VkError(#[from] vk::Result),
     #[error("Failed to load Vulkan entry point: {0}")]
     EntryLoading(#[from] LoadingError),
+    #[error("Layer {0:?} is missing, is it installed on the host system?")]
+    MissingLayer(CString),
 }
 
 #[derive(Error, Debug)]

@@ -159,6 +159,7 @@ pub struct InstanceBuilder {
     pub validation_layers: Option<ValidationFeatures>,
     pub enabled_layers: Vec<CString>,
     pub enabled_extensions: Vec<CString>,
+    available_layers: Vec<vk::LayerProperties>,
 }
 
 impl InstanceBuilder {
@@ -168,6 +169,11 @@ impl InstanceBuilder {
         //check if validation is enabled, in that case push the validation layers
         let has_val_layers = self.validation_layers.is_some();
         if has_val_layers {
+            if !self.is_layer_available("VK_LAYER_KHRONOS_validation") {
+                return Err(InstanceError::MissingLayer(
+                    CString::new("VK_LAYER_KHRONOS_validation").unwrap(),
+                ));
+            }
             self = self.with_layer(CString::new("VK_LAYER_KHRONOS_validation").unwrap())?;
             self = self.with_extension(ash::extensions::ext::DebugUtils::name().to_owned())?;
         }
@@ -177,6 +183,7 @@ impl InstanceBuilder {
             validation_layers: _,
             enabled_layers,
             enabled_extensions,
+            available_layers: _,
         } = self;
         /*
                 let validation_features = if let Some(f) = validation_layers{
@@ -282,6 +289,44 @@ impl InstanceBuilder {
         }))
     }
 
+    pub fn is_layer_available_cstr(&self, name: &CStr) -> bool {
+        for al in &self.available_layers {
+            if let Ok(str_name) =
+                std::ffi::CStr::from_bytes_until_nul(bytemuck::cast_slice(al.layer_name.as_slice()))
+            {
+                if str_name == name {
+                    return true;
+                }
+            } else {
+                #[cfg(feature = "logging")]
+                log::error!(
+                    "Could not pares layer name: {}",
+                    String::from_utf8_lossy(bytemuck::cast_slice(al.layer_name.as_slice()))
+                );
+            }
+        }
+        false
+    }
+
+    pub fn is_layer_available(&self, name: &str) -> bool {
+        for al in &self.available_layers {
+            if let Ok(str_name) =
+                std::str::from_utf8(bytemuck::cast_slice(al.layer_name.as_slice()))
+            {
+                if str_name == name {
+                    return true;
+                }
+            } else {
+                #[cfg(feature = "logging")]
+                log::error!(
+                    "Could not pares layer name: {}",
+                    String::from_utf8_lossy(bytemuck::cast_slice(al.layer_name.as_slice()))
+                );
+            }
+        }
+        false
+    }
+
     ///adds an extensions with the given name, if it was not added yet.
     pub fn with_extension(mut self, name: CString) -> Result<Self, InstanceError> {
         for e in &self.enabled_extensions {
@@ -301,11 +346,14 @@ impl InstanceBuilder {
 
     ///adds an layer with the given name to the list of layers
     pub fn with_layer(mut self, name: CString) -> Result<Self, InstanceError> {
-        for l in &self.enabled_layers {
-            #[cfg(feature = "logging")]
-            log::warn!("Tried to enable layer twice: {:?}", name);
+        if !self.is_layer_available_cstr(&name) {
+            return Err(InstanceError::MissingLayer(name));
+        }
 
+        for l in &self.enabled_layers {
             if l == &name {
+                #[cfg(feature = "logging")]
+                log::warn!("Tried to enable layer twice: {:?}", name);
                 return Ok(self); //was enabled already
             }
         }
@@ -359,23 +407,28 @@ impl Instance {
     pub fn load() -> Result<InstanceBuilder, InstanceError> {
         let entry = unsafe { ash::Entry::load()? };
 
+        let available_layers = entry.enumerate_instance_layer_properties()?;
+
         Ok(InstanceBuilder {
             entry,
             enabled_extensions: Vec::new(),
             enabled_layers: Vec::new(),
             validation_layers: None,
+            available_layers,
         })
     }
 
     ///Creates instance loaded by using [Entry::linked](ash::Entry::linked)
     pub fn linked() -> Result<InstanceBuilder, InstanceError> {
         let entry = ash::Entry::linked();
+        let available_layers = entry.enumerate_instance_layer_properties()?;
 
         Ok(InstanceBuilder {
             entry,
             enabled_extensions: Vec::new(),
             enabled_layers: Vec::new(),
             validation_layers: None,
+            available_layers,
         })
     }
 

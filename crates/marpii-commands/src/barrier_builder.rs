@@ -10,8 +10,8 @@ use tinyvec::TinyVec;
 /// however can outgrow that value.
 #[derive(Debug)]
 pub struct BarrierBuilder {
-    pub images: TinyVec<[vk::ImageMemoryBarrier2; Self::STACK_ALLCATION]>,
-    pub buffers: TinyVec<[vk::BufferMemoryBarrier2; Self::STACK_ALLCATION]>,
+    pub images: TinyVec<[vk::ImageMemoryBarrier2; Self::STACK_ALLOCATION]>,
+    pub buffers: TinyVec<[vk::BufferMemoryBarrier2; Self::STACK_ALLOCATION]>,
 }
 
 ///By default we pre allocate two barriers per type, since this is a pretty common pattern for simple
@@ -27,7 +27,7 @@ impl Default for BarrierBuilder {
 
 impl BarrierBuilder {
     ///Ammount of barriers that can be stack allocated.
-    pub const STACK_ALLCATION: usize = 6;
+    pub const STACK_ALLOCATION: usize = 6;
 
     ///Creates new builder with `N` stack allocated barriers per type.
     pub fn new() -> Self {
@@ -132,6 +132,10 @@ impl BarrierBuilder {
             .dst_queue_family_index(dst_queue_family)
             .new_layout(dst_layout)
             .build();
+
+        #[cfg(feature = "logging")]
+        log::trace!("full_transition[{:?}] {:#?}", image, item);
+
         self.images.push(item);
 
         self
@@ -147,6 +151,14 @@ impl BarrierBuilder {
         src_queue_family: u32,
         dst_queue_family: u32,
     ) -> &mut Self {
+        #[cfg(feature = "logging")]
+        log::trace!(
+            "queue[{:?}] {:#?} -> {:#?}",
+            image,
+            src_queue_family,
+            dst_queue_family
+        );
+
         let item = vk::ImageMemoryBarrier2::builder()
             .image(image)
             .subresource_range(subresource_range)
@@ -168,6 +180,9 @@ impl BarrierBuilder {
         src_layout: vk::ImageLayout,
         dst_layout: ImageLayout,
     ) -> &mut Self {
+        #[cfg(feature = "logging")]
+        log::trace!("layout[{:?}] {:#?} -> {:#?}", image, src_layout, dst_layout);
+
         let item = vk::ImageMemoryBarrier2::builder()
             .image(image)
             .subresource_range(subresource_range)
@@ -180,6 +195,8 @@ impl BarrierBuilder {
     }
 
     pub fn image_custom_barrier(&mut self, barrier: vk::ImageMemoryBarrier2) -> &mut Self {
+        #[cfg(feature = "logging")]
+        log::trace!("full_custom_transition {:#?}", barrier);
         self.images.push(barrier);
         self
     }

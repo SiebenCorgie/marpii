@@ -69,6 +69,13 @@ impl ResourceHandle {
         Self::new_unchecked(ty, index)
     }
 
+    ///Returns true if the descriptor owns an index into the descriptor set for type `ty`.
+    pub fn contains_type(&self, ty: u8) -> bool {
+        //NOTE: using one bit per type, so this would be 0 if `ty`'s bit isn't set in the
+        // handle_type as well
+        (self.handle_type() & ty) > 0
+    }
+
     #[cfg(feature = "marpii")]
     pub fn descriptor_ty(&self) -> vk::DescriptorType {
         match self.handle_type() {
@@ -137,8 +144,8 @@ mod tests {
         let sa = ResourceHandle::new_from_desc_ty(vk::DescriptorType::SAMPLER, 10);
         let acc =
             ResourceHandle::new_from_desc_ty(vk::DescriptorType::ACCELERATION_STRUCTURE_KHR, 45);
-        let combined = ResourceHandle::new_from_desc_ty(
-            vk::DescriptorType::STORAGE_IMAGE | vk::DescriptorType::SAMPLED_IMAGE,
+        let combined = ResourceHandle::new(
+            ResourceHandle::TYPE_STORAGE_IMAGE | ResourceHandle::TYPE_SAMPLED_IMAGE,
             46,
         );
 
@@ -152,5 +159,8 @@ mod tests {
         assert!(sa.descriptor_ty() == vk::DescriptorType::SAMPLER);
         assert!(acc.index() == 45);
         assert!(acc.descriptor_ty() == vk::DescriptorType::ACCELERATION_STRUCTURE_KHR);
+        assert!(combined.index() == 46);
+        assert!(combined.contains_type(ResourceHandle::TYPE_STORAGE_IMAGE));
+        assert!(combined.contains_type(ResourceHandle::TYPE_SAMPLED_IMAGE));
     }
 }
