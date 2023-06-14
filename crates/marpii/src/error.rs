@@ -65,6 +65,8 @@ pub enum InstanceError {
     EntryLoading(#[from] LoadingError),
     #[error("Layer {0:?} is missing, is it installed on the host system?")]
     MissingLayer(CString),
+    #[error("InstanceExtension {0:?} is missing, is it installed on the host system?")]
+    MissingExtension(CString),
 }
 
 #[derive(Error, Debug)]

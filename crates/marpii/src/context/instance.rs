@@ -160,6 +160,7 @@ pub struct InstanceBuilder {
     pub enabled_layers: Vec<CString>,
     pub enabled_extensions: Vec<CString>,
     available_layers: Vec<vk::LayerProperties>,
+    available_extensions: Vec<vk::ExtensionProperties>,
 }
 
 impl InstanceBuilder {
@@ -169,11 +170,6 @@ impl InstanceBuilder {
         //check if validation is enabled, in that case push the validation layers
         let has_val_layers = self.validation_layers.is_some();
         if has_val_layers {
-            if !self.is_layer_available("VK_LAYER_KHRONOS_validation") {
-                return Err(InstanceError::MissingLayer(
-                    CString::new("VK_LAYER_KHRONOS_validation").unwrap(),
-                ));
-            }
             self = self.with_layer(CString::new("VK_LAYER_KHRONOS_validation").unwrap())?;
             self = self.with_extension(ash::extensions::ext::DebugUtils::name().to_owned())?;
         }
@@ -184,6 +180,7 @@ impl InstanceBuilder {
             enabled_layers,
             enabled_extensions,
             available_layers: _,
+            available_extensions: _,
         } = self;
         /*
                 let validation_features = if let Some(f) = validation_layers{
@@ -335,17 +332,43 @@ impl InstanceBuilder {
         false
     }
 
+    ///Returns true if a instance-extension with the given name was found
+    pub fn is_extension_available_cstr(&self, extension_name: &CStr) -> bool {
+        for ext in &self.available_extensions {
+            if let Ok(str_name) = std::ffi::CStr::from_bytes_until_nul(bytemuck::cast_slice(
+                ext.extension_name.as_slice(),
+            )) {
+                if str_name == extension_name {
+                    return true;
+                }
+            } else {
+                #[cfg(feature = "logging")]
+                log::error!(
+                    "Could not pares layer name: {}",
+                    String::from_utf8_lossy(bytemuck::cast_slice(ext.extension_name.as_slice()))
+                );
+            }
+        }
+
+        false
+    }
+
     ///adds an extensions with the given name, if it was not added yet.
     pub fn with_extension(mut self, name: CString) -> Result<Self, InstanceError> {
-        for e in &self.enabled_extensions {
-            #[cfg(feature = "logging")]
-            log::warn!("Tried to enable extension twice: {:?}", name);
+        if !self.is_extension_available_cstr(&name.as_c_str()) {
+            return Err(InstanceError::MissingExtension(name));
+        }
 
+        for e in &self.enabled_extensions {
             if e == &name {
+                #[cfg(feature = "logging")]
+                log::warn!("Tried to enable extension twice: {:?}", name);
                 return Ok(self); //was enabled already
             }
         }
 
+        #[cfg(feature = "logging")]
+        log::info!("Enabling instance-extension: {:?}", name);
         //is not present, add and return
         self.enabled_extensions.push(name);
 
@@ -416,6 +439,7 @@ impl Instance {
         let entry = unsafe { ash::Entry::load()? };
 
         let available_layers = entry.enumerate_instance_layer_properties()?;
+        let available_extensions = entry.enumerate_instance_extension_properties(None)?;
 
         Ok(InstanceBuilder {
             entry,
@@ -423,6 +447,7 @@ impl Instance {
             enabled_layers: Vec::new(),
             validation_layers: None,
             available_layers,
+            available_extensions,
         })
     }
 
@@ -430,6 +455,7 @@ impl Instance {
     pub fn linked() -> Result<InstanceBuilder, InstanceError> {
         let entry = ash::Entry::linked();
         let available_layers = entry.enumerate_instance_layer_properties()?;
+        let available_extensions = entry.enumerate_instance_extension_properties(None)?;
 
         Ok(InstanceBuilder {
             entry,
@@ -437,6 +463,7 @@ impl Instance {
             enabled_layers: Vec::new(),
             validation_layers: None,
             available_layers,
+            available_extensions,
         })
     }
 
