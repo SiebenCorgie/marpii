@@ -8,6 +8,7 @@ use marpii::{
         BufDesc, GraphicsPipeline, Image, ImageType, ImgDesc, PipelineLayout, PushConstant,
         ShaderModule, ShaderStage,
     },
+    util::Timestamps,
     OoS,
 };
 use marpii_rmg::{
@@ -43,6 +44,8 @@ pub struct ForwardPass {
 
     //Camera data used
     ubo_buffer: BufferHandle<Ubo>,
+
+    timestamps: Timestamps,
 }
 
 impl ForwardPass {
@@ -169,6 +172,8 @@ impl ForwardPass {
             .unwrap(),
         );
 
+        let timestamps = Timestamps::new(&rmg.ctx.device, 2)?;
+
         Ok(ForwardPass {
             color_image,
             depth_image,
@@ -182,6 +187,7 @@ impl ForwardPass {
             index_buffer_size,
             vertex_buffer,
             ubo_buffer: ubo,
+            timestamps,
         })
     }
 
@@ -420,6 +426,11 @@ impl Task for ForwardPass {
         command_buffer: &vk::CommandBuffer,
         resources: &Resources,
     ) {
+        self.timestamps.pool.reset(command_buffer).unwrap();
+
+        self.timestamps
+            .write_timestamp(command_buffer, vk::PipelineStageFlags2::TOP_OF_PIPE, 0);
+
         if self.sim_src.is_none() {
             return;
         }
@@ -519,7 +530,24 @@ impl Task for ForwardPass {
 
             device.inner.cmd_end_rendering(*command_buffer);
         }
+
+        self.timestamps
+            .write_timestamp(command_buffer, vk::PipelineStageFlags2::BOTTOM_OF_PIPE, 1);
     }
+
+    fn post_execution(
+        &mut self,
+        _resources: &mut Resources,
+        _ctx: &CtxRmg,
+    ) -> Result<(), RecordError> {
+        let result = self.timestamps.get_timestamps_blocking().unwrap();
+
+        let diff = result[1] - result[0];
+        let ms = (diff as f32 * self.timestamps.get_timestamp_increment()) / 1_000_000.0;
+        println!("Forward: {}ms", ms);
+        Ok(())
+    }
+
     fn queue_flags(&self) -> vk::QueueFlags {
         vk::QueueFlags::GRAPHICS
     }

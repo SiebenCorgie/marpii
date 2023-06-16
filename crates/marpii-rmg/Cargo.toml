@@ -5,7 +5,7 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [features]
-default = ["logging", "debug_marker", "time-stamps"]
+default = ["logging", "debug_marker", "timestamps"]
 # if enabled, uses the log crate for messages. Note that the graph prints reasoning of decissions into the tracing level
 logging = ["log"]
 
@@ -18,7 +18,7 @@ ray-tracing = []
 
 #if enabled, adds time stamps to all tasks and a query operation
 #that returns 64bit nano-second durations for each task.
-time-stamps = []
+timestamps = []
 
 [dependencies]
 thiserror.workspace = true

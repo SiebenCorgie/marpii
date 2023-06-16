@@ -34,7 +34,7 @@ impl Timestamps {
         }
 
         let vk12 = device.get_feature::<vk::PhysicalDeviceVulkan12Features>();
-        if !vk12.host_query_reset > 0 {
+        if vk12.host_query_reset == 0 {
             return Err(MarpiiError::DeviceError(
                 crate::DeviceError::UnsupportedFeature("VK_EXT_host_query_reset".to_owned()),
             ));
@@ -42,7 +42,7 @@ impl Timestamps {
 
         //get physical device feature
         let pdf = device.get_feature::<vk::PhysicalDeviceHostQueryResetFeatures>();
-        if !pdf.host_query_reset > 0 {
+        if pdf.host_query_reset == 0 {
             return Err(MarpiiError::DeviceError(
                 crate::DeviceError::UnsupportedFeature(
                     "PhysicalDeviceHostQueryResetFeatures.host_query_reset".to_owned(),

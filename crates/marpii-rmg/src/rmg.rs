@@ -74,7 +74,7 @@ impl Rmg {
         let mut any_needed = false;
 
         //If enable, check time-stamp limits
-        #[cfg(feature = "time-stamps")]
+        #[cfg(feature = "timestamps")]
         {
             if context
                 .device
@@ -239,7 +239,7 @@ impl Rmg {
                 shader_storage_image_array_non_uniform_indexing: 1,
                 shader_sampled_image_array_non_uniform_indexing: 1,
                 shader_storage_buffer_array_non_uniform_indexing: 1,
-                #[cfg(feature = "time-stamps")]
+                #[cfg(feature = "timestamps")]
                 host_query_reset: 1,
 
                 ..Default::default()
