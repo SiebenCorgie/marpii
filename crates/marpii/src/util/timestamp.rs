@@ -74,7 +74,7 @@ impl Timestamps {
         stage: vk::PipelineStageFlags2,
         timestamp: u32,
     ) {
-        if timestamp >= self.pool.size {
+        if timestamp >= (self.data_poins.len() as u32 / 2) {
             #[cfg(feature = "logging")]
             log::error!(
                 "Timestamp {} exceeds pool size {}",
@@ -124,9 +124,13 @@ impl Timestamps {
         //null before using
         self.data_poins.fill(0);
 
-        self.pool.query_results_u64(
-            &mut self.data_poins[0..(self.in_flight as usize * 2)],
-            vk::QueryResultFlags::WITH_AVAILABILITY,
+        //Use tuple as referenced here: https://github.com/ash-rs/ash/issues/100#issuecomment-1530041456
+        // NOTE: This might break at some point!
+
+        let target_slice: &mut [[u64; 2]] = bytemuck::cast_slice_mut(self.data_poins.as_mut());
+        self.pool.query_results(
+            &mut target_slice[0..(self.in_flight as usize)],
+            vk::QueryResultFlags::WITH_AVAILABILITY | vk::QueryResultFlags::TYPE_64,
         )?;
 
         //sort out availability
@@ -141,7 +145,7 @@ impl Timestamps {
             }
         }
 
-        Ok(&self.async_data_points)
+        Ok(&self.async_data_points[0..self.in_flight as usize])
     }
 
     ///Returns the timestamp increments in nanosecond. This means *how much time passes (in nanoseconds) between `t=n` and `t=n+1`*.

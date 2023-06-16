@@ -541,11 +541,18 @@ impl Task for ForwardPass {
         _resources: &mut Resources,
         _ctx: &CtxRmg,
     ) -> Result<(), RecordError> {
-        let result = self.timestamps.get_timestamps_blocking().unwrap();
+        if let Ok(result) = self.timestamps.get_timestamps() {
+            match (result[0], result[1]) {
+                (Some(src), Some(dst)) => {
+                    let diff = dst - src;
+                    let ms =
+                        (diff as f32 * self.timestamps.get_timestamp_increment()) / 1_000_000.0;
+                    println!("Forward local: {}ms", ms);
+                }
+                _ => println!("State: {}, {}", result[0].is_some(), result[1].is_some()),
+            }
+        }
 
-        let diff = result[1] - result[0];
-        let ms = (diff as f32 * self.timestamps.get_timestamp_increment()) / 1_000_000.0;
-        println!("Forward: {}ms", ms);
         Ok(())
     }
 

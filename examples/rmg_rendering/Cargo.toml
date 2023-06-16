@@ -10,7 +10,7 @@ simple_logger.workspace = true
 anyhow.workspace = true
 
 marpii = {path = "../../crates/marpii", features=["logging"]}
-marpii-rmg = {path = "../../crates/marpii-rmg"}
+marpii-rmg = {path = "../../crates/marpii-rmg", features = ["timestamps"]}
 marpii-rmg-tasks = {path = "../../crates/marpii-rmg-tasks/marpii-rmg-tasks"}
 marpii-descriptor = {path = "../../crates/marpii-descriptor"}
 winit.workspace = true

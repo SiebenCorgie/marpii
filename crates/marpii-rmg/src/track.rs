@@ -118,7 +118,7 @@ impl TimestampTable {
     pub const TIMESTAMP_COUNT: u32 = 128;
 
     pub fn reset(&mut self, command_buffer: &vk::CommandBuffer) {
-        self.timestamps.pool.reset(command_buffer).unwrap();
+        self.timestamps.reset(command_buffer).unwrap();
         self.head = 0;
         self.table.clear();
     }
@@ -291,8 +291,7 @@ impl Track {
                     if let Some(scheduled) = self.timestamp_table.table.get(&(idx as u32)) {
                         //try to find end as well
                         if let Some(end_timing) = &timings[scheduled.till as usize] {
-                            let nanoseconds =
-                                ((end_timing - start_timing) as f32 * increment) / 1_000_000.0;
+                            let nanoseconds = (end_timing - start_timing) as f32 * increment;
                             dst.push(TaskTiming {
                                 name: scheduled.name.clone(),
                                 timing: nanoseconds,
@@ -321,7 +320,7 @@ impl Track {
             if let Some(scheduled) = self.timestamp_table.table.get(&(idx as u32)) {
                 //get end timing
                 let end_timing = timings[scheduled.till as usize];
-                let nanoseconds = ((end_timing - start_timing) as f32 * increment) / 1_000_000.0;
+                let nanoseconds = (end_timing - start_timing) as f32 * increment;
                 dst.push(TaskTiming {
                     name: scheduled.name.clone(),
                     timing: nanoseconds,

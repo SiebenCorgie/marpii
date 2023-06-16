@@ -20,7 +20,7 @@ impl QueryPool {
     pub fn new(device: &Arc<Device>, size: u32, ty: vk::QueryType) -> Result<Self, vk::Result> {
         let create_info = vk::QueryPoolCreateInfo::builder()
             .query_type(ty)
-            .query_count(size);
+            .query_count(size * 2); //* 2 for async querries
         let pool = unsafe { device.inner.create_query_pool(&create_info, None)? };
 
         Ok(QueryPool {
@@ -80,6 +80,22 @@ impl QueryPool {
         }
 
         let flags = flags | vk::QueryResultFlags::TYPE_64;
+        println!("Using flags: {:#?}", flags);
+        unsafe {
+            self.device
+                .inner
+                .get_query_pool_results(self.pool, 0, dst.len() as u32, dst, flags)
+        }
+    }
+
+    pub fn query_results<T>(
+        &self,
+        dst: &mut [T],
+        flags: vk::QueryResultFlags,
+    ) -> Result<(), vk::Result> {
+        if dst.len() == 0 {
+            return Ok(());
+        }
         unsafe {
             self.device
                 .inner
