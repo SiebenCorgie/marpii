@@ -1,4 +1,8 @@
 use ash::vk;
+mod timestamp;
+pub use timestamp::{Timestamp, Timestamps};
+mod query_pool;
+pub use query_pool::QueryPool;
 
 ///Converts a [Extent3D](ash::vk::Extent3D) to an offset. Needed for instance to convert
 /// an image's extent to the offset parameter for image-blit or copy operations.

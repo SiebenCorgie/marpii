@@ -9,6 +9,11 @@ use marpii::{
 };
 use std::sync::Arc;
 use thiserror::Error;
+#[cfg(feature = "timestamps")]
+use tinyvec::TinyVec;
+
+#[cfg(feature = "timestamps")]
+use crate::track::TaskTiming;
 
 use crate::{
     recorder::Recorder,
@@ -39,6 +44,9 @@ pub enum RmgError {
 
     #[error("Missing Vulkan feature, make sure to activate the ones flagged: \n: {0:#?}")]
     MissingFeatures(Vec<String>),
+
+    #[error("Device is too limited: {0}")]
+    DeviceLimit(String),
 }
 
 pub type CtxRmg = Ctx<Allocator>;
@@ -69,6 +77,32 @@ impl Rmg {
 
         let mut missing = Vec::new();
         let mut any_needed = false;
+
+        //If enable, check time-stamp limits
+        #[cfg(feature = "timestamps")]
+        {
+            if context
+                .device
+                .get_device_properties()
+                .properties
+                .limits
+                .timestamp_compute_and_graphics
+                == 0
+            {
+                return Err(RmgError::DeviceLimit(format!(
+                    "Timestamp_Compute_And_Graphics: was 0, should be > 0"
+                )));
+            }
+
+            for q in context.device.queues.iter() {
+                if q.properties.timestamp_valid_bits == 0 {
+                    return Err(RmgError::DeviceLimit(format!(
+                        "Queue {:#?} has timestamp_valid bit not set",
+                        q.properties.queue_flags
+                    )));
+                }
+            }
+        }
 
         let vk10 = context.device.get_physical_device_features();
         let _vk11 = context
@@ -210,6 +244,9 @@ impl Rmg {
                 shader_storage_image_array_non_uniform_indexing: 1,
                 shader_sampled_image_array_non_uniform_indexing: 1,
                 shader_storage_buffer_array_non_uniform_indexing: 1,
+                #[cfg(feature = "timestamps")]
+                host_query_reset: 1,
+
                 ..Default::default()
             },
             vk::PhysicalDeviceVulkan13Features {
@@ -238,6 +275,7 @@ impl Rmg {
             |mut set: AHashMap<TrackId, Track>, q| {
                 #[cfg(feature = "logging")]
                 log::info!("QueueType: {:#?}", q.properties.queue_flags);
+
                 //Make sure to only add queue, if we don't have a queue with those capabilities yet.
                 if let std::collections::hash_map::Entry::Vacant(e) =
                     set.entry(TrackId(q.properties.queue_flags))
@@ -430,6 +468,21 @@ impl Rmg {
         unsafe { self.ctx.device.inner.device_wait_idle()? }
 
         Ok(())
+    }
+
+    /// Appends all known timings from the last execution.
+    /// Note that, depending on how heavy the workload is, some timings might not (yet) be available.
+    ///
+    /// This call however does *not* block the CPU till all executions are ready. For that, use the [blocking](Self::get_recent_task_timings_blocking)
+    /// alternative.
+    #[cfg(feature = "timestamps")]
+    pub fn get_recent_track_timings(&mut self) -> TinyVec<[TaskTiming; 16]> {
+        self.tracks.get_recent_task_timings()
+    }
+
+    #[cfg(feature = "timestamps")]
+    pub fn get_recent_track_timings_blocking(&mut self) -> TinyVec<[TaskTiming; 16]> {
+        self.tracks.get_recent_task_timings_blocking()
     }
 }
 

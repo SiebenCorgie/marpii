@@ -98,6 +98,13 @@ fn main() -> Result<(), anyhow::Error> {
             Event::RedrawRequested(_) => {
                 camera.tick();
 
+                //try to get last timings
+                /*
+                for t in rmg.get_recent_track_timings() {
+                    println!("{:#?}", t);
+                }
+                */
+
                 //update framebuffer extent to current one.
                 let framebuffer_ext = swapchain_blit.extent().unwrap_or(vk::Extent2D {
                     width: window.inner_size().width,
@@ -144,7 +151,10 @@ fn main() -> Result<(), anyhow::Error> {
                         ..
                     },
                 ..
-            } => *cf = ControlFlow::Exit,
+            } => {
+                rmg.wait_for_idle().unwrap();
+                *cf = ControlFlow::Exit;
+            }
             _ => {}
         }
     })

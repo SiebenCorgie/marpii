@@ -16,6 +16,9 @@ debug_marker = []
 # if enabled, enables rmg to bind and build acceleration structures.
 ray-tracing = []
 
+#if enabled, adds time stamps to all tasks and a query operation
+#that returns 64bit nano-second durations for each task.
+timestamps = []
 
 [dependencies]
 thiserror.workspace = true
