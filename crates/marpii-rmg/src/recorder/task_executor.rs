@@ -1,4 +1,7 @@
 use ahash::AHashMap;
+#[cfg(feature = "timestamps")]
+use ahash::AHashSet;
+
 use marpii::ash::vk;
 use marpii_commands::BarrierBuilder;
 use std::any::Any;
@@ -28,6 +31,10 @@ pub struct Executor<'t> {
     submit_info_cache: Vec<vk::SemaphoreSubmitInfo>,
     ///collects all executions while iterating frames.
     execution_cache: Vec<Execution>,
+
+    //tracks for which trackid the timestamp cache was already reset.
+    #[cfg(feature = "timestamps")]
+    timestamp_reset: AHashSet<TrackId>,
 }
 
 impl<'t> Executor<'t> {
@@ -74,6 +81,8 @@ impl<'t> Executor<'t> {
             guard_cache: Vec::with_capacity(10),
             submit_info_cache: Vec::with_capacity(rmg.tracks.0.len()),
             execution_cache: Vec::with_capacity(n_frames),
+            #[cfg(feature = "timestamps")]
+            timestamp_reset: AHashSet::new(),
         };
 
         while exec.has_executable() {
@@ -440,6 +449,7 @@ impl<'t> Executor<'t> {
                     .get_mut(trackid)
                     .unwrap()
                     .new_command_buffer()?;
+
                 let dependency_info = barriers.get(trackid).unwrap().as_dependency_info();
                 unsafe {
                     rmg.ctx.device.inner.begin_command_buffer(
@@ -838,6 +848,27 @@ impl<'t> Executor<'t> {
                 );
             }
         }
+
+        //if this traks's timestamp was not yet reset, do it now
+        #[cfg(feature = "timestamps")]
+        {
+            if !self.timestamp_reset.contains(&trackid)
+                && (trackid.0.contains(vk::QueueFlags::COMPUTE)
+                    || trackid.0.contains(vk::QueueFlags::GRAPHICS))
+            {
+                #[cfg(feature = "logging")]
+                log::trace!("Resetting timestamps for track {:#?}", trackid);
+
+                rmg.tracks
+                    .0
+                    .get_mut(&trackid)
+                    .unwrap()
+                    .timestamp_table
+                    .reset(&cb.inner);
+                self.timestamp_reset.insert(trackid.clone());
+            }
+        }
+
         let exec_guard = rmg.tracks.0.get_mut(&trackid).unwrap().next_guard();
         //pre-build signal semaphore. This allows us to
         // add all foreign semaphores while checking node dependencies.
@@ -976,11 +1007,38 @@ impl<'t> Executor<'t> {
                     }
                 };
 
+                //if we are recording timestamps for tasks, start the region here and end it afterwards
+                #[cfg(feature = "timestamps")]
+                let timestamp_index = if trackid.0.contains(vk::QueueFlags::COMPUTE)
+                    || trackid.0.contains(vk::QueueFlags::GRAPHICS)
+                {
+                    rmg.tracks
+                        .0
+                        .get_mut(&trackid)
+                        .map(|t| {
+                            t.timestamp_table
+                                .start_region(&cb.inner, track.nodes[node_idx].task.task.name())
+                        })
+                        .flatten()
+                } else {
+                    None
+                };
+
                 //now let the node record itself
                 track.nodes[node_idx]
                     .task
                     .task
                     .record(&rmg.ctx.device, &cb.inner, &rmg.resources);
+
+                //end timestamp region if appropriate
+                #[cfg(feature = "timestamps")]
+                if let Some(region_index) = timestamp_index {
+                    if let Some(recrtrack) = rmg.tracks.0.get_mut(&trackid) {
+                        recrtrack
+                            .timestamp_table
+                            .end_region(region_index, &cb.inner);
+                    }
+                }
 
                 #[cfg(feature = "debug_marker")]
                 {

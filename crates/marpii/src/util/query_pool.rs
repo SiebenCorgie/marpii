@@ -17,6 +17,18 @@ pub struct QueryPool {
 }
 
 impl QueryPool {
+    pub fn new(device: &Arc<Device>, size: u32, ty: vk::QueryType) -> Result<Self, vk::Result> {
+        let create_info = vk::QueryPoolCreateInfo::builder()
+            .query_type(ty)
+            .query_count(size);
+        let pool = unsafe { device.inner.create_query_pool(&create_info, None)? };
+
+        Ok(QueryPool {
+            pool,
+            device: device.clone(),
+            size,
+        })
+    }
     ///Resets the timestamp pool of `self`.
     pub fn reset(&mut self, command_buffer: &vk::CommandBuffer) -> Result<(), vk::Result> {
         unsafe {
@@ -38,6 +50,9 @@ impl QueryPool {
         dst: &mut [u32],
         flags: vk::QueryResultFlags,
     ) -> Result<(), vk::Result> {
+        if dst.len() == 0 {
+            return Ok(());
+        }
         assert!(
             !flags.contains(vk::QueryResultFlags::TYPE_64),
             "query_results_u32 can not contain 64bit flag!"
@@ -46,7 +61,7 @@ impl QueryPool {
         unsafe {
             self.device
                 .inner
-                .get_query_pool_results(self.pool, 0, self.size, dst, flags)
+                .get_query_pool_results(self.pool, 0, dst.len() as u32, dst, flags)
         }
     }
 
@@ -60,12 +75,23 @@ impl QueryPool {
         dst: &mut [u64],
         flags: vk::QueryResultFlags,
     ) -> Result<(), vk::Result> {
-        let flags = flags | vk::QueryResultFlags::TYPE_64;
+        if dst.len() == 0 {
+            return Ok(());
+        }
 
+        let flags = flags | vk::QueryResultFlags::TYPE_64;
         unsafe {
             self.device
                 .inner
-                .get_query_pool_results(self.pool, 0, self.size, dst, flags)
+                .get_query_pool_results(self.pool, 0, dst.len() as u32, dst, flags)
+        }
+    }
+}
+
+impl Drop for QueryPool {
+    fn drop(&mut self) {
+        unsafe {
+            self.device.inner.destroy_query_pool(self.pool, None);
         }
     }
 }

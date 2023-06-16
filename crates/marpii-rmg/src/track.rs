@@ -6,9 +6,16 @@ use marpii::{
     sync::Semaphore,
     OoS,
 };
+
+#[cfg(feature = "timestamps")]
+use marpii::util::Timestamps;
+
 use std::{fmt::Display, sync::Arc};
 
 use crate::{recorder::Execution, RecordError, Rmg};
+
+#[cfg(feature = "timestamps")]
+use tinyvec::{Array, TinyVec};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Guard {
@@ -67,6 +74,109 @@ impl Guard {
     }
 }
 
+#[cfg(feature = "timestamps")]
+#[derive(Hash, PartialEq, Eq)]
+pub(crate) struct TimestampRegion {
+    from: u32,
+    till: u32,
+    is_ended: bool,
+    name: String,
+}
+
+#[cfg(feature = "timestamps")]
+#[derive(Clone, Debug, PartialEq)]
+pub struct TaskTiming {
+    ///Name of the task.
+    pub name: String,
+    ///Timing in nanoseconds this task used for all operations.
+    ///
+    /// this means everything that happens in `Task::record`.
+    pub timing: f32,
+}
+
+#[cfg(feature = "timestamps")]
+impl Default for TaskTiming {
+    fn default() -> Self {
+        TaskTiming {
+            name: String::new(),
+            timing: 0.0,
+        }
+    }
+}
+
+#[cfg(feature = "timestamps")]
+pub(crate) struct TimestampTable {
+    timestamps: Timestamps,
+    //Keeps track of the range -> pass-name tracking
+    // keyed by the start index for that region
+    table: AHashMap<u32, TimestampRegion>,
+    head: u32,
+}
+
+#[cfg(feature = "timestamps")]
+impl TimestampTable {
+    pub const TIMESTAMP_COUNT: u32 = 128;
+
+    pub fn reset(&mut self, command_buffer: &vk::CommandBuffer) {
+        self.timestamps.pool.reset(command_buffer).unwrap();
+        self.head = 0;
+        self.table.clear();
+    }
+
+    ///If there is space for a new region, allocates it, and returns its identification index.
+    pub fn start_region(&mut self, command_buffer: &vk::CommandBuffer, name: &str) -> Option<u32> {
+        let index = self.head;
+        if self.head >= (Self::TIMESTAMP_COUNT - 1) {
+            #[cfg(feature = "logging")]
+            log::warn!("Could not allocate an new timestamp region.");
+            return None;
+        }
+        self.head += 2;
+
+        let former = self.table.insert(
+            index,
+            TimestampRegion {
+                from: index,
+                till: index + 1,
+                is_ended: false,
+                name: name.to_owned(),
+            },
+        );
+
+        if former.is_some() {
+            #[cfg(feature = "logging")]
+            log::error!(
+                "Reusing already allocated timestamp index {}. This will result in wrong timings",
+                index
+            );
+        }
+
+        //now actually insert
+        self.timestamps.write_timestamp(
+            command_buffer,
+            vk::PipelineStageFlags2::TOP_OF_PIPE,
+            index,
+        );
+
+        Some(index)
+    }
+
+    ///Marks the region identified by `index` as ended.
+    pub fn end_region(&mut self, index: u32, command_buffer: &vk::CommandBuffer) {
+        if let Some(region) = self.table.get_mut(&index) {
+            self.timestamps.write_timestamp(
+                command_buffer,
+                vk::PipelineStageFlags2::BOTTOM_OF_PIPE,
+                region.till,
+            );
+            region.is_ended = true;
+        } else {
+            #[cfg(feature = "logging")]
+            log::error!("No timestamp region found for index {}", index);
+        }
+    }
+}
+
 ///Execution track. Basically a `DeviceQueue` and some associated data.
 pub(crate) struct Track {
     pub(crate) queue_idx: u32,
@@ -78,13 +188,28 @@ pub(crate) struct Track {
 
     //Latest known value that is going to be signaled eventually.
     pub(crate) latest_signaled_value: u64,
+
+    #[cfg(feature = "timestamps")]
+    pub(crate) timestamp_table: TimestampTable,
 }
 
 impl Track {
     pub fn new(device: &Arc<Device>, queue_idx: u32, flags: vk::QueueFlags) -> Self {
         let sem = Semaphore::new(device, 0).expect("Could not create Track's semaphore");
-        //sem.set_value(42).unwrap();
-        //assert!(sem.get_value() == 42);
+
+        #[cfg(feature = "timestamps")]
+        let timestamp_table = {
+            let timestamps =
+                Timestamps::new(device, TimestampTable::TIMESTAMP_COUNT as usize).unwrap();
+            let mut table = AHashMap::default();
+            table.reserve(TimestampTable::TIMESTAMP_COUNT as usize / 2);
+            TimestampTable {
+                timestamps,
+                table,
+                head: 0,
+            }
+        };
+
         Track {
             queue_idx,
             flags,
@@ -99,6 +224,9 @@ impl Track {
             ),
             inflight_executions: Vec::with_capacity(10),
             latest_signaled_value: 0,
+
+            #[cfg(feature = "timestamps")]
+            timestamp_table,
         }
     }
 
@@ -143,6 +271,63 @@ impl Track {
             .map_err(|e| RecordError::MarpiiError(e.into()))?;
 
         Ok(cb)
+    }
+
+    /// Appends all known timings from the last execution.
+    /// Note that, depending on how heavy the workload is, some timings might not (yet) be available.
+    ///
+    /// This call however does *not* block the CPU till all executions are ready. For that, use the [blocking](Self::get_recent_task_timings_blocking)
+    /// alternative.
+    #[cfg(feature = "timestamps")]
+    pub fn get_recent_task_timings<const N: usize>(&mut self, dst: &mut TinyVec<[TaskTiming; N]>)
+    where
+        [TaskTiming; N]: Array<Item = TaskTiming>,
+    {
+        let increment = self.timestamp_table.timestamps.get_timestamp_increment();
+        if let Ok(timings) = self.timestamp_table.timestamps.get_timestamps() {
+            for idx in 0..timings.len() {
+                //Do not consider if not even the start index is known.
+                if let Some(start_timing) = &timings[idx] {
+                    if let Some(scheduled) = self.timestamp_table.table.get(&(idx as u32)) {
+                        //try to find end as well
+                        if let Some(end_timing) = &timings[scheduled.till as usize] {
+                            let nanoseconds =
+                                ((end_timing - start_timing) as f32 * increment) / 1_000_000.0;
+                            dst.push(TaskTiming {
+                                name: scheduled.name.clone(),
+                                timing: nanoseconds,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[cfg(feature = "timestamps")]
+    pub fn get_recent_task_timings_blocking<const N: usize>(
+        &mut self,
+        dst: &mut TinyVec<[TaskTiming; N]>,
+    ) where
+        [TaskTiming; N]: Array<Item = TaskTiming>,
+    {
+        let increment = self.timestamp_table.timestamps.get_timestamp_increment();
+        let timings = self
+            .timestamp_table
+            .timestamps
+            .get_timestamps_blocking()
+            .unwrap();
+        for (idx, start_timing) in timings.iter().enumerate() {
+            if let Some(scheduled) = self.timestamp_table.table.get(&(idx as u32)) {
+                //get end timing
+                let end_timing = timings[scheduled.till as usize];
+                let nanoseconds = ((end_timing - start_timing) as f32 * increment) / 1_000_000.0;
+                dst.push(TaskTiming {
+                    name: scheduled.name.clone(),
+                    timing: nanoseconds,
+                });
+            }
+        }
     }
 }
 
@@ -241,5 +426,30 @@ Could not find track for usage {:#?}. Following tracks are loaded:
             self.0.keys()
         );
         None
+    }
+
+    /// Appends all known timings from the last execution.
+    /// Note that, depending on how heavy the workload is, some timings might not (yet) be available.
+    ///
+    /// This call however does *not* block the CPU till all executions are ready. For that, use the [blocking](Self::get_recent_task_timings_blocking)
+    /// alternative.
+    #[cfg(feature = "timestamps")]
+    pub fn get_recent_task_timings(&mut self) -> TinyVec<[TaskTiming; 16]> {
+        let mut vec = tinyvec::tiny_vec!([TaskTiming; 16]);
+        for track in self.0.values_mut() {
+            track.get_recent_task_timings(&mut vec);
+        }
+
+        vec
+    }
+
+    #[cfg(feature = "timestamps")]
+    pub fn get_recent_task_timings_blocking(&mut self) -> TinyVec<[TaskTiming; 16]> {
+        let mut vec = tinyvec::tiny_vec!([TaskTiming; 16]);
+        for track in self.0.values_mut() {
+            track.get_recent_task_timings_blocking(&mut vec);
+        }
+
+        vec
     }
 }

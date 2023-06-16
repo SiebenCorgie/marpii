@@ -12,7 +12,8 @@ pub type Timestamp = u64;
 
 /// Timestamp querypool abstraction for easier data retrieval.
 pub struct Timestamps {
-    pub pool: QueryPool,
+    pool: QueryPool,
+    in_flight: u32,
     data_poins: Vec<Timestamp>,
     async_data_points: Vec<Option<Timestamp>>,
 }
@@ -50,26 +51,14 @@ impl Timestamps {
             ));
         }
 
-        let create_info = vk::QueryPoolCreateInfo::builder()
-            .query_type(vk::QueryType::TIMESTAMP)
-            .query_count(timestamp_count as u32);
-        let pool = unsafe {
-            device
-                .inner
-                .create_query_pool(&create_info, None)
-                .map_err(|e| MarpiiError::DeviceError(DeviceError::VkError(e)))?
-        };
-
-        let pool = QueryPool {
-            device: device.clone(),
-            pool,
-            size: timestamp_count as u32,
-        };
+        let pool = QueryPool::new(device, timestamp_count as u32, vk::QueryType::TIMESTAMP)
+            .map_err(|e| MarpiiError::DeviceError(DeviceError::VkError(e)))?;
 
         Ok(Timestamps {
             pool,
             //NOTE: We use the availability method where the result at `index` is signaled via a boolean value at `index+1`.
             data_poins: vec![0; timestamp_count * 2],
+            in_flight: 0,
             async_data_points: vec![None; timestamp_count],
         })
     }
@@ -80,7 +69,7 @@ impl Timestamps {
     ///
     /// This will do nothing if `timestamp` exceeds the `timestamp_count` used when creating this pool.
     pub fn write_timestamp(
-        &self,
+        &mut self,
         command_buffer: &vk::CommandBuffer,
         stage: vk::PipelineStageFlags2,
         timestamp: u32,
@@ -94,7 +83,7 @@ impl Timestamps {
             );
             return;
         }
-
+        self.in_flight += 1;
         unsafe {
             self.pool.device.inner.cmd_write_timestamp2(
                 *command_buffer,
@@ -103,6 +92,11 @@ impl Timestamps {
                 timestamp,
             )
         };
+    }
+
+    pub fn reset(&mut self, command_buffer: &vk::CommandBuffer) -> Result<(), vk::Result> {
+        self.in_flight = 0;
+        self.pool.reset(command_buffer)
     }
 
     ///Returns all times stamps by blocking until all are written.
@@ -115,10 +109,10 @@ impl Timestamps {
         self.data_poins.fill(0);
 
         self.pool.query_results_u64(
-            &mut self.data_poins[0..(self.pool.size as usize)],
+            &mut self.data_poins[0..(self.in_flight as usize)],
             vk::QueryResultFlags::WAIT,
         )?;
-        Ok(&self.data_poins[0..(self.pool.size as usize)])
+        Ok(&self.data_poins[0..(self.in_flight as usize)])
     }
 
     ///Returns all times stamps by immediately. Timestamps that where not yet available are `None`.
@@ -131,12 +125,15 @@ impl Timestamps {
         self.data_poins.fill(0);
 
         self.pool.query_results_u64(
-            &mut self.data_poins,
+            &mut self.data_poins[0..(self.in_flight as usize * 2)],
             vk::QueryResultFlags::WITH_AVAILABILITY,
         )?;
 
         //sort out availability
-        for (idx, dta) in self.data_poins.chunks_exact(2).enumerate() {
+        for (idx, dta) in self.data_poins[0..(self.in_flight as usize * 2)]
+            .chunks_exact(2)
+            .enumerate()
+        {
             if dta[1] > 0 {
                 self.async_data_points[idx] = Some(dta[0]);
             } else {

@@ -45,6 +45,7 @@ pub struct ForwardPass {
     //Camera data used
     ubo_buffer: BufferHandle<Ubo>,
 
+    //Using this to query performance at runtime
     timestamps: Timestamps,
 }
 
@@ -426,7 +427,7 @@ impl Task for ForwardPass {
         command_buffer: &vk::CommandBuffer,
         resources: &Resources,
     ) {
-        self.timestamps.pool.reset(command_buffer).unwrap();
+        self.timestamps.reset(command_buffer).unwrap();
 
         self.timestamps
             .write_timestamp(command_buffer, vk::PipelineStageFlags2::TOP_OF_PIPE, 0);

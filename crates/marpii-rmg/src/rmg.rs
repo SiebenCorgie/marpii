@@ -9,6 +9,11 @@ use marpii::{
 };
 use std::sync::Arc;
 use thiserror::Error;
+#[cfg(feature = "timestamps")]
+use tinyvec::TinyVec;
+
+#[cfg(feature = "timestamps")]
+use crate::track::TaskTiming;
 
 use crate::{
     recorder::Recorder,
@@ -463,6 +468,21 @@ impl Rmg {
         unsafe { self.ctx.device.inner.device_wait_idle()? }
 
         Ok(())
+    }
+
+    /// Appends all known timings from the last execution.
+    /// Note that, depending on how heavy the workload is, some timings might not (yet) be available.
+    ///
+    /// This call however does *not* block the CPU till all executions are ready. For that, use the [blocking](Self::get_recent_task_timings_blocking)
+    /// alternative.
+    #[cfg(feature = "timestamps")]
+    pub fn get_recent_track_timings(&mut self) -> TinyVec<[TaskTiming; 16]> {
+        self.tracks.get_recent_task_timings()
+    }
+
+    #[cfg(feature = "timestamps")]
+    pub fn get_recent_track_timings_blocking(&mut self) -> TinyVec<[TaskTiming; 16]> {
+        self.tracks.get_recent_task_timings_blocking()
     }
 }
 
