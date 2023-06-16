@@ -657,7 +657,7 @@ impl Bindless {
             return Err(image);
         }
 
-        if !image
+        if image
             .src_img
             .desc
             .usage
@@ -702,7 +702,7 @@ impl Bindless {
             return Err(image);
         }
 
-        if !image
+        if image
             .src_img
             .desc
             .usage
