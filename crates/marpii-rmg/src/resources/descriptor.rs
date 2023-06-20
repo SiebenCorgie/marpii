@@ -158,7 +158,12 @@ impl<T> SetManager<T> {
     }
 
     fn free_handle(&mut self, hdl: ResourceHandle) {
-        assert!((ResourceHandle::descriptor_type_to_u8(self.ty) & hdl.handle_type()) > 0);
+        assert!(
+            hdl.contains_type(ResourceHandle::descriptor_type_to_u8(self.ty)),
+            "Handle type {:b} & {:b}",
+            ResourceHandle::descriptor_type_to_u8(self.ty),
+            hdl.handle_type()
+        );
         self.free.push_front(hdl);
     }
 

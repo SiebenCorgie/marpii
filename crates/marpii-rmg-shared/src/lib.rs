@@ -19,11 +19,11 @@ use bytemuck::{Pod, Zeroable};
 pub struct ResourceHandle(u32);
 
 impl ResourceHandle {
-    pub const TYPE_STORAGE_BUFFER: u8 = 0x0;
-    pub const TYPE_STORAGE_IMAGE: u8 = 0x1;
-    pub const TYPE_SAMPLED_IMAGE: u8 = 0x2;
-    pub const TYPE_SAMPLER: u8 = 0x4;
-    pub const TYPE_ACCELERATION_STRUCTURE: u8 = 0x8;
+    pub const TYPE_STORAGE_BUFFER: u8 = 1 << 0;
+    pub const TYPE_STORAGE_IMAGE: u8 = 1 << 1;
+    pub const TYPE_SAMPLED_IMAGE: u8 = 1 << 2;
+    pub const TYPE_SAMPLER: u8 = 1 << 3;
+    pub const TYPE_ACCELERATION_STRUCTURE: u8 = 1 << 4;
     pub const TYPE_INVALID: u8 = 0xff;
 
     pub const INVALID: Self = Self::new_unchecked(Self::TYPE_INVALID, 0);
