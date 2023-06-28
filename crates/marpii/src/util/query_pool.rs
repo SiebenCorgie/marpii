@@ -80,7 +80,6 @@ impl QueryPool {
         }
 
         let flags = flags | vk::QueryResultFlags::TYPE_64;
-        println!("Using flags: {:#?}", flags);
         unsafe {
             self.device
                 .inner
