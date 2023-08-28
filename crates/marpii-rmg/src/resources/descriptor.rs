@@ -371,16 +371,26 @@ sampler:
 
 impl Bindless {
     ///Default maximum number of bound images.
-    pub const MAX_BOUND_SAMPLED_IMAGES: u32 = 128;
+    /// NOTE that this is the theoretical maximum of 2^24, since the ResHandle safes the
+    /// descriptor type in the lowest byte.
+    pub const MAX_BOUND_SAMPLED_IMAGES: u32 = 1 << 24;
     ///Default maximum number of bound storage images.
-    pub const MAX_BOUND_STORAGE_IMAGES: u32 = 128;
+    /// NOTE that this is the theoretical maximum of 2^24, since the ResHandle safes the
+    /// descriptor type in the lowest byte.
+    pub const MAX_BOUND_STORAGE_IMAGES: u32 = 1 << 24;
     ///Default maximum number of bound storage buffers.
-    pub const MAX_BOUND_STORAGE_BUFFER: u32 = 128;
+    /// NOTE that this is the theoretical maximum of 2^24, since the ResHandle safes the
+    /// descriptor type in the lowest byte.
+    pub const MAX_BOUND_STORAGE_BUFFER: u32 = 1 << 24;
     ///Default maximum number of bound samplers.
-    pub const MAX_BOUND_SAMPLER: u32 = 128;
+    /// NOTE that this is the theoretical maximum of 2^24, since the ResHandle safes the
+    /// descriptor type in the lowest byte.
+    pub const MAX_BOUND_SAMPLER: u32 = 1 << 24;
     ///Default maximum number of bound acceleration structures.
+    /// NOTE that this is the theoretical maximum of 2^24, since the ResHandle safes the
+    /// descriptor type in the lowest byte.
     #[cfg(feature = "ray-tracing")]
-    pub const MAX_BOUND_ACCELERATION_STRUCTURE: u32 = 128;
+    pub const MAX_BOUND_ACCELERATION_STRUCTURE: u32 = 1 << 24;
 
     ///max slot id.
     #[allow(dead_code)]
