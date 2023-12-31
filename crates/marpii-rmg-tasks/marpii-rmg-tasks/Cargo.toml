@@ -23,5 +23,5 @@ egui = {version = "0.22", optional = true}
 ahash = {workspace = true, optional = true}
 bytemuck.workspace = true
 
-[build-dependencies]
-spirv-builder.workspace = true
+#[build-dependencies]
+#spirv-builder.workspace = true

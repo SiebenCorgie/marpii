@@ -17,8 +17,7 @@ layout (location = 0) out vec4 outFragColor;
 layout( push_constant ) uniform push{
   ResHandle tex;
   ResHandle sam;
-  ResHandle pad0;
-  uint pad0;
+  uvec2 pad0;
   vec2 screen_size;
   float gamma;
   float pad1;
@@ -53,6 +52,14 @@ vec3 srgb_to_linear(vec3 srgb) {
     vec3 higher = pow((srgb + vec3(0.055)) / vec3(1.055), vec3(2.4));
     return mix(higher, lower, cutoff);
 }
+
+vec3 srgb_gamma_from_linear(vec3 rgb) {
+    bvec3 cutoff = lessThan(rgb, vec3(0.0031308));
+    vec3 lower = rgb * vec3(12.92);
+    vec3 higher = vec3(1.055) * pow(rgb, vec3(1.0 / 2.4)) - vec3(0.055);
+    return mix(higher, lower, vec3(cutoff));
+}
+
 void main() {
 
     if (!is_valid(Push.tex) || !is_valid(Push.sam)){
@@ -67,12 +74,11 @@ void main() {
 
 
     // The texture is set up with `SRGB8_ALPHA8`
-    /*
-    vec4 texture_in_gamma = texval;
-    if ((Push.flags & 0x1) == 0){
-        texture_in_gamma = vec4(srgb_to_linear(texval.xyz), texval.w);
-    }
-    */
+
+    vec4 texture_in_gamma = vec4(srgb_gamma_from_linear(texval.xyz), texval.w);
+
+
     // Multiply vertex color with texture color (in gamma space).
-    outFragColor = pow(rgba_gamma * texture_in_gamma, 1.0 / Push.gamma);
+    vec4 rgba = pow(texture_in_gamma * rgba_gamma, vec4(Push.gamma));
+    outFragColor = rgba;
 }

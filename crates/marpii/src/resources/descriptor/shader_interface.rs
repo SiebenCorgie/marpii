@@ -19,7 +19,7 @@ fn descriptor_count_from_binding(binding: rspirv_reflect::BindingCount) -> u32 {
 impl Reflection {
     pub fn new_from_code(shader_code: &[u8]) -> Result<Self, rspirv_reflect::ReflectError> {
         Ok(Reflection {
-            inner: rspirv_reflect::Reflection::new_from_spirv(shader_code)?,
+            inner: rspirv_reflect::Reflection::new_from_spirv(shader_code).unwrap(),
         })
     }
 

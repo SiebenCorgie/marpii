@@ -385,6 +385,13 @@ impl ImgDesc {
             mip_level: base_mip_level,
         }
     }
+
+    ///True if the image was created as a depth and/or stencil target. Such images
+    /// usually impose some extra conditions, like nearest filtering when being used.
+    pub fn is_depth_stencil(&self) -> bool {
+        self.usage
+            .contains(vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT)
+    }
 }
 
 ///Self managing image that uses the allocator `A` to allocate and free its bound memory.

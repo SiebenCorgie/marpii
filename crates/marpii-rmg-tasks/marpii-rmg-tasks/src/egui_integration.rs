@@ -35,8 +35,8 @@ use std::sync::Arc;
 use std::time::Instant;
 
 //NOTE: There is a (buggy) glsl implementation. Keeping it here, but we use rust-gpu actually
-//const EGUI_SHADER_VERT: &'static [u8] = include_bytes!("../../resources/eguivert.spv");
-//const EGUI_SHADER_FRAG: &'static [u8] = include_bytes!("../../resources/eguifrag.spv");
+const EGUI_SHADER_VERT: &'static [u8] = include_bytes!("../resources/eguivert.spv");
+const EGUI_SHADER_FRAG: &'static [u8] = include_bytes!("../resources/eguifrag.spv");
 
 ///Single EGui primitive draw command
 struct EGuiPrimDraw {
@@ -439,26 +439,26 @@ impl EGuiTask {
         //Pipeline layout
         let layout = rmg.resources.bindless_layout();
 
+        let shader_module_vert =
+            OoS::new(ShaderModule::new_from_bytes(&rmg.ctx.device, EGUI_SHADER_VERT).unwrap());
+
+        let shader_module_frag =
+            OoS::new(ShaderModule::new_from_bytes(&rmg.ctx.device, EGUI_SHADER_FRAG).unwrap());
+
         /*
-                let shader_module_vert =
-                    Arc::new(ShaderModule::new_from_bytes(&rmg.ctx.device, EGUI_SHADER_VERT).unwrap());
-
-                let shader_module_frag =
-                    Arc::new(ShaderModule::new_from_bytes(&rmg.ctx.device, EGUI_SHADER_FRAG).unwrap());
+                let mut shader_module =
+                    OoS::new(ShaderModule::new_from_bytes(&rmg.ctx.device, crate::SHADER_RUST).unwrap());
         */
-        let mut shader_module =
-            OoS::new(ShaderModule::new_from_bytes(&rmg.ctx.device, crate::SHADER_RUST).unwrap());
-
         let vertex_shader_stage = ShaderStage::from_module(
-            shader_module.share(),
+            shader_module_vert,
             vk::ShaderStageFlags::VERTEX,
-            "egui_vs".to_owned(),
+            "main".to_owned(),
         );
 
         let fragment_shader_stage = ShaderStage::from_module(
-            shader_module,
+            shader_module_frag,
             vk::ShaderStageFlags::FRAGMENT,
-            "egui_fs".to_owned(),
+            "main".to_owned(),
         );
 
         let push = PushConstant::new(

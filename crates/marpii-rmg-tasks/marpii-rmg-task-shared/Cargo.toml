@@ -6,6 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-spirv-std = { workspace=true}
+#spirv-std = { workspace=true}
 marpii-rmg-shared =  {path = "../../marpii-rmg-shared"}
 bytemuck.workspace = true

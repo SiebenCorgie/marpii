@@ -11,7 +11,6 @@
 //!
 //! Structures that are not sensitive to lifetime requirements (like create info) are not wrapped.
 #![deny(warnings)]
-#![feature(vec_into_raw_parts)]
 
 pub use ash;
 #[cfg(feature = "default_allocator")]

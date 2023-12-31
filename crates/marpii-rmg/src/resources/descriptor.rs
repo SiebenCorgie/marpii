@@ -119,7 +119,7 @@ impl<T> SetManager<T> {
         } else {
             #[cfg(feature = "logging")]
             log::info!(
-                "Did not found common index for \n{:#?}\n{:#?}",
+                "Did not found common index for {:#?} and {:#?}",
                 self.ty,
                 other.ty
             );

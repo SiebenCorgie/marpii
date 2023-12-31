@@ -1,3 +1,7 @@
+/*
+ * NOTE: Currently not using rust-gpu anymore, see [this](https://gitlab.com/tendsinmende/marpii/-/issues/25) issue on the reasons. This crate is only
+ * active to provide a place for the build script of the glsl shaders to execute
+ *
 #![cfg_attr(target_arch = "spirv", no_std)]
 
 use marpii_rmg_task_shared::glam::{vec4, Vec2, Vec3, Vec4, Vec4Swizzles};
@@ -141,3 +145,4 @@ pub fn egui_vs(
     *out_rgba_gamma = v_color;
     *out_v_tc = v_uv;
 }
+*/
