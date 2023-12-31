@@ -15,4 +15,4 @@ marpii-descriptor = {path = "../../crates/marpii-descriptor"}
 winit.workspace = true
 
 [build-dependencies]
-spirv-builder.workspace = true
+#spirv-builder.workspace = true

@@ -3,8 +3,6 @@
 
 pub use marpii_rmg_shared;
 pub use marpii_rmg_shared::ResourceHandle;
-pub use spirv_std;
-pub use spirv_std::glam;
 
 #[cfg(not(target_arch = "spirv"))]
 use bytemuck::{Pod, Zeroable};

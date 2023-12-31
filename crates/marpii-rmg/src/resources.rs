@@ -106,7 +106,7 @@ impl Resources {
         let res = res.into();
         match res {
             AnyResKey::Buffer(buf) => {
-                let mut buffer = self.buffer.get_mut(buf).unwrap();
+                let buffer = self.buffer.get_mut(buf).unwrap();
                 if let Some(hdl) = &buffer.descriptor_handle {
                     return Err(ResourceError::AlreadyBound(res.into(), *hdl));
                 }
@@ -118,7 +118,7 @@ impl Resources {
                 Ok(buffer.descriptor_handle.unwrap())
             }
             AnyResKey::Image(img) => {
-                let mut image = self.images.get_mut(img).unwrap();
+                let image = self.images.get_mut(img).unwrap();
                 if let Some(hdl) = &image.descriptor_handle {
                     return Err(ResourceError::AlreadyBound(res.into(), *hdl));
                 }
@@ -157,7 +157,7 @@ impl Resources {
                 Ok(image.descriptor_handle.unwrap())
             }
             AnyResKey::Sampler(sam) => {
-                let mut sampler = self.sampler.get_mut(sam).unwrap();
+                let sampler = self.sampler.get_mut(sam).unwrap();
                 if let Some(hdl) = &sampler.descriptor_handle {
                     return Err(ResourceError::AlreadyBound(res.into(), *hdl));
                 }

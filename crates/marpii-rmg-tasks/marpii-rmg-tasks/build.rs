@@ -1,8 +1,5 @@
-use std::{
-    fs::create_dir_all,
-    path::{Path, PathBuf},
-};
-
+use std::path::PathBuf;
+/*
 use spirv_builder::{
     Capability, MetadataPrintout, ModuleResult, SpirvBuilder, SpirvBuilderError, SpirvMetadata,
 };
@@ -74,8 +71,7 @@ pub fn compile_rust_shader(
     };
     Ok(())
 }
-
-#[allow(dead_code)]
+*/
 fn build_glsl(path: &str, name: &str, entry_point: &str) {
     //TODO: build all files that do not end with ".glsl". and copy to
     // RESDIR as well.
@@ -127,7 +123,7 @@ fn clean_up() {
 
 // Builds rust shader crate and all glsl shaders.
 fn main() {
-    println!("cargo:rerun-if-changed=../marpii-rmg-task-shader/src/");
+    //println!("cargo:rerun-if-changed=../marpii-rmg-task-shader/src/");
     println!("cargo:rerun-if-changed=../marpii-rmg-task-shader/glsl/");
     //println!("cargo:rerun-if-changed=crates/marpii-rmg-tasks/resources");
 
@@ -135,11 +131,19 @@ fn main() {
     clean_up();
 
     //build shader crate. generates a module per entry point
-    compile_rust_shader("rshader", "../marpii-rmg-task-shader/", RESDIR).unwrap();
+    //compile_rust_shader("rshader", "../marpii-rmg-task-shader/", RESDIR).unwrap();
 
     //NOTE: keeping it around for compatibility
-    //build_glsl("../marpii-rmg-task-shader/glsl/egui.vert", "eguivert.spv");
-    //build_glsl("../marpii-rmg-task-shader/glsl/egui.frag", "eguifrag.spv");
+    build_glsl(
+        "../marpii-rmg-task-shader/glsl/egui.vert",
+        "eguivert.spv",
+        "main",
+    );
+    build_glsl(
+        "../marpii-rmg-task-shader/glsl/egui.frag",
+        "eguifrag.spv",
+        "main",
+    );
     build_glsl(
         "../marpii-rmg-task-shader/glsl/alphablend.comp",
         "alphablend_f32.spv",

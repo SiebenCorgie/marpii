@@ -141,8 +141,7 @@ impl DeviceBuilder {
                     None,
                     |last: Option<&mut Box<dyn ash::vk::ExtendsDeviceCreateInfo>>, new| {
                         if let Some(last) = last {
-                            let mut new_ptr =
-                                new.as_mut() as *mut _ as *mut ash::vk::BaseOutStructure;
+                            let new_ptr = new.as_mut() as *mut _ as *mut ash::vk::BaseOutStructure;
                             unsafe {
                                 (*new_ptr).p_next =
                                     last.as_mut() as *mut _ as *mut ash::vk::BaseOutStructure;

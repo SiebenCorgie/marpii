@@ -246,6 +246,12 @@ impl Task for SwapchainPresent {
             let src_region = img.image.image_region();
             let dst_region = sw_image.image.image_region();
 
+            let filter = if src_image.image_desc().is_depth_stencil() {
+                vk::Filter::NEAREST
+            } else {
+                vk::Filter::LINEAR
+            };
+
             unsafe {
                 device.inner.cmd_blit_image2(
                     *command_buffer,
@@ -254,7 +260,7 @@ impl Task for SwapchainPresent {
                         .dst_image(sw_image.image.inner)
                         .src_image_layout(vk::ImageLayout::TRANSFER_SRC_OPTIMAL)
                         .dst_image_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
-                        .filter(vk::Filter::LINEAR)
+                        .filter(filter)
                         .regions(&[*vk::ImageBlit2::builder()
                             .src_subresource(img.image.subresource_layers_all())
                             .dst_subresource(sw_image.image.subresource_layers_all())
