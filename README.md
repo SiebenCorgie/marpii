@@ -35,7 +35,7 @@ Apart from the main crate that is closely related to Vulkan multiple helper crat
 
 - marpii-commands: CommandBuffer helper that captures resources that are needed for the execution of the command buffer.
 - marpii-rmg: Frame-graph helper. Allows defining multiple sub `Task`s for a frame. Takes care of resources (Buffers/Images), layout and access transitions, pipeline barriers, inter-queue synchronisation etc. You basically only have to register which resources are used for a task, and how the draw/dispatch is done. 
-- marpii-rmg-shared: `no_std` crate that defines the resource handles used by RMG's bindless setup. Can be used in rust-gpu based shaders for convenient access.
+- marpii-rmg-shared: `no_std` crate that defines the resource handles used by RMG's bindless setup. Can be used in rust-gpu based shaders for convenient access. There is also a `shared.glsl` file for compatiblity with GLSL based shaders and RMG.
 - marpii-descriptor: Multiple `DescriptorSet` helpers. Similar to the command-buffer helper resources are captured to keep the descriptor sets valid. Also handles descriptor allocation and freeing for you.
 
 ### Examples
