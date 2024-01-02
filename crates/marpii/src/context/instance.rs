@@ -20,7 +20,7 @@ const_cstr! {
 ///The external callback print function for debugging
 unsafe extern "system" fn vulkan_debug_callback(
     message_severity: ash::vk::DebugUtilsMessageSeverityFlagsEXT,
-    _message_types: ash::vk::DebugUtilsMessageTypeFlagsEXT,
+    #[allow(unused)] message_types: ash::vk::DebugUtilsMessageTypeFlagsEXT,
     p_callback_data: *const ash::vk::DebugUtilsMessengerCallbackDataEXT,
     _p_user_data: *mut core::ffi::c_void,
 ) -> u32 {

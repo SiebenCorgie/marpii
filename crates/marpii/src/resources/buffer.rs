@@ -202,7 +202,6 @@ impl Buffer {
     /// the staging buffer to read the data.
     ///
     /// Buffers created by this function are initalized to `data` and can be used as transfer source and destination. Have a look at the code for more information.
-    #[cfg(feature = "bytemuck")]
     pub fn new_staging_for_data<A: Allocator + Send + Sync + 'static, T: bytemuck::Pod>(
         device: &Arc<Device>,
         allocator: &Arc<Mutex<A>>,

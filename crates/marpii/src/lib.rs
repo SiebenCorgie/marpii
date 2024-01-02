@@ -13,10 +13,10 @@
 #![deny(warnings)]
 
 pub use ash;
+
 #[cfg(feature = "default_allocator")]
 pub use gpu_allocator;
 
-#[cfg(feature = "bytemuck")]
 pub use bytemuck;
 
 ///Owned-Or-Shared wrapper. Allows us to implement generic over a type that might be owned or shared via [Arc](std::sync::Arc).

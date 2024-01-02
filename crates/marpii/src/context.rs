@@ -20,6 +20,7 @@
 //! # Examples
 //! 🚧 Todo: show several examples on how to create an instance, device, queue or context, from least verbose to most verbose. 🚧
 //!
+#[allow(unused_imports)]
 use std::{
     cmp::Ordering,
     sync::{Arc, Mutex},

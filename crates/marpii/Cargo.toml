@@ -6,15 +6,13 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [features]
 
-default = ["default_allocator", "logging", "bytemuck", "shader_reflection"]
+default = ["default_allocator", "logging", "shader_reflection"]
 # if enabled, includes the default allocator implementation based
 # on TraverseResearche's gpu-allocator crate
 default_allocator = ["gpu-allocator"]
 
 # if enabled, marpii uses the log crate for messages.
 logging = ["log"]
-# if enabled, allows marpii to compile helper functions that use bytemuch to convert data to bytes
-bytemuck = ["dep:bytemuck"]
 # if enabled, uses puffin to create a runtime profile
 profiling = ["puffin"]
 
@@ -38,7 +36,7 @@ gpu-allocator = {git = "https://github.com/Traverse-Research/gpu-allocator.git",
 log = {workspace = true, optional=true}
 puffin = {workspace = true, optional = true}
 rspirv-reflect = {workspace = true, optional = true}
-bytemuck = {workspace = true, optional = true}
+bytemuck = {workspace = true}
 
 [dev-dependencies]
 static_assertions = {version = "1.1.0"}
