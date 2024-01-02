@@ -98,6 +98,7 @@ impl<T> SetManager<T> {
         }
 
         if let Some(reuse) = free_index {
+            #[cfg(feature = "logging")]
             log::trace!(
                 "Found common free index: {} @ {} / {}",
                 reuse.1,
@@ -772,6 +773,7 @@ impl Bindless {
             if let Some(pre_fetched_hdl) = self.saimage.allocate_common(&mut self.stimage) {
                 pre_fetched_hdl
             } else {
+                #[cfg(feature = "logging")]
                 log::error!("Failed to pre-allocate handle for common sampled + storage image!");
                 return Err(image);
             };

@@ -41,6 +41,18 @@ impl SwapchainPresent {
     pub fn new(rmg: &mut Rmg, surface: OoS<Surface>) -> Result<Self, RmgTaskError> {
         let swapchain = Swapchain::builder(&rmg.ctx.device, surface)?
             .with(move |b| {
+                //try to use the highest bit format format
+                let mut best_format = b.format_preference.remove(0);
+                for next_format in b.format_preference.iter() {
+                    if marpii::util::byte_per_pixel(next_format.format).unwrap_or(8)
+                        > marpii::util::byte_per_pixel(best_format.format).unwrap_or(8)
+                    {
+                        best_format = next_format.clone();
+                    }
+                }
+                b.format_preference = vec![best_format];
+
+                //Flag for color attachment and transfer dst, which are mostly used to interact with the image
                 b.create_info.usage =
                     vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::TRANSFER_DST;
             })
