@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use ash::vk::SwapchainCreateInfoKHRBuilder;
+use ash::vk::{self, SwapchainCreateInfoKHRBuilder};
 use oos::OoS;
 
 use crate::{
@@ -75,6 +75,7 @@ pub struct SwapchainBuilder {
 
     pub format_preference: Vec<ash::vk::SurfaceFormatKHR>,
     pub present_mode_preference: Vec<ash::vk::PresentModeKHR>,
+    pub extent_preference: Option<vk::Extent2D>,
 }
 
 impl SwapchainBuilder {
@@ -220,7 +221,10 @@ impl SwapchainBuilder {
             .min_image_count(self.create_info.image_count)
             .image_format(format.format)
             .image_color_space(format.color_space)
-            .image_extent(self.get_supported_image_extent())
+            .image_extent(
+                self.extent_preference
+                    .unwrap_or(self.get_supported_image_extent()),
+            )
             .image_array_layers(self.create_info.array_layers)
             .image_usage(self.create_info.usage)
             .pre_transform(self.create_info.transform)
@@ -267,6 +271,11 @@ impl SwapchainBuilder {
             self.present_mode_preference.insert(0, e);
         }
 
+        self
+    }
+
+    pub fn with_extent(mut self, extent: vk::Extent2D) -> Self {
+        self.extent_preference = Some(extent);
         self
     }
 
@@ -356,6 +365,7 @@ impl Swapchain {
             device: device.clone(),
             format_preference: formats,
             present_mode_preference: present_modes,
+            extent_preference: None,
             create_info: RecreateInfo {
                 format, //Get later set
                 present_mode,

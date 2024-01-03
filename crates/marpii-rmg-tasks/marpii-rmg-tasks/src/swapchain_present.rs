@@ -40,6 +40,12 @@ pub struct SwapchainPresent {
 impl SwapchainPresent {
     pub fn new(rmg: &mut Rmg, surface: OoS<Surface>) -> Result<Self, RmgTaskError> {
         let swapchain = Swapchain::builder(&rmg.ctx.device, surface)?
+            //NOTE: Default to 1x1. This will let us recreate the swapchain for the first frame
+            // We can't use the first reported extent of `surface` for some strange reasons.
+            .with_extent(vk::Extent2D {
+                width: 1,
+                height: 1,
+            })
             .with(move |b| {
                 //try to use the highest bit format format
                 let mut best_format = b.format_preference.remove(0);
@@ -51,7 +57,6 @@ impl SwapchainPresent {
                     }
                 }
                 b.format_preference = vec![best_format];
-
                 //Flag for color attachment and transfer dst, which are mostly used to interact with the image
                 b.create_info.usage =
                     vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::TRANSFER_DST;
