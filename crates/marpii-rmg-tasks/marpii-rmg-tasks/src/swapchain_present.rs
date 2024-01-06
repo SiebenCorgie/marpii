@@ -40,12 +40,6 @@ pub struct SwapchainPresent {
 impl SwapchainPresent {
     pub fn new(rmg: &mut Rmg, surface: OoS<Surface>) -> Result<Self, RmgTaskError> {
         let swapchain = Swapchain::builder(&rmg.ctx.device, surface)?
-            //NOTE: Default to 1x1. This will let us recreate the swapchain for the first frame
-            // We can't use the first reported extent of `surface` for some strange reasons.
-            .with_extent(vk::Extent2D {
-                width: 1,
-                height: 1,
-            })
             .with(move |b| {
                 //try to use the highest bit format format
                 let mut best_format = b.format_preference.remove(0);

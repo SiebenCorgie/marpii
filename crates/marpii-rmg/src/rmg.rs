@@ -96,10 +96,17 @@ impl Rmg {
 
             for q in context.device.queues.iter() {
                 if q.properties.timestamp_valid_bits == 0 {
+                    #[cfg(feature = "logging")]
+                    log::info!(
+                        "Queue {:#?} has timestamp_valid bit not set",
+                        q.properties.queue_flags
+                    );
+                    /*
                     return Err(RmgError::DeviceLimit(format!(
                         "Queue {:#?} has timestamp_valid bit not set",
                         q.properties.queue_flags
                     )));
+                    */
                 }
             }
         }

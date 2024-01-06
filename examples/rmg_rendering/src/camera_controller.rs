@@ -104,7 +104,7 @@ impl Camera {
 impl Default for Camera {
     fn default() -> Self {
         Camera {
-            location: Vec3::ZERO,
+            location: Vec3::new(10.0, 10.0, -10.0),
             rotation: Quat::from_rotation_z(180f32.to_radians()),
             velocity: Vec3::ZERO,
             target_velocity: Vec3::ZERO,
