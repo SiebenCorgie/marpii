@@ -39,6 +39,18 @@ pub struct SwapchainPresent {
 
 impl SwapchainPresent {
     pub fn new(rmg: &mut Rmg, surface: OoS<Surface>) -> Result<Self, RmgTaskError> {
+        //Check for the creation extent.
+        let create_extent = surface
+            .get_current_extent(&rmg.ctx.device.physical_device)
+            .unwrap_or({
+                #[cfg(feature = "logging")]
+                log::error!("Could not get initial swapchain extent, falling back to 800x600");
+                vk::Extent2D {
+                    width: 800,
+                    height: 600,
+                }
+            });
+
         let swapchain = Swapchain::builder(&rmg.ctx.device, surface)?
             .with(move |b| {
                 //try to use the highest bit format format
@@ -54,6 +66,8 @@ impl SwapchainPresent {
                 //Flag for color attachment and transfer dst, which are mostly used to interact with the image
                 b.create_info.usage =
                     vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::TRANSFER_DST;
+
+                b.extent_preference = Some(create_extent)
             })
             .build()
             .map_err(|e| MarpiiError::from(e))?;
