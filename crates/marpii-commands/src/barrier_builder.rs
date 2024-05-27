@@ -56,7 +56,7 @@ impl BarrierBuilder {
         dst_pipeline_stage: vk::PipelineStageFlags2,
         dst_queue_family: u32,
     ) -> &mut Self {
-        let item = vk::BufferMemoryBarrier2::builder()
+        let item = vk::BufferMemoryBarrier2::default()
             .buffer(buffer)
             .src_access_mask(src_access_mask)
             .src_stage_mask(src_pipeline_stage)
@@ -83,7 +83,7 @@ impl BarrierBuilder {
         src_queue_family: u32,
         dst_queue_family: u32,
     ) -> &mut Self {
-        let item = vk::BufferMemoryBarrier2::builder()
+        let item = vk::BufferMemoryBarrier2::default()
             .buffer(buffer)
             .src_queue_family_index(src_queue_family)
             .dst_queue_family_index(dst_queue_family)
@@ -120,7 +120,7 @@ impl BarrierBuilder {
         dst_layout: ImageLayout,
         dst_queue_family: u32,
     ) -> &mut Self {
-        let item = vk::ImageMemoryBarrier2::builder()
+        let item = vk::ImageMemoryBarrier2::default()
             .image(image)
             .subresource_range(subresource_range)
             .src_access_mask(src_access_mask)
@@ -159,7 +159,7 @@ impl BarrierBuilder {
             dst_queue_family
         );
 
-        let item = vk::ImageMemoryBarrier2::builder()
+        let item = vk::ImageMemoryBarrier2::default()
             .image(image)
             .subresource_range(subresource_range)
             .src_queue_family_index(src_queue_family)
@@ -183,7 +183,7 @@ impl BarrierBuilder {
         #[cfg(feature = "logging")]
         log::trace!("layout[{:?}] {:#?} -> {:#?}", image, src_layout, dst_layout);
 
-        let item = vk::ImageMemoryBarrier2::builder()
+        let item = vk::ImageMemoryBarrier2::default()
             .image(image)
             .subresource_range(subresource_range)
             .old_layout(src_layout)
@@ -204,7 +204,7 @@ impl BarrierBuilder {
     ///Returns a reference to a barrier, containing the currently pushed barriers
     // TODO: allow adding flags?
     pub fn as_dependency_info<'a>(&'a self) -> vk::DependencyInfoBuilder<'a> {
-        vk::DependencyInfo::builder()
+        vk::DependencyInfo::default()
             .image_memory_barriers(self.images.as_slice())
             .buffer_memory_barriers(self.buffers.as_slice())
     }

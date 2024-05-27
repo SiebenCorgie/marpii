@@ -140,22 +140,22 @@ impl Binding {
         stage_flags: ash::vk::ShaderStageFlags,
     ) -> ash::vk::DescriptorSetLayoutBindingBuilder<'a> {
         match self {
-            Binding::Image { ty, .. } => ash::vk::DescriptorSetLayoutBinding::builder()
+            Binding::Image { ty, .. } => ash::vk::DescriptorSetLayoutBinding::default()
                 .binding(binding_id)
                 .stage_flags(stage_flags)
                 .descriptor_count(1)
                 .descriptor_type(*ty),
-            Binding::SampledImage { ty, .. } => ash::vk::DescriptorSetLayoutBinding::builder()
+            Binding::SampledImage { ty, .. } => ash::vk::DescriptorSetLayoutBinding::default()
                 .binding(binding_id)
                 .stage_flags(stage_flags)
                 .descriptor_count(1)
                 .descriptor_type(*ty),
-            Binding::Buffer { ty, .. } => ash::vk::DescriptorSetLayoutBinding::builder()
+            Binding::Buffer { ty, .. } => ash::vk::DescriptorSetLayoutBinding::default()
                 .binding(binding_id)
                 .stage_flags(stage_flags)
                 .descriptor_count(1)
                 .descriptor_type(*ty),
-            Binding::Sampler { .. } => ash::vk::DescriptorSetLayoutBinding::builder()
+            Binding::Sampler { .. } => ash::vk::DescriptorSetLayoutBinding::default()
                 .binding(binding_id)
                 .stage_flags(stage_flags)
                 .descriptor_count(1)
@@ -300,11 +300,11 @@ impl ManagedDescriptorSet {
 
         match &self.bindings[id] {
             Binding::Image { layout, image, ty } => {
-                let imginfo = [ash::vk::DescriptorImageInfo::builder()
+                let imginfo = [ash::vk::DescriptorImageInfo::default()
                     .image_layout(*layout)
                     .image_view(image.view)
                     .build()];
-                let write = ash::vk::WriteDescriptorSet::builder()
+                let write = ash::vk::WriteDescriptorSet::default()
                     .image_info(&imginfo)
                     .descriptor_type(*ty)
                     .dst_binding(id as u32)
@@ -318,12 +318,12 @@ impl ManagedDescriptorSet {
                 image,
                 sampler,
             } => {
-                let imginfo = [ash::vk::DescriptorImageInfo::builder()
+                let imginfo = [ash::vk::DescriptorImageInfo::default()
                     .image_layout(*layout)
                     .image_view(image.view)
                     .sampler(sampler.inner)
                     .build()];
-                let write = ash::vk::WriteDescriptorSet::builder()
+                let write = ash::vk::WriteDescriptorSet::default()
                     .image_info(&imginfo)
                     .descriptor_type(*ty)
                     .dst_binding(id as u32)
@@ -332,12 +332,12 @@ impl ManagedDescriptorSet {
                 self.inner.write(write);
             }
             Binding::Buffer { ty, buffer } => {
-                let bufferinfo = [ash::vk::DescriptorBufferInfo::builder()
+                let bufferinfo = [ash::vk::DescriptorBufferInfo::default()
                     .buffer(buffer.inner)
                     .offset(0)
                     .range(ash::vk::WHOLE_SIZE)
                     .build()];
-                let write = ash::vk::WriteDescriptorSet::builder()
+                let write = ash::vk::WriteDescriptorSet::default()
                     .buffer_info(&bufferinfo)
                     .descriptor_type(*ty)
                     .dst_binding(id as u32)
@@ -346,10 +346,10 @@ impl ManagedDescriptorSet {
                 self.inner.write(write);
             }
             Binding::Sampler { sampler } => {
-                let imginfo = [ash::vk::DescriptorImageInfo::builder()
+                let imginfo = [ash::vk::DescriptorImageInfo::default()
                     .sampler(sampler.inner)
                     .build()];
-                let write = ash::vk::WriteDescriptorSet::builder()
+                let write = ash::vk::WriteDescriptorSet::default()
                     .image_info(&imginfo)
                     .descriptor_type(ash::vk::DescriptorType::SAMPLER)
                     .dst_binding(id as u32)

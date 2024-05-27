@@ -17,7 +17,7 @@ pub struct RenderPass {
 impl RenderPass {
     pub fn new(
         device: &Arc<Device>,
-        create_info: vk::RenderPassCreateInfoBuilder,
+        create_info: vk::RenderPassCreateInfo,
     ) -> Result<Self, vk::Result> {
         let renderpass = unsafe { device.inner.create_render_pass(&create_info, None)? };
         Ok(RenderPass {
@@ -50,7 +50,7 @@ impl GraphicsPipeline {
     /// on the `create_info` before executing. Might fail if validation is activated and an error is found.
     pub fn new(
         device: &Arc<Device>,
-        create_info: ash::vk::GraphicsPipelineCreateInfoBuilder,
+        create_info: ash::vk::GraphicsPipelineCreateInfo,
         layout: impl Into<OoS<PipelineLayout>>,
         renderpass: RenderPass,
     ) -> Result<Self, PipelineError> {
@@ -89,7 +89,7 @@ impl GraphicsPipeline {
     /// are defined through the order in `color_formats` and `depth_format`.
     pub fn new_dynamic_pipeline(
         device: &Arc<Device>,
-        create_info: ash::vk::GraphicsPipelineCreateInfoBuilder,
+        create_info: ash::vk::GraphicsPipelineCreateInfo,
         layout: impl Into<OoS<PipelineLayout>>,
         shader_stages: &[ShaderStage],
         color_formats: &[vk::Format],
@@ -97,11 +97,11 @@ impl GraphicsPipeline {
     ) -> Result<Self, PipelineError> {
         let layout = layout.into();
         assert!(
-            device.extension_enabled_cstr(ash::extensions::khr::DynamicRendering::name()),
+            device.extension_enabled_cstr(ash::khr::dynamic_rendering::NAME),
             "DynamicRenderingKHR extension not activated!"
         );
 
-        let mut pipline_rendering_create_info = vk::PipelineRenderingCreateInfo::builder()
+        let mut pipline_rendering_create_info = vk::PipelineRenderingCreateInfo::default()
             .depth_attachment_format(depth_format)
             .color_attachment_formats(&color_formats);
 

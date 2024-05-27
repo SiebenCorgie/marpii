@@ -3,7 +3,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-use ash::vk::{self, SwapchainCreateInfoKHRBuilder};
+use ash::vk::{self, SwapchainCreateInfoKHR};
 use oos::OoS;
 
 use crate::{
@@ -35,8 +35,8 @@ pub struct RecreateInfo {
 impl RecreateInfo {
     pub fn apply_on<'a>(
         &'a self,
-        mut create_info: SwapchainCreateInfoKHRBuilder<'a>,
-    ) -> SwapchainCreateInfoKHRBuilder<'a> {
+        mut create_info: SwapchainCreateInfoKHR<'a>,
+    ) -> SwapchainCreateInfoKHR<'a> {
         create_info = create_info
             .min_image_count(self.image_count)
             .image_format(self.format.format)
@@ -88,7 +88,7 @@ impl SwapchainBuilder {
 
         let create_info = self.as_swapchain_create_info();
         let swapchain_loader =
-            ash::extensions::khr::Swapchain::new(&self.device.instance.inner, &self.device.inner);
+            ash::khr::swapchain::Device::new(&self.device.instance.inner, &self.device.inner);
         let swapchain = unsafe { swapchain_loader.create_swapchain(&create_info, None)? };
 
         //at this point we got the swapchain. The swapchain is managing its images so we have to create the images without an allocator attachment.
@@ -213,10 +213,10 @@ impl SwapchainBuilder {
 
     ///Transforms self into a swapchain create info. Note that the validity of each element is checked agains the capabilities. Therefore, for instance
     /// if no supported format is found in the list of prefered formats, the first supported is chosen.
-    pub fn as_swapchain_create_info<'a>(&'a self) -> ash::vk::SwapchainCreateInfoKHRBuilder<'a> {
+    pub fn as_swapchain_create_info<'a>(&'a self) -> SwapchainCreateInfoKHR<'a> {
         let format = self.get_first_supported_format();
 
-        let mut builder = ash::vk::SwapchainCreateInfoKHR::builder()
+        let mut builder = SwapchainCreateInfoKHR::default()
             .surface(self.surface.surface)
             .min_image_count(self.create_info.image_count)
             .image_format(format.format)
@@ -318,7 +318,7 @@ pub struct SwapchainImage {
 }
 
 pub struct Swapchain {
-    pub loader: ash::extensions::khr::Swapchain,
+    pub loader: ash::khr::swapchain::Device,
     pub swapchain: ash::vk::SwapchainKHR,
 
     pub device: Arc<Device>,
@@ -434,7 +434,7 @@ impl Swapchain {
         self.recreate_info.extent = extent;
 
         //Setup recreate info
-        let mut recreateinfo = ash::vk::SwapchainCreateInfoKHR::builder()
+        let mut recreateinfo = ash::vk::SwapchainCreateInfoKHR::default()
             .surface(self.surface.surface)
             .old_swapchain(self.swapchain)
             .image_extent(extent);
@@ -510,7 +510,7 @@ impl Swapchain {
         image: SwapchainImage,
         queue: &ash::vk::Queue,
     ) -> ash::prelude::VkResult<()> {
-        let present_info = ash::vk::PresentInfoKHR::builder()
+        let present_info = ash::vk::PresentInfoKHR::default()
             .swapchains(core::slice::from_ref(&self.swapchain))
             .image_indices(core::slice::from_ref(&image.index))
             .wait_semaphores(core::slice::from_ref(&image.sem_present.inner));

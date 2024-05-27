@@ -108,7 +108,7 @@ impl Task for DynamicImage {
         let staging = core::mem::take(&mut self.staging_copies);
 
         for cp in staging {
-            let copy_cmd = vk::BufferImageCopy2::builder()
+            let copy_cmd = vk::BufferImageCopy2::default()
                 .buffer_image_height(0)
                 .buffer_offset(0)
                 .buffer_row_length(0)
@@ -118,7 +118,7 @@ impl Task for DynamicImage {
             unsafe {
                 device.inner.cmd_copy_buffer_to_image2(
                     *command_buffer,
-                    &vk::CopyBufferToImageInfo2::builder()
+                    &vk::CopyBufferToImageInfo2::default()
                         .src_buffer(cp.buffer.inner)
                         .regions(&[*copy_cmd])
                         .dst_image(image_access.image.inner)

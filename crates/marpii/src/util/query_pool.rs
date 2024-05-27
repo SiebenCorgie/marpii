@@ -18,7 +18,7 @@ pub struct QueryPool {
 
 impl QueryPool {
     pub fn new(device: &Arc<Device>, size: u32, ty: vk::QueryType) -> Result<Self, vk::Result> {
-        let create_info = vk::QueryPoolCreateInfo::builder()
+        let create_info = vk::QueryPoolCreateInfo::default()
             .query_type(ty)
             .query_count(size * 2); //* 2 for async querries
         let pool = unsafe { device.inner.create_query_pool(&create_info, None)? };

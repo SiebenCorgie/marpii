@@ -212,7 +212,7 @@ impl ResourceRegistry {
             log::trace!("Registering foreign semaphore {:?}", sem.inner);
 
             infos.push(
-                vk::SemaphoreSubmitInfo::builder()
+                vk::SemaphoreSubmitInfo::default()
                     .semaphore(sem.inner)
                     .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
                     .build(),
@@ -227,7 +227,7 @@ impl ResourceRegistry {
             log::trace!("Registering foreign semaphore {:?}", sem.inner);
 
             infos.push(
-                vk::SemaphoreSubmitInfo::builder()
+                vk::SemaphoreSubmitInfo::default()
                     .semaphore(sem.inner)
                     .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
                     .build(),
@@ -270,7 +270,7 @@ impl ResourceRegistry {
             AnyResKey::Buffer(buf) => {
                 let bufstate = rmg.resources.buffer.get_mut(buf).unwrap();
                 let target_state = self.buffers.get(&buf).unwrap();
-                let mut barrier = vk::BufferMemoryBarrier2::builder()
+                let mut barrier = vk::BufferMemoryBarrier2::default()
                     .buffer(bufstate.buffer.inner)
                     .offset(0)
                     .size(vk::WHOLE_SIZE);
@@ -300,7 +300,7 @@ impl ResourceRegistry {
             AnyResKey::Image(img) => {
                 let imgstate = rmg.resources.images.get_mut(img).unwrap();
                 let target_state = self.images.get(&img).unwrap();
-                let mut barrier = vk::ImageMemoryBarrier2::builder()
+                let mut barrier = vk::ImageMemoryBarrier2::default()
                     .image(imgstate.image.inner)
                     .subresource_range(imgstate.image.subresource_all());
                 #[cfg(feature = "logging")]

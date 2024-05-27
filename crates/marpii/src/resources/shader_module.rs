@@ -43,7 +43,7 @@ impl ShaderModule {
         #[cfg(feature = "logging")]
         log::trace!("Shader Module new");
 
-        let create_info = ash::vk::ShaderModuleCreateInfo::builder().code(code);
+        let create_info = ash::vk::ShaderModuleCreateInfo::default().code(code);
         let module = unsafe { device.inner.create_shader_module(&create_info, None)? };
         #[cfg(feature = "shader_reflection")]
         let reflection = {
@@ -157,8 +157,8 @@ impl ShaderStage {
     pub fn as_create_info<'a>(
         &'a self,
         specialization_info: Option<&'a ash::vk::SpecializationInfo>,
-    ) -> ash::vk::PipelineShaderStageCreateInfoBuilder<'a> {
-        let mut builder = ash::vk::PipelineShaderStageCreateInfo::builder()
+    ) -> ash::vk::PipelineShaderStageCreateInfo<'a> {
+        let mut builder = ash::vk::PipelineShaderStageCreateInfo::default()
             .stage(self.stage)
             .module(self.module.inner)
             .name(self.entry_name.as_c_str());

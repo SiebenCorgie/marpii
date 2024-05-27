@@ -19,7 +19,7 @@ impl<T: Sized + 'static> PushConstant<T> {
     ///Creates a new Push constant from type `T`. Derives all needed data from `T`. However, data should not be borrowed,
     /// since the derived size will always have a value of 8. Instead pass the data to the function and manipulate it via `get_content_mut()`
     pub fn new(content: T, stages: vk::ShaderStageFlags) -> Self {
-        let inner_range = vk::PushConstantRange::builder()
+        let inner_range = vk::PushConstantRange::default()
             .stage_flags(stages)
             .offset(0) //Allways 0 for now
             .size(std::mem::size_of::<T>() as u32)

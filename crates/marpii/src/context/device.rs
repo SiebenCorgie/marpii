@@ -120,19 +120,19 @@ impl DeviceBuilder {
         //now unwrap the queue infos into create infos
         let queue_create_infos = queues
             .iter()
-            .map(|q| *q.as_create_info())
+            .map(|q| q.as_create_info())
             .collect::<Vec<_>>();
 
         //now create the pre-create DeviceCreation info
         //NOTE: acording to the vulkan doc device layers are deprecated. We therfore don't expose
         //anything related to that. However use defined functions on the builder could use this functionality.
-        let device_creation_info = ash::vk::DeviceCreateInfo::builder()
+        let device_creation_info = ash::vk::DeviceCreateInfo::default()
             .enabled_extension_names(&device_extensions)
             .enabled_features(&features)
             .queue_create_infos(&queue_create_infos);
 
         //if there is a p_next queue, build the pointer queue and add it to the builder
-        let mut create_info = device_creation_info.build();
+        let mut create_info = device_creation_info;
         if p_next.len() > 0 {
             //Chain the features together similar to the builders push
             let chain = p_next

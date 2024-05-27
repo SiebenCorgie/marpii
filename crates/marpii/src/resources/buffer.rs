@@ -54,8 +54,8 @@ impl Default for BufDesc {
 impl BufDesc {
     pub fn set_on_builder<'a>(
         &'a self,
-        mut builder: vk::BufferCreateInfoBuilder<'a>,
-    ) -> vk::BufferCreateInfoBuilder<'a> {
+        mut builder: vk::BufferCreateInfo<'a>,
+    ) -> vk::BufferCreateInfo<'a> {
         builder = builder
             .size(self.size)
             .usage(self.usage)
@@ -166,7 +166,7 @@ impl Buffer {
         usage: MemoryUsage,
         name: Option<&str>,
     ) -> Result<Self, DeviceError> {
-        let mut builder = ash::vk::BufferCreateInfo::builder();
+        let mut builder = ash::vk::BufferCreateInfo::default();
 
         builder = description.set_on_builder(builder);
 

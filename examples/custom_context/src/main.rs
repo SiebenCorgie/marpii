@@ -53,7 +53,7 @@ fn main() {
         // In this case we enable just the dynamic rendering feature
         if dynamic.dynamic_rendering > 0 {
             builder = builder.with_feature(
-                PhysicalDeviceDynamicRenderingFeatures::builder()
+                PhysicalDeviceDynamicRenderingFeatures::default()
                     .dynamic_rendering(true)
                     .build(),
             );

@@ -31,7 +31,7 @@ impl PipelineLayout {
         descriptor_set_layouts: &[ash::vk::DescriptorSetLayout],
         push_constant_ranges: &[ash::vk::PushConstantRange],
     ) -> Result<Self, ash::vk::Result> {
-        let create_info = ash::vk::PipelineLayoutCreateInfo::builder()
+        let create_info = ash::vk::PipelineLayoutCreateInfo::default()
             .push_constant_ranges(push_constant_ranges)
             .set_layouts(descriptor_set_layouts);
 

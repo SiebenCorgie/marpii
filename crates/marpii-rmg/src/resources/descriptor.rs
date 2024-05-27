@@ -191,7 +191,7 @@ impl<T> SetManager<T> {
             | vk::DescriptorBindingFlags::UPDATE_AFTER_BIND; 1];
 
         let mut ext_flags =
-            vk::DescriptorSetLayoutBindingFlagsCreateInfo::builder().binding_flags(&flags);
+            vk::DescriptorSetLayoutBindingFlagsCreateInfo::default().binding_flags(&flags);
 
         #[cfg(feature = "logging")]
         log::trace!("    {:#?}", binding_layout);
@@ -200,7 +200,7 @@ impl<T> SetManager<T> {
             device
                 .inner
                 .create_descriptor_set_layout(
-                    &vk::DescriptorSetLayoutCreateInfo::builder()
+                    &vk::DescriptorSetLayoutCreateInfo::default()
                         .bindings(core::slice::from_ref(&binding_layout))
                         .flags(vk::DescriptorSetLayoutCreateFlags::UPDATE_AFTER_BIND_POOL)
                         .push_next(&mut ext_flags),
@@ -218,10 +218,10 @@ impl<T> SetManager<T> {
         //NOTE: we can not use the descriptor-set allocate trait, since we need to specify some additional info.
         //      we use it however, to track lifetime etc.
         let mut allocate_count_info =
-            vk::DescriptorSetVariableDescriptorCountAllocateInfo::builder()
+            vk::DescriptorSetVariableDescriptorCountAllocateInfo::default()
                 .descriptor_counts(core::slice::from_ref(&max_count));
 
-        let descriptor_set_info = vk::DescriptorSetAllocateInfo::builder()
+        let descriptor_set_info = vk::DescriptorSetAllocateInfo::default()
             .descriptor_pool(pool.inner)
             .push_next(&mut allocate_count_info)
             .set_layouts(core::slice::from_ref(&layout.inner));
@@ -590,7 +590,7 @@ impl Bindless {
             size: self.push_constant_size,
         };
 
-        let pipeline_layout_create_info = vk::PipelineLayoutCreateInfo::builder()
+        let pipeline_layout_create_info = vk::PipelineLayoutCreateInfo::default()
             .set_layouts(&descset_layouts)
             .push_constant_ranges(core::slice::from_ref(&push_range));
 
@@ -642,11 +642,11 @@ impl Bindless {
         log::trace!("Binding storage buffer!");
 
         //prepare our write instruction, then submit
-        let buffer_info = vk::DescriptorBufferInfo::builder()
+        let buffer_info = vk::DescriptorBufferInfo::default()
             .buffer(buffer.inner)
             .offset(0)
             .range(vk::WHOLE_SIZE);
-        let write_instruction = vk::WriteDescriptorSet::builder()
+        let write_instruction = vk::WriteDescriptorSet::default()
             .buffer_info(core::slice::from_ref(&buffer_info))
             .descriptor_type(vk::DescriptorType::STORAGE_BUFFER);
 
@@ -687,10 +687,10 @@ impl Bindless {
         log::trace!("Binding storage image!");
 
         //prepare our write instruction, then submit
-        let image_info = vk::DescriptorImageInfo::builder()
+        let image_info = vk::DescriptorImageInfo::default()
             .image_layout(vk::ImageLayout::GENERAL) //FIXME: works but is suboptimal. Might tag images
             .image_view(image.view);
-        let write_instruction = vk::WriteDescriptorSet::builder()
+        let write_instruction = vk::WriteDescriptorSet::default()
             .image_info(core::slice::from_ref(&image_info))
             .descriptor_type(vk::DescriptorType::STORAGE_IMAGE);
 
@@ -732,10 +732,10 @@ impl Bindless {
         log::trace!("Binding sampled image!");
 
         //prepare our write instruction, then submit
-        let image_info = vk::DescriptorImageInfo::builder()
+        let image_info = vk::DescriptorImageInfo::default()
             .image_layout(vk::ImageLayout::GENERAL) //FIXME: works but is suboptimal. Might tag images
             .image_view(image.view);
-        let write_instruction = vk::WriteDescriptorSet::builder()
+        let write_instruction = vk::WriteDescriptorSet::default()
             .image_info(core::slice::from_ref(&image_info))
             .descriptor_type(vk::DescriptorType::SAMPLED_IMAGE);
 
@@ -765,7 +765,7 @@ impl Bindless {
         log::trace!("Binding sampled+storage image!");
 
         //prepare our write instruction, then submit
-        let image_info = vk::DescriptorImageInfo::builder()
+        let image_info = vk::DescriptorImageInfo::default()
             .image_layout(vk::ImageLayout::GENERAL) //FIXME: works but is suboptimal. Might tag images
             .image_view(image.view);
 
@@ -778,11 +778,11 @@ impl Bindless {
                 return Err(image);
             };
 
-        let write_instruction_sampled = vk::WriteDescriptorSet::builder()
+        let write_instruction_sampled = vk::WriteDescriptorSet::default()
             .image_info(core::slice::from_ref(&image_info))
             .descriptor_type(vk::DescriptorType::SAMPLED_IMAGE);
 
-        let write_instruction_storage = vk::WriteDescriptorSet::builder()
+        let write_instruction_storage = vk::WriteDescriptorSet::default()
             .image_info(core::slice::from_ref(&image_info))
             .descriptor_type(vk::DescriptorType::STORAGE_IMAGE);
 
@@ -813,8 +813,8 @@ impl Bindless {
         log::trace!("Binding sampler!");
 
         //prepare our write instruction, then submit
-        let image_info = vk::DescriptorImageInfo::builder().sampler(sampler.inner);
-        let write_instruction = vk::WriteDescriptorSet::builder()
+        let image_info = vk::DescriptorImageInfo::default().sampler(sampler.inner);
+        let write_instruction = vk::WriteDescriptorSet::default()
             .image_info(core::slice::from_ref(&image_info))
             .descriptor_type(vk::DescriptorType::SAMPLER);
 

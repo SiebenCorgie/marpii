@@ -26,7 +26,7 @@ impl ComputePipeline {
         L: Into<OoS<PipelineLayout>>,
     {
         let layout = layout.into();
-        let create_info = ash::vk::ComputePipelineCreateInfo::builder()
+        let create_info = ash::vk::ComputePipelineCreateInfo::default()
             .stage(*stage.as_create_info(specialization_info))
             .layout(layout.layout);
 

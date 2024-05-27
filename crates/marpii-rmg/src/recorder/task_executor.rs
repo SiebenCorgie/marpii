@@ -261,7 +261,7 @@ impl<'t> Executor<'t> {
                 .unwrap();
 
             self.submit_info_cache.push(
-                vk::SemaphoreSubmitInfo::builder()
+                vk::SemaphoreSubmitInfo::default()
                     .semaphore(rmg.tracks.0.get(&track_id).unwrap().sem.inner)
                     .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS) //TODO: make more percise
                     .value(sem_value)
@@ -454,7 +454,7 @@ impl<'t> Executor<'t> {
                 unsafe {
                     rmg.ctx.device.inner.begin_command_buffer(
                         cb.inner,
-                        &vk::CommandBufferBeginInfo::builder()
+                        &vk::CommandBufferBeginInfo::default()
                             .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT),
                     )?;
                     rmg.ctx
@@ -476,7 +476,7 @@ impl<'t> Executor<'t> {
                 assert!(queue.family_index == queue_fam);
 
                 //signal only the created guard
-                let signal_info = vk::SemaphoreSubmitInfo::builder()
+                let signal_info = vk::SemaphoreSubmitInfo::default()
                     .semaphore(rmg.tracks.0.get(release_guard.as_ref()).unwrap().sem.inner)
                     .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
                     .value(release_guard.wait_value());
@@ -487,9 +487,9 @@ impl<'t> Executor<'t> {
                 unsafe {
                     rmg.ctx.device.inner.queue_submit2(
                         *queue.inner(),
-                        &[*vk::SubmitInfo2::builder()
+                        &[*vk::SubmitInfo2::default()
                             .command_buffer_infos(&[
-                                *vk::CommandBufferSubmitInfo::builder().command_buffer(cb.inner)
+                                *vk::CommandBufferSubmitInfo::default().command_buffer(cb.inner)
                             ])
                             .wait_semaphore_infos(&self.submit_info_cache)
                             .signal_semaphore_infos(&[*signal_info])],
@@ -816,7 +816,7 @@ impl<'t> Executor<'t> {
             //begin recording
             rmg.ctx.device.inner.begin_command_buffer(
                 cb.inner,
-                &vk::CommandBufferBeginInfo::builder()
+                &vk::CommandBufferBeginInfo::default()
                     .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT),
             )?;
 
@@ -878,7 +878,7 @@ impl<'t> Executor<'t> {
             trackid.0,
             exec_guard.wait_value()
         );
-        let mut signal_semaphore = vec![vk::SemaphoreSubmitInfo::builder()
+        let mut signal_semaphore = vec![vk::SemaphoreSubmitInfo::default()
             .semaphore(rmg.tracks.0.get(exec_guard.as_ref()).unwrap().sem.inner)
             .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
             .value(exec_guard.wait_value())
@@ -996,7 +996,7 @@ impl<'t> Executor<'t> {
                 {
                     let string: CString = CString::new(track.nodes[node_idx].task.task.name())
                         .unwrap_or(CString::new("INVALID TASK NAME").unwrap());
-                    let label = vk::DebugUtilsLabelEXT::builder()
+                    let label = vk::DebugUtilsLabelEXT::default()
                         .color([0.0, 1.0, 0.0, 1.0])
                         .label_name(&string);
                     if let Some(dbg) = rmg.ctx.device.instance.get_debugger() {
@@ -1113,7 +1113,7 @@ impl<'t> Executor<'t> {
                 if let Some(dbg) = rmg.ctx.device.instance.get_debugger() {
                     let string = CString::new(format!("{:#?}", queue.properties.queue_flags))
                         .unwrap_or(CString::new("UNAMED_QUEUE").unwrap());
-                    let queue_label = vk::DebugUtilsLabelEXT::builder()
+                    let queue_label = vk::DebugUtilsLabelEXT::default()
                         .color([0.0, 0.0, 1.0, 1.0])
                         .label_name(&string);
                     dbg.debug_report_loader
@@ -1125,9 +1125,9 @@ impl<'t> Executor<'t> {
 
             rmg.ctx.device.inner.queue_submit2(
                 *queue.inner(),
-                &[*vk::SubmitInfo2::builder()
+                &[*vk::SubmitInfo2::default()
                     .command_buffer_infos(&[
-                        *vk::CommandBufferSubmitInfo::builder().command_buffer(cb.inner)
+                        *vk::CommandBufferSubmitInfo::default().command_buffer(cb.inner)
                     ])
                     .wait_semaphore_infos(&self.submit_info_cache)
                     //Signal this tracks value upon finish

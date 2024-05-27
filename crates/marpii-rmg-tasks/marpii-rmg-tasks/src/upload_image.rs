@@ -140,7 +140,7 @@ impl Task for UploadImage {
 
         //This is the first copy, it will just copy 0..image_memory_size to the first mip.
         copies.push(
-            vk::BufferImageCopy2::builder()
+            vk::BufferImageCopy2::default()
                 .buffer_offset(0)
                 .buffer_row_length(0)
                 .buffer_image_height(0)
@@ -160,7 +160,7 @@ impl Task for UploadImage {
                 subres.base_array_layer = 0;
                 subres.layer_count = mip.layer_count;
                 copies.push(
-                    vk::BufferImageCopy2::builder()
+                    vk::BufferImageCopy2::default()
                         .buffer_offset(offset)
                         .buffer_row_length(0)
                         .buffer_image_height(0)
@@ -177,7 +177,7 @@ impl Task for UploadImage {
         unsafe {
             device.inner.cmd_copy_buffer_to_image2(
                 *command_buffer,
-                &vk::CopyBufferToImageInfo2::builder()
+                &vk::CopyBufferToImageInfo2::default()
                     .src_buffer(buffer.buffer.inner)
                     .dst_image(img.image.inner)
                     .regions(&copies)

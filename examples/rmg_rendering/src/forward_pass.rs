@@ -199,7 +199,7 @@ impl ForwardPass {
         color_formats: &[vk::Format],
         depth_format: vk::Format,
     ) -> Result<GraphicsPipeline, anyhow::Error> {
-        let color_blend_attachments = vk::PipelineColorBlendAttachmentState::builder()
+        let color_blend_attachments = vk::PipelineColorBlendAttachmentState::default()
             .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
             .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
             .color_blend_op(vk::BlendOp::ADD)
@@ -209,73 +209,73 @@ impl ForwardPass {
             .color_write_mask(vk::ColorComponentFlags::RGBA)
             .blend_enable(true);
 
-        let color_blend_state = vk::PipelineColorBlendStateCreateInfo::builder()
+        let color_blend_state = vk::PipelineColorBlendStateCreateInfo::default()
             .blend_constants([0.0; 4])
             .attachments(core::slice::from_ref(&color_blend_attachments)); //only the color target
 
-        let depth_stencil_state = vk::PipelineDepthStencilStateCreateInfo::builder()
+        let depth_stencil_state = vk::PipelineDepthStencilStateCreateInfo::default()
             .depth_compare_op(vk::CompareOp::LESS)
             .depth_write_enable(true)
             .depth_test_enable(true)
             .depth_bounds_test_enable(false)
             .stencil_test_enable(false);
 
-        let dynamic_state = vk::PipelineDynamicStateCreateInfo::builder()
+        let dynamic_state = vk::PipelineDynamicStateCreateInfo::default()
             .dynamic_states(&[vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR]);
         //no other dynamic state
 
-        let input_assembly_state = vk::PipelineInputAssemblyStateCreateInfo::builder()
+        let input_assembly_state = vk::PipelineInputAssemblyStateCreateInfo::default()
             .primitive_restart_enable(false)
             .topology(vk::PrimitiveTopology::TRIANGLE_LIST);
-        let multisample_state = vk::PipelineMultisampleStateCreateInfo::builder()
+        let multisample_state = vk::PipelineMultisampleStateCreateInfo::default()
             .min_sample_shading(1.0)
             .alpha_to_one_enable(false)
             .rasterization_samples(vk::SampleCountFlags::TYPE_1);
-        let rasterization_state = vk::PipelineRasterizationStateCreateInfo::builder()
+        let rasterization_state = vk::PipelineRasterizationStateCreateInfo::default()
             .cull_mode(vk::CullModeFlags::NONE)
             .depth_bias_enable(false)
             .depth_clamp_enable(false)
             .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
             .line_width(1.0)
             .polygon_mode(vk::PolygonMode::FILL);
-        let tesselation_state = vk::PipelineTessellationStateCreateInfo::builder();
+        let tesselation_state = vk::PipelineTessellationStateCreateInfo::default();
 
-        let viewport_state = vk::PipelineViewportStateCreateInfo::builder()
+        let viewport_state = vk::PipelineViewportStateCreateInfo::default()
             .viewport_count(1)
             .scissor_count(1);
 
-        let vertex_binding_desc = vk::VertexInputBindingDescription::builder()
+        let vertex_binding_desc = vk::VertexInputBindingDescription::default()
             .binding(0)
             .stride(core::mem::size_of::<shared::Vertex>() as u32)
             .input_rate(vk::VertexInputRate::VERTEX);
         let vertex_attrib_desc = [
             //Description of the Pos attribute
-            vk::VertexInputAttributeDescription::builder()
+            vk::VertexInputAttributeDescription::default()
                 .location(0)
                 .binding(0)
                 .format(vk::Format::R32G32B32_SFLOAT)
                 .offset(offset_of!(shared::Vertex, position) as u32)
                 .build(),
             //Description of the Normal attribute
-            vk::VertexInputAttributeDescription::builder()
+            vk::VertexInputAttributeDescription::default()
                 .location(1)
                 .binding(0)
                 .format(vk::Format::R32G32B32_SFLOAT)
                 .offset(offset_of!(shared::Vertex, normal) as u32)
                 .build(),
             //Description of the uv attribute
-            vk::VertexInputAttributeDescription::builder()
+            vk::VertexInputAttributeDescription::default()
                 .location(2)
                 .binding(0)
                 .format(vk::Format::R32G32_SFLOAT)
                 .offset(offset_of!(shared::Vertex, uv) as u32)
                 .build(),
         ];
-        let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder()
+        let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::default()
             .vertex_binding_descriptions(core::slice::from_ref(&vertex_binding_desc))
             .vertex_attribute_descriptions(&vertex_attrib_desc);
 
-        let create_info = vk::GraphicsPipelineCreateInfo::builder()
+        let create_info = vk::GraphicsPipelineCreateInfo::default()
             .color_blend_state(&color_blend_state)
             .depth_stencil_state(&depth_stencil_state)
             .dynamic_state(&dynamic_state)
@@ -452,7 +452,7 @@ impl Task for ForwardPass {
 
         let viewport = colorimg.image_region().as_viewport();
         let scissors = colorimg.image_region().as_rect_2d();
-        let depth_attachment = vk::RenderingAttachmentInfo::builder()
+        let depth_attachment = vk::RenderingAttachmentInfo::default()
             .clear_value(vk::ClearValue {
                 depth_stencil: vk::ClearDepthStencilValue {
                     depth: 1.0,
@@ -464,7 +464,7 @@ impl Task for ForwardPass {
             .load_op(vk::AttachmentLoadOp::CLEAR)
             .store_op(vk::AttachmentStoreOp::STORE);
 
-        let color_attachments = vk::RenderingAttachmentInfo::builder()
+        let color_attachments = vk::RenderingAttachmentInfo::default()
             .clear_value(vk::ClearValue {
                 color: vk::ClearColorValue {
                     float32: [0.1, 0.2, 0.4, 1.0],
@@ -475,7 +475,7 @@ impl Task for ForwardPass {
             .load_op(vk::AttachmentLoadOp::CLEAR)
             .store_op(vk::AttachmentStoreOp::STORE);
 
-        let render_info = vk::RenderingInfo::builder()
+        let render_info = vk::RenderingInfo::default()
             .depth_attachment(&depth_attachment)
             .render_area(scissors)
             .layer_count(1)

@@ -14,7 +14,7 @@ pub fn load_model(gltf: &[Scene]) -> (Vec<Vertex>, Vec<u32>) {
             /*
             let texture_sampler = Arc::new(Sampler::new(
                 &app.ctx.device,
-                &vk::SamplerCreateInfo::builder()
+                &vk::SamplerCreateInfo::default()
                     .mipmap_mode(SamplerMipmapMode::LINEAR)
             ).unwrap());
 

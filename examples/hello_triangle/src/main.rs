@@ -391,7 +391,7 @@ impl App {
     pub fn new(window: &winit::window::Window) -> anyhow::Result<Self> {
         //now test context setup
         let (ctx, surface) = Ctx::default_with_surface(&window, true)?;
-        let swapchain = Swapchain::builder(&ctx.device, surface)?
+        let swapchain = Swapchain::default(&ctx.device, surface)?
             .with(|b| {
                 b.create_info.usage = ash::vk::ImageUsageFlags::COLOR_ATTACHMENT
                     | ash::vk::ImageUsageFlags::TRANSFER_DST

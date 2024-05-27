@@ -1,4 +1,4 @@
-use ash::vk::{self, SamplerCreateInfoBuilder};
+use ash::vk::{self, SamplerCreateInfo};
 use oos::OoS;
 
 use crate::{
@@ -109,8 +109,8 @@ impl ImgViewDesc {
     ///Overwrites all fields (that apply) of `build` with the data in `self`
     pub fn set_on_builder<'a>(
         &'a self,
-        builder: ash::vk::ImageViewCreateInfoBuilder<'a>,
-    ) -> ash::vk::ImageViewCreateInfoBuilder<'a> {
+        builder: ash::vk::ImageViewCreateInfo<'a>,
+    ) -> ash::vk::ImageViewCreateInfo<'a> {
         builder
             .components(self.component_mapping)
             .view_type(self.view_type)
@@ -199,8 +199,8 @@ impl ImgDesc {
     ///overwrites all infos that apply of `builder` with the data of `self`.
     pub fn set_on_builder<'a>(
         &'a self,
-        mut builder: ash::vk::ImageCreateInfoBuilder<'a>,
-    ) -> ash::vk::ImageCreateInfoBuilder<'a> {
+        mut builder: ash::vk::ImageCreateInfo<'a>,
+    ) -> ash::vk::ImageCreateInfo<'a> {
         builder = builder
             .image_type(self.img_type.into())
             .format(self.format)
@@ -440,7 +440,7 @@ impl Image {
         //per definition the image layout is undefined when creating an image.
         let initial_layout = ash::vk::ImageLayout::UNDEFINED;
 
-        let mut builder = ash::vk::ImageCreateInfo::builder().initial_layout(initial_layout);
+        let mut builder = ash::vk::ImageCreateInfo::default().initial_layout(initial_layout);
         //now apply the description
         builder = description.set_on_builder(builder);
 
@@ -529,7 +529,7 @@ pub trait SafeImageView {
 impl SafeImageView for Image {
     ///Creates an image view for this image based on the based `desc`.
     fn view(self, desc: ImgViewDesc) -> Result<ImageView, DeviceError> {
-        let mut builder = ash::vk::ImageViewCreateInfo::builder().image(self.inner);
+        let mut builder = ash::vk::ImageViewCreateInfo::default().image(self.inner);
         builder = desc.set_on_builder(builder);
 
         let view = unsafe { self.device.inner.create_image_view(&builder, None)? };
@@ -546,7 +546,7 @@ impl SafeImageView for Image {
 impl SafeImageView for OoS<Image> {
     ///Creates an image view for this image based on the based `desc`.
     fn view(self, desc: ImgViewDesc) -> Result<ImageView, DeviceError> {
-        let mut builder = ash::vk::ImageViewCreateInfo::builder().image(self.inner);
+        let mut builder = ash::vk::ImageViewCreateInfo::default().image(self.inner);
         builder = desc.set_on_builder(builder);
 
         let view = unsafe { self.device.inner.create_image_view(&builder, None)? };
@@ -566,10 +566,7 @@ pub struct Sampler {
 }
 
 impl Sampler {
-    pub fn new(
-        device: &Arc<Device>,
-        create_info: &SamplerCreateInfoBuilder,
-    ) -> Result<Self, DeviceError> {
+    pub fn new(device: &Arc<Device>, create_info: &SamplerCreateInfo) -> Result<Self, DeviceError> {
         let sampler = unsafe { device.inner.create_sampler(create_info, None)? };
 
         Ok(Sampler {

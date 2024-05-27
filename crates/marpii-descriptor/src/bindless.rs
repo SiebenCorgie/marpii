@@ -142,7 +142,7 @@ impl<T> SetManagment<T> {
             | vk::DescriptorBindingFlags::UPDATE_AFTER_BIND; 1];
 
         let mut ext_flags =
-            vk::DescriptorSetLayoutBindingFlagsCreateInfo::builder().binding_flags(&flags);
+            vk::DescriptorSetLayoutBindingFlagsCreateInfo::default().binding_flags(&flags);
 
         #[cfg(feature = "logging")]
         log::info!("    {:#?}", binding_layout);
@@ -150,7 +150,7 @@ impl<T> SetManagment<T> {
             device
                 .inner
                 .create_descriptor_set_layout(
-                    &vk::DescriptorSetLayoutCreateInfo::builder()
+                    &vk::DescriptorSetLayoutCreateInfo::default()
                         .bindings(core::slice::from_ref(&binding_layout))
                         .flags(vk::DescriptorSetLayoutCreateFlags::UPDATE_AFTER_BIND_POOL)
                         .push_next(&mut ext_flags),
@@ -168,10 +168,10 @@ impl<T> SetManagment<T> {
         //NOTE: we can not use the descriptor-set allocate trait, since we need to specify some additional info.
         //      we use it however, to track lifetime etc.
         let mut allocate_count_info =
-            vk::DescriptorSetVariableDescriptorCountAllocateInfo::builder()
+            vk::DescriptorSetVariableDescriptorCountAllocateInfo::default()
                 .descriptor_counts(core::slice::from_ref(&max_count));
 
-        let descriptor_set_info = vk::DescriptorSetAllocateInfo::builder()
+        let descriptor_set_info = vk::DescriptorSetAllocateInfo::default()
             .descriptor_pool(pool.inner)
             .push_next(&mut allocate_count_info)
             .set_layouts(core::slice::from_ref(&layout.inner));
@@ -466,7 +466,7 @@ impl BindlessDescriptor {
             size: push_constant_size,
         };
 
-        let pipeline_layout_create_info = vk::PipelineLayoutCreateInfo::builder()
+        let pipeline_layout_create_info = vk::PipelineLayoutCreateInfo::default()
             .set_layouts(descset_layouts)
             .push_constant_ranges(core::slice::from_ref(&push_range));
 
@@ -504,11 +504,11 @@ impl BindlessDescriptor {
         sampler: Arc<Sampler>,
     ) -> Result<SampledImageHandle, (Arc<ImageView>, Arc<Sampler>)> {
         //prepare our write instruction, then submit
-        let image_info = vk::DescriptorImageInfo::builder()
+        let image_info = vk::DescriptorImageInfo::default()
             .sampler(sampler.inner)
             .image_layout(vk::ImageLayout::GENERAL) //FIXME: works but is suboptimal. Might tag images
             .image_view(image.view);
-        let write_instruction = vk::WriteDescriptorSet::builder()
+        let write_instruction = vk::WriteDescriptorSet::default()
             .image_info(core::slice::from_ref(&image_info))
             .descriptor_type(vk::DescriptorType::COMBINED_IMAGE_SAMPLER);
 
