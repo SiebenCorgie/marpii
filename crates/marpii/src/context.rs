@@ -191,7 +191,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
 
         // only add swapchain extension if we got a surface
         if surfaces.is_some() {
-            device_builder = device_builder.with_extensions(ash::khr::surface::NAME);
+            device_builder = device_builder.with_extensions(ash::khr::swapchain::NAME);
         }
         let device = device_builder.build()?;
 

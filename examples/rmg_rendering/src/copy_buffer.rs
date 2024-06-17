@@ -83,7 +83,7 @@ impl Task for CopyToGraphicsBuffer {
                 &vk::CopyBufferInfo2::default()
                     .src_buffer(src_access.buffer.inner)
                     .dst_buffer(dst_access.buffer.inner)
-                    .regions(&[*vk::BufferCopy2::default()
+                    .regions(&[vk::BufferCopy2::default()
                         .src_offset(0)
                         .dst_offset(0)
                         .size(copy_size)]),

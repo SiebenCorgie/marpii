@@ -39,6 +39,8 @@ mod egui_integration;
 pub use crate::egui_integration::{EGuiTask, EGuiWinitIntegration};
 #[cfg(feature = "egui-task")]
 pub use egui_winit::egui;
+#[cfg(feature = "egui-task")]
+pub use egui_winit::winit;
 
 #[derive(Error, Debug)]
 pub struct NoTaskError;

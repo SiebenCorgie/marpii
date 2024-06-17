@@ -9,8 +9,8 @@
 use crate::egui::{ClippedPrimitive, TextureId, TexturesDelta};
 use crate::{DynamicBuffer, DynamicImage, RmgTaskError};
 use ahash::AHashMap;
-use egui::{Color32, Pos2};
-use egui_winit::winit::event_loop::EventLoopWindowTarget;
+use egui::{Color32, Pos2, ViewportId};
+use egui_winit::winit::event_loop::EventLoop;
 use egui_winit::winit::window::Window;
 use marpii::ash::vk::{ImageUsageFlags, Rect2D};
 use marpii::resources::SharingMode;
@@ -67,20 +67,23 @@ pub struct EGuiWinitIntegration {
 }
 
 impl EGuiWinitIntegration {
-    pub fn new<T>(
-        rmg: &mut Rmg,
-        event_loop: &EventLoopWindowTarget<T>,
-    ) -> Result<Self, RmgTaskError> {
-        #[cfg(feature = "logging")]
-        log::trace!("Setting up winit state");
-
-        let mut winit_state = egui_winit::State::new(event_loop);
-        winit_state.set_max_texture_side(EGuiTask::MAX_TEXTURE_SIDE as usize);
-
+    pub fn new<T>(rmg: &mut Rmg, event_loop: &EventLoop<T>) -> Result<Self, RmgTaskError> {
         #[cfg(feature = "logging")]
         log::trace!("Setting up egui context");
         let egui_context: egui::Context = Default::default();
         egui_context.set_pixels_per_point(1.0);
+
+        #[cfg(feature = "logging")]
+        log::trace!("Setting up winit state");
+
+        let mut winit_state = egui_winit::State::new(
+            egui_context.clone(),
+            ViewportId::ROOT,
+            event_loop,
+            None,
+            Some(EGuiTask::MAX_TEXTURE_SIDE as usize),
+        );
+        winit_state.set_max_texture_side(EGuiTask::MAX_TEXTURE_SIDE as usize);
 
         Ok(EGuiWinitIntegration {
             winit_state,
@@ -89,13 +92,21 @@ impl EGuiWinitIntegration {
             task: EGuiTask::new(rmg)?,
         })
     }
-    pub fn handle_event<T>(&mut self, event: &egui_winit::winit::event::Event<T>) {
-        if let egui_winit::winit::event::Event::WindowEvent {
-            window_id: _,
-            event,
-        } = event
-        {
-            let _is_exclusive = self.winit_state.on_event(&self.egui_context, event);
+    pub fn handle_event<T>(&mut self, window: &Window, event: &egui_winit::winit::event::Event<T>) {
+        match event {
+            egui_winit::winit::event::Event::WindowEvent {
+                window_id: _,
+                event,
+            } => {
+                let _is_exclusive = self.winit_state.on_window_event(window, event);
+            }
+            egui_winit::winit::event::Event::DeviceEvent {
+                event: egui_winit::winit::event::DeviceEvent::MouseMotion { delta },
+                device_id: _,
+            } => {
+                let _ = self.winit_state.on_mouse_motion(*delta);
+            }
+            _ => {}
         }
     }
 
@@ -137,20 +148,22 @@ impl EGuiWinitIntegration {
             max: Pos2::new(resolution.width as f32, resolution.height as f32),
         });
 
-        self.winit_state
+        self.egui_context
             .set_pixels_per_point(window.scale_factor() as f32);
         self.task.renderer.px_per_point = window.scale_factor() as f32;
 
         let output = self.egui_context.run(raw_input, run_ui);
 
-        let primitives = self.egui_context.tessellate(output.shapes);
+        let primitives = self
+            .egui_context
+            .tessellate(output.shapes, window.scale_factor() as f32);
 
         self.task.set_resolution(rmg, resolution)?;
         self.task.set_primitives(rmg, primitives)?;
         self.task.set_texture_deltas(rmg, output.textures_delta)?;
 
         self.winit_state
-            .handle_platform_output(window, &self.egui_context, output.platform_output);
+            .handle_platform_output(window, output.platform_output);
         Ok(())
     }
 }

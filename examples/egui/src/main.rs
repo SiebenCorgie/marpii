@@ -7,11 +7,8 @@ use marpii::util::FormatProperties;
 use marpii_rmg::Rmg;
 use marpii_rmg_tasks::{egui, EGuiWinitIntegration, SwapchainPresent};
 
-use winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
-use winit::{
-    event::{Event, WindowEvent},
-    event_loop::ControlFlow,
-};
+use marpii_rmg_tasks::winit;
+use winit::event::Event;
 
 fn main() -> Result<(), anyhow::Error> {
     simple_logger::SimpleLogger::new()
@@ -19,8 +16,9 @@ fn main() -> Result<(), anyhow::Error> {
         .init()
         .unwrap();
 
-    let ev = winit::event_loop::EventLoop::new();
-    let window = winit::window::Window::new(&ev).unwrap();
+    let ev = winit::event_loop::EventLoop::builder().build().unwrap();
+    let windowattr = winit::window::Window::default_attributes().with_title("Egui Example");
+    let window = ev.create_window(windowattr).unwrap();
     let (context, surface) = Ctx::default_with_surface(&window, true)?;
     let mut rmg = Rmg::new(context)?;
 
@@ -38,8 +36,8 @@ fn main() -> Result<(), anyhow::Error> {
     let mut name = "Teddy".to_string();
     let mut age = 10u32;
 
-    ev.run(move |ev, _, cf| {
-        *cf = ControlFlow::Poll;
+    ev.run(move |ev, ev_loop| {
+        // *cf = ControlFlow::Poll;
         egui.handle_event(&ev);
         match ev {
             Event::MainEventsCleared => window.request_redraw(),
@@ -80,20 +78,22 @@ fn main() -> Result<(), anyhow::Error> {
                     .execute()
                     .unwrap();
             }
-            Event::WindowEvent {
-                event:
-                    WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Escape),
-                                ..
-                            },
-                        ..
-                    },
-                ..
-            } => *cf = ControlFlow::Exit,
+            // Event::WindowEvent {
+            //     event:
+            //         WindowEvent::KeyboardInput {
+            //             input:
+            //                 KeyboardInput {
+            //                     state: ElementState::Pressed,
+            //                     virtual_keycode: Some(VirtualKeyCode::Escape),
+            //                     ..
+            //                 },
+            //             ..
+            //         },
+            //     ..
+            // } => ev.clone_from(),
             _ => {}
         }
-    })
+    });
+
+    Ok(())
 }

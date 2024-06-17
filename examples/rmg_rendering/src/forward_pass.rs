@@ -254,22 +254,17 @@ impl ForwardPass {
                 .location(0)
                 .binding(0)
                 .format(vk::Format::R32G32B32_SFLOAT)
-                .offset(offset_of!(shared::Vertex, position) as u32)
-                .build(),
-            //Description of the Normal attribute
+                .offset(offset_of!(shared::Vertex, position) as u32), //Description of the Normal attribute
             vk::VertexInputAttributeDescription::default()
                 .location(1)
                 .binding(0)
                 .format(vk::Format::R32G32B32_SFLOAT)
-                .offset(offset_of!(shared::Vertex, normal) as u32)
-                .build(),
-            //Description of the uv attribute
+                .offset(offset_of!(shared::Vertex, normal) as u32), //Description of the uv attribute
             vk::VertexInputAttributeDescription::default()
                 .location(2)
                 .binding(0)
                 .format(vk::Format::R32G32_SFLOAT)
-                .offset(offset_of!(shared::Vertex, uv) as u32)
-                .build(),
+                .offset(offset_of!(shared::Vertex, uv) as u32),
         ];
         let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::default()
             .vertex_binding_descriptions(core::slice::from_ref(&vertex_binding_desc))

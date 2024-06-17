@@ -17,7 +17,8 @@ use marpii::{
 use marpii_commands::ManagedCommands;
 use marpii_descriptor::managed_descriptor::{Binding, ManagedDescriptorSet};
 use std::sync::{Arc, Mutex};
-use winit::event::ElementState;
+use winit::event::{ElementState, KeyEvent};
+use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::{
     event::{Event, WindowEvent},
     event_loop::ControlFlow,
@@ -467,7 +468,13 @@ impl App {
         }
 
         //Get next image. Note that acquiring is handled by the swapchain itself
-        let swimage = self.swapchain.acquire_next_image().unwrap();
+        let swimage = match self.swapchain.acquire_next_image() {
+            Err(e) => {
+                println!("Failed to acquire new image: {e}!");
+                return;
+            }
+            Ok(f) => f,
+        };
 
         self.pass_data[swimage.index as usize]
             .command_buffer
@@ -500,9 +507,12 @@ impl App {
 fn main() -> Result<()> {
     simple_logger::SimpleLogger::new().init().unwrap();
 
-    let ev = winit::event_loop::EventLoop::new();
-    let window = winit::window::Window::new(&ev).unwrap();
+    let ev = winit::event_loop::EventLoop::new().unwrap();
+    let window_attributes =
+        winit::window::Window::default_attributes().with_title("hello triangle");
 
+    #[allow(deprecated)]
+    let window = ev.create_window(window_attributes).unwrap();
     let mut app = App::new(&window)?;
 
     let mut rad = 45.0f32;
@@ -510,12 +520,19 @@ fn main() -> Result<()> {
 
     let start = std::time::Instant::now();
 
-    ev.run(move |event, _, ctrl| {
-        *ctrl = ControlFlow::Poll;
+    #[allow(deprecated)]
+    let _ = ev.run(|event, evl| {
+        evl.set_control_flow(ControlFlow::Poll);
 
         match event {
-            Event::MainEventsCleared => window.request_redraw(),
-            Event::RedrawRequested(_) => {
+            Event::AboutToWait => {
+                unsafe { app.ctx.device.inner.device_wait_idle().unwrap() };
+                window.request_redraw()
+            }
+            Event::WindowEvent {
+                window_id: _,
+                event: WindowEvent::RedrawRequested,
+            } => {
                 rad = start.elapsed().as_secs_f32().sin() + 1.0;
 
                 app.draw(
@@ -529,7 +546,6 @@ fn main() -> Result<()> {
             }
             Event::WindowEvent { event, .. } => match event {
                 WindowEvent::CloseRequested => {
-                    *ctrl = ControlFlow::Exit;
                     unsafe {
                         app.ctx
                             .device
@@ -537,21 +553,24 @@ fn main() -> Result<()> {
                             .device_wait_idle()
                             .expect("Failed to wait")
                     };
+                    evl.exit();
                 }
                 WindowEvent::KeyboardInput {
-                    input:
-                        KeyboardInput {
+                    event:
+                        KeyEvent {
+                            physical_key,
                             state,
-                            virtual_keycode: Some(kc),
                             ..
                         },
                     ..
-                } => match (state, kc) {
-                    (ElementState::Pressed, VirtualKeyCode::A) => offset[0] += 10.0,
-                    (ElementState::Pressed, VirtualKeyCode::D) => offset[0] -= 10.0,
-                    (ElementState::Pressed, VirtualKeyCode::W) => offset[1] += 10.0,
-                    (ElementState::Pressed, VirtualKeyCode::S) => offset[1] -= 10.0,
-                    (ElementState::Pressed, VirtualKeyCode::Escape) => *ctrl = ControlFlow::Exit,
+                } => match (state, physical_key) {
+                    (ElementState::Pressed, PhysicalKey::Code(KeyCode::KeyA)) => offset[0] += 10.0,
+                    (ElementState::Pressed, PhysicalKey::Code(KeyCode::KeyD)) => offset[0] -= 10.0,
+                    (ElementState::Pressed, PhysicalKey::Code(KeyCode::KeyW)) => offset[1] += 10.0,
+                    (ElementState::Pressed, PhysicalKey::Code(KeyCode::KeyS)) => offset[1] -= 10.0,
+                    (ElementState::Pressed, PhysicalKey::Code(KeyCode::Escape)) => {
+                        evl.exit();
+                    }
                     _ => {}
                 },
                 _ => {}
@@ -561,4 +580,6 @@ fn main() -> Result<()> {
 
         rad = rad.clamp(1.0, 179.0);
     });
+
+    Ok(())
 }

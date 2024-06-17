@@ -9,10 +9,13 @@ use marpii::{self, ash::vk::PhysicalDeviceDynamicRenderingFeatures};
 fn main() {
     simple_logger::SimpleLogger::new().init().unwrap();
 
-    let ev = winit::event_loop::EventLoop::new();
-    let window_handle = winit::window::Window::new(&ev).unwrap();
+    let ev = winit::event_loop::EventLoop::new().unwrap();
+    let window_attributes =
+        winit::window::Window::default_attributes().with_title("hello triangle");
+    #[allow(deprecated)]
+    let window = ev.create_window(window_attributes).unwrap();
 
-    let _ctx = marpii::context::Ctx::custom_context(Some(&window_handle), true, |mut builder| {
+    let _ctx = marpii::context::Ctx::custom_context(Some(&window), true, |mut builder| {
         //The simplest thing we might want to check is if a extension is supported.
         let dynamic = builder
             .instance
@@ -53,9 +56,7 @@ fn main() {
         // In this case we enable just the dynamic rendering feature
         if dynamic.dynamic_rendering > 0 {
             builder = builder.with_feature(
-                PhysicalDeviceDynamicRenderingFeatures::default()
-                    .dynamic_rendering(true)
-                    .build(),
+                PhysicalDeviceDynamicRenderingFeatures::default().dynamic_rendering(true),
             );
         }
 
