@@ -5,7 +5,7 @@ use std::{
     sync::Arc,
 };
 
-use ash::vk::{self, BaseOutStructure, Handle, TaggedStructure};
+use ash::vk::{self, BaseOutStructure, TaggedStructure};
 use const_cstr::const_cstr;
 use raw_window_handle::HasDisplayHandle;
 
@@ -18,7 +18,7 @@ const_cstr! {
 }
 
 ///The external callback print function for debugging
-unsafe extern "system" fn vulkan_debug_callback(
+pub unsafe extern "system" fn vulkan_debug_callback(
     message_severity: ash::vk::DebugUtilsMessageSeverityFlagsEXT,
     #[allow(unused)] message_types: ash::vk::DebugUtilsMessageTypeFlagsEXT,
     p_callback_data: *const ash::vk::DebugUtilsMessengerCallbackDataEXT,
@@ -88,25 +88,6 @@ unsafe extern "system" fn vulkan_debug_callback(
         }
     }
     1
-}
-
-///Helper that gets usually initialised by activating validation layers.
-/// Allows to use all `VK_EXT_DEBUG_UTILS` functions.
-pub struct Debugger {
-    pub debug_instance: ash::ext::debug_utils::Instance,
-    //pub debug_report_loader: ash::ext::debug_utils::Device,
-    pub debug_messenger: ash::vk::DebugUtilsMessengerEXT,
-}
-
-impl Debugger {
-    pub fn name_object<H: Handle>(&self, handle: H, name: &CStr) -> Result<(), vk::Result> {
-        todo!("Reimplement!");
-        //let info = vk::DebugUtilsObjectNameInfoEXT::default()
-        //   .object_name(name)
-        //   .object_handle(handle);
-        //.object_type(ty);
-        //unsafe { self.debug_report_loader.set_debug_utils_object_name(&info) }
-    }
 }
 
 ///Signales enabled and disabled validation layer features
@@ -237,46 +218,10 @@ impl InstanceBuilder {
         */
         let instance = unsafe { entry.create_instance(&create_info, None)? };
 
-        //if validation is enabled, either unwrap the debugger, of create the new one
-        let debugger = if has_val_layers {
-            let (debug_instance, debug_messenger) = {
-                //create the reporter
-                let debug_instance = ash::ext::debug_utils::Instance::new(&entry, &instance);
-                //let debug_report_loader = ash::ext::debug_utils::Device::new(&instance, &device);
-
-                //Now based on the Debug features create a debug callback
-                let debug_info = ash::vk::DebugUtilsMessengerCreateInfoEXT::default()
-                    .message_severity(
-                        ash::vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
-                            | ash::vk::DebugUtilsMessageSeverityFlagsEXT::WARNING
-                            | ash::vk::DebugUtilsMessageSeverityFlagsEXT::INFO,
-                    )
-                    .message_type(
-                        ash::vk::DebugUtilsMessageTypeFlagsEXT::GENERAL
-                            | ash::vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE
-                            | ash::vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION,
-                    )
-                    .pfn_user_callback(Some(vulkan_debug_callback));
-
-                let messenger =
-                    unsafe { debug_instance.create_debug_utils_messenger(&debug_info, None)? };
-                (debug_instance, messenger)
-            };
-
-            let debugger = Debugger {
-                debug_instance,
-                debug_messenger,
-            };
-
-            Some(debugger)
-        } else {
-            None
-        };
-
         Ok(Arc::new(Instance {
-            debugger,
             entry,
             inner: instance,
+            validation_enabled: has_val_layers,
         }))
     }
 
@@ -417,7 +362,7 @@ impl InstanceBuilder {
 pub struct Instance {
     pub entry: ash::Entry,
     pub inner: ash::Instance,
-    pub debugger: Option<Debugger>, //hidden detail. If loaded, has the debugger that gets called when printing in the validation layers.
+    pub validation_enabled: bool,
 }
 
 impl Instance {
@@ -459,10 +404,6 @@ impl Instance {
             available_layers,
             available_extensions,
         })
-    }
-
-    pub fn get_debugger(&self) -> Option<&Debugger> {
-        self.debugger.as_ref()
     }
 
     ///Returns the feature list of the currently used physical device
@@ -557,12 +498,6 @@ impl GetDeviceFilter for Arc<Instance> {
 impl Drop for Instance {
     fn drop(&mut self) {
         unsafe {
-            //Destroy the messenger before destroying the instance.
-            if let Some(drl) = &self.debugger {
-                //destroys the messenger if it was loaded
-                drl.debug_instance
-                    .destroy_debug_utils_messenger(drl.debug_messenger, None);
-            }
             self.inner.destroy_instance(None);
         }
     }

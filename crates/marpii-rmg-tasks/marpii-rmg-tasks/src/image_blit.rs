@@ -84,8 +84,7 @@ impl<const N: usize> Task for ImageBlit<N> {
                 .src_offsets(blit.0.to_blit_offsets())
                 .dst_offsets(blit.1.to_blit_offsets())
                 .src_subresource(src_subresource)
-                .dst_subresource(dst_subresource)
-                .build();
+                .dst_subresource(dst_subresource);
         }
 
         let blit_image_info = vk::BlitImageInfo2::default()

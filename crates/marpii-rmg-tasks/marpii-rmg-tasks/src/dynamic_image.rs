@@ -120,7 +120,7 @@ impl Task for DynamicImage {
                     *command_buffer,
                     &vk::CopyBufferToImageInfo2::default()
                         .src_buffer(cp.buffer.inner)
-                        .regions(&[*copy_cmd])
+                        .regions(&[copy_cmd])
                         .dst_image(image_access.image.inner)
                         .dst_image_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL),
                 );

@@ -608,22 +608,19 @@ impl EGuiTask {
                 .location(0)
                 .binding(0)
                 .format(vk::Format::R32G32_SFLOAT)
-                .offset(offset_of!(crate::egui::epaint::Vertex, pos) as u32)
-                .build(),
+                .offset(offset_of!(crate::egui::epaint::Vertex, pos) as u32),
             //Description of the UV attribute
             vk::VertexInputAttributeDescription::default()
                 .location(1)
                 .binding(0)
                 .format(vk::Format::R32G32_SFLOAT)
-                .offset(offset_of!(crate::egui::epaint::Vertex, uv) as u32)
-                .build(),
+                .offset(offset_of!(crate::egui::epaint::Vertex, uv) as u32),
             //Description of the COLOR attribute
             vk::VertexInputAttributeDescription::default()
                 .location(2)
                 .binding(0)
                 .format(vk::Format::R8G8B8A8_UNORM)
-                .offset(offset_of!(crate::egui::epaint::Vertex, color) as u32)
-                .build(),
+                .offset(offset_of!(crate::egui::epaint::Vertex, color) as u32),
         ];
         let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::default()
             .vertex_binding_descriptions(core::slice::from_ref(&vertex_binding_desc))

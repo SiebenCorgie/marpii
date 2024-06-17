@@ -61,7 +61,7 @@ impl GraphicsPipeline {
         let mut pipelines = unsafe {
             match device.inner.create_graphics_pipelines(
                 ash::vk::PipelineCache::null(),
-                core::slice::from_ref(&*create_info),
+                core::slice::from_ref(&create_info),
                 None,
             ) {
                 Ok(p) => p,
@@ -107,7 +107,7 @@ impl GraphicsPipeline {
 
         let stages = shader_stages
             .iter()
-            .map(|s| *s.as_create_info(None))
+            .map(|s| s.as_create_info(None))
             .collect::<Vec<_>>();
 
         //make renderpass nullptr
@@ -121,7 +121,7 @@ impl GraphicsPipeline {
         let mut pipelines = unsafe {
             match device.inner.create_graphics_pipelines(
                 ash::vk::PipelineCache::null(),
-                core::slice::from_ref(&*create_info),
+                core::slice::from_ref(&create_info),
                 None,
             ) {
                 Ok(p) => p,

@@ -146,8 +146,7 @@ impl Task for UploadImage {
                 .buffer_image_height(0)
                 .image_extent(img.image.desc.extent)
                 .image_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
-                .image_subresource(img.image.subresource_layers_all())
-                .build(),
+                .image_subresource(img.image.subresource_layers_all()),
         );
 
         let mut offset = 0;
@@ -166,8 +165,7 @@ impl Task for UploadImage {
                         .buffer_image_height(0)
                         .image_extent(mip.extent)
                         .image_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
-                        .image_subresource(subres)
-                        .build(),
+                        .image_subresource(subres),
                 );
                 offset += mip.offset * u64::from(mip.layer_count);
             }

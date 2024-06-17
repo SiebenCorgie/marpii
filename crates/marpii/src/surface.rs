@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use ash::vk;
-use raw_window_handle::HasWindowHandle;
+use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 
 use crate::error::InstanceError;
 
@@ -20,14 +20,14 @@ impl Surface {
         window_handle: &T,
     ) -> Result<Self, InstanceError>
     where
-        T: HasWindowHandle,
+        T: HasWindowHandle + HasDisplayHandle,
     {
         let surface = unsafe {
             ash_window::create_surface(
                 &instance.entry,
                 &instance.inner,
-                window_handle.raw_display_handle(),
-                window_handle.raw_window_handle(),
+                window_handle.display_handle().unwrap().as_raw(),
+                window_handle.window_handle().unwrap().as_raw(),
                 None,
             )?
         };

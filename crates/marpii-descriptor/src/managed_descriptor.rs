@@ -138,7 +138,7 @@ impl Binding {
         &'a self,
         binding_id: u32,
         stage_flags: ash::vk::ShaderStageFlags,
-    ) -> ash::vk::DescriptorSetLayoutBindingBuilder<'a> {
+    ) -> ash::vk::DescriptorSetLayoutBinding<'a> {
         match self {
             Binding::Image { ty, .. } => ash::vk::DescriptorSetLayoutBinding::default()
                 .binding(binding_id)
@@ -196,7 +196,7 @@ impl ManagedDescriptorSet {
         let layout_bindings = bindings
             .iter()
             .enumerate()
-            .map(|(idx, b)| *b.into_raw(idx as u32, stages))
+            .map(|(idx, b)| b.into_raw(idx as u32, stages))
             .collect::<Vec<_>>();
         let layout = DescriptorSetLayout::new(device, &layout_bindings)?;
 
@@ -302,8 +302,7 @@ impl ManagedDescriptorSet {
             Binding::Image { layout, image, ty } => {
                 let imginfo = [ash::vk::DescriptorImageInfo::default()
                     .image_layout(*layout)
-                    .image_view(image.view)
-                    .build()];
+                    .image_view(image.view)];
                 let write = ash::vk::WriteDescriptorSet::default()
                     .image_info(&imginfo)
                     .descriptor_type(*ty)
@@ -321,8 +320,7 @@ impl ManagedDescriptorSet {
                 let imginfo = [ash::vk::DescriptorImageInfo::default()
                     .image_layout(*layout)
                     .image_view(image.view)
-                    .sampler(sampler.inner)
-                    .build()];
+                    .sampler(sampler.inner)];
                 let write = ash::vk::WriteDescriptorSet::default()
                     .image_info(&imginfo)
                     .descriptor_type(*ty)
@@ -335,8 +333,7 @@ impl ManagedDescriptorSet {
                 let bufferinfo = [ash::vk::DescriptorBufferInfo::default()
                     .buffer(buffer.inner)
                     .offset(0)
-                    .range(ash::vk::WHOLE_SIZE)
-                    .build()];
+                    .range(ash::vk::WHOLE_SIZE)];
                 let write = ash::vk::WriteDescriptorSet::default()
                     .buffer_info(&bufferinfo)
                     .descriptor_type(*ty)
@@ -346,9 +343,7 @@ impl ManagedDescriptorSet {
                 self.inner.write(write);
             }
             Binding::Sampler { sampler } => {
-                let imginfo = [ash::vk::DescriptorImageInfo::default()
-                    .sampler(sampler.inner)
-                    .build()];
+                let imginfo = [ash::vk::DescriptorImageInfo::default().sampler(sampler.inner)];
                 let write = ash::vk::WriteDescriptorSet::default()
                     .image_info(&imginfo)
                     .descriptor_type(ash::vk::DescriptorType::SAMPLER)

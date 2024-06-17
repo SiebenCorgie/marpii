@@ -2,7 +2,7 @@ use ash::vk::{QueueFlags, TaggedStructure};
 
 use crate::{error::DeviceError, resources::ImgDesc, util::image_usage_to_format_features};
 
-use super::{Queue, QueueBuilder};
+use super::{Debugger, Queue, QueueBuilder};
 use std::{
     os::raw::c_char,
     sync::{Arc, Mutex},
@@ -176,6 +176,8 @@ pub struct Device {
     pub enabled_extensions: Vec<String>,
 
     pub physical_device_properties: ash::vk::PhysicalDeviceProperties,
+    ///Hosts the debug-utils used for validation-layer reporting and _naming_things.
+    pub debugger: Option<Debugger>,
 }
 
 impl Device {
@@ -234,6 +236,45 @@ impl Device {
                 .collect()
         };
 
+        //if validation is enabled, either unwrap the debugger, of create the new one
+        let debugger = if instance.validation_enabled {
+            let (debug_instance, debug_messenger, debug_report_loader) = {
+                //create the reporter
+                let debug_instance =
+                    ash::ext::debug_utils::Instance::new(&instance.entry, &instance.inner);
+                let debug_report_loader =
+                    ash::ext::debug_utils::Device::new(&instance.inner, &device);
+
+                //Now based on the Debug features create a debug callback
+                let debug_info = ash::vk::DebugUtilsMessengerCreateInfoEXT::default()
+                    .message_severity(
+                        ash::vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
+                            | ash::vk::DebugUtilsMessageSeverityFlagsEXT::WARNING
+                            | ash::vk::DebugUtilsMessageSeverityFlagsEXT::INFO,
+                    )
+                    .message_type(
+                        ash::vk::DebugUtilsMessageTypeFlagsEXT::GENERAL
+                            | ash::vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE
+                            | ash::vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION,
+                    )
+                    .pfn_user_callback(Some(crate::context::instance::vulkan_debug_callback));
+
+                let messenger =
+                    unsafe { debug_instance.create_debug_utils_messenger(&debug_info, None)? };
+                (debug_instance, messenger, debug_report_loader)
+            };
+
+            let debugger = Debugger {
+                debug_instance,
+                debug_report_loader,
+                debug_messenger,
+            };
+
+            Some(debugger)
+        } else {
+            None
+        };
+
         Ok(Arc::new(Device {
             inner: device,
             instance,
@@ -241,7 +282,12 @@ impl Device {
             enabled_extensions,
             queues,
             physical_device_properties,
+            debugger,
         }))
+    }
+
+    pub fn get_debugger(&self) -> Option<&Debugger> {
+        self.debugger.as_ref()
     }
 
     ///Returns true if `extension_name` is enabled. The name can usualy be retrieved like this: `ash::extensions::khr::DynamicRendering::name()`.

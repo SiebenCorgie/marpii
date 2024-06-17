@@ -60,7 +60,7 @@ impl Task for MipCopy {
             .src_subresource(self.mip.image_desc().subresource_layers_all())
             .dst_subresource(dst_subresource)
             .extent(self.mip.extent_3d());
-        let regions = [*copy];
+        let regions = [copy];
         let copy_image = vk::CopyImageInfo2::default()
             .regions(&regions)
             .src_image_layout(vk::ImageLayout::TRANSFER_SRC_OPTIMAL)

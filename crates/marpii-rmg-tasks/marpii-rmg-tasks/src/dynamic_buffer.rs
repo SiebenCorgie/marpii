@@ -125,7 +125,7 @@ impl<T: marpii::bytemuck::Pod> Task for DynamicBuffer<T> {
                 &vk::CopyBufferInfo2::default()
                     .src_buffer(self.cpu_local.inner)
                     .dst_buffer(dst_access.buffer.inner)
-                    .regions(&[*vk::BufferCopy2::default()
+                    .regions(&[vk::BufferCopy2::default()
                         .src_offset(0)
                         .dst_offset(0)
                         .size(copy_size)]),

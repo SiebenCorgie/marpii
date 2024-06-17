@@ -27,13 +27,13 @@ impl ComputePipeline {
     {
         let layout = layout.into();
         let create_info = ash::vk::ComputePipelineCreateInfo::default()
-            .stage(*stage.as_create_info(specialization_info))
+            .stage(stage.as_create_info(specialization_info))
             .layout(layout.layout);
 
         let mut pipelines = unsafe {
             match device.inner.create_compute_pipelines(
                 ash::vk::PipelineCache::null(),
-                &[*create_info],
+                &[create_info],
                 None,
             ) {
                 Ok(p) => p,

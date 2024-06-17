@@ -145,7 +145,6 @@ impl ManagedCommands {
                     .semaphore(s.inner)
                     .value(*value)
                     .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS) //FIXME: Not right, should be exposed
-                    .build()
             })
             .collect::<Vec<_>>();
 
@@ -154,8 +153,7 @@ impl ManagedCommands {
             signal_semaphore_infos.push(
                 vk::SemaphoreSubmitInfo::default()
                     .semaphore(bsem.inner)
-                    .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                    .build(),
+                    .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS),
             );
         }
 
@@ -164,8 +162,7 @@ impl ManagedCommands {
             vk::SemaphoreSubmitInfo::default()
                 .value(self.next_finish) //set above
                 .semaphore(self.exec_semaphore.inner)
-                .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                .build(),
+                .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS),
         );
 
         let mut wait_semaphore_infos = wait_semaphores
@@ -175,7 +172,6 @@ impl ManagedCommands {
                     .semaphore(s.inner)
                     .value(*value)
                     .stage_mask(*stage)
-                    .build()
             })
             .collect::<Vec<_>>();
 
@@ -184,14 +180,12 @@ impl ManagedCommands {
             wait_semaphore_infos.push(
                 vk::SemaphoreSubmitInfo::default()
                     .semaphore(bsem.inner)
-                    .stage_mask(*stage)
-                    .build(),
+                    .stage_mask(*stage),
             );
         }
 
-        let command_buffer_infos = [vk::CommandBufferSubmitInfo::default()
-            .command_buffer(self.inner.inner)
-            .build()];
+        let command_buffer_infos =
+            [vk::CommandBufferSubmitInfo::default().command_buffer(self.inner.inner)];
 
         //submit to queue
         if let Err(e) = unsafe {
@@ -199,7 +193,7 @@ impl ManagedCommands {
 
             device.inner.queue_submit2(
                 *queue_lock,
-                &[*vk::SubmitInfo2::default()
+                &[vk::SubmitInfo2::default()
                     .command_buffer_infos(&command_buffer_infos)
                     .signal_semaphore_infos(&signal_semaphore_infos)
                     .wait_semaphore_infos(&wait_semaphore_infos)],

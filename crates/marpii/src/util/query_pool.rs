@@ -61,7 +61,7 @@ impl QueryPool {
         unsafe {
             self.device
                 .inner
-                .get_query_pool_results(self.pool, 0, dst.len() as u32, dst, flags)
+                .get_query_pool_results(self.pool, 0, dst, flags)
         }
     }
 
@@ -83,7 +83,7 @@ impl QueryPool {
         unsafe {
             self.device
                 .inner
-                .get_query_pool_results(self.pool, 0, dst.len() as u32, dst, flags)
+                .get_query_pool_results(self.pool, 0, dst, flags)
         }
     }
 
@@ -98,7 +98,7 @@ impl QueryPool {
         unsafe {
             self.device
                 .inner
-                .get_query_pool_results(self.pool, 0, dst.len() as u32, dst, flags)
+                .get_query_pool_results(self.pool, 0, dst, flags)
         }
     }
 }

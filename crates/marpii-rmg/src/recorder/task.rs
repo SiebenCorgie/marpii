@@ -206,7 +206,10 @@ impl ResourceRegistry {
     }
 
     /// Appends all foreign binary semaphores. Mostly used to integrate swapchains.
-    pub(crate) fn append_binary_signal_semaphores(&self, infos: &mut Vec<vk::SemaphoreSubmitInfo>) {
+    pub(crate) fn append_binary_signal_semaphores(
+        &self,
+        infos: &mut Vec<vk::SemaphoreSubmitInfo<'_>>,
+    ) {
         for sem in self.binary_signal_sem.iter() {
             #[cfg(feature = "logging")]
             log::trace!("Registering foreign semaphore {:?}", sem.inner);
@@ -214,14 +217,16 @@ impl ResourceRegistry {
             infos.push(
                 vk::SemaphoreSubmitInfo::default()
                     .semaphore(sem.inner)
-                    .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                    .build(),
+                    .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS),
             );
         }
     }
 
     /// Appends all foreign binary semaphores. Mostly used to integrate swapchains.
-    pub(crate) fn append_binary_wait_semaphores(&self, infos: &mut Vec<vk::SemaphoreSubmitInfo>) {
+    pub(crate) fn append_binary_wait_semaphores(
+        &self,
+        infos: &mut Vec<vk::SemaphoreSubmitInfo<'_>>,
+    ) {
         for sem in self.binary_wait_sem.iter() {
             #[cfg(feature = "logging")]
             log::trace!("Registering foreign semaphore {:?}", sem.inner);
@@ -229,8 +234,7 @@ impl ResourceRegistry {
             infos.push(
                 vk::SemaphoreSubmitInfo::default()
                     .semaphore(sem.inner)
-                    .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                    .build(),
+                    .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS),
             );
         }
     }
@@ -295,7 +299,7 @@ impl ResourceRegistry {
                     .dst_stage_mask(target_state.0);
 
                 //now add
-                builder.buffer_custom_barrier(*barrier);
+                builder.buffer_custom_barrier(barrier);
             }
             AnyResKey::Image(img) => {
                 let imgstate = rmg.resources.images.get_mut(img).unwrap();
@@ -336,7 +340,7 @@ impl ResourceRegistry {
                     .dst_stage_mask(target_state.0);
 
                 //now add
-                builder.image_custom_barrier(*barrier);
+                builder.image_custom_barrier(barrier);
             }
             AnyResKey::Sampler(_) => {} //samplers never have a state
         }

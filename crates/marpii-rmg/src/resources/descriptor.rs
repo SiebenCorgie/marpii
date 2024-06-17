@@ -181,6 +181,7 @@ impl<T> SetManager<T> {
             descriptor_count: max_count,
             stage_flags: vk::ShaderStageFlags::ALL,
             p_immutable_samplers: core::ptr::null(),
+            ..Default::default()
         };
 
         #[cfg(feature = "logging")]
@@ -259,7 +260,7 @@ impl<T> SetManager<T> {
     fn bind(
         &mut self,
         dta: T,
-        mut write_instruction: vk::WriteDescriptorSetBuilder<'_>,
+        mut write_instruction: vk::WriteDescriptorSet<'_>,
         allocated_slot: Option<ResourceHandle>,
     ) -> Result<ResourceHandle, T> {
         let hdl = if let Some(h) = allocated_slot {
@@ -437,7 +438,7 @@ impl Bindless {
             )))?;
         }
         //check device for all needed features
-        let features2 = device.get_feature::<vk::PhysicalDeviceVulkan12Features>();
+        let features2 = device.get_feature::<vk::PhysicalDeviceVulkan12Features<'static>>();
         if features2.descriptor_indexing == 0
             || features2.descriptor_binding_sampled_image_update_after_bind == 0
             || features2.descriptor_binding_storage_image_update_after_bind == 0

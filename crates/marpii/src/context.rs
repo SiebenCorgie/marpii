@@ -41,6 +41,9 @@ mod physical_device;
 pub use physical_device::{PhyDeviceProperties, PhysicalDeviceFilter};
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 
+mod debugger;
+pub use debugger::Debugger;
+
 use crate::{allocator::Allocator, error::DeviceError, surface::Surface, MarpiiError};
 
 use self::instance::ValidationFeatures;
@@ -225,7 +228,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
         on_device_builder: impl FnOnce(DeviceBuilder) -> DeviceBuilder,
     ) -> Result<(Self, Option<OoS<Surface>>), MarpiiError>
     where
-        T: HasWindowHandle,
+        T: HasWindowHandle + HasDisplayHandle,
     {
         let mut instance_builder = Instance::linked()?;
         if let Some(window_handle) = window_handle {
@@ -291,7 +294,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
 
         // only add swapchain extension if we got a surface
         if surface.is_some() {
-            device_builder = device_builder.with_extensions(ash::khr::Swapchain::name());
+            device_builder = device_builder.with_extensions(ash::khr::swapchain::NAME);
         }
 
         let device = device_builder.build()?;

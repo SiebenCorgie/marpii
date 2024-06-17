@@ -380,7 +380,6 @@ impl Tracks {
 
     const CAP_MASK: vk::QueueFlags = vk::QueueFlags::from_raw(
         vk::QueueFlags::PROTECTED.as_raw()
-            | vk::QueueFlags::RESERVED_7_QCOM.as_raw()
             | vk::QueueFlags::SPARSE_BINDING.as_raw()
             | vk::QueueFlags::VIDEO_DECODE_KHR.as_raw()
             | vk::QueueFlags::VIDEO_ENCODE_KHR.as_raw(),

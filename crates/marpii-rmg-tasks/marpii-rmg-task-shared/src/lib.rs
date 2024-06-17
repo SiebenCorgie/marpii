@@ -1,15 +1,14 @@
 #![cfg_attr(target_arch = "spirv", no_std)]
+#![allow(unexpected_cfgs)]
 //! Shared objects between the example's CPU side and GPU side code.
 
 pub use marpii_rmg_shared;
 pub use marpii_rmg_shared::ResourceHandle;
 
-#[cfg(not(target_arch = "spirv"))]
 use bytemuck::{Pod, Zeroable};
 
 ///EGui push constants for a draw command
-#[cfg_attr(not(target_arch = "spirv"), derive(Pod, Zeroable))]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Pod, Zeroable)]
 #[repr(C, align(16))]
 pub struct EGuiPush {
     pub texture: ResourceHandle,
@@ -21,8 +20,7 @@ pub struct EGuiPush {
 }
 
 ///Used for for alpha based blending effect
-#[cfg_attr(not(target_arch = "spirv"), derive(Pod, Zeroable))]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Pod, Zeroable)]
 #[repr(C, align(16))]
 pub struct AlphaBlendPush {
     pub add: ResourceHandle,
@@ -35,8 +33,7 @@ pub struct AlphaBlendPush {
 }
 
 ///Used for for alpha based blending effect
-#[cfg_attr(not(target_arch = "spirv"), derive(Pod, Zeroable))]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Pod, Zeroable)]
 #[repr(C, align(16))]
 pub struct DownsamplePush {
     pub img: ResourceHandle,

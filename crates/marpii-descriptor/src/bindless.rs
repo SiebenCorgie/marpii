@@ -132,6 +132,7 @@ impl<T> SetManagment<T> {
             descriptor_count: max_count,
             stage_flags: vk::ShaderStageFlags::ALL,
             p_immutable_samplers: core::ptr::null(),
+            ..Default::default()
         };
 
         #[cfg(feature = "logging")]
@@ -209,7 +210,7 @@ impl<T> SetManagment<T> {
     fn bind(
         &mut self,
         dta: T,
-        mut write_instruction: vk::WriteDescriptorSetBuilder,
+        mut write_instruction: vk::WriteDescriptorSet,
     ) -> Result<ResourceHandle, T> {
         let hdl = if let Some(hdl) = self.allocate_handle() {
             hdl

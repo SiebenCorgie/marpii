@@ -22,8 +22,7 @@ impl<T: Sized + 'static> PushConstant<T> {
         let inner_range = vk::PushConstantRange::default()
             .stage_flags(stages)
             .offset(0) //Allways 0 for now
-            .size(std::mem::size_of::<T>() as u32)
-            .build();
+            .size(std::mem::size_of::<T>() as u32);
 
         PushConstant {
             inner_range,

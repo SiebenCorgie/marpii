@@ -17,7 +17,7 @@ use marpii::{
 use marpii_commands::ManagedCommands;
 use marpii_descriptor::managed_descriptor::{Binding, ManagedDescriptorSet};
 use std::sync::{Arc, Mutex};
-use winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
+use winit::event::ElementState;
 use winit::{
     event::{Event, WindowEvent},
     event_loop::ControlFlow,
@@ -391,7 +391,7 @@ impl App {
     pub fn new(window: &winit::window::Window) -> anyhow::Result<Self> {
         //now test context setup
         let (ctx, surface) = Ctx::default_with_surface(&window, true)?;
-        let swapchain = Swapchain::default(&ctx.device, surface)?
+        let swapchain = Swapchain::builder(&ctx.device, surface)?
             .with(|b| {
                 b.create_info.usage = ash::vk::ImageUsageFlags::COLOR_ATTACHMENT
                     | ash::vk::ImageUsageFlags::TRANSFER_DST
