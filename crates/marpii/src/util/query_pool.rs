@@ -5,7 +5,7 @@ use ash::vk;
 use crate::context::Device;
 
 ///Abstract query pool implementation. Have a look at one of the specialisations
-/// like [Timestamps].
+/// like [Timestamps](crate::util::timestamp::Timestamps).
 ///
 /// In generally there are [multiple](https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#queries)
 /// types of queries, including performance queries and occlusion queries.

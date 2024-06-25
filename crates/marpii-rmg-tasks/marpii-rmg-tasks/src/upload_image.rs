@@ -23,7 +23,7 @@ pub struct MipOffset {
 ///Transfer pass that copies data to an image on the GPU.
 /// perfect if you need to initialise textures for instance.
 /// Note that this only works reliable for 2D and 3D images.
-/// For cubemaps, use [UploadCubemap]
+/// Does not work for cubemaps!
 pub struct UploadImage {
     ///The GPU-Local image, which will contain `new`'s `data` after this pass was submitted.
     pub image: ImageHandle,

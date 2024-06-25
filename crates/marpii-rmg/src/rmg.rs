@@ -214,7 +214,7 @@ impl Rmg {
 
     ///Returns pre filled vulkan device feature sets needed for rmg to run.
     ///
-    /// You might want to use those to add you application dependent additional features before creating a [marpii::Ctx].
+    /// You might want to use those to add you application dependent additional features before creating a [marpii::context::Ctx].
     pub fn get_required_features() -> (
         vk::PhysicalDeviceFeatures,
         vk::PhysicalDeviceVulkan11Features<'static>,
@@ -467,7 +467,7 @@ impl Rmg {
     /// Appends all known timings from the last execution.
     /// Note that, depending on how heavy the workload is, some timings might not (yet) be available.
     ///
-    /// This call however does *not* block the CPU till all executions are ready. For that, use the [blocking](Self::get_recent_task_timings_blocking)
+    /// This call however does *not* block the CPU till all executions are ready. For that, use the `Self::get_recent_track_task_timings_blocking`
     /// alternative.
     #[cfg(feature = "timestamps")]
     pub fn get_recent_track_timings(&mut self) -> TinyVec<[TaskTiming; 16]> {

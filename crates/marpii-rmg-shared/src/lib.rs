@@ -52,7 +52,7 @@ impl ResourceHandle {
         self.handle_type() > Self::TYPE_ACCELERATION_STRUCTURE
     }
 
-    ///Returns true whenever this is a valid handle type. **Don't confuse with [is_invalid]**
+    ///Returns true whenever this is a valid handle type. **Don't confuse with [Self::is_invalid]**
     pub const fn is_valid(&self) -> bool {
         !self.is_invalid()
     }

@@ -129,7 +129,7 @@ pub trait Allocation {
     fn memory_properties(&self) -> vk::MemoryPropertyFlags;
 }
 
-///Trait that can be implemented by anything that can handle allocation for a initialized [ash::Device](ash::Device).
+///Trait that can be implemented by anything that can handle allocation for a initialized [ash::Device].
 pub trait Allocator {
     type Allocation: Allocation + Send + Sync + 'static;
     type AllocationError: std::error::Error + Send + Sync + 'static;

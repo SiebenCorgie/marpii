@@ -164,7 +164,7 @@ impl Binding {
     }
 }
 
-///Wrapps the standard [DescriptorSet](marpii::resources::DescriptorSet) and keeps all resources that have
+///Wrapps the standard [DescriptorSet] and keeps all resources that have
 /// been written to the set alive.
 pub struct ManagedDescriptorSet {
     #[allow(dead_code)]

@@ -113,7 +113,7 @@ impl<T: bytemuck::Pod + 'static> DownloadBuffer<T> {
     }
 
     ///Returns the handle to the CPU accessible buffer handle. This is the buffer used to copy
-    /// the data into `dst` of [download].
+    /// the data into `dst` of [Self::download].
     pub fn cpu_handle(&self) -> BufferHandle<T> {
         self.cpu_access_hdl.clone()
     }
