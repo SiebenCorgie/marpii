@@ -24,13 +24,13 @@ layout( push_constant ) uniform push{
 } Push;
 
 //Camera UBOs
-layout(set = 0, binding = 0) buffer ubo{
+layout(set = 0, binding = 0) readonly buffer ubo{
   mat4 model_view;
   mat4 projection;
 } Ubo[];
 
 //SimObject buffer
-layout(set = 0, binding = 0) buffer SimObjects{
+layout(set = 0, binding = 0) readonly buffer SimObjects{
   SimObject objects[];
 } objects[];
 

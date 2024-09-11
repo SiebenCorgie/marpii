@@ -5,6 +5,7 @@ use anyhow::Result;
 use marpii::context::Ctx;
 use marpii::util::FormatProperties;
 use marpii_rmg::Rmg;
+use marpii_rmg_tasks::winit::event::WindowEvent;
 use marpii_rmg_tasks::{egui, EGuiWinitIntegration, SwapchainPresent};
 
 use marpii_rmg_tasks::winit;
@@ -23,7 +24,6 @@ fn main() -> Result<(), anyhow::Error> {
     let mut rmg = Rmg::new(context)?;
 
     let mut egui = EGuiWinitIntegration::new(&mut rmg, &ev)?;
-
     let mut swapchain_blit = SwapchainPresent::new(&mut rmg, surface)?;
 
     let swapchain_properties = FormatProperties::parse(swapchain_blit.format());
@@ -36,12 +36,22 @@ fn main() -> Result<(), anyhow::Error> {
     let mut name = "Teddy".to_string();
     let mut age = 10u32;
 
-    ev.run(move |ev, ev_loop| {
+    #[allow(deprecated)]
+    let _ = ev.run(move |ev, ev_loop| {
+        ev_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
+
         // *cf = ControlFlow::Poll;
-        egui.handle_event(&ev);
+        egui.handle_event(&window, &ev);
+
         match ev {
-            Event::MainEventsCleared => window.request_redraw(),
-            Event::RedrawRequested(_) => {
+            Event::LoopExiting => {
+                rmg.wait_for_idle().unwrap();
+            }
+            Event::AboutToWait => window.request_redraw(),
+            Event::WindowEvent {
+                window_id: _,
+                event: WindowEvent::RedrawRequested,
+            } => {
                 let framebuffer_extent =
                     swapchain_blit
                         .extent()

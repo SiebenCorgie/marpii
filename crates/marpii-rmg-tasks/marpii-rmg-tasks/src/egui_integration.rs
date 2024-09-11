@@ -81,6 +81,7 @@ impl EGuiWinitIntegration {
             ViewportId::ROOT,
             event_loop,
             None,
+            None,
             Some(EGuiTask::MAX_TEXTURE_SIDE as usize),
         );
         winit_state.set_max_texture_side(EGuiTask::MAX_TEXTURE_SIDE as usize);
