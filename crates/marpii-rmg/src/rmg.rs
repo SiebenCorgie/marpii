@@ -22,9 +22,6 @@ use crate::{
 };
 
 #[cfg(feature = "debug_marker")]
-use marpii::ash::vk::{Handle, ObjectType};
-
-#[cfg(feature = "debug_marker")]
 use std::any::type_name;
 
 ///Top level Error structure.
@@ -114,13 +111,13 @@ impl Rmg {
         let vk10 = context.device.get_physical_device_features();
         let _vk11 = context
             .device
-            .get_feature::<vk::PhysicalDeviceVulkan11Features>();
+            .get_feature::<vk::PhysicalDeviceVulkan11Features<'_>>();
         let vk12 = context
             .device
-            .get_feature::<vk::PhysicalDeviceVulkan12Features>();
+            .get_feature::<vk::PhysicalDeviceVulkan12Features<'_>>();
         let vk13 = context
             .device
-            .get_feature::<vk::PhysicalDeviceVulkan13Features>();
+            .get_feature::<vk::PhysicalDeviceVulkan13Features<'_>>();
 
         check_feature!(vk10, shader_int16, missing, any_needed);
         check_feature!(vk10, shader_float64, missing, any_needed);
@@ -217,12 +214,12 @@ impl Rmg {
 
     ///Returns pre filled vulkan device feature sets needed for rmg to run.
     ///
-    /// You might want to use those to add you application dependent additional features before creating a [marpii::Ctx].
+    /// You might want to use those to add you application dependent additional features before creating a [marpii::context::Ctx].
     pub fn get_required_features() -> (
         vk::PhysicalDeviceFeatures,
-        vk::PhysicalDeviceVulkan11Features,
-        vk::PhysicalDeviceVulkan12Features,
-        vk::PhysicalDeviceVulkan13Features,
+        vk::PhysicalDeviceVulkan11Features<'static>,
+        vk::PhysicalDeviceVulkan12Features<'static>,
+        vk::PhysicalDeviceVulkan13Features<'static>,
     ) {
         (
             vk::PhysicalDeviceFeatures {
@@ -340,13 +337,8 @@ impl Rmg {
 
         #[cfg(feature = "debug_marker")]
         {
-            if let Some(dbg) = self.ctx.device.instance.get_debugger() {
-                if let Err(e) = dbg.name_object(
-                    &self.ctx.device.inner.handle(),
-                    image.inner.as_raw(),
-                    ObjectType::IMAGE,
-                    &dbg_name,
-                ) {
+            if let Some(dbg) = self.ctx.device.get_debugger() {
+                if let Err(e) = dbg.name_object(self.ctx.device.inner.handle(), &dbg_name) {
                     #[cfg(feature = "logging")]
                     log::error!("Could not name image: {}", e);
                 }
@@ -379,13 +371,8 @@ impl Rmg {
 
         #[cfg(feature = "debug_marker")]
         {
-            if let Some(dbg) = self.ctx.device.instance.get_debugger() {
-                if let Err(e) = dbg.name_object(
-                    &self.ctx.device.inner.handle(),
-                    buffer.inner.as_raw(),
-                    ObjectType::BUFFER,
-                    &dbg_name,
-                ) {
+            if let Some(dbg) = self.ctx.device.get_debugger() {
+                if let Err(e) = dbg.name_object(self.ctx.device.inner.handle(), &dbg_name) {
                     #[cfg(feature = "logging")]
                     log::error!("Could not name buffer: {}", e);
                 }
@@ -438,7 +425,7 @@ impl Rmg {
 
     pub fn new_sampler(
         &mut self,
-        description: &vk::SamplerCreateInfoBuilder<'_>,
+        description: &vk::SamplerCreateInfo<'_>,
     ) -> Result<SamplerHandle, RmgError> {
         let sampler =
             Sampler::new(&self.ctx.device, description).map_err(|e| MarpiiError::from(e))?;
@@ -480,7 +467,7 @@ impl Rmg {
     /// Appends all known timings from the last execution.
     /// Note that, depending on how heavy the workload is, some timings might not (yet) be available.
     ///
-    /// This call however does *not* block the CPU till all executions are ready. For that, use the [blocking](Self::get_recent_task_timings_blocking)
+    /// This call however does *not* block the CPU till all executions are ready. For that, use the `Self::get_recent_track_task_timings_blocking`
     /// alternative.
     #[cfg(feature = "timestamps")]
     pub fn get_recent_track_timings(&mut self) -> TinyVec<[TaskTiming; 16]> {

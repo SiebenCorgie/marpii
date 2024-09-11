@@ -38,8 +38,8 @@ impl QueueBuilder {
         self.priorities = queue_priorities;
     }
 
-    pub fn as_create_info<'a>(&'a self) -> ash::vk::DeviceQueueCreateInfoBuilder<'a> {
-        ash::vk::DeviceQueueCreateInfo::builder()
+    pub fn as_create_info<'a>(&'a self) -> ash::vk::DeviceQueueCreateInfo<'a> {
+        ash::vk::DeviceQueueCreateInfo::default()
             .queue_family_index(self.family_index)
             .queue_priorities(&self.priorities)
     }

@@ -20,7 +20,7 @@ impl CommandPool {
         queue_family: u32,
         flags: ash::vk::CommandPoolCreateFlags,
     ) -> Result<Self, CommandBufferError> {
-        let create_info = ash::vk::CommandPoolCreateInfo::builder()
+        let create_info = ash::vk::CommandPoolCreateInfo::default()
             .flags(flags)
             .queue_family_index(queue_family);
 
@@ -75,7 +75,7 @@ impl CommandBufferAllocator for OoS<CommandPool> {
     {
         let mut buffer = unsafe {
             self.device.inner.allocate_command_buffers(
-                &ash::vk::CommandBufferAllocateInfo::builder()
+                &ash::vk::CommandBufferAllocateInfo::default()
                     .command_pool(self.inner)
                     .command_buffer_count(1)
                     .level(level),

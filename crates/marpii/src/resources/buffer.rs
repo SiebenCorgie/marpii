@@ -54,8 +54,8 @@ impl Default for BufDesc {
 impl BufDesc {
     pub fn set_on_builder<'a>(
         &'a self,
-        mut builder: vk::BufferCreateInfoBuilder<'a>,
-    ) -> vk::BufferCreateInfoBuilder<'a> {
+        mut builder: vk::BufferCreateInfo<'a>,
+    ) -> vk::BufferCreateInfo<'a> {
         builder = builder
             .size(self.size)
             .usage(self.usage)
@@ -136,7 +136,7 @@ pub struct Buffer {
     pub inner: ash::vk::Buffer,
     pub usage: MemoryUsage,
     pub device: Arc<Device>,
-    //NOTE: The allocator was a generic once. However this clocks up the type system over time, as specially when
+    //NOTE: The allocator was a generic once. However this polutes the type system over time, as specially when
     //      Mixing different allocator types etc. Since the allocation field is only used once (on drop) to free the
     //      Memory I find it okay to use dynamic dispatch here. The benefit is a much cleaner API, and the ability to
     //      collect buffers from different allocators in one Vec<Buffer> for instance.
@@ -166,7 +166,7 @@ impl Buffer {
         usage: MemoryUsage,
         name: Option<&str>,
     ) -> Result<Self, DeviceError> {
-        let mut builder = ash::vk::BufferCreateInfo::builder();
+        let mut builder = ash::vk::BufferCreateInfo::default();
 
         builder = description.set_on_builder(builder);
 
@@ -321,13 +321,11 @@ impl Buffer {
             _ => {}
         }
 
-        let mut range = self
+        let allocation = self
             .allocation
             .lock()
-            .map_err(|_| BufferMapError::NotLockable)?
-            .as_memory_range()
-            .unwrap();
-
+            .map_err(|_e| BufferMapError::NotLockable)?;
+        let mut range = allocation.as_memory_range().unwrap();
         //update range's offset and size to be in Device limits
         range.offset = self
             .device

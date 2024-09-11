@@ -2,7 +2,8 @@ use crate::Ubo;
 use glam::{Mat4, Quat, Vec3};
 use std::time::Instant;
 use winit::{
-    event::{DeviceEvent, ElementState, Event, KeyboardInput, VirtualKeyCode, WindowEvent},
+    event::{DeviceEvent, ElementState, Event, KeyEvent, WindowEvent},
+    keyboard::{KeyCode, PhysicalKey},
     window::Window,
 };
 
@@ -39,10 +40,10 @@ impl Camera {
             Event::WindowEvent {
                 event:
                     WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
+                        event:
+                            KeyEvent {
                                 state,
-                                virtual_keycode: Some(key_code),
+                                physical_key: key_code,
                                 ..
                             },
                         ..
@@ -55,12 +56,12 @@ impl Camera {
                 };
 
                 match key_code {
-                    VirtualKeyCode::A => self.target_velocity.x = -speed,
-                    VirtualKeyCode::D => self.target_velocity.x = speed,
-                    VirtualKeyCode::E => self.target_velocity.y = -speed,
-                    VirtualKeyCode::Q => self.target_velocity.y = speed,
-                    VirtualKeyCode::S => self.target_velocity.z = -speed,
-                    VirtualKeyCode::W => self.target_velocity.z = speed,
+                    PhysicalKey::Code(KeyCode::KeyA) => self.target_velocity.x = -speed,
+                    PhysicalKey::Code(KeyCode::KeyD) => self.target_velocity.x = speed,
+                    PhysicalKey::Code(KeyCode::KeyE) => self.target_velocity.y = -speed,
+                    PhysicalKey::Code(KeyCode::KeyQ) => self.target_velocity.y = speed,
+                    PhysicalKey::Code(KeyCode::KeyS) => self.target_velocity.z = -speed,
+                    PhysicalKey::Code(KeyCode::KeyW) => self.target_velocity.z = speed,
                     _ => {}
                 }
             }

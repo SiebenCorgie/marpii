@@ -206,31 +206,35 @@ impl ResourceRegistry {
     }
 
     /// Appends all foreign binary semaphores. Mostly used to integrate swapchains.
-    pub(crate) fn append_binary_signal_semaphores(&self, infos: &mut Vec<vk::SemaphoreSubmitInfo>) {
+    pub(crate) fn append_binary_signal_semaphores(
+        &self,
+        infos: &mut Vec<vk::SemaphoreSubmitInfo<'_>>,
+    ) {
         for sem in self.binary_signal_sem.iter() {
             #[cfg(feature = "logging")]
             log::trace!("Registering foreign semaphore {:?}", sem.inner);
 
             infos.push(
-                vk::SemaphoreSubmitInfo::builder()
+                vk::SemaphoreSubmitInfo::default()
                     .semaphore(sem.inner)
-                    .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                    .build(),
+                    .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS),
             );
         }
     }
 
     /// Appends all foreign binary semaphores. Mostly used to integrate swapchains.
-    pub(crate) fn append_binary_wait_semaphores(&self, infos: &mut Vec<vk::SemaphoreSubmitInfo>) {
+    pub(crate) fn append_binary_wait_semaphores(
+        &self,
+        infos: &mut Vec<vk::SemaphoreSubmitInfo<'_>>,
+    ) {
         for sem in self.binary_wait_sem.iter() {
             #[cfg(feature = "logging")]
             log::trace!("Registering foreign semaphore {:?}", sem.inner);
 
             infos.push(
-                vk::SemaphoreSubmitInfo::builder()
+                vk::SemaphoreSubmitInfo::default()
                     .semaphore(sem.inner)
-                    .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-                    .build(),
+                    .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS),
             );
         }
     }
@@ -270,7 +274,7 @@ impl ResourceRegistry {
             AnyResKey::Buffer(buf) => {
                 let bufstate = rmg.resources.buffer.get_mut(buf).unwrap();
                 let target_state = self.buffers.get(&buf).unwrap();
-                let mut barrier = vk::BufferMemoryBarrier2::builder()
+                let mut barrier = vk::BufferMemoryBarrier2::default()
                     .buffer(bufstate.buffer.inner)
                     .offset(0)
                     .size(vk::WHOLE_SIZE);
@@ -295,12 +299,12 @@ impl ResourceRegistry {
                     .dst_stage_mask(target_state.0);
 
                 //now add
-                builder.buffer_custom_barrier(*barrier);
+                builder.buffer_custom_barrier(barrier);
             }
             AnyResKey::Image(img) => {
                 let imgstate = rmg.resources.images.get_mut(img).unwrap();
                 let target_state = self.images.get(&img).unwrap();
-                let mut barrier = vk::ImageMemoryBarrier2::builder()
+                let mut barrier = vk::ImageMemoryBarrier2::default()
                     .image(imgstate.image.inner)
                     .subresource_range(imgstate.image.subresource_all());
                 #[cfg(feature = "logging")]
@@ -336,7 +340,7 @@ impl ResourceRegistry {
                     .dst_stage_mask(target_state.0);
 
                 //now add
-                builder.image_custom_barrier(*barrier);
+                builder.image_custom_barrier(barrier);
             }
             AnyResKey::Sampler(_) => {} //samplers never have a state
         }

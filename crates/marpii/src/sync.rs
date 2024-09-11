@@ -48,12 +48,12 @@ pub struct Semaphore {
 
 impl Semaphore {
     pub fn new(device: &Arc<Device>, initial_value: u64) -> Result<Arc<Self>, ash::vk::Result> {
-        let mut timeline_ci = ash::vk::SemaphoreTypeCreateInfo::builder()
+        let mut timeline_ci = ash::vk::SemaphoreTypeCreateInfo::default()
             .semaphore_type(ash::vk::SemaphoreType::TIMELINE)
             .initial_value(initial_value);
 
         let semaphore = unsafe {
-            let ci = ash::vk::SemaphoreCreateInfo::builder().push_next(&mut timeline_ci);
+            let ci = ash::vk::SemaphoreCreateInfo::default().push_next(&mut timeline_ci);
 
             device.inner.create_semaphore(&ci, None)?
         };
@@ -91,7 +91,7 @@ impl Semaphore {
     ///
     /// Returns an error if the value was not greater. The value returned in this case is the current value.
     pub fn set_value(&self, value: u64) -> Result<(), u64> {
-        let signal_info = ash::vk::SemaphoreSignalInfo::builder()
+        let signal_info = ash::vk::SemaphoreSignalInfo::default()
             .semaphore(self.inner)
             .value(value);
 
@@ -125,7 +125,7 @@ impl Semaphore {
             },
         );
 
-        let wait = ash::vk::SemaphoreWaitInfo::builder()
+        let wait = ash::vk::SemaphoreWaitInfo::default()
             .semaphores(&sems)
             .values(&values);
 
@@ -136,7 +136,7 @@ impl Semaphore {
     pub fn wait(&self, value: u64, timeout: u64) -> Result<(), ash::vk::Result> {
         let sem = [self.inner];
         let val = [value];
-        let wait = ash::vk::SemaphoreWaitInfo::builder()
+        let wait = ash::vk::SemaphoreWaitInfo::default()
             .semaphores(&sem)
             .values(&val);
 
@@ -166,11 +166,11 @@ pub struct BinarySemaphore {
 
 impl BinarySemaphore {
     pub fn new(device: &Arc<Device>) -> Result<Self, vk::Result> {
-        let mut ci = ash::vk::SemaphoreTypeCreateInfo::builder()
+        let mut ci = ash::vk::SemaphoreTypeCreateInfo::default()
             .semaphore_type(ash::vk::SemaphoreType::BINARY);
 
         let semaphore = unsafe {
-            let ci = ash::vk::SemaphoreCreateInfo::builder().push_next(&mut ci);
+            let ci = ash::vk::SemaphoreCreateInfo::default().push_next(&mut ci);
 
             device.inner.create_semaphore(&ci, None)?
         };
@@ -282,7 +282,7 @@ impl Debug for Event {
 
 impl Event {
     pub fn new(device: Arc<Device>) -> Result<Arc<Self>, ash::vk::Result> {
-        let ci = ash::vk::EventCreateInfo::builder();
+        let ci = ash::vk::EventCreateInfo::default();
 
         let event = unsafe {
             match device.inner.create_event(&ci, None) {

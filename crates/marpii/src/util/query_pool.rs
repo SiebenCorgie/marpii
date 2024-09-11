@@ -5,7 +5,7 @@ use ash::vk;
 use crate::context::Device;
 
 ///Abstract query pool implementation. Have a look at one of the specialisations
-/// like [Timestamps].
+/// like [Timestamps](crate::util::timestamp::Timestamps).
 ///
 /// In generally there are [multiple](https://registry.khronos.org/vulkan/specs/1.3-extensions/html/vkspec.html#queries)
 /// types of queries, including performance queries and occlusion queries.
@@ -18,7 +18,7 @@ pub struct QueryPool {
 
 impl QueryPool {
     pub fn new(device: &Arc<Device>, size: u32, ty: vk::QueryType) -> Result<Self, vk::Result> {
-        let create_info = vk::QueryPoolCreateInfo::builder()
+        let create_info = vk::QueryPoolCreateInfo::default()
             .query_type(ty)
             .query_count(size * 2); //* 2 for async querries
         let pool = unsafe { device.inner.create_query_pool(&create_info, None)? };
@@ -61,7 +61,7 @@ impl QueryPool {
         unsafe {
             self.device
                 .inner
-                .get_query_pool_results(self.pool, 0, dst.len() as u32, dst, flags)
+                .get_query_pool_results(self.pool, 0, dst, flags)
         }
     }
 
@@ -83,7 +83,7 @@ impl QueryPool {
         unsafe {
             self.device
                 .inner
-                .get_query_pool_results(self.pool, 0, dst.len() as u32, dst, flags)
+                .get_query_pool_results(self.pool, 0, dst, flags)
         }
     }
 
@@ -98,7 +98,7 @@ impl QueryPool {
         unsafe {
             self.device
                 .inner
-                .get_query_pool_results(self.pool, 0, dst.len() as u32, dst, flags)
+                .get_query_pool_results(self.pool, 0, dst, flags)
         }
     }
 }

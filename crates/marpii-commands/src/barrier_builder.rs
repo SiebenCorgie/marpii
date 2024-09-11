@@ -10,8 +10,8 @@ use tinyvec::TinyVec;
 /// however can outgrow that value.
 #[derive(Debug)]
 pub struct BarrierBuilder {
-    pub images: TinyVec<[vk::ImageMemoryBarrier2; Self::STACK_ALLOCATION]>,
-    pub buffers: TinyVec<[vk::BufferMemoryBarrier2; Self::STACK_ALLOCATION]>,
+    pub images: TinyVec<[vk::ImageMemoryBarrier2<'static>; Self::STACK_ALLOCATION]>,
+    pub buffers: TinyVec<[vk::BufferMemoryBarrier2<'static>; Self::STACK_ALLOCATION]>,
 }
 
 ///By default we pre allocate two barriers per type, since this is a pretty common pattern for simple
@@ -56,7 +56,7 @@ impl BarrierBuilder {
         dst_pipeline_stage: vk::PipelineStageFlags2,
         dst_queue_family: u32,
     ) -> &mut Self {
-        let item = vk::BufferMemoryBarrier2::builder()
+        let item = vk::BufferMemoryBarrier2::default()
             .buffer(buffer)
             .src_access_mask(src_access_mask)
             .src_stage_mask(src_pipeline_stage)
@@ -65,8 +65,7 @@ impl BarrierBuilder {
             .dst_stage_mask(dst_pipeline_stage)
             .dst_queue_family_index(dst_queue_family)
             .offset(offset)
-            .size(size)
-            .build();
+            .size(size);
         self.buffers.push(item);
 
         self
@@ -83,19 +82,21 @@ impl BarrierBuilder {
         src_queue_family: u32,
         dst_queue_family: u32,
     ) -> &mut Self {
-        let item = vk::BufferMemoryBarrier2::builder()
+        let item = vk::BufferMemoryBarrier2::default()
             .buffer(buffer)
             .src_queue_family_index(src_queue_family)
             .dst_queue_family_index(dst_queue_family)
             .offset(offset)
-            .size(size)
-            .build();
+            .size(size);
         self.buffers.push(item);
 
         self
     }
 
-    pub fn buffer_custom_barrier(&mut self, barrier: vk::BufferMemoryBarrier2) -> &mut Self {
+    pub fn buffer_custom_barrier(
+        &mut self,
+        barrier: vk::BufferMemoryBarrier2<'static>,
+    ) -> &mut Self {
         self.buffers.push(barrier);
         self
     }
@@ -120,7 +121,7 @@ impl BarrierBuilder {
         dst_layout: ImageLayout,
         dst_queue_family: u32,
     ) -> &mut Self {
-        let item = vk::ImageMemoryBarrier2::builder()
+        let item = vk::ImageMemoryBarrier2::default()
             .image(image)
             .subresource_range(subresource_range)
             .src_access_mask(src_access_mask)
@@ -130,8 +131,7 @@ impl BarrierBuilder {
             .dst_access_mask(dst_access_mask)
             .dst_stage_mask(dst_pipeline_stage)
             .dst_queue_family_index(dst_queue_family)
-            .new_layout(dst_layout)
-            .build();
+            .new_layout(dst_layout);
 
         #[cfg(feature = "logging")]
         log::trace!("full_transition[{:?}] {:#?}", image, item);
@@ -159,12 +159,11 @@ impl BarrierBuilder {
             dst_queue_family
         );
 
-        let item = vk::ImageMemoryBarrier2::builder()
+        let item = vk::ImageMemoryBarrier2::default()
             .image(image)
             .subresource_range(subresource_range)
             .src_queue_family_index(src_queue_family)
-            .dst_queue_family_index(dst_queue_family)
-            .build();
+            .dst_queue_family_index(dst_queue_family);
         self.images.push(item);
 
         self
@@ -183,18 +182,17 @@ impl BarrierBuilder {
         #[cfg(feature = "logging")]
         log::trace!("layout[{:?}] {:#?} -> {:#?}", image, src_layout, dst_layout);
 
-        let item = vk::ImageMemoryBarrier2::builder()
+        let item = vk::ImageMemoryBarrier2::default()
             .image(image)
             .subresource_range(subresource_range)
             .old_layout(src_layout)
-            .new_layout(dst_layout)
-            .build();
+            .new_layout(dst_layout);
         self.images.push(item);
 
         self
     }
 
-    pub fn image_custom_barrier(&mut self, barrier: vk::ImageMemoryBarrier2) -> &mut Self {
+    pub fn image_custom_barrier(&mut self, barrier: vk::ImageMemoryBarrier2<'static>) -> &mut Self {
         #[cfg(feature = "logging")]
         log::trace!("full_custom_transition {:#?}", barrier);
         self.images.push(barrier);
@@ -203,8 +201,8 @@ impl BarrierBuilder {
 
     ///Returns a reference to a barrier, containing the currently pushed barriers
     // TODO: allow adding flags?
-    pub fn as_dependency_info<'a>(&'a self) -> vk::DependencyInfoBuilder<'a> {
-        vk::DependencyInfo::builder()
+    pub fn as_dependency_info<'a>(&'a self) -> vk::DependencyInfo<'a> {
+        vk::DependencyInfo::default()
             .image_memory_barriers(self.images.as_slice())
             .buffer_memory_barriers(self.buffers.as_slice())
     }

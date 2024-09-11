@@ -54,14 +54,14 @@ impl Task for MipCopy {
     ) {
         let mut dst_subresource = self.dst.image_desc().subresource_layers_all();
         dst_subresource.mip_level = self.dst_mip;
-        let copy = vk::ImageCopy2::builder()
+        let copy = vk::ImageCopy2::default()
             .src_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
             .dst_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
             .src_subresource(self.mip.image_desc().subresource_layers_all())
             .dst_subresource(dst_subresource)
             .extent(self.mip.extent_3d());
-        let regions = [*copy];
-        let copy_image = vk::CopyImageInfo2::builder()
+        let regions = [copy];
+        let copy_image = vk::CopyImageInfo2::default()
             .regions(&regions)
             .src_image_layout(vk::ImageLayout::TRANSFER_SRC_OPTIMAL)
             .dst_image_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)

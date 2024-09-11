@@ -9,8 +9,8 @@
 use crate::egui::{ClippedPrimitive, TextureId, TexturesDelta};
 use crate::{DynamicBuffer, DynamicImage, RmgTaskError};
 use ahash::AHashMap;
-use egui::{Color32, Pos2};
-use egui_winit::winit::event_loop::EventLoopWindowTarget;
+use egui::{Color32, Pos2, ViewportId};
+use egui_winit::winit::event_loop::EventLoop;
 use egui_winit::winit::window::Window;
 use marpii::ash::vk::{ImageUsageFlags, Rect2D};
 use marpii::resources::SharingMode;
@@ -67,20 +67,24 @@ pub struct EGuiWinitIntegration {
 }
 
 impl EGuiWinitIntegration {
-    pub fn new<T>(
-        rmg: &mut Rmg,
-        event_loop: &EventLoopWindowTarget<T>,
-    ) -> Result<Self, RmgTaskError> {
-        #[cfg(feature = "logging")]
-        log::trace!("Setting up winit state");
-
-        let mut winit_state = egui_winit::State::new(event_loop);
-        winit_state.set_max_texture_side(EGuiTask::MAX_TEXTURE_SIDE as usize);
-
+    pub fn new<T>(rmg: &mut Rmg, event_loop: &EventLoop<T>) -> Result<Self, RmgTaskError> {
         #[cfg(feature = "logging")]
         log::trace!("Setting up egui context");
         let egui_context: egui::Context = Default::default();
         egui_context.set_pixels_per_point(1.0);
+
+        #[cfg(feature = "logging")]
+        log::trace!("Setting up winit state");
+
+        let mut winit_state = egui_winit::State::new(
+            egui_context.clone(),
+            ViewportId::ROOT,
+            event_loop,
+            None,
+            None,
+            Some(EGuiTask::MAX_TEXTURE_SIDE as usize),
+        );
+        winit_state.set_max_texture_side(EGuiTask::MAX_TEXTURE_SIDE as usize);
 
         Ok(EGuiWinitIntegration {
             winit_state,
@@ -89,13 +93,21 @@ impl EGuiWinitIntegration {
             task: EGuiTask::new(rmg)?,
         })
     }
-    pub fn handle_event<T>(&mut self, event: &egui_winit::winit::event::Event<T>) {
-        if let egui_winit::winit::event::Event::WindowEvent {
-            window_id: _,
-            event,
-        } = event
-        {
-            let _is_exclusive = self.winit_state.on_event(&self.egui_context, event);
+    pub fn handle_event<T>(&mut self, window: &Window, event: &egui_winit::winit::event::Event<T>) {
+        match event {
+            egui_winit::winit::event::Event::WindowEvent {
+                window_id: _,
+                event,
+            } => {
+                let _is_exclusive = self.winit_state.on_window_event(window, event);
+            }
+            egui_winit::winit::event::Event::DeviceEvent {
+                event: egui_winit::winit::event::DeviceEvent::MouseMotion { delta },
+                device_id: _,
+            } => {
+                let _ = self.winit_state.on_mouse_motion(*delta);
+            }
+            _ => {}
         }
     }
 
@@ -137,20 +149,22 @@ impl EGuiWinitIntegration {
             max: Pos2::new(resolution.width as f32, resolution.height as f32),
         });
 
-        self.winit_state
+        self.egui_context
             .set_pixels_per_point(window.scale_factor() as f32);
         self.task.renderer.px_per_point = window.scale_factor() as f32;
 
         let output = self.egui_context.run(raw_input, run_ui);
 
-        let primitives = self.egui_context.tessellate(output.shapes);
+        let primitives = self
+            .egui_context
+            .tessellate(output.shapes, window.scale_factor() as f32);
 
         self.task.set_resolution(rmg, resolution)?;
         self.task.set_primitives(rmg, primitives)?;
         self.task.set_texture_deltas(rmg, output.textures_delta)?;
 
         self.winit_state
-            .handle_platform_output(window, &self.egui_context, output.platform_output);
+            .handle_platform_output(window, output.platform_output);
         Ok(())
     }
 }
@@ -274,7 +288,7 @@ impl Task for EGuiRenderer {
 
             let viewport = targetimg.image_region().as_viewport();
 
-            let color_attachments = vk::RenderingAttachmentInfo::builder()
+            let color_attachments = vk::RenderingAttachmentInfo::default()
                 .clear_value(vk::ClearValue {
                     color: vk::ClearColorValue {
                         float32: [0.0, 0.0, 0.0, 0.0],
@@ -289,7 +303,7 @@ impl Task for EGuiRenderer {
                 })
                 .store_op(vk::AttachmentStoreOp::STORE);
 
-            let render_info = vk::RenderingInfo::builder()
+            let render_info = vk::RenderingInfo::default()
                 .render_area(vk::Rect2D {
                     offset: vk::Offset2D { x: 0, y: 0 },
                     extent: self.target_image.extent_2d(),
@@ -504,7 +518,7 @@ impl EGuiTask {
         )?;
 
         let linear_sampler = rmg.new_sampler(
-            &vk::SamplerCreateInfo::builder()
+            &vk::SamplerCreateInfo::default()
                 .address_mode_u(vk::SamplerAddressMode::CLAMP_TO_EDGE)
                 .address_mode_v(vk::SamplerAddressMode::CLAMP_TO_EDGE)
                 .address_mode_w(vk::SamplerAddressMode::CLAMP_TO_EDGE)
@@ -513,7 +527,7 @@ impl EGuiTask {
         )?;
 
         let nearest_sampler = rmg.new_sampler(
-            &vk::SamplerCreateInfo::builder()
+            &vk::SamplerCreateInfo::default()
                 .address_mode_u(vk::SamplerAddressMode::CLAMP_TO_EDGE)
                 .address_mode_v(vk::SamplerAddressMode::CLAMP_TO_EDGE)
                 .address_mode_w(vk::SamplerAddressMode::CLAMP_TO_EDGE)
@@ -552,7 +566,7 @@ impl EGuiTask {
         shader_stages: &[ShaderStage],
         color_formats: &[vk::Format],
     ) -> Result<GraphicsPipeline, MarpiiError> {
-        let color_blend_attachments = vk::PipelineColorBlendAttachmentState::builder()
+        let color_blend_attachments = vk::PipelineColorBlendAttachmentState::default()
             .src_color_blend_factor(vk::BlendFactor::ONE)
             .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
             .color_write_mask(vk::ColorComponentFlags::RGBA)
@@ -563,73 +577,70 @@ impl EGuiTask {
             //.color_write_mask(vk::ColorComponentFlags::RGBA)
             .blend_enable(true);
 
-        let color_blend_state = vk::PipelineColorBlendStateCreateInfo::builder()
+        let color_blend_state = vk::PipelineColorBlendStateCreateInfo::default()
             .blend_constants([0.0; 4])
             .attachments(core::slice::from_ref(&color_blend_attachments)); //only the color target
 
-        let depth_stencil_state = vk::PipelineDepthStencilStateCreateInfo::builder()
+        let depth_stencil_state = vk::PipelineDepthStencilStateCreateInfo::default()
             .depth_compare_op(vk::CompareOp::ALWAYS)
             .depth_write_enable(false)
             .depth_test_enable(false)
             .depth_bounds_test_enable(false)
             .stencil_test_enable(false);
 
-        let dynamic_state = vk::PipelineDynamicStateCreateInfo::builder()
+        let dynamic_state = vk::PipelineDynamicStateCreateInfo::default()
             .dynamic_states(&[vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR]);
         //no other dynamic state
 
-        let input_assembly_state = vk::PipelineInputAssemblyStateCreateInfo::builder()
+        let input_assembly_state = vk::PipelineInputAssemblyStateCreateInfo::default()
             .primitive_restart_enable(false)
             .topology(vk::PrimitiveTopology::TRIANGLE_LIST);
-        let multisample_state = vk::PipelineMultisampleStateCreateInfo::builder()
+        let multisample_state = vk::PipelineMultisampleStateCreateInfo::default()
             .min_sample_shading(1.0)
             .alpha_to_one_enable(false)
             .rasterization_samples(vk::SampleCountFlags::TYPE_1);
-        let rasterization_state = vk::PipelineRasterizationStateCreateInfo::builder()
+        let rasterization_state = vk::PipelineRasterizationStateCreateInfo::default()
             .cull_mode(vk::CullModeFlags::NONE)
             .depth_bias_enable(false)
             .depth_clamp_enable(false)
             .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
             .line_width(1.0)
             .polygon_mode(vk::PolygonMode::FILL);
-        let tesselation_state = vk::PipelineTessellationStateCreateInfo::builder();
+        let tesselation_state = vk::PipelineTessellationStateCreateInfo::default();
 
-        let viewport_state = vk::PipelineViewportStateCreateInfo::builder()
+        let viewport_state = vk::PipelineViewportStateCreateInfo::default()
             .viewport_count(1)
             .scissor_count(1);
 
-        let vertex_binding_desc = vk::VertexInputBindingDescription::builder()
+        let vertex_binding_desc = vk::VertexInputBindingDescription::default()
             .binding(0)
             .stride(core::mem::size_of::<crate::egui::epaint::Vertex>() as u32)
             .input_rate(vk::VertexInputRate::VERTEX);
         let vertex_attrib_desc = [
             //Description of the Pos attribute
-            vk::VertexInputAttributeDescription::builder()
+            vk::VertexInputAttributeDescription::default()
                 .location(0)
                 .binding(0)
                 .format(vk::Format::R32G32_SFLOAT)
-                .offset(offset_of!(crate::egui::epaint::Vertex, pos) as u32)
-                .build(),
+                .offset(offset_of!(crate::egui::epaint::Vertex, pos) as u32),
             //Description of the UV attribute
-            vk::VertexInputAttributeDescription::builder()
+            vk::VertexInputAttributeDescription::default()
                 .location(1)
                 .binding(0)
                 .format(vk::Format::R32G32_SFLOAT)
-                .offset(offset_of!(crate::egui::epaint::Vertex, uv) as u32)
-                .build(),
+                .offset(offset_of!(crate::egui::epaint::Vertex, uv) as u32),
             //Description of the COLOR attribute
-            vk::VertexInputAttributeDescription::builder()
+            vk::VertexInputAttributeDescription::default()
                 .location(2)
                 .binding(0)
                 .format(vk::Format::R8G8B8A8_UNORM)
-                .offset(offset_of!(crate::egui::epaint::Vertex, color) as u32)
-                .build(),
+                .offset(offset_of!(crate::egui::epaint::Vertex, color) as u32),
         ];
-        let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::builder()
+        let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::default()
             .vertex_binding_descriptions(core::slice::from_ref(&vertex_binding_desc))
             .vertex_attribute_descriptions(&vertex_attrib_desc);
 
-        let create_info = vk::GraphicsPipelineCreateInfo::builder()
+        let create_info = vk::GraphicsPipelineCreateInfo::default()
             .color_blend_state(&color_blend_state)
             .depth_stencil_state(&depth_stencil_state)
             .dynamic_state(&dynamic_state)

@@ -123,7 +123,7 @@ impl PhysicalDeviceFilter {
     ///Removes all devices and queues that can not present on the supplied surface
     pub fn filter_presentable(
         mut self,
-        surface_loader: &ash::extensions::khr::Surface,
+        surface_loader: &ash::khr::surface::Instance,
         surface: &ash::vk::SurfaceKHR,
     ) -> Self {
         self.pdevices = self.pdevices.into_iter().filter_map(|mut pdev|{

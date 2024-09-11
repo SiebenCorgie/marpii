@@ -113,7 +113,7 @@ impl<T: bytemuck::Pod + 'static> DownloadBuffer<T> {
     }
 
     ///Returns the handle to the CPU accessible buffer handle. This is the buffer used to copy
-    /// the data into `dst` of [download].
+    /// the data into `dst` of [Self::download].
     pub fn cpu_handle(&self) -> BufferHandle<T> {
         self.cpu_access_hdl.clone()
     }
@@ -166,10 +166,10 @@ impl<T: bytemuck::Pod + 'static> Task for DownloadBuffer<T> {
         unsafe {
             device.inner.cmd_copy_buffer2(
                 *command_buffer,
-                &vk::CopyBufferInfo2::builder()
+                &vk::CopyBufferInfo2::default()
                     .src_buffer(src_access.buffer.inner)
                     .dst_buffer(dst_access.buffer.inner)
-                    .regions(&[*vk::BufferCopy2::builder()
+                    .regions(&[vk::BufferCopy2::default()
                         .src_offset(0)
                         .dst_offset(0)
                         .size(copy_size)]),

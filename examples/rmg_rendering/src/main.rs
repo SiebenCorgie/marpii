@@ -38,7 +38,8 @@ use marpii_rmg::Rmg;
 use marpii_rmg_tasks::{DynamicBuffer, SwapchainPresent};
 use shared::Ubo;
 use simulation::Simulation;
-use winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
+use winit::event::{ElementState, KeyEvent};
+use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::{
     event::{Event, WindowEvent},
     event_loop::ControlFlow,
@@ -75,8 +76,11 @@ fn main() -> Result<(), anyhow::Error> {
 
     let gltf = easy_gltf::load(mesh_path).unwrap();
 
-    let ev = winit::event_loop::EventLoop::new();
-    let window = winit::window::Window::new(&ev).unwrap();
+    let ev = winit::event_loop::EventLoop::new().unwrap();
+    let window_attributes =
+        winit::window::Window::default_attributes().with_title("hello triangle");
+    #[allow(deprecated)]
+    let window = ev.create_window(window_attributes).unwrap();
     let (context, surface) = Ctx::default_with_surface(&window, true)?;
     let mut rmg = Rmg::new(context)?;
 
@@ -88,14 +92,18 @@ fn main() -> Result<(), anyhow::Error> {
         ForwardPass::new(&mut rmg, ubo_update.buffer_handle().clone(), &gltf).unwrap();
     let mut swapchain_blit = SwapchainPresent::new(&mut rmg, surface)?;
 
-    ev.run(move |ev, _, cf| {
-        *cf = ControlFlow::Poll;
+    #[allow(deprecated)]
+    let _ = ev.run(move |ev, evl| {
+        evl.set_control_flow(ControlFlow::Poll);
 
         camera.on_event(&ev);
 
         match ev {
-            Event::MainEventsCleared => window.request_redraw(),
-            Event::RedrawRequested(_) => {
+            Event::AboutToWait => window.request_redraw(),
+            Event::WindowEvent {
+                window_id: _,
+                event: WindowEvent::RedrawRequested,
+            } => {
                 camera.tick();
 
                 //try to get last timings
@@ -142,10 +150,10 @@ fn main() -> Result<(), anyhow::Error> {
             Event::WindowEvent {
                 event:
                     WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
+                        event:
+                            KeyEvent {
+                                physical_key: PhysicalKey::Code(KeyCode::Escape),
                                 state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Escape),
                                 ..
                             },
                         ..
@@ -153,9 +161,11 @@ fn main() -> Result<(), anyhow::Error> {
                 ..
             } => {
                 rmg.wait_for_idle().unwrap();
-                *cf = ControlFlow::Exit;
+                evl.exit();
             }
             _ => {}
         }
-    })
+    });
+
+    Ok(())
 }

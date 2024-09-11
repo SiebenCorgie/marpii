@@ -1,4 +1,5 @@
 #![no_std]
+#![allow(unexpected_cfgs)]
 //! Resources that are needed in multiple crates. Mostly RustGpu shader crates, and marpii-rmg itself.
 #[cfg(feature = "marpii")]
 use marpii::ash::vk;
@@ -14,7 +15,7 @@ use bytemuck::{Pod, Zeroable};
     not(target_arch = "spirv"),
     derive(Clone, Copy, Hash, PartialEq, PartialOrd, Eq, Debug, Pod, Zeroable)
 )]
-#[cfg_attr(target_arch = "spirv", derive(Clone, Copy))]
+#[cfg_attr(target_auch = "spirv", derive(Clone, Copy))]
 #[repr(C)]
 pub struct ResourceHandle(u32);
 
@@ -51,7 +52,7 @@ impl ResourceHandle {
         self.handle_type() > Self::TYPE_ACCELERATION_STRUCTURE
     }
 
-    ///Returns true whenever this is a valid handle type. **Don't confuse with [is_invalid]**
+    ///Returns true whenever this is a valid handle type. **Don't confuse with [Self::is_invalid]**
     pub const fn is_valid(&self) -> bool {
         !self.is_invalid()
     }

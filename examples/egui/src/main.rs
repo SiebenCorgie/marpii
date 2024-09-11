@@ -5,13 +5,11 @@ use anyhow::Result;
 use marpii::context::Ctx;
 use marpii::util::FormatProperties;
 use marpii_rmg::Rmg;
+use marpii_rmg_tasks::winit::event::WindowEvent;
 use marpii_rmg_tasks::{egui, EGuiWinitIntegration, SwapchainPresent};
 
-use winit::event::{ElementState, KeyboardInput, VirtualKeyCode};
-use winit::{
-    event::{Event, WindowEvent},
-    event_loop::ControlFlow,
-};
+use marpii_rmg_tasks::winit;
+use winit::event::Event;
 
 fn main() -> Result<(), anyhow::Error> {
     simple_logger::SimpleLogger::new()
@@ -19,13 +17,14 @@ fn main() -> Result<(), anyhow::Error> {
         .init()
         .unwrap();
 
-    let ev = winit::event_loop::EventLoop::new();
-    let window = winit::window::Window::new(&ev).unwrap();
+    let ev = winit::event_loop::EventLoop::builder().build().unwrap();
+    let windowattr = winit::window::Window::default_attributes().with_title("Egui Example");
+    #[allow(deprecated)]
+    let window = ev.create_window(windowattr).unwrap();
     let (context, surface) = Ctx::default_with_surface(&window, true)?;
     let mut rmg = Rmg::new(context)?;
 
     let mut egui = EGuiWinitIntegration::new(&mut rmg, &ev)?;
-
     let mut swapchain_blit = SwapchainPresent::new(&mut rmg, surface)?;
 
     let swapchain_properties = FormatProperties::parse(swapchain_blit.format());
@@ -38,12 +37,22 @@ fn main() -> Result<(), anyhow::Error> {
     let mut name = "Teddy".to_string();
     let mut age = 10u32;
 
-    ev.run(move |ev, _, cf| {
-        *cf = ControlFlow::Poll;
-        egui.handle_event(&ev);
+    #[allow(deprecated)]
+    let _ = ev.run(move |ev, ev_loop| {
+        ev_loop.set_control_flow(winit::event_loop::ControlFlow::Poll);
+
+        // *cf = ControlFlow::Poll;
+        egui.handle_event(&window, &ev);
+
         match ev {
-            Event::MainEventsCleared => window.request_redraw(),
-            Event::RedrawRequested(_) => {
+            Event::LoopExiting => {
+                rmg.wait_for_idle().unwrap();
+            }
+            Event::AboutToWait => window.request_redraw(),
+            Event::WindowEvent {
+                window_id: _,
+                event: WindowEvent::RedrawRequested,
+            } => {
                 let framebuffer_extent =
                     swapchain_blit
                         .extent()
@@ -80,20 +89,22 @@ fn main() -> Result<(), anyhow::Error> {
                     .execute()
                     .unwrap();
             }
-            Event::WindowEvent {
-                event:
-                    WindowEvent::KeyboardInput {
-                        input:
-                            KeyboardInput {
-                                state: ElementState::Pressed,
-                                virtual_keycode: Some(VirtualKeyCode::Escape),
-                                ..
-                            },
-                        ..
-                    },
-                ..
-            } => *cf = ControlFlow::Exit,
+            // Event::WindowEvent {
+            //     event:
+            //         WindowEvent::KeyboardInput {
+            //             input:
+            //                 KeyboardInput {
+            //                     state: ElementState::Pressed,
+            //                     virtual_keycode: Some(VirtualKeyCode::Escape),
+            //                     ..
+            //                 },
+            //             ..
+            //         },
+            //     ..
+            // } => ev.clone_from(),
             _ => {}
         }
-    })
+    });
+
+    Ok(())
 }

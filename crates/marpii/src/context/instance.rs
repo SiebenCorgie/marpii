@@ -5,9 +5,9 @@ use std::{
     sync::Arc,
 };
 
-use ash::vk::{self, BaseOutStructure, ObjectType, TaggedStructure};
+use ash::vk::{self, BaseOutStructure, TaggedStructure};
 use const_cstr::const_cstr;
-use raw_window_handle::HasRawDisplayHandle;
+use raw_window_handle::HasDisplayHandle;
 
 use crate::error::InstanceError;
 
@@ -18,7 +18,7 @@ const_cstr! {
 }
 
 ///The external callback print function for debugging
-unsafe extern "system" fn vulkan_debug_callback(
+pub unsafe extern "system" fn vulkan_debug_callback(
     message_severity: ash::vk::DebugUtilsMessageSeverityFlagsEXT,
     #[allow(unused)] message_types: ash::vk::DebugUtilsMessageTypeFlagsEXT,
     p_callback_data: *const ash::vk::DebugUtilsMessengerCallbackDataEXT,
@@ -90,32 +90,6 @@ unsafe extern "system" fn vulkan_debug_callback(
     1
 }
 
-///Helper that gets usually initialised by activating validation layers.
-/// Allows to use all `VK_EXT_DEBUG_UTILS` functions.
-pub struct Debugger {
-    pub debug_report_loader: ash::extensions::ext::DebugUtils,
-    pub debug_messenger: ash::vk::DebugUtilsMessengerEXT,
-}
-
-impl Debugger {
-    pub fn name_object(
-        &self,
-        device: &vk::Device,
-        handle: u64,
-        ty: ObjectType,
-        name: &CStr,
-    ) -> Result<(), vk::Result> {
-        let info = vk::DebugUtilsObjectNameInfoEXT::builder()
-            .object_name(name)
-            .object_handle(handle)
-            .object_type(ty);
-        unsafe {
-            self.debug_report_loader
-                .set_debug_utils_object_name(*device, &info)
-        }
-    }
-}
-
 ///Signales enabled and disabled validation layer features
 #[allow(dead_code)]
 pub struct ValidationFeatures {
@@ -171,7 +145,7 @@ impl InstanceBuilder {
         let has_val_layers = self.validation_layers.is_some();
         if has_val_layers {
             self = self.with_layer(CString::new("VK_LAYER_KHRONOS_validation").unwrap())?;
-            self = self.with_extension(ash::extensions::ext::DebugUtils::name().to_owned())?;
+            self = self.with_extension(ash::ext::debug_utils::NAME.to_owned())?;
         }
 
         let InstanceBuilder {
@@ -189,7 +163,7 @@ impl InstanceBuilder {
                     ValidationFeatures::none()
                 };
         */
-        let app_desc = ash::vk::ApplicationInfo::builder().api_version(ash::vk::make_api_version(
+        let app_desc = ash::vk::ApplicationInfo::default().api_version(ash::vk::make_api_version(
             0,
             Instance::API_VERSION_MAJOR,
             Instance::API_VERSION_MINOR,
@@ -228,12 +202,12 @@ impl InstanceBuilder {
             .map(|ext| ext.as_ptr())
             .collect::<Vec<_>>();
 
-        let create_info = ash::vk::InstanceCreateInfo::builder()
+        let create_info = ash::vk::InstanceCreateInfo::default()
             .application_info(&app_desc)
             .enabled_extension_names(&enabled_extensions)
             .enabled_layer_names(&enabled_layers);
         /*
-        let mut valext = vk::ValidationFeaturesEXT::builder()
+        let mut valext = vk::ValidationFeaturesEXT::default()
             .enabled_validation_features(&validation_features.enabled)
             .disabled_validation_features(&validation_features.disabled);
 
@@ -244,45 +218,10 @@ impl InstanceBuilder {
         */
         let instance = unsafe { entry.create_instance(&create_info, None)? };
 
-        //if validation is enabled, either unwrap the debugger, of create the new one
-        let debugger = if has_val_layers {
-            let (debug_report_loader, debug_messenger) = {
-                //create the reporter
-                let debug_report_loader = ash::extensions::ext::DebugUtils::new(&entry, &instance);
-
-                //Now based on the Debug features create a debug callback
-                let debug_info = ash::vk::DebugUtilsMessengerCreateInfoEXT::builder()
-                    .message_severity(
-                        ash::vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
-                            | ash::vk::DebugUtilsMessageSeverityFlagsEXT::WARNING
-                            | ash::vk::DebugUtilsMessageSeverityFlagsEXT::INFO,
-                    )
-                    .message_type(
-                        ash::vk::DebugUtilsMessageTypeFlagsEXT::GENERAL
-                            | ash::vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE
-                            | ash::vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION,
-                    )
-                    .pfn_user_callback(Some(vulkan_debug_callback));
-
-                let messenger =
-                    unsafe { debug_report_loader.create_debug_utils_messenger(&debug_info, None)? };
-                (debug_report_loader, messenger)
-            };
-
-            let debugger = Debugger {
-                debug_messenger,
-                debug_report_loader,
-            };
-
-            Some(debugger)
-        } else {
-            None
-        };
-
         Ok(Arc::new(Instance {
-            debugger,
             entry,
             inner: instance,
+            validation_enabled: has_val_layers,
         }))
     }
 
@@ -396,9 +335,9 @@ impl InstanceBuilder {
     }
 
     ///Enables all extensions that are needed for the surface behind `handle` to work.
-    pub fn for_surface(mut self, handle: &dyn HasRawDisplayHandle) -> Result<Self, InstanceError> {
+    pub fn for_surface(mut self, handle: &dyn HasDisplayHandle) -> Result<Self, InstanceError> {
         let required_extensions =
-            ash_window::enumerate_required_extensions(handle.raw_display_handle())?;
+            ash_window::enumerate_required_extensions(handle.display_handle().unwrap().as_raw())?;
         for r in required_extensions {
             let st = unsafe { CStr::from_ptr(*r).to_owned() };
             self = self.with_extension(st)?;
@@ -423,7 +362,7 @@ impl InstanceBuilder {
 pub struct Instance {
     pub entry: ash::Entry,
     pub inner: ash::Instance,
-    pub debugger: Option<Debugger>, //hidden detail. If loaded, has the debugger that gets called when printing in the validation layers.
+    pub validation_enabled: bool,
 }
 
 impl Instance {
@@ -438,8 +377,8 @@ impl Instance {
     pub fn load() -> Result<InstanceBuilder, InstanceError> {
         let entry = unsafe { ash::Entry::load()? };
 
-        let available_layers = entry.enumerate_instance_layer_properties()?;
-        let available_extensions = entry.enumerate_instance_extension_properties(None)?;
+        let available_layers = unsafe { entry.enumerate_instance_layer_properties()? };
+        let available_extensions = unsafe { entry.enumerate_instance_extension_properties(None)? };
 
         Ok(InstanceBuilder {
             entry,
@@ -454,8 +393,8 @@ impl Instance {
     ///Creates instance loaded by using [Entry::linked](ash::Entry::linked)
     pub fn linked() -> Result<InstanceBuilder, InstanceError> {
         let entry = ash::Entry::linked();
-        let available_layers = entry.enumerate_instance_layer_properties()?;
-        let available_extensions = entry.enumerate_instance_extension_properties(None)?;
+        let available_layers = unsafe { entry.enumerate_instance_layer_properties()? };
+        let available_extensions = unsafe { entry.enumerate_instance_extension_properties(None)? };
 
         Ok(InstanceBuilder {
             entry,
@@ -465,10 +404,6 @@ impl Instance {
             available_layers,
             available_extensions,
         })
-    }
-
-    pub fn get_debugger(&self) -> Option<&Debugger> {
-        self.debugger.as_ref()
     }
 
     ///Returns the feature list of the currently used physical device
@@ -511,7 +446,7 @@ impl Instance {
         }
         //push into chain
         let mut features2 =
-            vk::PhysicalDeviceFeatures2::builder().push_next(unsafe { &mut *q.as_mut_ptr() });
+            vk::PhysicalDeviceFeatures2::default().push_next(unsafe { &mut *q.as_mut_ptr() });
 
         //issue query
         unsafe {
@@ -536,7 +471,7 @@ impl Instance {
         }
         //push into chain
         let mut properties2 =
-            vk::PhysicalDeviceProperties2::builder().push_next(unsafe { &mut *q.as_mut_ptr() });
+            vk::PhysicalDeviceProperties2::default().push_next(unsafe { &mut *q.as_mut_ptr() });
 
         //issue query
         unsafe {
@@ -563,12 +498,6 @@ impl GetDeviceFilter for Arc<Instance> {
 impl Drop for Instance {
     fn drop(&mut self) {
         unsafe {
-            //Destroy the messenger before destroying the instance.
-            if let Some(drl) = &self.debugger {
-                //destroys the messenger if it was loaded
-                drl.debug_report_loader
-                    .destroy_debug_utils_messenger(drl.debug_messenger, None);
-            }
             self.inner.destroy_instance(None);
         }
     }

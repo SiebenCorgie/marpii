@@ -1,9 +1,11 @@
+#![allow(unexpected_cfgs)]
 #![cfg_attr(
     target_arch = "spirv",
     no_std,
     feature(register_attr),
     register_attr(spirv)
 )]
+
 //! Shared objects between the example's CPU side and GPU side code.
 
 #[cfg(not(target_arch = "spirv"))]

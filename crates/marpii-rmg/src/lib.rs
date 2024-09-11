@@ -83,8 +83,8 @@
 //!
 //! The RMG is a big abstraction layer over raw vulkan. It is therefore much more opinionated then the rest of `MarpII`.
 //!
-//! It handles the context creation as well as resource creation and binding. The user (you) primarily interacts in the form of [Task](Task)s. They can be scheduled
-//! in an execution Graph using a [Recorder](Recorder). The tasks implementation is up to you and has full access to all resources and the Vulkan context.
+//! It handles the context creation as well as resource creation and binding. The user (you) primarily interacts in the form of [Task]s. They can be scheduled
+//! in an execution Graph using a [Recorder]. The tasks implementation is up to you and has full access to all resources and the Vulkan context.
 //!
 //! Apart from the task all execution related tracking of resources and executions is done by RMG.
 //!
@@ -113,7 +113,7 @@
 //!
 //!
 //! ## Using resources
-//! Since RMG handles all resources direct access is only possible from within a [Task](Task). To still reference resources (and defining data flow between tasks)
+//! Since RMG handles all resources direct access is only possible from within a [Task]. To still reference resources (and defining data flow between tasks)
 //! `ResourceHandles` are used. They behave as if they where the resources. This means if all handles to a resource are dropped, the resource itself is dropped.
 //!
 //! ## Performance, blocking and multithreading

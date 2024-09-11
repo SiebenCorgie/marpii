@@ -24,7 +24,7 @@ impl DescriptorSetLayout {
         device: &Arc<Device>,
         bindings: &[ash::vk::DescriptorSetLayoutBinding],
     ) -> Result<Self, ash::vk::Result> {
-        let info = ash::vk::DescriptorSetLayoutCreateInfo::builder().bindings(bindings);
+        let info = ash::vk::DescriptorSetLayoutCreateInfo::default().bindings(bindings);
 
         let layout = unsafe { device.inner.create_descriptor_set_layout(&info, None)? };
 
@@ -70,7 +70,7 @@ impl DescriptorPool {
         sizes: &[ash::vk::DescriptorPoolSize],
         set_count: u32,
     ) -> Result<Self, DescriptorError> {
-        let create_info = ash::vk::DescriptorPoolCreateInfo::builder()
+        let create_info = ash::vk::DescriptorPoolCreateInfo::default()
             .flags(flags)
             .max_sets(set_count)
             .pool_sizes(sizes);
@@ -161,7 +161,7 @@ impl DescriptorAllocator for OoS<DescriptorPool> {
         self,
         layout: &ash::vk::DescriptorSetLayout,
     ) -> Result<DescriptorSet, DescriptorError> {
-        let create_info = ash::vk::DescriptorSetAllocateInfo::builder()
+        let create_info = ash::vk::DescriptorSetAllocateInfo::default()
             .descriptor_pool(self.inner)
             .set_layouts(core::slice::from_ref(layout));
 
@@ -209,7 +209,7 @@ impl DescriptorSet {
     /// # Performance
     /// Note the vulkan `update_descriptor_sets` function can update multiple descriptor bindings at once. If this is what you need,
     /// consider writing this function yourself for the special usecase using the `inner` vulkan handle of this descriptor set.
-    pub fn write<'a>(&'a mut self, write: ash::vk::WriteDescriptorSetBuilder<'a>) {
+    pub fn write<'a>(&'a mut self, write: ash::vk::WriteDescriptorSet<'a>) {
         let write = write.dst_set(self.inner);
 
         unsafe {

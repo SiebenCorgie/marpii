@@ -39,7 +39,10 @@ pub use queue::{Queue, QueueBuilder};
 
 mod physical_device;
 pub use physical_device::{PhyDeviceProperties, PhysicalDeviceFilter};
-use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
+use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
+
+mod debugger;
+pub use debugger::Debugger;
 
 use crate::{allocator::Allocator, error::DeviceError, surface::Surface, MarpiiError};
 
@@ -96,7 +99,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
         use_validation: bool,
     ) -> Result<(Self, OoS<crate::surface::Surface>), MarpiiError>
     where
-        T: HasRawDisplayHandle + HasRawWindowHandle,
+        T: HasWindowHandle + HasDisplayHandle,
     {
         let mut instance_builder = Instance::linked()?;
         instance_builder = instance_builder.for_surface(window_handle)?;
@@ -142,7 +145,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
         }
 
         //NOTE: By default we setup extensions in a way that we can load rust shaders.
-        let features12 = ash::vk::PhysicalDeviceVulkan12Features::builder()
+        let features12 = ash::vk::PhysicalDeviceVulkan12Features::default()
             .shader_int8(true)
             .runtime_descriptor_array(true)
             .timeline_semaphore(true)
@@ -157,22 +160,22 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
             .shader_sampled_image_array_non_uniform_indexing(true)
             .vulkan_memory_model(true);
 
-        let features13 = ash::vk::PhysicalDeviceVulkan13Features::builder()
+        let features13 = ash::vk::PhysicalDeviceVulkan13Features::default()
             .maintenance4(true)
             .dynamic_rendering(true)
             .synchronization2(true);
 
         //Acceleration structure support
         /*
-        let accel_structure = ash::vk::PhysicalDeviceAccelerationStructureFeaturesKHR::builder()
+        let accel_structure = ash::vk::PhysicalDeviceAccelerationStructureFeaturesKHR::default()
         .acceleration_structure(true)
         .descriptor_binding_acceleration_structure_update_after_bind(true);
          */
         let mut device_builder = device_candidates
             .remove(0)
             .into_device_builder(instance.clone())?
-            .with_extensions(ash::vk::KhrVulkanMemoryModelFn::name())
-            .with_extensions(ash::extensions::khr::DynamicRendering::name())
+            .with_extensions(ash::khr::vulkan_memory_model::NAME)
+            .with_extensions(ash::khr::dynamic_rendering::NAME)
             .with(|b| {
                 b.features.shader_int16 = 1;
                 b.features.shader_float64 = 1;
@@ -188,8 +191,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
 
         // only add swapchain extension if we got a surface
         if surfaces.is_some() {
-            device_builder =
-                device_builder.with_extensions(ash::extensions::khr::Swapchain::name());
+            device_builder = device_builder.with_extensions(ash::khr::swapchain::NAME);
         }
         let device = device_builder.build()?;
 
@@ -226,7 +228,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
         on_device_builder: impl FnOnce(DeviceBuilder) -> DeviceBuilder,
     ) -> Result<(Self, Option<OoS<Surface>>), MarpiiError>
     where
-        T: HasRawDisplayHandle + HasRawWindowHandle,
+        T: HasWindowHandle + HasDisplayHandle,
     {
         let mut instance_builder = Instance::linked()?;
         if let Some(window_handle) = window_handle {
@@ -292,8 +294,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
 
         // only add swapchain extension if we got a surface
         if surface.is_some() {
-            device_builder =
-                device_builder.with_extensions(ash::extensions::khr::Swapchain::name());
+            device_builder = device_builder.with_extensions(ash::khr::swapchain::NAME);
         }
 
         let device = device_builder.build()?;

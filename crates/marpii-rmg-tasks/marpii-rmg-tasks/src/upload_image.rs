@@ -23,7 +23,7 @@ pub struct MipOffset {
 ///Transfer pass that copies data to an image on the GPU.
 /// perfect if you need to initialise textures for instance.
 /// Note that this only works reliable for 2D and 3D images.
-/// For cubemaps, use [UploadCubemap]
+/// Does not work for cubemaps!
 pub struct UploadImage {
     ///The GPU-Local image, which will contain `new`'s `data` after this pass was submitted.
     pub image: ImageHandle,
@@ -140,14 +140,13 @@ impl Task for UploadImage {
 
         //This is the first copy, it will just copy 0..image_memory_size to the first mip.
         copies.push(
-            vk::BufferImageCopy2::builder()
+            vk::BufferImageCopy2::default()
                 .buffer_offset(0)
                 .buffer_row_length(0)
                 .buffer_image_height(0)
                 .image_extent(img.image.desc.extent)
                 .image_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
-                .image_subresource(img.image.subresource_layers_all())
-                .build(),
+                .image_subresource(img.image.subresource_layers_all()),
         );
 
         let mut offset = 0;
@@ -160,14 +159,13 @@ impl Task for UploadImage {
                 subres.base_array_layer = 0;
                 subres.layer_count = mip.layer_count;
                 copies.push(
-                    vk::BufferImageCopy2::builder()
+                    vk::BufferImageCopy2::default()
                         .buffer_offset(offset)
                         .buffer_row_length(0)
                         .buffer_image_height(0)
                         .image_extent(mip.extent)
                         .image_offset(vk::Offset3D { x: 0, y: 0, z: 0 })
-                        .image_subresource(subres)
-                        .build(),
+                        .image_subresource(subres),
                 );
                 offset += mip.offset * u64::from(mip.layer_count);
             }
@@ -177,7 +175,7 @@ impl Task for UploadImage {
         unsafe {
             device.inner.cmd_copy_buffer_to_image2(
                 *command_buffer,
-                &vk::CopyBufferToImageInfo2::builder()
+                &vk::CopyBufferToImageInfo2::default()
                     .src_buffer(buffer.buffer.inner)
                     .dst_image(img.image.inner)
                     .regions(&copies)

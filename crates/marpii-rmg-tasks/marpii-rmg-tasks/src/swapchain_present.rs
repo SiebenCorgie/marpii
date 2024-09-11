@@ -251,9 +251,9 @@ impl Task for SwapchainPresent {
             unsafe {
                 device.inner.cmd_pipeline_barrier2(
                     *command_buffer,
-                    &vk::DependencyInfo::builder().image_memory_barriers(&[
+                    &vk::DependencyInfo::default().image_memory_barriers(&[
                         //swapchain image transition. Don't keep data
-                        *vk::ImageMemoryBarrier2::builder()
+                        vk::ImageMemoryBarrier2::default()
                             .image(sw_image.image.inner)
                             .src_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
                             .dst_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
@@ -280,13 +280,13 @@ impl Task for SwapchainPresent {
             unsafe {
                 device.inner.cmd_blit_image2(
                     *command_buffer,
-                    &vk::BlitImageInfo2::builder()
+                    &vk::BlitImageInfo2::default()
                         .src_image(img.image.inner)
                         .dst_image(sw_image.image.inner)
                         .src_image_layout(vk::ImageLayout::TRANSFER_SRC_OPTIMAL)
                         .dst_image_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL)
                         .filter(filter)
-                        .regions(&[*vk::ImageBlit2::builder()
+                        .regions(&[vk::ImageBlit2::default()
                             .src_subresource(img.image.subresource_layers_all())
                             .dst_subresource(sw_image.image.subresource_layers_all())
                             .src_offsets(src_region.to_blit_offsets())
@@ -298,9 +298,9 @@ impl Task for SwapchainPresent {
             unsafe {
                 device.inner.cmd_pipeline_barrier2(
                     *command_buffer,
-                    &vk::DependencyInfo::builder().image_memory_barriers(&[
+                    &vk::DependencyInfo::default().image_memory_barriers(&[
                         //swapchain image
-                        *vk::ImageMemoryBarrier2::builder()
+                        vk::ImageMemoryBarrier2::default()
                             .image(sw_image.image.inner)
                             .src_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
                             .dst_stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)

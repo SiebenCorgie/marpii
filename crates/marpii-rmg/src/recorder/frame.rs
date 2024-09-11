@@ -115,7 +115,7 @@ impl<'rmg> CmdFrame<'rmg> {
                                 RecordError::NoSuchResource(AnyResKey::Image(imgkey).into())
                             })?;
                             image_barrier_buffer.push(
-                                vk::ImageMemoryBarrier2::builder()
+                                vk::ImageMemoryBarrier2::default()
                                     .src_queue_family_index(src_family)
                                     .dst_queue_family_index(dst_family)
                                     .subresource_range(img.image.subresource_all())
@@ -143,7 +143,7 @@ impl<'rmg> CmdFrame<'rmg> {
                             })?;
                             //is a init
                             image_barrier_buffer.push(
-                                vk::ImageMemoryBarrier2::builder()
+                                vk::ImageMemoryBarrier2::default()
                                     //.src_queue_family_index(vk::QUEUE_FAMILY_IGNORED)
                                     //.dst_queue_family_index(dst_family)
                                     .subresource_range(img.image.subresource_all())
@@ -208,7 +208,7 @@ impl<'rmg> CmdFrame<'rmg> {
                                 RecordError::NoSuchResource(AnyResKey::Buffer(bufkey).into())
                             })?;
                             buffer_barrier_buffer.push(
-                                vk::BufferMemoryBarrier2::builder()
+                                vk::BufferMemoryBarrier2::default()
                                     .src_queue_family_index(src_family)
                                     .dst_queue_family_index(dst_family)
                                     .buffer(buf.buffer.inner)
@@ -236,7 +236,7 @@ impl<'rmg> CmdFrame<'rmg> {
                                 RecordError::NoSuchResource(AnyResKey::Buffer(bufkey).into())
                             })?;
                             buffer_barrier_buffer.push(
-                                vk::BufferMemoryBarrier2::builder()
+                                vk::BufferMemoryBarrier2::default()
                                     //.src_queue_family_index(src_family)
                                     //.dst_queue_family_index(dst_family)
                                     .buffer(buf.buffer.inner)
@@ -313,7 +313,7 @@ impl<'rmg> CmdFrame<'rmg> {
                                 RecordError::NoSuchResource(AnyResKey::Image(*imgkey).into())
                             })?;
                             image_barrier_buffer.push(
-                                vk::ImageMemoryBarrier2::builder()
+                                vk::ImageMemoryBarrier2::default()
                                     .src_queue_family_index(src_family)
                                     .dst_queue_family_index(dst_family)
                                     .subresource_range(img.image.subresource_all())
@@ -393,7 +393,7 @@ impl<'rmg> CmdFrame<'rmg> {
                                 RecordError::NoSuchResource(AnyResKey::Buffer(*bufkey).into())
                             })?;
                             buffer_barrier_buffer.push(
-                                vk::BufferMemoryBarrier2::builder()
+                                vk::BufferMemoryBarrier2::default()
                                     .src_queue_family_index(src_family)
                                     .dst_queue_family_index(dst_family)
                                     .buffer(buf.buffer.inner)

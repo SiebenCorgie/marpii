@@ -1,6 +1,6 @@
 [package]
 name = "marpii-rmg-tasks"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -13,14 +13,18 @@ logging = ["log"]
 egui-task = ["egui-winit", "ahash", "egui"]
 
 [dependencies]
-marpii = {path = "../../marpii"}
-marpii-rmg = {path = "../../marpii-rmg"}
-marpii-rmg-task-shared = {path = "../marpii-rmg-task-shared"}
-log = {workspace = true, optional=true}
+marpii = { path = "../../marpii" }
+marpii-rmg = { path = "../../marpii-rmg" }
+marpii-rmg-task-shared = { path = "../marpii-rmg-task-shared" }
+log = { workspace = true, optional = true }
 thiserror.workspace = true
-egui-winit  = {version = "0.22", optional = true, features = ["bytemuck"]}
-egui = {version = "0.22", optional = true}
-ahash = {workspace = true, optional = true}
+#egui-winit = { version = "0.28", optional = true, features = ["bytemuck"] }
+#egui = { version = "0.28", optional = true }
+egui-winit = { git = "https://github.com/emilk/egui.git", optional = true, features = [
+    "bytemuck",
+], branch = "master" }
+egui = { git = "https://github.com/emilk/egui.git", optional = true, branch = "master" }
+ahash = { workspace = true, optional = true }
 bytemuck.workspace = true
 
 #[build-dependencies]

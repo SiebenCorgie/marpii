@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use ash::vk;
-use raw_window_handle::{HasRawDisplayHandle, HasRawWindowHandle};
+use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 
 use crate::error::InstanceError;
 
@@ -11,7 +11,7 @@ pub struct Surface {
     ///keeps the surface alive
     pub instance: Arc<crate::context::Instance>,
     pub surface: ash::vk::SurfaceKHR,
-    pub surface_loader: ash::extensions::khr::Surface,
+    pub surface_loader: ash::khr::surface::Instance,
 }
 
 impl Surface {
@@ -20,18 +20,18 @@ impl Surface {
         window_handle: &T,
     ) -> Result<Self, InstanceError>
     where
-        T: HasRawDisplayHandle + HasRawWindowHandle,
+        T: HasWindowHandle + HasDisplayHandle,
     {
         let surface = unsafe {
             ash_window::create_surface(
                 &instance.entry,
                 &instance.inner,
-                window_handle.raw_display_handle(),
-                window_handle.raw_window_handle(),
+                window_handle.display_handle().unwrap().as_raw(),
+                window_handle.window_handle().unwrap().as_raw(),
                 None,
             )?
         };
-        let surface_loader = ash::extensions::khr::Surface::new(&instance.entry, &instance.inner);
+        let surface_loader = ash::khr::surface::Instance::new(&instance.entry, &instance.inner);
 
         Ok(Surface {
             instance: instance.clone(),

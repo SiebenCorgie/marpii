@@ -1,11 +1,11 @@
 [package]
 name = "marpii-rmg-task-shared"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 #spirv-std = { workspace=true}
-marpii-rmg-shared =  {path = "../../marpii-rmg-shared"}
+marpii-rmg-shared = { path = "../../marpii-rmg-shared" }
 bytemuck.workspace = true

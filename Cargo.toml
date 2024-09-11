@@ -1,38 +1,38 @@
 [workspace]
 members = [
-"crates/marpii",
-"crates/marpii-commands",
-"crates/marpii-descriptor",
-"crates/marpii-rmg",
-"crates/marpii-rmg-shared",
-"crates/marpii-rmg-tasks/marpii-rmg-tasks",
-"crates/marpii-rmg-tasks/marpii-rmg-task-shader",
-"crates/marpii-rmg-tasks/marpii-rmg-task-shared",
+    "crates/marpii",
+    "crates/marpii-commands",
+    "crates/marpii-descriptor",
+    "crates/marpii-rmg",
+    "crates/marpii-rmg-shared",
+    "crates/marpii-rmg-tasks/marpii-rmg-tasks",
+    "crates/marpii-rmg-tasks/marpii-rmg-task-shader",
+    "crates/marpii-rmg-tasks/marpii-rmg-task-shared",
 
-"examples/hello_triangle",
-"examples/custom_context",
-"examples/rmg_rendering",
-"examples/shared",
-"examples/egui",
-#"examples/scheduler_dryrun"
+    "examples/hello_triangle",
+    "examples/custom_context",
+    "examples/rmg_rendering",
+    "examples/shared",
+    "examples/egui",
+    #"examples/scheduler_dryrun"
 ]
 
 resolver = "2"
 
 [workspace.dependencies]
-ash = "0.37.1"
-ash-window = "0.12"
-raw-window-handle = "0.5"
+ash = "0.38.0"
+ash-window = "0.13"
+raw-window-handle = "0.6.2"
 #spirv-std = { git = "https://github.com/LykenSol/rust-gpu", rev = "d78df7e40f860efe85ef369fed10da2f2940bb70" }
 #spirv-builder = { git = "https://github.com/LykenSol/rust-gpu", rev = "d78df7e40f860efe85ef369fed10da2f2940bb70" }
 bytemuck = "1"
-log = "0.4.15"
-ahash = "0.8.2"
-anyhow = "1.0.56"
-thiserror = "1.0"
-tinyvec = {version = "1.6.0", features = ["alloc"]}
-simple_logger = "4"
-oos = {git = "https://gitlab.com/tendsinmende/oos.git"}
-winit = "0.28.2"
-puffin = "0.15"
+log = "0.4"
+ahash = "0.8"
+anyhow = "1"
+thiserror = "1"
+tinyvec = { version = "1.8.0", features = ["alloc"] }
+simple_logger = "5"
+oos = { git = "https://gitlab.com/tendsinmende/oos.git" }
+winit = "0.30"
+puffin = "0.19"
 rspirv-reflect = "0.8.0"
