@@ -19,6 +19,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     let ev = winit::event_loop::EventLoop::builder().build().unwrap();
     let windowattr = winit::window::Window::default_attributes().with_title("Egui Example");
+    #[allow(deprecated)]
     let window = ev.create_window(windowattr).unwrap();
     let (context, surface) = Ctx::default_with_surface(&window, true)?;
     let mut rmg = Rmg::new(context)?;

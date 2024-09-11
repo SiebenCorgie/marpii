@@ -1,6 +1,6 @@
 [package]
 name = "marpii-rmg-task-shader"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 publish = false
 
@@ -10,5 +10,5 @@ crate-type = ["lib", "dylib"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-marpii-rmg-task-shared = {path = "../marpii-rmg-task-shared"}
+marpii-rmg-task-shared = { path = "../marpii-rmg-task-shared" }
 #spirv-std = { workspace=true}

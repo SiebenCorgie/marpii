@@ -1,6 +1,6 @@
 [package]
 name = "marpii-commands"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -12,7 +12,7 @@ logging = ["log"]
 image_loading = ["image"]
 
 [dependencies]
-marpii = {path = "../marpii"}
-log = {workspace = true, optional=true}
-image = {version = "0.24", optional = true}
+marpii = { path = "../marpii" }
+log = { workspace = true, optional = true }
+image = { version = "0.24", optional = true }
 tinyvec.workspace = true
