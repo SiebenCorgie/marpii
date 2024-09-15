@@ -13,7 +13,7 @@ members = [
     "examples/custom_context",
     "examples/rmg_rendering",
     "examples/shared",
-    "examples/egui",
+    "examples/egui", "crates/marpii-wgpu",
     #"examples/scheduler_dryrun"
 ]
 

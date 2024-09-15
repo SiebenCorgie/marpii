@@ -22,8 +22,8 @@ thiserror.workspace = true
 #egui = { version = "0.28", optional = true }
 egui-winit = { git = "https://github.com/emilk/egui.git", optional = true, features = [
     "bytemuck",
-], branch = "master" }
-egui = { git = "https://github.com/emilk/egui.git", optional = true, branch = "master" }
+], rev = "b5627c7d4084c667d8ffefcd9131bfe5b6009e75" }
+egui = { git = "https://github.com/emilk/egui.git", optional = true, rev = "b5627c7d4084c667d8ffefcd9131bfe5b6009e75" }
 ahash = { workspace = true, optional = true }
 bytemuck.workspace = true
 
