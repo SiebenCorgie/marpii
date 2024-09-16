@@ -237,7 +237,7 @@ impl Device {
         };
 
         //if validation is enabled, either unwrap the debugger, of create the new one
-        let debugger = if instance.validation_enabled {
+        let debugger = if instance.validation_enabled() {
             let (debug_instance, debug_messenger, debug_report_loader) = {
                 //create the reporter
                 let debug_instance =

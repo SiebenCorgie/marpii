@@ -156,13 +156,7 @@ impl InstanceBuilder {
             available_layers: _,
             available_extensions: _,
         } = self;
-        /*
-                let validation_features = if let Some(f) = validation_layers{
-                    f
-                }else{
-                    ValidationFeatures::none()
-                };
-        */
+
         let app_desc = ash::vk::ApplicationInfo::default().api_version(ash::vk::make_api_version(
             0,
             Instance::API_VERSION_MAJOR,
@@ -192,36 +186,29 @@ impl InstanceBuilder {
             }
         }
 
-        let enabled_extensions = enabled_extensions
+        let enabled_extensions_ptr = enabled_extensions
             .iter()
             .map(|ext| ext.as_ptr())
             .collect::<Vec<_>>();
 
-        let enabled_layers = enabled_layers
+        let enabled_layers_ptr = enabled_layers
             .iter()
             .map(|ext| ext.as_ptr())
             .collect::<Vec<_>>();
 
         let create_info = ash::vk::InstanceCreateInfo::default()
             .application_info(&app_desc)
-            .enabled_extension_names(&enabled_extensions)
-            .enabled_layer_names(&enabled_layers);
-        /*
-        let mut valext = vk::ValidationFeaturesEXT::default()
-            .enabled_validation_features(&validation_features.enabled)
-            .disabled_validation_features(&validation_features.disabled);
+            .enabled_extension_names(&enabled_extensions_ptr)
+            .enabled_layer_names(&enabled_layers_ptr);
 
-        if has_val_layers{
-            create_info = create_info.push_next(&mut valext);
-            //now create the instance based on the provided create info
-        }
-        */
         let instance = unsafe { entry.create_instance(&create_info, None)? };
 
         Ok(Arc::new(Instance {
             entry,
             inner: instance,
             validation_enabled: has_val_layers,
+            enabled_extensions,
+            enabled_layers,
         }))
     }
 
@@ -362,7 +349,9 @@ impl InstanceBuilder {
 pub struct Instance {
     pub entry: ash::Entry,
     pub inner: ash::Instance,
-    pub validation_enabled: bool,
+    validation_enabled: bool,
+    enabled_extensions: Vec<CString>,
+    enabled_layers: Vec<CString>,
 }
 
 impl Instance {
@@ -481,6 +470,30 @@ impl Instance {
         //at this point we can assume q to be init.
         let query = unsafe { q.assume_init() };
         query
+    }
+
+    ///Returns a list of all enabled layers at instance creation.
+    pub fn enabled_layers(&self) -> &[CString] {
+        &self.enabled_layers
+    }
+
+    ///Returns a list of all enabled instance extensions.
+    pub fn enabled_extensions(&self) -> &[CString] {
+        &self.enabled_extensions
+    }
+
+    ///Returns true if validation (layers) is enabled
+    pub fn validation_enabled(&self) -> bool {
+        self.validation_enabled
+    }
+
+    pub fn api_version() -> u32 {
+        ash::vk::make_api_version(
+            0,
+            Instance::API_VERSION_MAJOR,
+            Instance::API_VERSION_MINOR,
+            Instance::API_VERSION_PATCH,
+        )
     }
 }
 

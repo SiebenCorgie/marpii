@@ -3,6 +3,7 @@ members = [
     "crates/marpii",
     "crates/marpii-commands",
     "crates/marpii-descriptor",
+    "crates/marpii-wgpu",
     "crates/marpii-rmg",
     "crates/marpii-rmg-shared",
     "crates/marpii-rmg-tasks/marpii-rmg-tasks",
@@ -14,6 +15,7 @@ members = [
     "examples/rmg_rendering",
     "examples/shared",
     "examples/egui",
+    "examples/marpii-iced",
     #"examples/scheduler_dryrun"
 ]
 

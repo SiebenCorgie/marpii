@@ -1,0 +1,15 @@
+[package]
+name = "marpii-wgpu"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+thiserror.workspace = true
+marpii = { path = "../marpii" }
+wgpu = "22.1"
+
+
+[dev-dependencies]
+pollster = "0.3.0"
+log = "0.4.22"
+env_logger = "0.11.5"
