@@ -1,8 +1,14 @@
 //! Implementation of helper functions that let you facilitate a WGPU context from a MarpII context.
 
-use std::ffi::{CStr, CString};
+use std::{
+    ffi::{CStr, CString},
+    sync::Arc,
+};
 
-use marpii::context::InstanceBuilder;
+use marpii::{
+    allocator::Allocator,
+    context::{Ctx, InstanceBuilder},
+};
 use thiserror::Error;
 use wgpu::RequestDeviceError;
 
@@ -22,6 +28,8 @@ pub enum MarpiiWgpuError {
     MarpiiInstanceError(#[from] marpii::InstanceError),
     #[error(transparent)]
     WgpuDeviceError(#[from] wgpu::hal::DeviceError),
+    #[error("Vulkan context had no graphics and compute capable queue")]
+    NoGraphicQueue,
 }
 
 ///Configures the `builder` to support a WGPU instance
@@ -155,4 +163,57 @@ pub fn wgpu_device(
     }?;
 
     Ok((wrapped_adapter, device, queue))
+}
+
+///WGPU equivalent to [Ctx](marpii::context::Ctx). Makes sure that the [Ctx](marpii::context::Ctx) outlives
+///the Wgpu components.
+pub struct WgpuCtx {
+    wgpu_instance: wgpu::Instance,
+    wgpu_adapter: wgpu::Adapter,
+    wgpu_device: wgpu::Device,
+    wgpu_queue: wgpu::Queue,
+
+    //NOTE: we don't clone the allocator, since wgpu uses its own allocator.
+    //      This also makes sure, that whenever wgpu is dropped, everything is de-allocated before the
+    //      MarpII structures are dropped.
+    #[allow(dead_code)]
+    marpii_instance: Arc<marpii::context::Instance>,
+    #[allow(dead_code)]
+    marpii_device: Arc<marpii::context::Device>,
+}
+
+impl WgpuCtx {
+    pub fn new<A: Allocator + Send>(marpii_context: &Ctx<A>) -> Result<Self, MarpiiWgpuError> {
+        let wgpu_instance = wgpu_instance(&marpii_context.instance)?;
+        let graphics_queue = marpii_context
+            .device
+            .first_queue_for_attribute(true, true, false)
+            .ok_or(MarpiiWgpuError::NoGraphicQueue)?;
+
+        let (wgpu_adapter, wgpu_device, wgpu_queue) =
+            wgpu_device(&wgpu_instance, &marpii_context.device, &graphics_queue)?;
+
+        Ok(WgpuCtx {
+            wgpu_instance,
+            wgpu_adapter,
+            wgpu_device,
+            wgpu_queue,
+
+            marpii_instance: marpii_context.instance.clone(),
+            marpii_device: marpii_context.device.clone(),
+        })
+    }
+
+    pub fn adapter(&self) -> &wgpu::Adapter {
+        &self.wgpu_adapter
+    }
+    pub fn instance(&self) -> &wgpu::Instance {
+        &self.wgpu_instance
+    }
+    pub fn device(&self) -> &wgpu::Device {
+        &self.wgpu_device
+    }
+    pub fn queue(&self) -> &wgpu::Queue {
+        &self.wgpu_queue
+    }
 }

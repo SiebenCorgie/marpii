@@ -1,6 +1,6 @@
 //! Small example that injects a marpii device into a wgpu adapter.
 
-use marpii_wgpu::{instance_builder_for_wgpu, wgpu_desired_extensions, wgpu_device, wgpu_instance};
+use marpii_wgpu::{instance_builder_for_wgpu, WgpuCtx};
 
 /// This example shows how to describe the adapter in use.
 async fn run() {
@@ -9,28 +9,9 @@ async fn run() {
     let instance = instance_builder.build().unwrap();
     let marpii_context = marpii::context::Ctx::new_default_from_instance(instance, None).unwrap();
 
-    #[cfg_attr(target_arch = "wasm32", allow(unused_variables))]
-    let (adapter, device, queue) = {
-        let wgpu_instance =
-            wgpu_instance(&marpii_context.instance).expect("Failed to create wgpu instance!");
-
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            log::info!("Available adapters:");
-            for a in wgpu_instance.enumerate_adapters(wgpu::Backends::all()) {
-                log::info!("    {:?}", a.get_info())
-            }
-        }
-
-        let queue = marpii_context
-            .device
-            .first_queue_for_attribute(true, false, false)
-            .unwrap();
-        wgpu_device(&wgpu_instance, &marpii_context.device, &queue).unwrap()
-    };
-
-    log::info!("Selected adapter: {:?}", adapter.get_info());
-    log::info!("Teddy: \n{:?}", device.features())
+    let wgpu_context = WgpuCtx::new(&marpii_context).unwrap();
+    log::info!("Selected adapter: {:?}", wgpu_context.adapter().get_info());
+    log::info!("Teddy: \n{:?}", wgpu_context.device().features())
 }
 
 pub fn main() {
