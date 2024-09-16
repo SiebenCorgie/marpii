@@ -67,18 +67,21 @@ pub fn wgpu_instance(
     let desired_extensions =
         wgpu_desired_extensions(&vulkan_instance.entry, vulkan_instance.validation_enabled())?;
 
-    for ext in &desired_extensions {
-        let has_extension = vulkan_instance
-            .enabled_extensions()
-            .iter()
-            .map(|name| name.as_c_str())
-            .find(|name| name == ext);
-        //NOTE: WGPU does function without *some* of those. But to be save we want _all_.
-        if has_extension.is_none() {
-            let extname = (**ext).to_owned();
-            return Err(MarpiiWgpuError::MissingInstanceExtention(extname));
-        }
-    }
+    let enabled_extensions = desired_extensions
+        .into_iter()
+        .filter_map(|ext| {
+            let has_extension = vulkan_instance
+                .enabled_extensions()
+                .iter()
+                .map(|name| name.as_c_str())
+                .find(|name| *name == ext);
+            if has_extension.is_some() {
+                Some(ext)
+            } else {
+                None
+            }
+        })
+        .collect();
 
     let mut flags = wgpu::InstanceFlags::empty();
     if vulkan_instance.validation_enabled() {
@@ -97,7 +100,7 @@ pub fn wgpu_instance(
             None,
             //NOTE: We feed back the garbage &'static CStr, since Marpii is not designed to carry
             //      around 'static stuff.
-            desired_extensions,
+            enabled_extensions,
             flags,
             false,
             None,
@@ -119,6 +122,8 @@ pub fn wgpu_device(
 ) -> Result<(wgpu::Adapter, wgpu::Device, wgpu::Queue), MarpiiWgpuError> {
     let features = wgpu::Features::all_native_mask();
 
+    println!("All DeviceExtensios:\n{:#?}", device.enabled_extensions);
+
     let exposed_adapter = unsafe { wgpu_instance.as_hal::<wgpu::core::api::Vulkan>() }
         .expect("Expected wgpu_instance to be a vulkan instance")
         .expose_adapter(device.physical_device)
@@ -132,6 +137,8 @@ pub fn wgpu_device(
                 (*expected).to_owned(),
             ));
         }
+
+        println!("{:?} is enabled!", expected);
     }
 
     //Try to load the adapter
