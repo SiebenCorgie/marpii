@@ -224,6 +224,7 @@ impl DescriptorSet {
 impl Drop for DescriptorSet {
     fn drop(&mut self) {
         self.is_freed = true;
+        #[allow(unused_variables)]
         if let Err(e) = self.parent_pool.free(&self.inner) {
             #[cfg(feature = "logging")]
             log::error!("Failed to free descriptor set: {}", e);

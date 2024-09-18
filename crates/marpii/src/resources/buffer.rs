@@ -343,6 +343,7 @@ impl Buffer {
             range.size
         );
         unsafe {
+            #[allow(unused_variables)]
             if let Err(e) = self.device.inner.flush_mapped_memory_ranges(&[range]) {
                 #[cfg(feature = "logging")]
                 log::error!("Failed to flush memory range of mapped buffer: {}", e);

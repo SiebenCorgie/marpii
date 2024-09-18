@@ -1,3 +1,4 @@
+#[allow(unused_variables)]
 use marpii::{
     allocator::{Allocator, MemoryUsage},
     ash::vk::{

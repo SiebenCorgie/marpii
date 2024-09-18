@@ -224,3 +224,9 @@ impl WgpuCtx {
         &self.wgpu_queue
     }
 }
+
+impl Drop for WgpuCtx {
+    fn drop(&mut self) {
+        unsafe { self.marpii_device.inner.device_wait_idle() }.unwrap();
+    }
+}

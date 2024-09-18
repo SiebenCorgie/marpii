@@ -15,7 +15,7 @@ use bytemuck::{Pod, Zeroable};
     not(target_arch = "spirv"),
     derive(Clone, Copy, Hash, PartialEq, PartialOrd, Eq, Debug, Pod, Zeroable)
 )]
-#[cfg_attr(target_auch = "spirv", derive(Clone, Copy))]
+#[cfg_attr(target_arch = "spirv", derive(Clone, Copy))]
 #[repr(C)]
 pub struct ResourceHandle(u32);
 

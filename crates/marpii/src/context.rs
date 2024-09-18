@@ -27,6 +27,7 @@ use std::{
 };
 
 mod instance;
+#[allow(unused_imports)]
 use ash::vk;
 pub use instance::{GetDeviceFilter, Instance, InstanceBuilder};
 
@@ -34,18 +35,22 @@ mod device;
 pub use device::{Device, DeviceBuilder};
 
 mod queue;
+#[allow(unused_imports)]
 use oos::OoS;
 pub use queue::{Queue, QueueBuilder};
 
 mod physical_device;
 pub use physical_device::{PhyDeviceProperties, PhysicalDeviceFilter};
+#[allow(unused_imports)]
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 
 mod debugger;
 pub use debugger::Debugger;
 
+#[allow(unused_imports)]
 use crate::{allocator::Allocator, error::DeviceError, surface::Surface, MarpiiError};
 
+#[allow(unused_imports)]
 use self::instance::ValidationFeatures;
 
 ///Context related errors. Can occur either while creating the context, or when using one of the high level

@@ -146,6 +146,7 @@ impl SwapchainPresent {
             .device
             .first_queue_for_attribute(true, false, false)
             .unwrap(); //FIXME use track instead
+        #[allow(unused_variables)]
         if let Err(e) = self.swapchain.present_image(image, &queue.inner()) {
             #[cfg(feature = "logging")]
             log::error!("present failed with: {}, recreating swapchain", e);

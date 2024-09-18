@@ -699,6 +699,7 @@ impl<'t> Executor<'t> {
                         AnyResKey::Buffer(buf) => {
                             let bufstate = rmg.resources.buffer.get_mut(buf).unwrap();
                             match bufstate.ownership {
+                                #[allow(unused_variables)]
                                 QueueOwnership::Released {
                                     src_family,
                                     dst_family,
@@ -739,6 +740,7 @@ impl<'t> Executor<'t> {
                         AnyResKey::Image(img) => {
                             let imgstate = rmg.resources.images.get_mut(img).unwrap();
                             match imgstate.ownership {
+                                #[allow(unused_variables)]
                                 QueueOwnership::Released {
                                     src_family,
                                     dst_family,

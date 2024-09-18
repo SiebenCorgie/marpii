@@ -8,7 +8,8 @@ pub use marpii_rmg_shared::ResourceHandle;
 use bytemuck::{Pod, Zeroable};
 
 ///EGui push constants for a draw command
-#[derive(Clone, Copy, Pod, Zeroable)]
+#[cfg_attr(not(target_arch = "spirv"), derive(Clone, Copy, Debug, Pod, Zeroable))]
+#[cfg_attr(target_arch = "spirv", derive(Clone, Copy))]
 #[repr(C, align(16))]
 pub struct EGuiPush {
     pub texture: ResourceHandle,
@@ -20,7 +21,8 @@ pub struct EGuiPush {
 }
 
 ///Used for for alpha based blending effect
-#[derive(Clone, Copy, Pod, Zeroable)]
+#[cfg_attr(not(target_arch = "spirv"), derive(Clone, Copy, Debug, Pod, Zeroable))]
+#[cfg_attr(target_arch = "spirv", derive(Clone, Copy))]
 #[repr(C, align(16))]
 pub struct AlphaBlendPush {
     pub add: ResourceHandle,
@@ -33,7 +35,8 @@ pub struct AlphaBlendPush {
 }
 
 ///Used for for alpha based blending effect
-#[derive(Clone, Copy, Pod, Zeroable)]
+#[cfg_attr(not(target_arch = "spirv"), derive(Clone, Copy, Debug, Pod, Zeroable))]
+#[cfg_attr(target_arch = "spirv", derive(Clone, Copy))]
 #[repr(C, align(16))]
 pub struct DownsamplePush {
     pub img: ResourceHandle,

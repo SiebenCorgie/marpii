@@ -48,11 +48,13 @@ impl UploadImage {
         )
         .map_err(|e| MarpiiError::from(e))?;
 
-        staging.flush_range().map_err(|e| {
-            #[cfg(feature = "logging")]
-            log::error!("Flushing upload image failed: {}", e);
-            MarpiiError::from(BufferMapError::FailedToFlush)
-        })?;
+        staging
+            .flush_range()
+            .map_err(|#[allow(unused_variables)] e| {
+                #[cfg(feature = "logging")]
+                log::error!("Flushing upload image failed: {}", e);
+                MarpiiError::from(BufferMapError::FailedToFlush)
+            })?;
         let staging = rmg
             .import_buffer(Arc::new(staging), None, None)
             .map_err(|e| RmgError::from(e))?;

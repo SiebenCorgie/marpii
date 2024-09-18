@@ -91,6 +91,7 @@ impl<A: Allocator + Send + Sync + 'static> Drop for ManagedAllocation<A> {
     fn drop(&mut self) {
         //free self
         if let (Ok(lck), Some(allocation)) = (&mut self.allocator.lock(), self.allocation.take()) {
+            #[allow(unused_variables)]
             if let Err(e) = lck.free(allocation) {
                 //NOTE: failed free happens "silently" as in, we don't panic. Should be fine
                 //      since the allocator "knows" something is wrong and wont use the allocation anymore.

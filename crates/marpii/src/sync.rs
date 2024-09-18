@@ -227,6 +227,7 @@ impl<T> Drop for GuardSemaphore<T> {
             log::warn!("Dropping Guard with unfulfilled target, blocking in drop implementation!");
 
             //wait
+            #[allow(unused_variables)]
             if let Err(e) = self.sem.wait(self.target, u64::MAX) {
                 #[cfg(feature = "logging")]
                 log::error!("Failed to wait for GuardSemaphore: {}", e);

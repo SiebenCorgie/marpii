@@ -1,3 +1,4 @@
+#[allow(unused_imports)]
 use marpii::{
     allocator::{Allocator, MemoryUsage},
     ash::vk::{self, BufferImageCopy},

@@ -364,7 +364,7 @@ impl Resources {
     //TODO: Currently we use the rendering frame to do all the cleanup. In a perfect world we'd use
     //      another thread for that to not stall the recording process
     pub(crate) fn tick_record(&mut self, tracks: &Tracks) {
-        self.images.retain(|key, img| {
+        self.images.retain(|#[allow(unused_variables)] key, img| {
             if img.is_orphaned() && img.guard.map_or(true, |g| g.expired(tracks)) {
                 #[cfg(feature = "logging")]
                 log::info!("Dropping {:?}", key);
@@ -394,33 +394,35 @@ impl Resources {
             }
         });
 
-        self.buffer.retain(|key, buffer| {
-            if buffer.is_orphaned() && buffer.guard.map_or(true, |g| g.expired(tracks)) {
-                #[cfg(feature = "logging")]
-                log::info!("Dropping {:?}", key);
+        self.buffer
+            .retain(|#[allow(unused_variables)] key, buffer| {
+                if buffer.is_orphaned() && buffer.guard.map_or(true, |g| g.expired(tracks)) {
+                    #[cfg(feature = "logging")]
+                    log::info!("Dropping {:?}", key);
 
-                if let Some(hdl) = buffer.descriptor_handle {
-                    self.bindless.remove_storage_buffer(hdl);
+                    if let Some(hdl) = buffer.descriptor_handle {
+                        self.bindless.remove_storage_buffer(hdl);
+                    }
+                    false
+                } else {
+                    true
                 }
-                false
-            } else {
-                true
-            }
-        });
+            });
 
-        self.sampler.retain(|key, sampler| {
-            if sampler.is_orphaned() {
-                #[cfg(feature = "logging")]
-                log::info!("Dropping {:?}", key);
+        self.sampler
+            .retain(|#[allow(unused_variables)] key, sampler| {
+                if sampler.is_orphaned() {
+                    #[cfg(feature = "logging")]
+                    log::info!("Dropping {:?}", key);
 
-                if let Some(hdl) = sampler.descriptor_handle {
-                    self.bindless.remove_sampler(hdl);
+                    if let Some(hdl) = sampler.descriptor_handle {
+                        self.bindless.remove_sampler(hdl);
+                    }
+                    false
+                } else {
+                    true
                 }
-                false
-            } else {
-                true
-            }
-        });
+            });
     }
 
     pub fn get_image_desc(&self, hdl: &ImageHandle) -> &ImgDesc {

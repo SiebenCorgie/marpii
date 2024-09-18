@@ -273,6 +273,7 @@ impl Drop for ManagedCommands {
             #[cfg(feature = "logging")]
             log::trace!("Waiting for fence");
 
+            #[allow(unused_variables)]
             if let Err(e) = self.exec_semaphore.wait(self.next_finish, u64::MAX) {
                 #[cfg(feature = "logging")]
                 log::error!("Failed waiting for fence on ManagedBuffer drop: {}", e);
@@ -370,6 +371,8 @@ impl<'a> Drop for Recorder<'a> {
             log::error!(
                 "Finish recording on drop. This is most likely UB on command buffer recording!"
             );
+
+            #[allow(unused_variables)]
             if let Err(e) = unsafe {
                 self.buffer
                     .inner

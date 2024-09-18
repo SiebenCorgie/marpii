@@ -35,11 +35,13 @@ impl<T: marpii::bytemuck::Pod> UploadBuffer<T> {
         )
         .map_err(|e| MarpiiError::from(e))?;
 
-        staging.flush_range().map_err(|e| {
-            #[cfg(feature = "logging")]
-            log::error!("Flushing upload buffer failed: {}", e);
-            MarpiiError::from(BufferMapError::FailedToFlush)
-        })?;
+        staging
+            .flush_range()
+            .map_err(|#[allow(unused_variables)] e| {
+                #[cfg(feature = "logging")]
+                log::error!("Flushing upload buffer failed: {}", e);
+                MarpiiError::from(BufferMapError::FailedToFlush)
+            })?;
 
         if !desc.usage.contains(vk::BufferUsageFlags::TRANSFER_DST) {
             #[cfg(feature = "logging")]

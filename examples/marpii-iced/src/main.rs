@@ -6,8 +6,6 @@
 
 mod ctrl;
 
-use std::error::Error;
-
 use iced_wgpu::graphics::Viewport;
 use iced_wgpu::{wgpu, Engine, Renderer};
 use iced_winit::conversion;
@@ -76,6 +74,7 @@ enum Runner {
     Loading,
     Ready {
         window: Arc<winit::window::Window>,
+        #[allow(dead_code)]
         marpii_ctx: Ctx<Allocator>,
         wgpu_ctx: WgpuCtx,
         surface: wgpu::Surface<'static>,
@@ -134,8 +133,6 @@ impl winit::application::ApplicationHandler for Runner {
                 )
                 .await
                 .expect("Create adapter");
-
-                let adapter_features = wgpu_ctx.adapter().features();
 
                 let capabilities = surface.get_capabilities(&adapter);
 
@@ -214,7 +211,7 @@ impl winit::application::ApplicationHandler for Runner {
     ) {
         let Self::Ready {
             window,
-            marpii_ctx,
+            marpii_ctx: _,
             wgpu_ctx,
             surface,
             format,
@@ -274,7 +271,7 @@ impl winit::application::ApplicationHandler for Runner {
                         //clear frame
                         {
                             // We clear the frame
-                            let mut render_pass =
+                            let _render_pass =
                                 clear(&view, &mut encoder, program.background_color());
 
                             // Draw the scene
