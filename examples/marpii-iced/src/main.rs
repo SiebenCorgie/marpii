@@ -105,7 +105,7 @@ impl winit::application::ApplicationHandler for Runner {
                 Size::new(physical_size.width, physical_size.height),
                 window.scale_factor(),
             );
-            let clipboard = Clipboard::connect(&window);
+            let clipboard = Clipboard::connect(window.clone());
 
             let (marpii_ctx, _) = marpii::context::Ctx::custom_context(Some(&window), true, |db| {
                 db.with_extensions(marpii::ash::khr::buffer_device_address::NAME)

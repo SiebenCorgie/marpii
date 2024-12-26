@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 thiserror.workspace = true
 marpii = { path = "../marpii" }
-wgpu = "22.1"
+wgpu = "23"
 
 
 [dev-dependencies]

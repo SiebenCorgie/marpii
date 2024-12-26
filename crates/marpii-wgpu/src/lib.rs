@@ -145,8 +145,7 @@ pub fn wgpu_device(
     let wgpu_vulkan_device = unsafe {
         exposed_adapter.adapter.device_from_raw(
             device.inner.clone(),
-            //TODO: what is handle-owned?
-            false,
+            None,
             &expected_features,
             features,
             &wgpu::MemoryHints::Performance,

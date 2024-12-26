@@ -6,16 +6,16 @@ edition = "2021"
 [dependencies]
 
 #iced = { version = "0.12", features = ["canvas", "tokio", "debug"] }
-iced = { git = "https://github.com/iced-rs/iced.git", branch = "wgpu-22.0", features = [
+iced = { git = "https://github.com/iced-rs/iced.git", rev = "f2c9b6b2ffc50d67d9789e77cb55eeb2a0ebe470", features = [
     "canvas",
     "tokio",
     "debug",
 ] }
 #iced_wgpu = "0.12"
-iced_wgpu = { git = "https://github.com/iced-rs/iced.git", branch = "wgpu-22.0" }
+iced_wgpu = { git = "https://github.com/iced-rs/iced.git", rev = "f2c9b6b2ffc50d67d9789e77cb55eeb2a0ebe470" }
 #iced_winit = "0.12"
-iced_winit = { git = "https://github.com/iced-rs/iced.git", branch = "wgpu-22.0" }
-iced_widget = { git = "https://github.com/iced-rs/iced.git", branch = "wgpu-22.0" }
+iced_winit = { git = "https://github.com/iced-rs/iced.git", rev = "f2c9b6b2ffc50d67d9789e77cb55eeb2a0ebe470" }
+iced_widget = { git = "https://github.com/iced-rs/iced.git", rev = "f2c9b6b2ffc50d67d9789e77cb55eeb2a0ebe470" }
 marpii = { path = "../../crates/marpii", features = ["logging"] }
 marpii-wgpu = { path = "../../crates/marpii-wgpu" }
 winit.workspace = true
