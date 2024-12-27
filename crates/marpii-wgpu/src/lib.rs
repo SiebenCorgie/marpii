@@ -1,5 +1,7 @@
 //! Implementation of helper functions that let you facilitate a WGPU context from a MarpII context.
 
+///Convention utilities used to exchange Wgpu and Vulkan (Ash) data.
+pub mod conv;
 use std::{
     ffi::{CStr, CString},
     sync::Arc,
@@ -7,10 +9,12 @@ use std::{
 
 use marpii::{
     allocator::Allocator,
+    ash::vk::{self, ImageCreateFlags, SampleCountFlags},
     context::{Ctx, InstanceBuilder},
+    resources::ImgDesc,
 };
 use thiserror::Error;
-use wgpu::RequestDeviceError;
+use wgpu::{RequestDeviceError, TextureDimension};
 
 #[derive(Error, Debug)]
 pub enum MarpiiWgpuError {
@@ -30,6 +34,16 @@ pub enum MarpiiWgpuError {
     WgpuDeviceError(#[from] wgpu::hal::DeviceError),
     #[error("Vulkan context had no graphics and compute capable queue")]
     NoGraphicQueue,
+    #[error("Can not convert {0:?} to valid wgpu-hal texture")]
+    UnsupportedHalTexture(marpii::resources::ImageType),
+    #[error("Could not map Vulkan format {0:?} to Wgpu TextureFormat")]
+    VkFormatError(marpii::ash::vk::Format),
+    #[error("Could not map Vulkan image usage flag {0:?} to Wgpu TextureUsages")]
+    VkImgUsageError(marpii::ash::vk::ImageUsageFlags),
+    #[error("Could not map WGPU TextureUsage {0:?} to vulkan ImageUsageFlags")]
+    WgpuImageUsage(wgpu::TextureUsages),
+    #[error("Sample count {0} not supported by Vulkan")]
+    UnsupportedSampleCount(u32),
 }
 
 ///Configures the `builder` to support a WGPU instance
@@ -186,6 +200,7 @@ pub struct WgpuCtx {
     marpii_instance: Arc<marpii::context::Instance>,
     #[allow(dead_code)]
     marpii_device: Arc<marpii::context::Device>,
+    queue_family_index: u32,
 }
 
 impl WgpuCtx {
@@ -195,7 +210,7 @@ impl WgpuCtx {
             .device
             .first_queue_for_attribute(true, true, false)
             .ok_or(MarpiiWgpuError::NoGraphicQueue)?;
-
+        let queue_family_index = graphics_queue.family_index;
         let (wgpu_adapter, wgpu_device, wgpu_queue) =
             wgpu_device(&wgpu_instance, &marpii_context.device, &graphics_queue)?;
 
@@ -207,6 +222,7 @@ impl WgpuCtx {
 
             marpii_instance: marpii_context.instance.clone(),
             marpii_device: marpii_context.device.clone(),
+            queue_family_index,
         })
     }
 
@@ -222,6 +238,101 @@ impl WgpuCtx {
     pub fn queue(&self) -> &wgpu::Queue {
         &self.wgpu_queue
     }
+
+    pub fn vulkan_queue_family_index(&self) -> u32 {
+        self.queue_family_index
+    }
+
+    ///tries to convert the `texture` to an marpii image.
+    ///
+    /// # Safety
+    /// Image should not be dropped, and livetime must be ensured by the caller. `texture` must life at least as long as the resulting image is in use
+    pub unsafe fn texture_as_vk_image(
+        &self,
+        texture: &wgpu::Texture,
+    ) -> Result<marpii::resources::Image, MarpiiWgpuError> {
+        texture.as_hal::<wgpu::hal::vulkan::Api, _, _>(|tex| {
+            if let Some(tex) = tex {
+                let image = marpii::resources::Image {
+                    desc: ImgDesc {
+                        img_type: match texture.dimension() {
+                            TextureDimension::D1 => marpii::resources::ImageType::Tex1d,
+                            TextureDimension::D2 => marpii::resources::ImageType::Tex2d,
+                            TextureDimension::D3 => marpii::resources::ImageType::Tex3d,
+                        },
+                        format: conv::map_wgpu_to_vk_texture_format(texture.format()),
+                        extent: marpii::ash::vk::Extent3D {
+                            width: texture.width(),
+                            height: texture.height(),
+                            depth: texture.depth_or_array_layers(),
+                        },
+                        mip_levels: texture.mip_level_count(),
+                        samples: match texture.sample_count() {
+                            1 => SampleCountFlags::TYPE_1,
+                            2 => SampleCountFlags::TYPE_2,
+                            4 => SampleCountFlags::TYPE_4,
+                            8 => SampleCountFlags::TYPE_8,
+                            16 => SampleCountFlags::TYPE_16,
+                            _ => {
+                                return Err(MarpiiWgpuError::UnsupportedSampleCount(
+                                    texture.sample_count(),
+                                ))
+                            }
+                        },
+                        //TODO: is that right?
+                        tiling: vk::ImageTiling::OPTIMAL,
+                        usage: conv::map_wgpu_to_vk_image_usage(texture.usage()),
+                        sharing_mode: marpii::resources::SharingMode::Exclusive,
+                        create_flags: ImageCreateFlags::empty(),
+                    },
+                    inner: tex.raw_handle(),
+                    allocation: Box::new(unsafe { marpii::allocator::UnmanagedAllocation::new() }),
+                    usage: marpii::allocator::MemoryUsage::Unknown,
+                    device: self.marpii_device.clone(),
+                    //do not destroy, since it is handeled by wgpu
+                    do_not_destroy: true,
+                };
+                Ok(image)
+            } else {
+                Err(MarpiiWgpuError::AdapterNotVulkan)
+            }
+        })
+    }
+    /*
+    pub fn texture_as_hal(
+        &self,
+        texture: marpii::resources::Image,
+    ) -> Result<wgpu::Texture, MarpiiWgpuError> {
+        let desc = wgpu::TextureDescriptor {
+            label: None,
+            size: wgpu::Extent3d {
+                width: texture.extent_3d().width,
+                height: texture.extent_3d().height,
+                depth_or_array_layers: texture.extent_3d().depth,
+            },
+            mip_level_count: texture.desc.mip_levels,
+            sample_count: texture.desc.samples.as_raw(),
+            dimension: match texture.desc.img_type {
+                marpii::resources::ImageType::Tex1d => wgpu::TextureDimension::D1,
+                marpii::resources::ImageType::Tex2d => wgpu::TextureDimension::D2,
+                marpii::resources::ImageType::Tex3d => wgpu::TextureDimension::D3,
+                marpii::resources::ImageType::Cube => wgpu::TextureDimension::D3,
+                other => return Err(MarpiiWgpuError::UnsupportedHalTexture(other)),
+            },
+            format: conv::map_vk_to_wgpu_texture_format(texture.desc.format)
+                .ok_or(MarpiiWgpuError::VkFormatError(texture.desc.format))?,
+            usage: conv::map_vk_to_wgpu_texture_usage(texture.desc.usage)
+                .ok_or(MarpiiWgpuError::VkImgUsageError(texture.desc.usage))?,
+            view_formats: &[],
+        };
+        let handle = unsafe {
+            self.device()
+                .create_texture_from_hal::<wgpu::hal::vulkan::Api>(texture.inner, &desc)
+        };
+
+        Ok(handle)
+    }
+    */
 }
 
 impl Drop for WgpuCtx {

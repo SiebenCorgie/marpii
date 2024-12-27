@@ -1,6 +1,6 @@
 use std::{fmt::Display, marker::PhantomData};
 
-use super::Allocation;
+use super::{Allocation, AnonymAllocation};
 
 ///Allocator implementation that does nothing. Any attempt at `allocate` will fail,
 /// any attempt to `free` will do nothing. Is used for instance for a swapchain image, since the swapchain handles allocation itself.
@@ -18,6 +18,34 @@ impl Display for UnamanagedAllocationError {
     }
 }
 impl std::error::Error for UnamanagedAllocationError {}
+
+impl UnmanagedAllocation {
+    ///Dummy allocation, that is not backed by any known allocator. Can be used when working with foreign
+    ///allocation.
+    pub unsafe fn new() -> Self {
+        UnmanagedAllocation {
+            hidden: PhantomData,
+        }
+    }
+}
+
+impl AnonymAllocation for UnmanagedAllocation {
+    fn mapped_ptr(&self) -> Option<std::ptr::NonNull<std::ffi::c_void>> {
+        None
+    }
+    fn as_slice_mut(&mut self) -> Option<&mut [u8]> {
+        None
+    }
+    fn as_slice_ref(&self) -> Option<&[u8]> {
+        None
+    }
+    fn as_memory_range(&self) -> Option<ash::vk::MappedMemoryRange> {
+        None
+    }
+    fn memory_properties(&self) -> Option<ash::vk::MemoryPropertyFlags> {
+        Some(Allocation::memory_properties(self))
+    }
+}
 
 //Those function cannot be called, since the struct cannot be created.
 impl Allocation for UnmanagedAllocation {
