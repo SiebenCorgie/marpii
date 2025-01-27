@@ -194,6 +194,10 @@ struct EGuiRenderer {
     #[allow(dead_code)]
     nearest_sampler: SamplerHandle,
 
+    pipeline_layout: OoS<PipelineLayout>,
+    vertex_shader_stage: ShaderStage,
+    fragment_shader_stage: ShaderStage,
+
     commands: Vec<EGuiPrimDraw>,
 
     px_per_point: f32,
@@ -424,9 +428,9 @@ impl EGuiTask {
                 //     Since we are in an *engine* context mostly we don't do linear->srgb
                 //     Since that will be handled by the engine mostly.
                 &[
+                    vk::Format::R16G16B16A16_SFLOAT,
                     vk::Format::R8G8B8A8_UNORM,
                     vk::Format::B8G8R8A8_UNORM,
-                    vk::Format::R16G16B16A16_SFLOAT,
                     vk::Format::R32G32B32A32_SFLOAT,
                 ],
             )
@@ -463,13 +467,13 @@ impl EGuiTask {
                 let mut shader_module =
                     OoS::new(ShaderModule::new_from_bytes(&rmg.ctx.device, crate::SHADER_RUST).unwrap());
         */
-        let vertex_shader_stage = ShaderStage::from_module(
+        let mut vertex_shader_stage = ShaderStage::from_module(
             shader_module_vert,
             vk::ShaderStageFlags::VERTEX,
             "main".to_owned(),
         );
 
-        let fragment_shader_stage = ShaderStage::from_module(
+        let mut fragment_shader_stage = ShaderStage::from_module(
             shader_module_frag,
             vk::ShaderStageFlags::FRAGMENT,
             "main".to_owned(),
@@ -486,12 +490,15 @@ impl EGuiTask {
             },
             vk::ShaderStageFlags::ALL,
         );
-
+        let mut pipeline_layout = OoS::new_shared(layout);
         let pipeline = Arc::new(
             Self::pipeline(
                 &rmg.ctx.device,
-                OoS::new_shared(layout),
-                &[vertex_shader_stage, fragment_shader_stage],
+                pipeline_layout.share(),
+                &[
+                    vertex_shader_stage.duplicate(),
+                    fragment_shader_stage.duplicate(),
+                ],
                 &[target_format],
             )
             .unwrap(),
@@ -548,6 +555,10 @@ impl EGuiTask {
 
                 linear_sampler,
                 nearest_sampler,
+
+                pipeline_layout,
+                vertex_shader_stage,
+                fragment_shader_stage,
 
                 is_overwritten: false,
                 px_per_point: 1.0,
@@ -968,7 +979,7 @@ impl EGuiTask {
     ///
     /// This will set the resolution as well. Note that the image must have the color attachment bit set and must support the
     /// COLOR_ATTACHMENT_OPTIMAL bit.
-    pub fn set_source_image(&mut self, image: ImageHandle) {
+    pub fn set_source_image(&mut self, rmg: &mut Rmg, image: ImageHandle) {
         assert!(
             image
                 .usage_flags()
@@ -976,7 +987,25 @@ impl EGuiTask {
             "Set image needs to have color attachment flags set"
         );
         self.renderer.is_overwritten = true;
+        let new_target_format = image.format().clone();
+        let format_differs = *self.renderer.target_image.format() != new_target_format;
         self.renderer.target_image = image;
+
+        //recreate pipeline, if the format differs
+        if format_differs {
+            self.renderer.pipeline = Arc::new(
+                Self::pipeline(
+                    &rmg.ctx.device,
+                    self.renderer.pipeline_layout.share(),
+                    &[
+                        self.renderer.vertex_shader_stage.duplicate(),
+                        self.renderer.fragment_shader_stage.duplicate(),
+                    ],
+                    &[new_target_format],
+                )
+                .unwrap(),
+            );
+        }
     }
 }
 

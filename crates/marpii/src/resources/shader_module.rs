@@ -169,6 +169,15 @@ impl ShaderStage {
 
         builder
     }
+
+    ///Duplicates the shader stage, reusing the inner [ShaderModule].
+    pub fn duplicate(&mut self) -> Self {
+        ShaderStage {
+            module: self.module.share(),
+            stage: self.stage.clone(),
+            entry_name: self.entry_name.clone(),
+        }
+    }
 }
 
 #[cfg(test)]
