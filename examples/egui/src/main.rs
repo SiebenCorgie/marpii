@@ -13,7 +13,7 @@ use winit::event::Event;
 
 fn main() -> Result<(), anyhow::Error> {
     simple_logger::SimpleLogger::new()
-        .with_level(log::LevelFilter::Trace)
+        .with_level(log::LevelFilter::Warn)
         .init()
         .unwrap();
 

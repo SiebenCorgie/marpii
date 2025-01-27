@@ -10,7 +10,7 @@ use crate::egui::{ClippedPrimitive, TextureId, TexturesDelta};
 use crate::{DynamicBuffer, DynamicImage, RmgTaskError};
 use ahash::AHashMap;
 use egui::{Color32, Pos2, ViewportId};
-use egui_winit::winit::event_loop::EventLoop;
+use egui_winit::winit::raw_window_handle::HasDisplayHandle;
 use egui_winit::winit::window::Window;
 use marpii::ash::vk::{ImageUsageFlags, Rect2D};
 use marpii::resources::SharingMode;
@@ -67,7 +67,7 @@ pub struct EGuiWinitIntegration {
 }
 
 impl EGuiWinitIntegration {
-    pub fn new<T>(rmg: &mut Rmg, event_loop: &EventLoop<T>) -> Result<Self, RmgTaskError> {
+    pub fn new(rmg: &mut Rmg, event_loop: &dyn HasDisplayHandle) -> Result<Self, RmgTaskError> {
         #[cfg(feature = "logging")]
         log::trace!("Setting up egui context");
         let egui_context: egui::Context = Default::default();
@@ -136,7 +136,7 @@ impl EGuiWinitIntegration {
         &mut self,
         rmg: &mut Rmg,
         window: &Window,
-        run_ui: impl FnOnce(&egui_winit::egui::Context),
+        run_ui: impl FnMut(&egui::Context),
     ) -> Result<(), RmgTaskError> {
         let mut raw_input = self.winit_state.take_egui_input(window);
         raw_input.time = Some(self.start.elapsed().as_secs_f64());
