@@ -34,19 +34,13 @@ Examples can be found in the `examples` directory, marpii is also documented. A 
 Apart from the main crate that is closely related to Vulkan multiple helper crates exist that should make working with vulkan easier. Have a look at their READMEs for a description on what they do and how experimental they are.
 
 - marpii-commands: CommandBuffer helper that captures resources that are needed for the execution of the command buffer.
-- marpii-rmg: Frame-graph helper. Allows defining multiple sub `Task`s for a frame. Takes care of resources (Buffers/Images), layout and access transitions, pipeline barriers, inter-queue synchronisation etc. You basically only have to register which resources are used for a task, and how the draw/dispatch is done. 
+- marpii-rmg: Frame-graph helper. Allows defining multiple sub `Task`s for a frame. Takes care of resources (Buffers/Images), layout and access transitions, pipeline barriers, inter-queue synchronisation etc. You basically only have to register which resources are used for a task, and how the draw/dispatch is done.
 - marpii-rmg-shared: `no_std` crate that defines the resource handles used by RMG's bindless setup. Can be used in rust-gpu based shaders for convenient access. There is also a `shared.glsl` file for compatiblity with GLSL based shaders and RMG.
 - marpii-descriptor: Multiple `DescriptorSet` helpers. Similar to the command-buffer helper resources are captured to keep the descriptor sets valid. Also handles descriptor allocation and freeing for you.
 
 ### Examples
 
 Examples are executed via `cargo run --bin example_name`. Have a look at `examples/` for available applications.
-
-
-## Crates structure
-
-![crate structure](resources/MarpIIStructure.svg)
-
 
 ## Dependencies
 A list of dependencies used in the crates of this project. Have a look at the `Cargo.toml` of each crate for further information about features and versions.
@@ -57,7 +51,7 @@ A list of dependencies used in the crates of this project. Have a look at the `C
 - ash-window: convenient abstraction over window handles. Allows for a generic implementation of `Surface` without having to handle multiple window crates.
 - raw-window-handle: used to be able to expose the window handle needed for `Surface`
 - anyhow: convenient error handling. Otherwise we'd have either one really big error ENum, or multiple small ones. Either way, there are a lot of different error states that are not really recoverable. So a simple string like error is enough in most cases.
-- const-cstr: Allows defining constant CStrings. They are used for default messages in the debug callback. 
+- const-cstr: Allows defining constant CStrings. They are used for default messages in the debug callback.
 - small-vec: Whenever only small collections are needed this allows us to uses arrays in the general case and Vecs if those are not big enough.
 - ahash: in the cases where we need a hash map/set ahash is used for speed.
 - gpu-allocator: standard Vulkan memory allocator
@@ -74,8 +68,6 @@ A list of dependencies used in the crates of this project. Have a look at the `C
 - slotmap: Fast and safe Vec-like mapping from handles to internal resource
 - log: logging if enabled
 - winit: swapchain handling
-- crossbeam-channel: async resource collector (not yet implemented)
-- poll-promise: async resource collector (not yet implemented)
 
 ### MarpII-Commands
 - marpii: marpii binding
