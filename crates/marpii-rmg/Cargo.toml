@@ -1,6 +1,6 @@
 [package]
 name = "marpii-rmg"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -20,9 +20,12 @@ ray-tracing = []
 #that returns 64bit nano-second durations for each task.
 timestamps = []
 
+#If enabled, allow you to render dot/svg graphs for a schedule, which makes debugging easier
+dot = ["graphviz-rust"]
+
 [dependencies]
 thiserror.workspace = true
-slotmap = "1.0"
+slotmap.workspace = true
 ahash.workspace = true
 tinyvec.workspace = true
 marpii = { path = "../../crates/marpii" }
@@ -32,13 +35,8 @@ marpii-rmg-shared = { path = "../../crates/marpii-rmg-shared", features = [
     "std",
 ] }
 winit.workspace = true
-
 log = { workspace = true, optional = true }
-
-#for the garbage collector
-crossbeam-channel = "0.5.6"
-#to spawn garbage collection
-poll-promise = "0.3"
+graphviz-rust = { workspace = true, optional = true }
 
 [dev-dependencies]
 static_assertions = { version = "1.1.0" }

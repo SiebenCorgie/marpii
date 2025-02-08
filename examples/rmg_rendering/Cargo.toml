@@ -9,13 +9,13 @@ edition = "2021"
 simple_logger.workspace = true
 anyhow.workspace = true
 
-marpii = {path = "../../crates/marpii", features=["logging"]}
-marpii-rmg = {path = "../../crates/marpii-rmg", features = ["timestamps"]}
-marpii-rmg-tasks = {path = "../../crates/marpii-rmg-tasks/marpii-rmg-tasks"}
-marpii-descriptor = {path = "../../crates/marpii-descriptor"}
+marpii = { path = "../../crates/marpii", features = ["logging"] }
+marpii-rmg = { path = "../../crates/marpii-rmg", features = ["timestamps"] }
+marpii-rmg-tasks = { path = "../../crates/marpii-rmg-tasks/marpii-rmg-tasks" }
+marpii-descriptor = { path = "../../crates/marpii-descriptor" }
 winit.workspace = true
 log = "*"
-image = "0.24.3"
+image.workspace = true
 glam = "0.24"
 easy-gltf = "1.0.0"
-shared = {path = "../shared"}
+shared = { path = "../shared" }

@@ -1,4 +1,3 @@
-use crossbeam_channel::{Receiver, Sender};
 use marpii::{
     ash::vk,
     context::Device,
@@ -76,16 +75,12 @@ pub struct Resources {
     pub(crate) images: SlotMap<ImageKey, ResImage>,
     pub(crate) buffer: SlotMap<BufferKey, ResBuffer>,
     pub(crate) sampler: SlotMap<SamplerKey, ResSampler>,
-    ///Channel used by the handles to signal their drop.
-    #[allow(dead_code)]
-    pub(crate) handle_drop_channel: (Sender<AnyResKey>, Receiver<AnyResKey>),
 }
 
 impl Resources {
     pub fn new(device: &Arc<Device>) -> Result<Self, ResourceError> {
         let bindless = Bindless::new_default(device)?;
         let bindless_layout = Arc::new(bindless.new_pipeline_layout(&[]));
-        let handle_drop_channel = crossbeam_channel::unbounded();
 
         Ok(Resources {
             bindless,
@@ -93,7 +88,6 @@ impl Resources {
             buffer: SlotMap::with_key(),
             images: SlotMap::with_key(),
             sampler: SlotMap::with_key(),
-            handle_drop_channel,
         })
     }
 
