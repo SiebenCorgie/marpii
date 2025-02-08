@@ -20,6 +20,8 @@ ray-tracing = []
 #that returns 64bit nano-second durations for each task.
 timestamps = []
 
+dot = ["graphviz-rust"]
+
 [dependencies]
 thiserror.workspace = true
 slotmap = "1.0"
@@ -39,6 +41,8 @@ log = { workspace = true, optional = true }
 crossbeam-channel = "0.5.6"
 #to spawn garbage collection
 poll-promise = "0.3"
+
+graphviz-rust = { workspace = true, optional = true }
 
 [dev-dependencies]
 static_assertions = { version = "1.1.0" }

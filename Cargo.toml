@@ -37,4 +37,5 @@ simple_logger = "5"
 oos = { git = "https://gitlab.com/tendsinmende/oos.git" }
 winit = "0.30"
 puffin = "0.19"
-rspirv-reflect = "0.8.0"
+rspirv-reflect = "0.9.0"
+graphviz-rust = "0.9.3"
