@@ -121,4 +121,19 @@ impl<'rmg> Recorder<'rmg> {
 
         Ok(())
     }
+
+    #[cfg(feature = "dot")]
+
+    ///Schedules everything for execution
+    pub fn execute_render_schedule(self, prefix: &str) -> Result<(), RecordError> {
+        let schedule = TaskSchedule::new_from_tasks(self.rmg, self.records)?;
+        schedule.render_svg(&format!("{prefix}_schedule.svg"));
+        let executions = Executor::execute(self.rmg, schedule)?;
+        for ex in executions {
+            let track = self.rmg.tracks.0.get_mut(&ex.guard.into()).unwrap();
+            track.inflight_executions.push(ex);
+        }
+
+        Ok(())
+    }
 }

@@ -122,6 +122,7 @@ impl<'t> TrackSchedule<'t> {
         self.find_frame(idx).is_some()
     }
 
+    ///Tries to find a frame, that contains the `task_node_idx`.
     fn find_frame(&self, task_node_idx: usize) -> Option<&TrackFrame> {
         self.frames
             .iter()
@@ -394,5 +395,116 @@ impl<'t> Display for TaskSchedule<'t> {
         }
 
         writeln!(f)
+    }
+}
+
+#[cfg(feature = "dot")]
+impl<'t> TaskSchedule<'t> {
+    fn generate_node_id(track: TrackId, node_idx: usize) -> graphviz_rust::dot_structures::NodeId {
+        graphviz_rust::dot_structures::NodeId(
+            graphviz_rust::dot_structures::Id::Plain(format!("\"{:?}{}\"", track.0, node_idx)),
+            None,
+        )
+    }
+    fn track_to_color(track: TrackId) -> graphviz_rust::attributes::color_name {
+        if track.0.contains(marpii::ash::vk::QueueFlags::GRAPHICS) {
+            graphviz_rust::attributes::color_name::blue
+        } else {
+            if track.0.contains(marpii::ash::vk::QueueFlags::COMPUTE) {
+                graphviz_rust::attributes::color_name::red
+            } else {
+                graphviz_rust::attributes::color_name::green
+            }
+        }
+    }
+
+    fn dep_id(dep: DepPart) -> graphviz_rust::dot_structures::NodeId {
+        match dep {
+            DepPart::Import => graphviz_rust::dot_structures::NodeId(
+                graphviz_rust::dot_structures::Id::Plain("import".to_owned()),
+                None,
+            ),
+            DepPart::Scheduled { track, node_idx } => Self::generate_node_id(track, node_idx),
+        }
+    }
+
+    ///Generates the Dot graph for the current schedule
+    pub fn into_dot(&self) -> graphviz_rust::dot_structures::Graph {
+        use graphviz_rust::{attributes::*, dot_structures::*};
+
+        let mut g = Graph::Graph {
+            id: Id::Plain(format!("TaskSchedule")),
+            strict: true,
+            stmts: Vec::new(),
+        };
+
+        //pre-generate the _import_ node
+        let node_id = Self::dep_id(DepPart::Import);
+        let import_node = Node::new(
+            node_id,
+            vec![
+                NodeAttributes::label("\"Import\"".to_owned()),
+                NodeAttributes::shape(shape::oval),
+            ],
+        );
+        g.add_stmt(Stmt::Node(import_node));
+
+        for (tid, track_schedule) in self.tracks.iter() {
+            for frame in track_schedule.frames.iter() {
+                for node_index in frame.iter_indices() {
+                    let node = &track_schedule.nodes[node_index].task;
+
+                    //generate the GVNode.
+                    let nodeid = Self::generate_node_id(*tid, node_index);
+                    let node_color = Self::track_to_color(*tid);
+                    let node_name = format!("\"{}\"", node.task.name().to_owned());
+                    let gvnode = Node::new(
+                        nodeid.clone(),
+                        vec![
+                            NodeAttributes::label(node_name),
+                            NodeAttributes::shape(shape::rectangle),
+                            NodeAttributes::color(node_color),
+                        ],
+                    );
+                    g.add_stmt(Stmt::Node(gvnode));
+                    //Now hook-up all dependencies
+                    for dep in track_schedule.nodes[node_index].dependencies.iter() {
+                        let depid = Self::dep_id(dep.participant.clone());
+                        let edg = Edge {
+                            ty: EdgeTy::Pair(Vertex::N(depid), Vertex::N(nodeid.clone())),
+                            attributes: vec![
+                                EdgeAttributes::arrowhead(arrowhead::normal),
+                                EdgeAttributes::dir(dir::forward),
+                            ],
+                        };
+                        g.add_stmt(Stmt::Edge(edg));
+                    }
+                }
+            }
+        }
+
+        g
+    }
+
+    pub fn render_svg(&self, path: impl AsRef<std::path::Path>) {
+        use graphviz_rust::cmd::{CommandArg, Format};
+
+        let graph = self.into_dot();
+        let mut pctx = graphviz_rust::printer::PrinterContext::default();
+
+        graphviz_rust::exec(
+            graph,
+            &mut pctx,
+            vec![
+                Format::Svg.into(),
+                CommandArg::Output(
+                    path.as_ref()
+                        .to_str()
+                        .unwrap_or(&"invalid_path.svg")
+                        .to_owned(),
+                ),
+            ],
+        )
+        .expect("Failed to render SVG");
     }
 }
