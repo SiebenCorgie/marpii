@@ -20,8 +20,8 @@ log = { workspace = true, optional = true }
 thiserror.workspace = true
 #egui-winit = { version = "0.28", optional = true, features = ["bytemuck"] }
 #egui = { version = "0.28", optional = true }
-egui-winit = { version = "0.30", optional = true, features = ["bytemuck"] }
-egui = { version = "0.30", optional = true }
+egui-winit = { version = "0.31", optional = true, features = ["bytemuck"] }
+egui = { version = "0.31", optional = true }
 ahash = { workspace = true, optional = true }
 bytemuck.workspace = true
 

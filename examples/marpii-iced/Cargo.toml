@@ -6,19 +6,19 @@ edition = "2021"
 [dependencies]
 
 #iced = { version = "0.12", features = ["canvas", "tokio", "debug"] }
-iced = { git = "https://github.com/iced-rs/iced.git", rev = "f2c9b6b2ffc50d67d9789e77cb55eeb2a0ebe470", features = [
+iced = { git = "https://github.com/iced-rs/iced.git", rev = "940a079d83f904bef0eb9514fce50cd0109219c9", features = [
     "canvas",
     "tokio",
     "debug",
 ] }
 #iced_wgpu = "0.12"
-iced_wgpu = { git = "https://github.com/iced-rs/iced.git", rev = "f2c9b6b2ffc50d67d9789e77cb55eeb2a0ebe470" }
+iced_wgpu = { git = "https://github.com/iced-rs/iced.git", rev = "940a079d83f904bef0eb9514fce50cd0109219c9" }
 #iced_winit = "0.12"
-iced_winit = { git = "https://github.com/iced-rs/iced.git", rev = "f2c9b6b2ffc50d67d9789e77cb55eeb2a0ebe470" }
-iced_widget = { git = "https://github.com/iced-rs/iced.git", rev = "f2c9b6b2ffc50d67d9789e77cb55eeb2a0ebe470" }
+iced_winit = { git = "https://github.com/iced-rs/iced.git", rev = "940a079d83f904bef0eb9514fce50cd0109219c9" }
+iced_widget = { git = "https://github.com/iced-rs/iced.git", rev = "940a079d83f904bef0eb9514fce50cd0109219c9" }
 marpii = { path = "../../crates/marpii", features = ["logging"] }
 marpii-wgpu = { path = "../../crates/marpii-wgpu" }
 winit.workspace = true
 simple_logger.workspace = true
-chrono = "0.4"
+chrono = "0.4.39"
 tracing-subscriber = "0.3"
