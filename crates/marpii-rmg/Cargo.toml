@@ -28,12 +28,11 @@ thiserror.workspace = true
 slotmap.workspace = true
 ahash.workspace = true
 tinyvec.workspace = true
-marpii = { path = "../../crates/marpii" }
-marpii-commands = { path = "../../crates/marpii-commands" }
-marpii-descriptor = { path = "../../crates/marpii-descriptor" }
-marpii-rmg-shared = { path = "../../crates/marpii-rmg-shared", features = [
-    "std",
-] }
+marpii.workspace = true
+marpii-commands.workspace = true
+marpii-descriptor.workspace = true
+marpii-rmg-shared = { workspace = true, features = ["std"] }
+marpii-rmg-macros.workspace = true
 winit.workspace = true
 log = { workspace = true, optional = true }
 graphviz-rust = { workspace = true, optional = true }

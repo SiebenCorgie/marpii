@@ -6,9 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-marpii = {path = "../../crates/marpii", features=["logging"]}
-marpii-rmg = {path = "../../crates/marpii-rmg"}
-marpii-rmg-tasks = {path = "../../crates/marpii-rmg-tasks/marpii-rmg-tasks"}
-marpii-descriptor = {path = "../../crates/marpii-descriptor"}
+marpii = { workspace = true, features = ["logging"] }
+marpii-rmg.workspace = true
+marpii-rmg-tasks.workspace = true
+marpii-descriptor.workspace = true
 winit.workspace = true
 simple_logger.workspace = true

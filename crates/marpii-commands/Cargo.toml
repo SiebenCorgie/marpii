@@ -12,7 +12,7 @@ logging = ["log"]
 image_loading = ["image"]
 
 [dependencies]
-marpii = { path = "../marpii" }
+marpii.workspace = true
 log = { workspace = true, optional = true }
 image = { workspace = true, optional = true }
 tinyvec.workspace = true

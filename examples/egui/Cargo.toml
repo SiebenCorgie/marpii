@@ -10,6 +10,6 @@ log.workspace = true
 simple_logger.workspace = true
 anyhow.workspace = true
 
-marpii = {path = "../../crates/marpii", features=["logging"]}
-marpii-rmg = {path = "../../crates/marpii-rmg"}
-marpii-rmg-tasks = {path = "../../crates/marpii-rmg-tasks/marpii-rmg-tasks"}
+marpii = { workspace = true, features = ["logging"] }
+marpii-rmg.workspace = true
+marpii-rmg-tasks.workspace = true

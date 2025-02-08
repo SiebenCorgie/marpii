@@ -9,10 +9,10 @@ edition = "2021"
 simple_logger.workspace = true
 anyhow.workspace = true
 
-marpii = { path = "../../crates/marpii", features = ["logging"] }
-marpii-rmg = { path = "../../crates/marpii-rmg", features = ["timestamps"] }
-marpii-rmg-tasks = { path = "../../crates/marpii-rmg-tasks/marpii-rmg-tasks" }
-marpii-descriptor = { path = "../../crates/marpii-descriptor" }
+marpii = { workspace = true, features = ["logging"] }
+marpii-rmg = { workspace = true, features = ["timestamps"] }
+marpii-rmg-tasks.workspace = true
+marpii-descriptor.workspace = true
 winit.workspace = true
 log = "*"
 image.workspace = true

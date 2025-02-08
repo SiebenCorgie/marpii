@@ -11,6 +11,6 @@ std = ["marpii"]
 logging = ["log"]
 
 [dependencies]
-marpii = { path = "../marpii", optional = true }
+marpii = { workspace = true, optional = true }
 log = { workspace = true, optional = true }
 bytemuck = { workspace = true, features = ["derive"] }
