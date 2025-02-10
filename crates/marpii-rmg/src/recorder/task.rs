@@ -368,6 +368,8 @@ pub trait Task {
 
     ///Gets called while building a execution graph. This function must register all resources that are
     /// needed for successfull execution.
+    ///
+    /// In principle you could register anything, that needs to stay alive, as long as it is used by the GPU to execute this task.
     fn register(&self, registry: &mut ResourceRegistry);
 
     fn record(

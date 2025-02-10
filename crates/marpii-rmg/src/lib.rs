@@ -182,6 +182,8 @@ pub mod helper;
 mod rmg;
 pub use rmg::{CtxRmg, Rmg, RmgError};
 
+pub use marpii_rmg_macros::TaskUtils;
+
 #[cfg(test)]
 mod test {
     use static_assertions::assert_impl_all;
