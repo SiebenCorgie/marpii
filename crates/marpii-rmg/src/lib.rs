@@ -177,8 +177,12 @@ pub use recorder::{
 pub(crate) mod track;
 pub use track::Guard;
 
+pub mod helper;
+
 mod rmg;
 pub use rmg::{CtxRmg, Rmg, RmgError};
+
+pub use marpii_rmg_macros::TaskUtils;
 
 #[cfg(test)]
 mod test {

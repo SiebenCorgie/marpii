@@ -7,6 +7,7 @@ members = [
     "crates/marpii-rmg",
     "crates/marpii-rmg-shared",
     "crates/marpii-rmg-tasks/marpii-rmg-tasks",
+    "crates/marpii-rmg-macros",
     "crates/marpii-rmg-tasks/marpii-rmg-task-shader",
     "crates/marpii-rmg-tasks/marpii-rmg-task-shared",
 
@@ -16,6 +17,7 @@ members = [
     "examples/shared",
     "examples/egui",
     "examples/marpii-iced",
+    "examples/rmg-macros",
 ]
 
 resolver = "2"
@@ -25,9 +27,11 @@ marpii = { path = "crates/marpii" }
 marpii-commands = { path = "crates/marpii-commands" }
 marpii-descriptor = { path = "crates/marpii-descriptor" }
 marpii-rmg = { path = "crates/marpii-rmg" }
+marpii-rmg-macros = { path = "crates/marpii-rmg-macros" }
 marpii-rmg-shared = { path = "crates/marpii-rmg-shared" }
 marpii-rmg-tasks = { path = "crates/marpii-rmg-tasks/marpii-rmg-tasks" }
-marpii-rmg-task-shared = { path = "crates/marpii-rmg-task-shared" }
+marpii-rmg-task-shader = { path = "crates/marpii-rmg-tasks/marpii-rmg-shader" }
+marpii-rmg-task-shared = { path = "crates/marpii-rmg-tasks/marpii-rmg-task-shared" }
 marpii-wgpu = { path = "crates/marpii-wgpu" }
 
 ash = "0.38.0"

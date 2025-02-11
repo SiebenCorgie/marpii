@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 thiserror.workspace = true
-marpii = { path = "../marpii" }
+marpii.workspace = true
 wgpu.workspace = true
 
 

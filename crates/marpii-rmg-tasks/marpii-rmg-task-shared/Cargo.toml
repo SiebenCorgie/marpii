@@ -7,5 +7,5 @@ edition = "2021"
 
 [dependencies]
 #spirv-std = { workspace=true}
-marpii-rmg-shared = { path = "../../marpii-rmg-shared" }
+marpii-rmg-shared.workspace = true
 bytemuck.workspace = true

@@ -15,6 +15,6 @@ logging = ["log"]
 bindless-wrapper = []
 
 [dependencies]
-marpii = { path = "../marpii" }
+marpii.workspace = true
 ahash.workspace = true
 log = { workspace = true, optional = true }

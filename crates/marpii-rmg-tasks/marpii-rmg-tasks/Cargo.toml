@@ -13,9 +13,9 @@ logging = ["log"]
 egui-task = ["egui-winit", "ahash", "egui"]
 
 [dependencies]
-marpii = { path = "../../marpii" }
-marpii-rmg = { path = "../../marpii-rmg" }
-marpii-rmg-task-shared = { path = "../marpii-rmg-task-shared" }
+marpii.workspace = true
+marpii-rmg.workspace = true
+marpii-rmg-task-shared.workspace = true
 log = { workspace = true, optional = true }
 thiserror.workspace = true
 #egui-winit = { version = "0.28", optional = true, features = ["bytemuck"] }

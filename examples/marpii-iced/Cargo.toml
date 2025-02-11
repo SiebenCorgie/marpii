@@ -16,8 +16,8 @@ iced_wgpu = { git = "https://github.com/iced-rs/iced.git", rev = "940a079d83f904
 #iced_winit = "0.12"
 iced_winit = { git = "https://github.com/iced-rs/iced.git", rev = "940a079d83f904bef0eb9514fce50cd0109219c9" }
 iced_widget = { git = "https://github.com/iced-rs/iced.git", rev = "940a079d83f904bef0eb9514fce50cd0109219c9" }
-marpii = { path = "../../crates/marpii", features = ["logging"] }
-marpii-wgpu = { path = "../../crates/marpii-wgpu" }
+marpii = { workspace = true, features = ["logging"] }
+marpii-wgpu.workspace = true
 winit.workspace = true
 simple_logger.workspace = true
 chrono = "0.4.39"
