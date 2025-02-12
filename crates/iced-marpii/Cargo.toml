@@ -1,0 +1,15 @@
+[package]
+name = "iced-marpii"
+version = "0.1.0"
+edition = "2021"
+
+
+[dependencies]
+iced = "0.13"
+iced_core = "0.13"
+iced_graphics = "0.13"
+
+marpii.workspace = true
+marpii-rmg.workspace = true
+marpii-rmg-tasks.workspace = true
+log.workspace = true
