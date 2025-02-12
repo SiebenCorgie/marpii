@@ -111,7 +111,9 @@ impl SwapchainPresent {
         &self.swapchain.images[0].desc
     }
 
-    fn recreate(&mut self, surface_extent: vk::Extent2D) -> Result<(), RmgTaskError> {
+    ///Explicitly tells the swapchain to be resized. Note that the swapchain can handle automatic resizes. This should only be
+    ///called, if an explicit new size is known. Otherwise it'll react on the next present itself.
+    pub fn recreate(&mut self, surface_extent: vk::Extent2D) -> Result<(), RmgTaskError> {
         self.swapchain
             .recreate(surface_extent)
             .map_err(|e| MarpiiError::from(e))?;

@@ -18,6 +18,12 @@ members = [
     "examples/egui",
     "examples/marpii-iced",
     "examples/rmg-macros",
+    "crates/iced-marpii",
+    "crates/iced-marpii/shaders/iced-marpii-shared",
+]
+exclude = [
+    "crates/iced-marpii/shaders/shader-quad",
+    "crates/iced-marpii/shaders/shader-builder",
 ]
 
 resolver = "2"
