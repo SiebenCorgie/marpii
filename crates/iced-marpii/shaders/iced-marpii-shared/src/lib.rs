@@ -79,3 +79,76 @@ impl Default for QuadPush {
         }
     }
 }
+
+//A mesh's vertex
+#[repr(C)]
+#[cfg_attr(
+    not(target_arch = "spirv"),
+    derive(Debug, Clone, Copy, Default, Pod, Zeroable)
+)]
+pub struct Vertex {
+    pub pos: [f32; 2],
+    pub uv: [f32; 2],
+}
+
+//A mesh draw call
+#[repr(C)]
+#[cfg_attr(not(target_arch = "spirv"), derive(Debug, Clone, Copy, Pod, Zeroable))]
+pub struct MeshPush {
+    pub index_buffer: ResourceHandle,
+    pub vertex_buffer: ResourceHandle,
+    //offset into the indexbuffer, where we find the index into the vertex-buffer
+    pub index_offset: u32,
+    pad0: u32,
+    //resolution of the frame-buffer, used for translating
+    //pixel-space to ndc
+    pub resolution: [u32; 2],
+    pad1: [u32; 2],
+    //Mesh wide color
+    pub color: [f32; 4],
+    pub pos: [f32; 2],
+    pub scale: [f32; 2],
+}
+
+impl Default for MeshPush {
+    fn default() -> Self {
+        MeshPush {
+            index_buffer: ResourceHandle::INVALID,
+            vertex_buffer: ResourceHandle::INVALID,
+            index_offset: 0,
+            pad0: 0,
+            resolution: [0; 2],
+            pad1: [0; 2],
+            color: [0.0; 4],
+            pos: [0.0; 2],
+            scale: [0.0; 2],
+        }
+    }
+}
+
+///The push command currently just signals where to read our information from.
+#[repr(C)]
+pub struct TextPush {
+    ///The offset into the cmd_buffer where our command is written
+    pub texture_atlas: ResourceHandle,
+    pad0: u32,
+    pub resolution: [u32; 2],
+    //position of the glyph
+    pub pos: [f32; 2],
+    //size of the glyph
+    pub size: [f32; 2],
+    pub color: [f32; 4],
+}
+
+impl Default for TextPush {
+    fn default() -> Self {
+        Self {
+            texture_atlas: ResourceHandle::INVALID,
+            pad0: 0,
+            resolution: [0; 2],
+            pos: [0.0; 2],
+            size: [0.0; 2],
+            color: [0.0; 4],
+        }
+    }
+}
