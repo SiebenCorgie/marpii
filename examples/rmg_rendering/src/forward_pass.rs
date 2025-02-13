@@ -286,7 +286,7 @@ impl ForwardPass {
             pipeline_layout,
             shader_stages,
             color_formats,
-            depth_format,
+            Some(depth_format),
         )?;
         Ok(pipeline)
     }

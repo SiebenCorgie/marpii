@@ -667,7 +667,7 @@ impl EGuiTask {
             pipeline_layout,
             shader_stages,
             color_formats,
-            vk::Format::UNDEFINED,
+            None,
         )?;
         Ok(pipeline)
     }

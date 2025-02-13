@@ -170,7 +170,7 @@ pub use resources::{
 };
 pub mod recorder;
 pub use recorder::{
-    task::{ResourceRegistry, Task},
+    task::{MetaTask, ResourceRegistry, Task},
     RecordError, Recorder,
 };
 

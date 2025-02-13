@@ -93,7 +93,7 @@ impl GraphicsPipeline {
         layout: impl Into<OoS<PipelineLayout>>,
         shader_stages: &[ShaderStage],
         color_formats: &[vk::Format],
-        depth_format: vk::Format,
+        depth_format: Option<vk::Format>,
     ) -> Result<Self, PipelineError> {
         let layout = layout.into();
         assert!(
@@ -102,7 +102,11 @@ impl GraphicsPipeline {
         );
 
         let mut pipline_rendering_create_info = vk::PipelineRenderingCreateInfo::default()
-            .depth_attachment_format(depth_format)
+            .depth_attachment_format(if let Some(df) = depth_format {
+                df
+            } else {
+                vk::Format::UNDEFINED
+            })
             .color_attachment_formats(&color_formats);
 
         let stages = shader_stages
