@@ -1,16 +1,34 @@
 use iced_graphics::{compositor, error::Reason};
-use marpii::{OoS, ash::vk};
-use marpii_rmg::Rmg;
+use marpii::{ash::vk, resources::ImgDesc, OoS};
+use marpii_rmg::{ImageHandle, Rmg};
 use marpii_rmg_tasks::SwapchainPresent;
 
+use crate::quad::QuadRenderer;
+
 use super::Renderer;
+mod rendering;
 
 pub struct Compositor {
     rmg: Rmg,
     settings: iced_graphics::Settings,
-    //Swapchain handling
-    swapchain: SwapchainPresent,
+
+    //the color buffer we use for rendering. Note that we _blit_ to the swapchain.
+    color_buffer: ImageHandle,
+    //the depth buffer we use for ordering _everything_
+    //depth_buffer: ImageHandle,
+
+    //quad renderer
+    quads: QuadRenderer,
 }
+
+impl Compositor {
+    pub const COLOR_USAGE: vk::ImageUsageFlags = vk::ImageUsageFlags::from_raw(
+        vk::ImageUsageFlags::COLOR_ATTACHMENT.as_raw()
+            | vk::ImageUsageFlags::TRANSFER_SRC.as_raw()
+            | vk::ImageUsageFlags::STORAGE.as_raw(),
+    );
+}
+
 impl iced_graphics::compositor::Compositor for Compositor {
     type Renderer = Renderer;
     type Surface = SwapchainPresent;
@@ -49,10 +67,44 @@ impl iced_graphics::compositor::Compositor for Compositor {
             ))
         })?;
 
+        let width = swapchain.image_desc().extent.width;
+        let height = swapchain.image_desc().extent.height;
+
+        //If the swapchain is 8bit, or srgb, we use a different format
+        let color_format = if marpii::util::is_srgb(swapchain.format())
+            || marpii::util::byte_per_pixel(swapchain.format()).unwrap_or(1) == 1
+        {
+            rmg.ctx
+                .device
+                .select_format(
+                    Self::COLOR_USAGE,
+                    vk::ImageTiling::OPTIMAL,
+                    &[
+                        vk::Format::R16G16B16A16_SFLOAT,
+                        vk::Format::R32G32B32A32_SFLOAT,
+                        vk::Format::R8G8B8A8_UNORM,
+                    ],
+                )
+                .expect("Could not select color-buffer format!")
+        } else {
+            swapchain.format()
+        };
+
+        let color_buffer = rmg
+            .new_image_uninitialized(
+                ImgDesc::color_attachment_2d(width, height, color_format)
+                    .add_usage(Self::COLOR_USAGE),
+                Some("color-buffer"),
+            )
+            .unwrap();
+
+        let quads = QuadRenderer::new(&mut rmg, &settings, color_buffer.clone());
+
         Ok(Self {
             rmg,
-            swapchain,
+            color_buffer,
             settings,
+            quads,
         })
     }
 
@@ -68,7 +120,19 @@ impl iced_graphics::compositor::Compositor for Compositor {
         background_color: iced::Color,
         overlay: &[T],
     ) -> Result<(), iced_graphics::compositor::SurfaceError> {
-        todo!("Build the renderpass and everything")
+        //If there is an overlay, push that into the renderer
+        if overlay.len() > 0 {
+            renderer.draw_overlay(overlay, viewport);
+        }
+
+        //prepare all the renderer data. This is where
+        //we upload anything that is needed to the gpu.
+        self.prepare(renderer, viewport);
+        //this call the actual rendering passes
+        self.render_to_surface(surface, viewport, background_color);
+        self.end();
+
+        Ok(())
     }
 
     fn create_surface<W: iced_graphics::compositor::Window + Clone>(
@@ -82,11 +146,13 @@ impl iced_graphics::compositor::Compositor for Compositor {
 
         let swapchain = SwapchainPresent::new(&mut self.rmg, OoS::new(surface))
             .expect("Could not create swapchain for surface!");
-
+        self.notify_resize(width, height);
         swapchain
     }
 
     fn configure_surface(&mut self, surface: &mut Self::Surface, width: u32, height: u32) {
+        self.notify_resize(width, height);
+
         let surface_extent = vk::Extent2D { width, height };
         surface
             .recreate(surface_extent)
@@ -95,11 +161,11 @@ impl iced_graphics::compositor::Compositor for Compositor {
 
     fn screenshot<T: AsRef<str>>(
         &mut self,
-        renderer: &mut Self::Renderer,
-        surface: &mut Self::Surface,
-        viewport: &iced_graphics::Viewport,
-        background_color: iced::Color,
-        overlay: &[T],
+        _renderer: &mut Self::Renderer,
+        _surface: &mut Self::Surface,
+        _viewport: &iced_graphics::Viewport,
+        _background_color: iced::Color,
+        _overlay: &[T],
     ) -> Vec<u8> {
         log::error!("Screenshotting not implemented!");
         Vec::with_capacity(0)

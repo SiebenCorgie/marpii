@@ -4,6 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 
+[dev-dependencies]
+simple_logger.workspace = true
+iced_wgpu = "0.13"
+
 [dependencies]
 iced = "0.13"
 iced_core = "0.13"
@@ -13,3 +17,5 @@ marpii.workspace = true
 marpii-rmg.workspace = true
 marpii-rmg-tasks.workspace = true
 log.workspace = true
+iced-marpii-shared = { path = "shaders/iced-marpii-shared" }
+ahash.workspace = true

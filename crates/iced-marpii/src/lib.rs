@@ -2,6 +2,7 @@ mod compositor;
 mod layers;
 mod quad;
 pub use compositor::Compositor;
+use iced::{Pixels, Rectangle, Size};
 
 ///MarpII based Iced renderer.
 //Note: Most of the gpu sided _logic_ resides in the [Compositor]. The
@@ -10,6 +11,7 @@ pub use compositor::Compositor;
 pub struct Renderer {
     default_font: iced_core::Font,
     default_font_size: iced_core::Pixels,
+    layers: layers::Stack,
 }
 
 impl Renderer {
@@ -17,24 +19,61 @@ impl Renderer {
         Renderer {
             default_font: settings.default_font.clone(),
             default_font_size: settings.default_text_size,
+            layers: layers::Stack::new(),
         }
+    }
+
+    fn draw_overlay(&mut self, overlay: &[impl AsRef<str>], viewport: &iced_graphics::Viewport) {
+        use iced_core::alignment;
+        use iced_core::text::Renderer as _;
+        use iced_core::Renderer as _;
+
+        self.with_layer(Rectangle::with_size(viewport.logical_size()), |renderer| {
+            for (i, line) in overlay.iter().enumerate() {
+                let text = iced_core::Text {
+                    content: line.as_ref().to_owned(),
+                    bounds: viewport.logical_size(),
+                    size: Pixels(20.0),
+                    line_height: iced_core::text::LineHeight::default(),
+                    font: iced_core::Font::MONOSPACE,
+                    horizontal_alignment: alignment::Horizontal::Left,
+                    vertical_alignment: alignment::Vertical::Top,
+                    shaping: iced_core::text::Shaping::Basic,
+                    wrapping: iced_core::text::Wrapping::Word,
+                };
+
+                renderer.fill_text(
+                    text.clone(),
+                    iced::Point::new(11.0, 11.0 + 25.0 * i as f32),
+                    iced::Color::new(0.9, 0.9, 0.9, 1.0),
+                    Rectangle::with_size(Size::INFINITY),
+                );
+
+                renderer.fill_text(
+                    text,
+                    iced::Point::new(11.0, 11.0 + 25.0 * i as f32) + iced::Vector::new(-1.0, -1.0),
+                    iced::Color::BLACK,
+                    Rectangle::with_size(Size::INFINITY),
+                );
+            }
+        });
     }
 }
 
 impl iced_core::Renderer for Renderer {
     fn start_layer(&mut self, bounds: iced::Rectangle) {
-        todo!()
+        self.layers.push_clip(bounds);
     }
     fn end_layer(&mut self) {
-        todo!()
+        self.layers.pop_clip();
     }
 
     fn start_transformation(&mut self, transformation: iced::Transformation) {
-        todo!()
+        self.layers.push_transformation(transformation);
     }
 
     fn end_transformation(&mut self) {
-        todo!()
+        self.layers.pop_transformation();
     }
 
     fn fill_quad(
@@ -42,11 +81,12 @@ impl iced_core::Renderer for Renderer {
         quad: iced_core::renderer::Quad,
         background: impl Into<iced::Background>,
     ) {
-        todo!()
+        let (layer, transformation) = self.layers.current_mut();
+        layer.draw_quad(quad, background.into(), transformation);
     }
 
     fn clear(&mut self) {
-        todo!()
+        self.layers.clear();
     }
 }
 
@@ -74,7 +114,9 @@ impl iced_core::text::Renderer for Renderer {
         color: iced::Color,
         clip_bounds: iced::Rectangle,
     ) {
-        todo!()
+        let (layer, transformation) = self.layers.current_mut();
+
+        layer.draw_paragraph(text, position, color, clip_bounds, transformation);
     }
 
     fn fill_editor(
@@ -84,7 +126,8 @@ impl iced_core::text::Renderer for Renderer {
         color: iced::Color,
         clip_bounds: iced::Rectangle,
     ) {
-        todo!()
+        let (layer, transformation) = self.layers.current_mut();
+        layer.draw_editor(editor, position, color, clip_bounds, transformation);
     }
 
     fn fill_text(
@@ -94,7 +137,8 @@ impl iced_core::text::Renderer for Renderer {
         color: iced::Color,
         clip_bounds: iced::Rectangle,
     ) {
-        todo!()
+        let (layer, transformation) = self.layers.current_mut();
+        layer.draw_text(text, position, color, clip_bounds, transformation);
     }
 }
 

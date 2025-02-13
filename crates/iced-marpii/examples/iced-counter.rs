@@ -1,11 +1,17 @@
 //! The classic counter example from Iced's Readme, but using the marpii based renderer.
 
-use iced::widget::{Column, button, column, text};
+use iced::widget::{button, column, text, Column};
 use iced::{Center, Element, Theme};
 
 type MElement<'a, M> = Element<'a, M, Theme, iced_marpii::Renderer>;
+//type MElement<'a, M> = Element<'a, M, Theme, iced_wgpu::Renderer>;
 
 pub fn main() -> iced::Result {
+    simple_logger::SimpleLogger::new()
+        .with_level(log::LevelFilter::Warn)
+        .init()
+        .unwrap();
+
     iced::run("A cool counter", Counter::update, Counter::view)
 }
 
