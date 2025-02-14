@@ -40,7 +40,19 @@ impl Counter {
 
     fn view(&self) -> MElement<Message> {
         column![
-            button("Increment").on_press(Message::Increment),
+            button("Increment")
+                .on_press(Message::Increment)
+                //Play around with the styles!
+                .style(|t, s| {
+                    let mut style = iced::widget::button::primary(t, s);
+                    style.border.radius = iced::border::Radius::new(5.0);
+                    style.border.width = 2.0;
+                    style.border.color = iced::Color::from_rgb(0.6, 0.8, 0.6);
+                    style.shadow.color = iced::Color::BLACK;
+                    style.shadow.offset = iced::Vector::new(6.0, 6.0);
+                    style.shadow.blur_radius = 5.0;
+                    style
+                }),
             text(self.value).size(50),
             button("Decrement").on_press(Message::Decrement)
         ]
