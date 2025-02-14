@@ -3,6 +3,8 @@ name = "iced-marpii"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+validation = []
 
 [dev-dependencies]
 simple_logger.workspace = true
@@ -19,3 +21,6 @@ marpii-rmg-tasks.workspace = true
 log.workspace = true
 iced-marpii-shared = { path = "shaders/iced-marpii-shared" }
 ahash.workspace = true
+cosmic-text = "0.12.1"
+etagere = "0.2.15"
+lru = "0.13.0"

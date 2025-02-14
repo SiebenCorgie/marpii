@@ -92,7 +92,7 @@ pub fn vertex(
         * Vec2::splat(2.0))
         - Vec2::ONE;
     //to vec4
-    let ndc_pos = ndc_pos.extend(0.0).extend(1.0);
+    let ndc_pos = ndc_pos.extend(push.layer_depth).extend(1.0);
 
     *out_uv = UV_COORD_QUAD_CCW[vindex];
     *clip_pos = ndc_pos;

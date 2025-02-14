@@ -50,6 +50,11 @@ impl<T: marpii::bytemuck::Pod> DynamicBuffer<T> {
         })
     }
 
+    ///Returns how many _whole_ elements of type `T` fit into the buffer.
+    pub fn element_count(&self) -> usize {
+        self.buffer_handle().count()
+    }
+
     ///creates the buffer with the given `initial_data`. Note that this data also determines the size of the buffer.
     pub fn new(rmg: &mut Rmg, initial_data: &[T]) -> Result<Self, RmgTaskError> {
         let desc = BufDesc::for_data::<T>(initial_data.len());

@@ -18,7 +18,7 @@ use marpii_rmg_tasks::UploadBuffer;
 
 #[derive(Debug, Default, Hash, Clone)]
 pub struct Batch {
-    order: Vec<CmdQuad>,
+    pub order: Vec<CmdQuad>,
 }
 
 impl Batch {
@@ -93,6 +93,7 @@ struct BatchCall {
     resource_handle: Option<ResourceHandle>,
     count: usize,
     bound: vk::Rect2D,
+    layer_depth: f32,
 }
 
 ///The actual renderpass used to render the quads.
@@ -102,6 +103,7 @@ struct BatchCall {
 /// What we do is registering all residing buffer-states
 struct QuadPass {
     color_image: ImageHandle,
+    depth_image: ImageHandle,
 
     pipeline: Arc<GraphicsPipeline>,
     batches: Vec<BatchCall>,
@@ -111,7 +113,12 @@ struct QuadPass {
 impl QuadPass {
     const SHADER_SOURCE: &'static [u8] = include_bytes!("../shaders/spirv/shader-quad.spv");
 
-    pub fn new(rmg: &mut Rmg, _settings: &Settings, color_image: ImageHandle) -> Self {
+    pub fn new(
+        rmg: &mut Rmg,
+        _settings: &Settings,
+        color_image: ImageHandle,
+        depth_image: ImageHandle,
+    ) -> Self {
         let push = PushConstant::new(QuadPush::default(), vk::ShaderStageFlags::ALL_GRAPHICS);
 
         //setup the pipeline
@@ -134,10 +141,12 @@ impl QuadPass {
             rmg,
             &[vertex_shader_stage, fragment_shader_stage],
             color_image.format(),
+            depth_image.format(),
         );
 
         Self {
             color_image,
+            depth_image,
             pipeline,
             push,
             batches: Vec::new(),
@@ -148,6 +157,7 @@ impl QuadPass {
         rmg: &mut Rmg,
         shader_stages: &[ShaderStage],
         color_format: &vk::Format,
+        depth_format: &vk::Format,
     ) -> Arc<GraphicsPipeline> {
         let color_blend_attachments = vk::PipelineColorBlendAttachmentState::default()
             .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
@@ -163,7 +173,12 @@ impl QuadPass {
             .blend_constants([0.0; 4])
             .attachments(core::slice::from_ref(&color_blend_attachments)); //only the color target
 
-        let depth_stencil_state = vk::PipelineDepthStencilStateCreateInfo::default();
+        let depth_stencil_state = vk::PipelineDepthStencilStateCreateInfo::default()
+            .depth_compare_op(vk::CompareOp::LESS_OR_EQUAL)
+            .depth_write_enable(true)
+            .depth_test_enable(true)
+            .depth_bounds_test_enable(false)
+            .stencil_test_enable(false);
 
         let dynamic_state = vk::PipelineDynamicStateCreateInfo::default()
             .dynamic_states(&[vk::DynamicState::VIEWPORT, vk::DynamicState::SCISSOR]);
@@ -211,14 +226,15 @@ impl QuadPass {
             layout,
             shader_stages,
             std::slice::from_ref(color_format),
-            None,
+            Some(*depth_format),
         )
         .unwrap();
         Arc::new(pipeline)
     }
 
-    pub fn resize(&mut self, color_buffer: ImageHandle) {
+    pub fn resize(&mut self, color_buffer: ImageHandle, depth_buffer: ImageHandle) {
         self.color_image = color_buffer;
+        self.depth_image = depth_buffer;
         let width = self.color_image.extent_2d().width;
         let height = self.color_image.extent_2d().height;
         self.push.get_content_mut().resolution = [width, height];
@@ -253,6 +269,16 @@ impl Task for QuadPass {
                 vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
             )
             .unwrap();
+
+        registry
+            .request_image(
+                &self.depth_image,
+                vk::PipelineStageFlags2::ALL_GRAPHICS,
+                vk::AccessFlags2::DEPTH_STENCIL_ATTACHMENT_WRITE
+                    | vk::AccessFlags2::DEPTH_STENCIL_ATTACHMENT_READ,
+                vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL,
+            )
+            .unwrap();
     }
 
     fn pre_record(
@@ -277,6 +303,7 @@ impl Task for QuadPass {
             let img_access = resources.get_image_state(&self.color_image);
             (img_access.image.clone(), img_access.view.clone())
         };
+        let depthview = resources.get_image_state(&self.depth_image).view.clone();
 
         let render_area = colorimg.image_region().as_rect_2d();
 
@@ -284,7 +311,17 @@ impl Task for QuadPass {
             [render_area.extent.width, render_area.extent.height];
 
         let viewport = colorimg.image_region().as_viewport();
-
+        let depth_attachment = vk::RenderingAttachmentInfo::default()
+            .clear_value(vk::ClearValue {
+                depth_stencil: vk::ClearDepthStencilValue {
+                    depth: 1.0,
+                    stencil: 0,
+                },
+            })
+            .image_layout(vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL)
+            .image_view(depthview.view)
+            .load_op(vk::AttachmentLoadOp::CLEAR)
+            .store_op(vk::AttachmentStoreOp::STORE);
         let color_attachments = vk::RenderingAttachmentInfo::default()
             .clear_value(vk::ClearValue {
                 color: vk::ClearColorValue {
@@ -299,6 +336,7 @@ impl Task for QuadPass {
         let render_info = vk::RenderingInfo::default()
             .render_area(render_area)
             .layer_count(1)
+            .depth_attachment(&depth_attachment)
             .color_attachments(core::slice::from_ref(&color_attachments));
 
         //start rendering
@@ -325,6 +363,9 @@ impl Task for QuadPass {
             //NOTE: we constrain the scissors to the render area.
             scissors.extent.width = scissors.extent.width.min(render_area.extent.width);
             scissors.extent.height = scissors.extent.height.min(render_area.extent.height);
+
+            //notify layer
+            self.push.get_content_mut().layer_depth = batch.layer_depth;
 
             unsafe {
                 device
@@ -365,15 +406,20 @@ impl Task for QuadPass {
 pub struct QuadRenderer {
     ///Identifies a batch by its content's hash.
     batch_cache: AHashMap<u64, CachedBatch>,
-    ///Order of batches to render
-    order: Vec<u64>,
+    ///Order of batches to render, and their layer depth
+    order: Vec<(u64, f32)>,
 
     pass: QuadPass,
 }
 
 impl QuadRenderer {
-    pub fn new(rmg: &mut Rmg, settings: &Settings, color_buffer: ImageHandle) -> Self {
-        let pass = QuadPass::new(rmg, settings, color_buffer);
+    pub fn new(
+        rmg: &mut Rmg,
+        settings: &Settings,
+        color_buffer: ImageHandle,
+        depth_buffer: ImageHandle,
+    ) -> Self {
+        let pass = QuadPass::new(rmg, settings, color_buffer, depth_buffer);
 
         Self {
             batch_cache: AHashMap::default(),
@@ -382,11 +428,11 @@ impl QuadRenderer {
         }
     }
 
-    pub fn notify_resize(&mut self, color_buffer: ImageHandle) {
-        self.pass.resize(color_buffer);
+    pub fn notify_resize(&mut self, color_buffer: ImageHandle, depth_buffer: ImageHandle) {
+        self.pass.resize(color_buffer, depth_buffer);
     }
 
-    pub fn push_batch(&mut self, rmg: &mut Rmg, batch: &Batch, bound: Rectangle) {
+    pub fn push_batch(&mut self, rmg: &mut Rmg, batch: &Batch, bound: Rectangle, layer_depth: f32) {
         //Do not push batches, that are empty
         if batch.order.len() == 0 {
             return;
@@ -402,11 +448,11 @@ impl QuadRenderer {
             cached.last_use = 0;
             //overwrite bound
             cached.bound = bound;
-            self.order.push(hash)
+            self.order.push((hash, layer_depth))
         } else {
             self.batch_cache
                 .insert(hash, CachedBatch::new(rmg, batch, bound));
-            self.order.push(hash)
+            self.order.push((hash, layer_depth))
         }
     }
 
@@ -486,7 +532,7 @@ impl MetaTask for QuadRenderer {
     ) -> Result<marpii_rmg::Recorder<'a>, marpii_rmg::RecordError> {
         self.pass.batches.clear();
         //transform batchen, in-order, into batch calls
-        for batch_id in self.order.iter() {
+        for (batch_id, layer_depth) in self.order.iter() {
             let batch = self.batch_cache.get(batch_id).unwrap();
             assert!(batch.buffer.is_residing());
 
@@ -504,6 +550,7 @@ impl MetaTask for QuadRenderer {
                 buffer: batch.buffer.unwrap_handle(),
                 resource_handle: None,
                 count: batch.batch_size,
+                layer_depth: *layer_depth,
             };
             self.pass.batches.push(batch_call);
         }

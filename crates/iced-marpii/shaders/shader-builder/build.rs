@@ -50,6 +50,7 @@ pub fn compile_rust_shader(
         .capability(Capability::StorageImageArrayNonUniformIndexing)
         .capability(Capability::StorageImageReadWithoutFormat)
         .capability(Capability::StorageImageWriteWithoutFormat)
+        .capability(Capability::StorageImageExtendedFormats)
         //.capability(Capability::UniformBufferArrayDynamicIndexing)
         //.capability(Capability::UniformBufferArrayNonUniformIndexing)
         .capability(Capability::VulkanMemoryModel)

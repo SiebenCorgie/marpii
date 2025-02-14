@@ -19,7 +19,11 @@ impl<T: marpii::bytemuck::Pod> UploadBuffer<T> {
     ///Creates a new storage buffer for the given data. If the buffer needs to be configured, for instance
     /// as vertex buffer, use [new_with_buffer](Self::new_with_buffer).
     pub fn new<'src>(rmg: &mut Rmg, data: &'src [T]) -> Result<Self, RmgError> {
-        Self::new_with_buffer(rmg, data, BufDesc::storage_buffer::<T>(data.len()))
+        Self::new_with_buffer(
+            rmg,
+            data,
+            BufDesc::storage_buffer::<T>(data.len()).add_usage(vk::BufferUsageFlags::TRANSFER_DST),
+        )
     }
 
     pub fn new_with_buffer<'src>(

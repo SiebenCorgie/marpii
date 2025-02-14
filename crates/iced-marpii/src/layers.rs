@@ -5,13 +5,14 @@ use iced_graphics::{
     text::{Editor, Paragraph},
 };
 
-use crate::quad;
+use crate::{quad, text};
 
 pub type Stack = layer::Stack<Layer>;
 
 pub struct Layer {
     pub bounds: Rectangle,
     pub quads: quad::Batch,
+    pub text: text::Batch,
     //todo: other things on the layer
 }
 
@@ -36,6 +37,7 @@ impl iced_graphics::Layer for Layer {
         self.bounds = Rectangle::INFINITE;
 
         self.quads.clear();
+        self.text.clear();
         /*
         self.triangles.clear();
         self.primitives.clear();
@@ -52,6 +54,7 @@ impl Default for Layer {
         Self {
             bounds: Rectangle::INFINITE,
             quads: quad::Batch::default(),
+            text: text::Batch::default(),
             //triangles: triangle::Batch::default(),
             //primitives: primitive::Batch::default(),
             //text: text::Batch::default(),
@@ -74,7 +77,7 @@ impl Layer {
 
         let color = match background {
             Background::Color(c) => c.into_linear(),
-            Background::Gradient(g) => {
+            Background::Gradient(_g) => {
                 log::error!("Gradient not implemented!");
                 [1.0, 0.0, 0.0, 1.0]
             }
@@ -105,7 +108,14 @@ impl Layer {
         clip_bounds: Rectangle,
         transformation: Transformation,
     ) {
-        log::error!("implement text rendering")
+        let paragraph = iced_graphics::Text::Paragraph {
+            paragraph: paragraph.downgrade(),
+            position,
+            color,
+            clip_bounds,
+            transformation,
+        };
+        self.text.push(paragraph);
     }
 
     pub fn draw_editor(
@@ -116,7 +126,15 @@ impl Layer {
         clip_bounds: Rectangle,
         transformation: Transformation,
     ) {
-        log::error!("implement editor")
+        let editor = iced_graphics::Text::Editor {
+            editor: editor.downgrade(),
+            position,
+            color,
+            clip_bounds,
+            transformation,
+        };
+
+        self.text.push(editor);
     }
     pub fn draw_text(
         &mut self,
@@ -126,53 +144,77 @@ impl Layer {
         clip_bounds: Rectangle,
         transformation: Transformation,
     ) {
-        log::error!("implement text")
+        let text = iced_graphics::Text::Cached {
+            content: text.content,
+            bounds: Rectangle::new(position, text.bounds) * transformation,
+            color,
+            size: text.size * transformation.scale_factor(),
+            line_height: text.line_height.to_absolute(text.size) * transformation.scale_factor(),
+            font: text.font,
+            horizontal_alignment: text.horizontal_alignment,
+            vertical_alignment: text.vertical_alignment,
+            shaping: text.shaping,
+            clip_bounds: clip_bounds * transformation,
+        };
+
+        self.text.push(text);
     }
-    pub fn draw_image(&mut self, image: iced_graphics::Image, transformation: Transformation) {
+
+    #[allow(unused)]
+    pub fn draw_image(&mut self, _image: iced_graphics::Image, _transformation: Transformation) {
         log::error!("implement image")
     }
+
+    #[allow(unused)]
     pub fn draw_raster(
         &mut self,
-        image: iced_core::Image,
-        bounds: Rectangle,
-        transformation: Transformation,
+        _image: iced_core::Image,
+        _bounds: Rectangle,
+        _transformation: Transformation,
     ) {
         log::error!("implement raster")
     }
 
+    #[allow(unused)]
     pub fn draw_svg(
         &mut self,
-        svg: iced_core::Svg,
-        bounds: Rectangle,
-        transformation: Transformation,
+        _svg: iced_core::Svg,
+        _bounds: Rectangle,
+        _transformation: Transformation,
     ) {
         log::error!("implement svg")
     }
-    pub fn draw_mesh(&mut self, mut mesh: iced_graphics::Mesh, transformation: Transformation) {
+
+    #[allow(unused)]
+    pub fn draw_mesh(&mut self, mut _mesh: iced_graphics::Mesh, _transformation: Transformation) {
         log::error!("implement mesh")
     }
 
+    #[allow(unused)]
     pub fn draw_mesh_group(
         &mut self,
-        meshes: Vec<iced_graphics::Mesh>,
-        transformation: Transformation,
+        _meshes: Vec<iced_graphics::Mesh>,
+        _transformation: Transformation,
     ) {
-        log::error!("implement mesh group")
+        self.flush_meshes();
     }
 
+    #[allow(unused)]
     pub fn draw_text_group(
         &mut self,
-        text: Vec<iced_graphics::Text>,
-        transformation: Transformation,
+        _text: Vec<iced_graphics::Text>,
+        _transformation: Transformation,
     ) {
-        log::error!("implement text group")
+        self.flush_text();
     }
 
     fn flush_meshes(&mut self) {
-        log::error!("No flush meshes")
+        //TODO: Use
+        //log::error!("No flush meshes")
     }
 
     fn flush_text(&mut self) {
-        log::error!("No flush text")
+        //TODO: use
+        //log::error!("No flush text")
     }
 }

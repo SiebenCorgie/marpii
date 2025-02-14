@@ -3,7 +3,7 @@ use marpii::{ash::vk, resources::ImgDesc, OoS};
 use marpii_rmg::{ImageHandle, Rmg};
 use marpii_rmg_tasks::SwapchainPresent;
 
-use crate::quad::QuadRenderer;
+use crate::{quad::QuadRenderer, text::TextRenderer};
 
 use super::Renderer;
 mod rendering;
@@ -15,15 +15,22 @@ pub struct Compositor {
     //the color buffer we use for rendering. Note that we _blit_ to the swapchain.
     color_buffer: ImageHandle,
     //the depth buffer we use for ordering _everything_
-    //depth_buffer: ImageHandle,
+    depth_buffer: ImageHandle,
 
     //quad renderer
     quads: QuadRenderer,
+    //text renderer
+    text: TextRenderer,
 }
 
 impl Compositor {
     pub const COLOR_USAGE: vk::ImageUsageFlags = vk::ImageUsageFlags::from_raw(
         vk::ImageUsageFlags::COLOR_ATTACHMENT.as_raw()
+            | vk::ImageUsageFlags::TRANSFER_SRC.as_raw()
+            | vk::ImageUsageFlags::STORAGE.as_raw(),
+    );
+    pub const DEPTH_USAGE: vk::ImageUsageFlags = vk::ImageUsageFlags::from_raw(
+        vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT.as_raw()
             | vk::ImageUsageFlags::TRANSFER_SRC.as_raw()
             | vk::ImageUsageFlags::STORAGE.as_raw(),
     );
@@ -51,11 +58,15 @@ impl iced_graphics::compositor::Compositor for Compositor {
         }
 
         //Init RMG
-        let (ctx, surface) = marpii::context::Ctx::default_with_surface(&compatible_window, true)
-            .map_err(|e| iced_graphics::Error::GraphicsAdapterNotFound {
-            backend: "marpii",
-            reason: Reason::RequestFailed(format!("{e}")),
-        })?;
+        let use_validation =
+            cfg!(feature = "validation") || std::env::var("ICED_MARPII_VALIDATE").is_ok();
+
+        let (ctx, surface) =
+            marpii::context::Ctx::default_with_surface(&compatible_window, use_validation)
+                .map_err(|e| iced_graphics::Error::GraphicsAdapterNotFound {
+                    backend: "marpii",
+                    reason: Reason::RequestFailed(format!("{e}")),
+                })?;
         let mut rmg = Rmg::new(ctx).map_err(|e| iced_graphics::Error::GraphicsAdapterNotFound {
             backend: "marpii",
             reason: Reason::RequestFailed(format!("{e}")),
@@ -97,14 +108,49 @@ impl iced_graphics::compositor::Compositor for Compositor {
                 Some("color-buffer"),
             )
             .unwrap();
+        let depth_format = rmg
+            .ctx
+            .device
+            .select_format(
+                Self::DEPTH_USAGE,
+                vk::ImageTiling::OPTIMAL,
+                &[
+                    vk::Format::D16_UNORM,
+                    vk::Format::D16_UNORM_S8_UINT,
+                    vk::Format::D24_UNORM_S8_UINT,
+                    vk::Format::D32_SFLOAT,
+                    vk::Format::D32_SFLOAT_S8_UINT,
+                ],
+            )
+            .expect("Could not select depth-buffer format!");
+        let depth_buffer = rmg
+            .new_image_uninitialized(
+                ImgDesc::depth_attachment_2d(width, height, depth_format)
+                    .add_usage(Self::DEPTH_USAGE),
+                Some("depth-buffer"),
+            )
+            .unwrap();
 
-        let quads = QuadRenderer::new(&mut rmg, &settings, color_buffer.clone());
+        let quads = QuadRenderer::new(
+            &mut rmg,
+            &settings,
+            color_buffer.clone(),
+            depth_buffer.clone(),
+        );
+        let text = TextRenderer::new(
+            &mut rmg,
+            &settings,
+            color_buffer.clone(),
+            depth_buffer.clone(),
+        );
 
         Ok(Self {
             rmg,
             color_buffer,
+            depth_buffer,
             settings,
             quads,
+            text,
         })
     }
 
@@ -150,13 +196,14 @@ impl iced_graphics::compositor::Compositor for Compositor {
         swapchain
     }
 
-    fn configure_surface(&mut self, surface: &mut Self::Surface, width: u32, height: u32) {
+    fn configure_surface(&mut self, _surface: &mut Self::Surface, width: u32, height: u32) {
         self.notify_resize(width, height);
-
+        /*
         let surface_extent = vk::Extent2D { width, height };
         surface
             .recreate(surface_extent)
             .expect("Failed to explicitly resize swapchain!");
+            */
     }
 
     fn screenshot<T: AsRef<str>>(
@@ -180,5 +227,13 @@ impl iced_graphics::compositor::Compositor for Compositor {
             adapter: information,
             backend: "MarpII".to_owned(),
         }
+    }
+}
+
+impl Drop for Compositor {
+    fn drop(&mut self) {
+        //wait for everything to finish, otherwise we get a segfault from
+        //vulkan 👀
+        self.rmg.wait_for_idle().unwrap()
     }
 }

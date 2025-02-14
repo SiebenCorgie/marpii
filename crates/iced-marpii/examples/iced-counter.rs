@@ -1,6 +1,6 @@
 //! The classic counter example from Iced's Readme, but using the marpii based renderer.
 
-use iced::widget::{button, column, text, Column};
+use iced::widget::{button, column, text};
 use iced::{Center, Element, Theme};
 
 type MElement<'a, M> = Element<'a, M, Theme, iced_marpii::Renderer>;

@@ -1,6 +1,9 @@
 mod compositor;
 mod layers;
+mod mesh;
 mod quad;
+mod text;
+
 pub use compositor::Compositor;
 use iced::{Pixels, Rectangle, Size};
 
@@ -16,8 +19,10 @@ pub struct Renderer {
 
 impl Renderer {
     pub fn new(settings: &iced_graphics::Settings) -> Self {
+        let default_font = settings.default_font.clone();
+
         Renderer {
-            default_font: settings.default_font.clone(),
+            default_font,
             default_font_size: settings.default_text_size,
             layers: layers::Stack::new(),
         }
@@ -115,7 +120,6 @@ impl iced_core::text::Renderer for Renderer {
         clip_bounds: iced::Rectangle,
     ) {
         let (layer, transformation) = self.layers.current_mut();
-
         layer.draw_paragraph(text, position, color, clip_bounds, transformation);
     }
 
