@@ -25,13 +25,15 @@ pub struct Compositor {
 impl Compositor {
     pub const COLOR_USAGE: vk::ImageUsageFlags = vk::ImageUsageFlags::from_raw(
         vk::ImageUsageFlags::COLOR_ATTACHMENT.as_raw()
+            | vk::ImageUsageFlags::TRANSFER_DST.as_raw()
             | vk::ImageUsageFlags::TRANSFER_SRC.as_raw()
-            | vk::ImageUsageFlags::STORAGE.as_raw(),
+            | vk::ImageUsageFlags::SAMPLED.as_raw(),
     );
     pub const DEPTH_USAGE: vk::ImageUsageFlags = vk::ImageUsageFlags::from_raw(
         vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT.as_raw()
+            | vk::ImageUsageFlags::TRANSFER_DST.as_raw()
             | vk::ImageUsageFlags::TRANSFER_SRC.as_raw()
-            | vk::ImageUsageFlags::STORAGE.as_raw(),
+            | vk::ImageUsageFlags::SAMPLED.as_raw(),
     );
 }
 
@@ -122,6 +124,7 @@ impl iced_graphics::compositor::Compositor for Compositor {
                 ],
             )
             .expect("Could not select depth-buffer format!");
+
         let depth_buffer = rmg
             .new_image_uninitialized(
                 ImgDesc::depth_attachment_2d(width, height, depth_format)
