@@ -105,6 +105,7 @@ struct QuadPass {
     color_image: ImageHandle,
     depth_image: ImageHandle,
 
+    pub clear_color: Option<[f32; 4]>,
     pipeline: Arc<GraphicsPipeline>,
     batches: Vec<BatchCall>,
     push: PushConstant<QuadPush>,
@@ -149,6 +150,7 @@ impl QuadPass {
             depth_image,
             pipeline,
             push,
+            clear_color: None,
             batches: Vec::new(),
         }
     }
@@ -322,15 +324,22 @@ impl Task for QuadPass {
             .image_view(depthview.view)
             .load_op(vk::AttachmentLoadOp::CLEAR)
             .store_op(vk::AttachmentStoreOp::STORE);
+
+        let (load_op, clear_color) = if let Some(clear_color) = self.clear_color {
+            (vk::AttachmentLoadOp::CLEAR, clear_color)
+        } else {
+            (vk::AttachmentLoadOp::LOAD, [0.0; 4])
+        };
+
         let color_attachments = vk::RenderingAttachmentInfo::default()
             .clear_value(vk::ClearValue {
                 color: vk::ClearColorValue {
-                    float32: [0.1, 0.2, 0.4, 1.0],
+                    float32: clear_color,
                 },
             })
             .image_layout(vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL)
             .image_view(colorview.view)
-            .load_op(vk::AttachmentLoadOp::CLEAR)
+            .load_op(load_op)
             .store_op(vk::AttachmentStoreOp::STORE);
 
         let render_info = vk::RenderingInfo::default()
@@ -426,6 +435,10 @@ impl QuadRenderer {
             order: Vec::new(),
             pass,
         }
+    }
+
+    pub fn set_clear_color(&mut self, color: Option<[f32; 4]>) {
+        self.pass.clear_color = color;
     }
 
     pub fn notify_resize(&mut self, color_buffer: ImageHandle, depth_buffer: ImageHandle) {

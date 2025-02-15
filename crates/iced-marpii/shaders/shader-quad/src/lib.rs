@@ -12,6 +12,13 @@ use spirv_std::{spirv, RuntimeArray, TypedBuffer};
 #[cfg(target_arch = "spirv")]
 use iced_marpii_shared::spirv_std::num_traits::Float;
 
+//maps a value 0..1=t to a value 0..1
+fn hardstep(t: f32) -> f32 {
+    let t = t.clamp(0.0, 1.0);
+    let d = 3.0 * t * (t - 1.0) + 1.0;
+    t * t * t / d
+}
+
 pub const VERTEX_OFFSETS: [Vec2; 6] = {
     let tl = Vec2::new(0.0, 1.0);
     let tr = Vec2::new(1.0, 1.0);
@@ -142,7 +149,6 @@ pub fn fragment(
     >,
 ) {
     //load the command
-
     let cmd = if push.cmd_buffer.is_valid() {
         let buffers = unsafe { draw_commands.index(push.cmd_buffer.index() as usize) };
         &buffers.cmds[push.offset as usize]
@@ -172,13 +178,16 @@ pub fn fragment(
         //distance of the border ist just the good-old abs(d) - r trick
         //border_dist tells us _how much within the border_ we are with all negativ values,
         //and _how much from the border_ we are with the positive ones.
-        let border_dist = dist.abs() - in_border_width;
+        //
+        //NOTE on the 0.25: This basically grows edges to _at least_ 0.25, which basically makes
+        //                  sure that they don't vanish for reaaallly small lines.
+        let border_dist = dist.abs() - in_border_width - 0.25;
         //we now mix based on the inverse, clamped to 1.0
         let border_alpha = border_dist.min(0.0).abs().clamp(0.0, 1.0);
         let border_color = in_border_color.xyz().extend(border_alpha);
         let border_weight = 1.0 - border_dist.clamp(-1.0, 0.0).abs();
-        let mix_alpha = smoothstep(0.0, 1.0, border_weight);
-        mixed_color = border_color.lerp(mixed_color, mix_alpha);
+        let mix_alpha = hardstep(border_weight);
+        mixed_color = border_color.lerp(mixed_color, border_weight);
     }
 
     //finally, handle shadow, if there is such a thing.

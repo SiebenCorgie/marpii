@@ -79,8 +79,10 @@ impl Compositor {
         &mut self,
         surface: &mut SwapchainPresent,
         _viewport: &iced_graphics::Viewport,
-        _background_color: iced::Color,
+        background_color: iced::Color,
     ) {
+        self.quads
+            .set_clear_color(Some(background_color.into_linear()));
         //setup new push-image
         surface.push_image(self.color_buffer.clone(), self.color_buffer.extent_2d());
         //now schedule all passes and flip the swapchain
