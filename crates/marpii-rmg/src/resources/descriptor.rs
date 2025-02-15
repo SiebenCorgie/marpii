@@ -414,11 +414,11 @@ impl Bindless {
     /// Assumes that the supplied `max_*` values are within the device limits. Otherwise the function might fail (or panic) while creating the descriptor pool.
     pub fn new(
         device: &Arc<Device>,
-        max_sampled_image: u32,
-        max_storage_image: u32,
-        max_storage_buffer: u32,
-        max_sampler: u32,
-        #[cfg(feature = "ray-tracing")] max_acceleration_structure: u32,
+        mut max_sampled_image: u32,
+        mut max_storage_image: u32,
+        mut max_storage_buffer: u32,
+        mut max_sampler: u32,
+        #[cfg(feature = "ray-tracing")] mut max_acceleration_structure: u32,
     ) -> Result<Self, MarpiiError> {
         //TODO - check that all flags are set
         //     - setup layout
@@ -471,6 +471,29 @@ impl Bindless {
                 "Max bound descriptor setst < {}",
                 Self::NUM_SETS
             ))))?;
+        }
+
+        //Hack: Looks like intel is messing up max-count reporting on linux/mesa by one.
+        //      So if we are on the intel vendor id, reduce each
+        if device
+            .get_device_properties()
+            .properties
+            .device_name_as_c_str()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .contains("Intel")
+        {
+            #[cfg(feature = "logging")]
+            log::warn!("detected intel graphics, reducing bindless to 2^13 descriptors per image/buffer type and 1k for samples, good luck!");
+            max_storage_buffer = 8192;
+            max_storage_image = 8192;
+            max_sampled_image = 8192;
+            max_sampler = 1024;
+            #[cfg(feature = "ray-tracing")]
+            {
+                max_acceleration_structure = 8192;
+            }
         }
 
         let descriptor_sizes = [
