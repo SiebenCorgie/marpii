@@ -3,9 +3,8 @@ use marpii::{ash::vk, resources::ImgDesc, OoS};
 use marpii_rmg::{ImageHandle, Rmg};
 use marpii_rmg_tasks::SwapchainPresent;
 
-use crate::{quad::QuadRenderer, text::TextRenderer};
+use crate::{quad::QuadRenderer, renderer::Renderer, text::TextRenderer};
 
-use super::Renderer;
 mod rendering;
 
 pub struct Compositor {

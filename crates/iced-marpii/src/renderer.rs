@@ -145,6 +145,6 @@ impl iced_core::text::Renderer for Renderer {
     }
 }
 
-impl iced_graphics::compositor::Default for crate::Renderer {
+impl iced_graphics::compositor::Default for crate::renderer::Renderer {
     type Compositor = crate::Compositor;
 }

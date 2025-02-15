@@ -1,5 +1,4 @@
-use super::Compositor;
-use crate::Renderer;
+use crate::{renderer::Renderer, Compositor};
 use iced::Transformation;
 use iced_graphics::text::font_system;
 use marpii_rmg_tasks::SwapchainPresent;

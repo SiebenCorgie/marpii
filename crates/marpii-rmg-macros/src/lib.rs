@@ -1,9 +1,9 @@
 #![feature(proc_macro_diagnostic)]
 
 use proc_macro::{Diagnostic, TokenStream};
-use quote::{ToTokens, quote};
+use quote::{quote, ToTokens};
 use syn::{
-    Attribute, Data, DataStruct, DeriveInput, Expr, ExprLit, Field, Ident, Lit, parse_macro_input,
+    parse_macro_input, Attribute, Data, DataStruct, DeriveInput, Expr, ExprLit, Field, Ident, Lit,
 };
 
 struct TaskAttribs {
@@ -98,7 +98,7 @@ impl ComputePassArgs {
 /// Supported attributes:
 ///
 /// - `push_constant`: signals that this is a push constant
-/// - `pc_handle = xy`: signals that the tagged resource is referenced in the push constant as `xy`. Will automatically update the field `xy` of the `#[push_constant]` marked constant with the runtime [ResourceHandle](marpii_rmg_shared::ResourceHandle).
+/// - `pc_handle = xy`: signals that the tagged resource is referenced in the push constant as `xy`. Will automatically update the field `xy` of the `#[push_constant]` marked constant with the runtime `ResourceHandle`.
 ///
 #[proc_macro_derive(TaskUtils, attributes(push_constant, pc_handle, shader_source))]
 pub fn task_util_derive(input: TokenStream) -> TokenStream {
