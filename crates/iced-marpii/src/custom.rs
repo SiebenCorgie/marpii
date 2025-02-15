@@ -1,7 +1,6 @@
-mod event;
-mod primitive;
-mod renderer;
-mod widget;
+pub(crate) mod event;
+pub(crate) mod primitive;
+pub(crate) mod widget;
 pub use widget::MarpiiSurface;
 
 pub use event::Event;

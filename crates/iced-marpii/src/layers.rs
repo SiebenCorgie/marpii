@@ -5,7 +5,7 @@ use iced_graphics::{
     text::{Editor, Paragraph},
 };
 
-use crate::{quad, text};
+use crate::{custom, quad, text};
 
 pub type Stack = layer::Stack<Layer>;
 
@@ -13,6 +13,7 @@ pub struct Layer {
     pub bounds: Rectangle,
     pub quads: quad::Batch,
     pub text: text::Batch,
+    pub custom: custom::primitive::Batch,
     //todo: other things on the layer
 }
 
@@ -38,6 +39,7 @@ impl iced_graphics::Layer for Layer {
 
         self.quads.clear();
         self.text.clear();
+        self.custom.clear();
         /*
         self.triangles.clear();
         self.primitives.clear();
@@ -55,6 +57,8 @@ impl Default for Layer {
             bounds: Rectangle::INFINITE,
             quads: quad::Batch::default(),
             text: text::Batch::default(),
+            //NOTE: init without alloc since _most_ layers won't use that.
+            custom: custom::primitive::Batch::with_capacity(0),
             //triangles: triangle::Batch::default(),
             //primitives: primitive::Batch::default(),
             //text: text::Batch::default(),
@@ -206,6 +210,19 @@ impl Layer {
         _transformation: Transformation,
     ) {
         self.flush_text();
+    }
+
+    pub fn draw_primitive(
+        &mut self,
+        primitive: impl crate::Primitive,
+        bounds: Rectangle,
+        transformation: Transformation,
+    ) {
+        self.custom.push(crate::custom::primitive::Instance::new(
+            bounds,
+            transformation,
+            primitive,
+        ));
     }
 
     fn flush_meshes(&mut self) {

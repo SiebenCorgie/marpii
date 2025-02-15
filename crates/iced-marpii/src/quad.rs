@@ -313,6 +313,13 @@ impl Task for QuadPass {
             [render_area.extent.width, render_area.extent.height];
 
         let viewport = colorimg.image_region().as_viewport();
+
+        let depth_load = if self.clear_color.is_some() {
+            vk::AttachmentLoadOp::CLEAR
+        } else {
+            vk::AttachmentLoadOp::LOAD
+        };
+
         let depth_attachment = vk::RenderingAttachmentInfo::default()
             .clear_value(vk::ClearValue {
                 depth_stencil: vk::ClearDepthStencilValue {
@@ -322,7 +329,7 @@ impl Task for QuadPass {
             })
             .image_layout(vk::ImageLayout::DEPTH_ATTACHMENT_OPTIMAL)
             .image_view(depthview.view)
-            .load_op(vk::AttachmentLoadOp::CLEAR)
+            .load_op(depth_load)
             .store_op(vk::AttachmentStoreOp::STORE);
 
         let (load_op, clear_color) = if let Some(clear_color) = self.clear_color {

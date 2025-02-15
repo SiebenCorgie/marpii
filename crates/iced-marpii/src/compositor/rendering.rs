@@ -33,6 +33,10 @@ impl LayerDepth {
     fn text_depth(&self, layer_index: usize) -> f32 {
         self.layer_depth(layer_index, 1)
     }
+
+    fn custom_depth(&self, layer_index: usize) -> f32 {
+        self.layer_depth(layer_index, 2)
+    }
 }
 
 impl Compositor {
@@ -47,8 +51,9 @@ impl Compositor {
         let depth_calc = LayerDepth {
             layer_count: renderer.layers.iter().count(),
         };
+
         //setup all layers
-        for (layer_index, layer) in renderer.layers.iter().enumerate() {
+        for (layer_index, layer) in renderer.layers.iter_mut().enumerate() {
             let quad_depth = depth_calc.quad_depth(layer_index);
             //push all quads of this layer into the quads renderer
             if layer.quads.order.len() > 0 {
@@ -56,8 +61,23 @@ impl Compositor {
                 self.quads
                     .push_batch(&mut self.rmg, &layer.quads, layer.bounds, quad_depth);
             }
-            let text_depth = depth_calc.text_depth(layer_index);
 
+            //NOTE: for the custom renderers we don't cache / batch anything,
+            //      so we can just call them.
+            let custom_layer = depth_calc.custom_depth(layer_index);
+            for custom in layer.custom.iter_mut() {
+                custom.primitive.prepare(
+                    &mut self.rmg,
+                    self.color_buffer.clone(),
+                    self.depth_buffer.clone(),
+                    &custom.bounds,
+                    viewport,
+                    custom.transformation,
+                    custom_layer,
+                );
+            }
+
+            let text_depth = depth_calc.text_depth(layer_index);
             if layer.text.len() > 0 {
                 self.text.push_batch(
                     &layer.text,
@@ -76,6 +96,7 @@ impl Compositor {
 
     pub fn render_to_surface(
         &mut self,
+        renderer: &mut Renderer,
         surface: &mut SwapchainPresent,
         _viewport: &iced_graphics::Viewport,
         background_color: iced::Color,
@@ -84,9 +105,27 @@ impl Compositor {
             .set_clear_color(Some(background_color.into_linear()));
         //setup new push-image
         surface.push_image(self.color_buffer.clone(), self.color_buffer.extent_2d());
-        //now schedule all passes and flip the swapchain
-        self.rmg
-            .record()
+
+        let mut recorder = self.rmg.record();
+        //first cycle all custom recording
+        for layer in renderer.layers.iter_mut() {
+            for custom in &mut layer.custom {
+                if custom.primitive.is_background() {
+                    self.quads.set_clear_color(None);
+                }
+
+                recorder = custom.primitive.render(
+                    recorder,
+                    self.color_buffer.clone(),
+                    self.depth_buffer.clone(),
+                    &layer.bounds,
+                    custom.transformation,
+                );
+            }
+        }
+
+        //now schedule all _normal_ passes and flip the swapchain
+        recorder
             .add_meta_task(&mut self.quads)
             .unwrap()
             .add_task(&mut self.text.renderpass)

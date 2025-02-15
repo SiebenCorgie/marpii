@@ -1,23 +1,27 @@
 //! Draw custom primitives.
+use iced::Transformation;
 use iced_core::{self, Rectangle};
 use iced_graphics::Viewport;
 use marpii_rmg::{ImageHandle, Recorder, Rmg};
-
-use std::fmt::Debug;
 
 /// A batch of primitives.
 pub type Batch = Vec<Instance>;
 
 /// A set of methods which allows a [`Primitive`] to be rendered.
-pub trait Primitive: Debug + Send + Sync + 'static {
+///
+/// Note that instance of this [Primitive] are rapidly created and destroyed while rendering. So any persistant
+/// data schould be stored in the `State` component of the emitting [Program](crate::custom::Program).
+pub trait Primitive: Send + Sync + 'static {
     /// Processes the [`Primitive`], allowing for GPU buffer allocation.
     fn prepare(
-        &self,
+        &mut self,
         rmg: &mut Rmg,
         color_image: ImageHandle,
         depth_image: ImageHandle,
         bounds: &Rectangle,
         viewport: &Viewport,
+        transform: Transformation,
+        layer_depth: f32,
     );
 
     ///If this returns true, the primitive will be considered the background
@@ -36,16 +40,15 @@ pub trait Primitive: Debug + Send + Sync + 'static {
     ///would/should be compared too. If you don't draw your pixels to that depth value
     /// content might glitch. Depending on what you are doing though, this might be wanted.
     fn render<'a>(
-        &mut self,
+        &'a mut self,
         recorder: Recorder<'a>,
         color_image: ImageHandle,
         depth_image: ImageHandle,
-        clip_bounds: &Rectangle<u32>,
-        layer_depth: f32,
+        clip_bounds: &Rectangle,
+        transform: Transformation,
     ) -> Recorder<'a>;
 }
 
-#[derive(Debug)]
 /// An instance of a specific [`Primitive`].
 pub struct Instance {
     /// The bounds of the [`Instance`].
@@ -53,14 +56,21 @@ pub struct Instance {
 
     /// The [`Primitive`] to render.
     pub primitive: Box<dyn Primitive>,
+
+    pub transformation: Transformation,
 }
 
 impl Instance {
     /// Creates a new [`Instance`] with the given [`Primitive`].
-    pub fn new(bounds: Rectangle, primitive: impl Primitive) -> Self {
+    pub fn new(
+        bounds: Rectangle,
+        transformation: Transformation,
+        primitive: impl Primitive,
+    ) -> Self {
         Instance {
             bounds,
             primitive: Box::new(primitive),
+            transformation,
         }
     }
 }

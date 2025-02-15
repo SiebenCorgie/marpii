@@ -174,7 +174,7 @@ impl iced_graphics::compositor::Compositor for Compositor {
         //we upload anything that is needed to the gpu.
         self.prepare(renderer, viewport);
         //this call the actual rendering passes
-        self.render_to_surface(surface, viewport, background_color);
+        self.render_to_surface(renderer, surface, viewport, background_color);
         self.end();
 
         Ok(())

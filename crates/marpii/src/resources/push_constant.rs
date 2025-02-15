@@ -6,7 +6,8 @@
 use ash::vk;
 
 ///A push constant with some data.
-/// #Safety
+///
+/// # Safety
 /// the type `T` has to be aligned correctly, otherwise data read by the shader
 /// might be interpreted wrong.
 pub struct PushConstant<T: Sized> {

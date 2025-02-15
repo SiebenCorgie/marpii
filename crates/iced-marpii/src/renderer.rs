@@ -145,6 +145,13 @@ impl iced_core::text::Renderer for Renderer {
     }
 }
 
+impl crate::custom::Renderer for Renderer {
+    fn draw_primitive(&mut self, bounds: iced::Rectangle, primitive: impl super::Primitive) {
+        let (layer, transformation) = self.layers.current_mut();
+        layer.draw_primitive(primitive, bounds, transformation);
+    }
+}
+
 impl iced_graphics::compositor::Default for crate::renderer::Renderer {
     type Compositor = crate::Compositor;
 }
