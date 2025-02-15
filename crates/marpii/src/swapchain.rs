@@ -216,15 +216,28 @@ impl SwapchainBuilder {
     pub fn as_swapchain_create_info<'a>(&'a self) -> SwapchainCreateInfoKHR<'a> {
         let format = self.get_first_supported_format();
 
+        //Fallback to 80x600 if the surface doesn't report anything, and there was no preference set
+        //NOTE: The old version was falling back to the _widest_ image possible, which is crashing some (intel/X11/Linux) systems.
+        let fallback_extent = if let Some(ext) = self
+            .surface
+            .get_current_extent(&self.device.physical_device)
+        {
+            ext
+        } else {
+            vk::Extent2D {
+                width: 800,
+                height: 600,
+            }
+        };
+
+        let image_extent = self.extent_preference.unwrap_or(fallback_extent);
+
         let mut builder = SwapchainCreateInfoKHR::default()
             .surface(self.surface.surface)
             .min_image_count(self.create_info.image_count)
             .image_format(format.format)
             .image_color_space(format.color_space)
-            .image_extent(
-                self.extent_preference
-                    .unwrap_or(self.get_supported_image_extent()),
-            )
+            .image_extent(image_extent)
             .image_array_layers(self.create_info.array_layers)
             .image_usage(self.create_info.usage)
             .pre_transform(self.create_info.transform)
