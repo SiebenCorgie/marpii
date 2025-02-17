@@ -17,6 +17,7 @@ members = [
     "examples/shared",
     "examples/egui",
     "examples/rmg-macros",
+    "examples/custom-rmg-widget",
     "crates/iced-marpii",
     "crates/iced-marpii/shaders/iced-marpii-shared",
 ]
@@ -38,6 +39,7 @@ marpii-rmg-tasks = { path = "crates/marpii-rmg-tasks/marpii-rmg-tasks" }
 marpii-rmg-task-shader = { path = "crates/marpii-rmg-tasks/marpii-rmg-shader" }
 marpii-rmg-task-shared = { path = "crates/marpii-rmg-tasks/marpii-rmg-task-shared" }
 marpii-wgpu = { path = "crates/marpii-wgpu" }
+iced-marpii = { path = "crates/iced-marpii" }
 
 ash = "0.38.0"
 ash-window = "0.13"
