@@ -85,25 +85,25 @@ impl iced_graphics::compositor::Compositor for Compositor {
         let width = swapchain.image_desc().extent.width;
         let height = swapchain.image_desc().extent.height;
 
-        //If the swapchain is 8bit, or srgb, we use a different format
-        let color_format = if marpii::util::is_srgb(swapchain.format())
-            || marpii::util::byte_per_pixel(swapchain.format()).unwrap_or(1) == 1
-        {
-            rmg.ctx
-                .device
-                .select_format(
-                    Self::COLOR_USAGE,
-                    vk::ImageTiling::OPTIMAL,
-                    &[
-                        vk::Format::R16G16B16A16_SFLOAT,
-                        vk::Format::R32G32B32A32_SFLOAT,
-                        vk::Format::R8G8B8A8_UNORM,
-                    ],
-                )
-                .expect("Could not select color-buffer format!")
-        } else {
-            swapchain.format()
-        };
+        //We always copy the swapchain format, but make sure it has the usage.
+        //TODO: If this becomes a problem, we might want to implement a
+        //      post-rendering pass that handles the case. However, the color usage is pretty
+        //      general, and _should_ be supported.
+        let color_format = swapchain.format();
+        if !rmg.ctx.device.is_format_supported(
+            Self::COLOR_USAGE,
+            vk::ImageTiling::OPTIMAL,
+            color_format,
+        ) {
+            log::error!(
+                "Swapchain format {:#?} does not support our usage: {:#?}",
+                color_format,
+                Self::COLOR_USAGE
+            );
+            return Err(iced_graphics::Error::NoAvailablePixelFormat);
+        }
+
+        log::warn!("Selected: {:#?}", color_format);
 
         let color_buffer = rmg
             .new_image_uninitialized(
@@ -204,12 +204,6 @@ impl iced_graphics::compositor::Compositor for Compositor {
 
     fn configure_surface(&mut self, _surface: &mut Self::Surface, width: u32, height: u32) {
         self.notify_resize(width, height);
-        /*
-        let surface_extent = vk::Extent2D { width, height };
-        surface
-            .recreate(surface_extent)
-            .expect("Failed to explicitly resize swapchain!");
-            */
     }
 
     fn screenshot<T: AsRef<str>>(

@@ -463,6 +463,7 @@ impl TextRenderer {
         layer_transformation: Transformation,
         layer_depth: f32,
         font_system: &mut FontSystem,
+        gamma_correct: bool,
     ) {
         //safe the current buffer length
         let text_layer_offset = self.glyph_instance_buffer.len();
@@ -526,11 +527,18 @@ impl TextRenderer {
                     let atlas_size: [u32; 2] =
                         [glyph_entry.placement.width, glyph_entry.placement.height];
 
+                    let color = if gamma_correct {
+                        //crate::util::gamma_correct(text_area.color.into_linear())
+                        text_area.color.into_linear()
+                    } else {
+                        text_area.color.into_linear()
+                    };
+
                     //Now build the glyph-instance with that knowledge
                     let glyph_instance = GlyphInstance {
                         pos,
                         size,
-                        color: text_area.color.into_linear(),
+                        color,
                         atlas_offset: [
                             atlas_offset[0].try_into().unwrap(),
                             atlas_offset[1].try_into().unwrap(),

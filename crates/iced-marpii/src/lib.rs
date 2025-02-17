@@ -6,6 +6,7 @@ pub(crate) mod mesh;
 pub(crate) mod quad;
 pub(crate) mod renderer;
 pub(crate) mod text;
+pub(crate) mod util;
 
 pub use compositor::Compositor;
 pub use custom::{marpii_surface, Event, MarpiiSurface, Persistent, Primitive, Program};

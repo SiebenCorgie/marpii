@@ -60,8 +60,6 @@ impl Default for Layer {
             //NOTE: init without alloc since _most_ layers won't use that.
             custom: custom::primitive::Batch::with_capacity(0),
             //triangles: triangle::Batch::default(),
-            //primitives: primitive::Batch::default(),
-            //text: text::Batch::default(),
             //images: image::Batch::default(),
             //pending_meshes: Vec::new(),
             //pending_text: Vec::new(),

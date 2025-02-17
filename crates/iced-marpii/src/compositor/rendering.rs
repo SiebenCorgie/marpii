@@ -1,6 +1,9 @@
+use std::fmt::Debug;
+
 use crate::{renderer::Renderer, Compositor};
 use iced::Transformation;
 use iced_graphics::text::font_system;
+use marpii::ash::vk;
 use marpii_rmg_tasks::SwapchainPresent;
 
 struct LayerDepth {
@@ -40,6 +43,11 @@ impl LayerDepth {
 }
 
 impl Compositor {
+    //Returns true, if the colors need to be gamma corrected
+    pub(crate) fn must_gamma_correct_color(format: vk::Format) -> bool {
+        !marpii::util::is_srgb(format)
+    }
+
     ///Data setup step before actually rendering something
     pub fn prepare(&mut self, renderer: &mut Renderer, viewport: &iced_graphics::Viewport) {
         self.quads.begin_new_frame(viewport);
@@ -52,14 +60,21 @@ impl Compositor {
             layer_count: renderer.layers.iter().count(),
         };
 
+        let must_gamma_correct = Self::must_gamma_correct_color(*self.color_buffer.format());
+
         //setup all layers
         for (layer_index, layer) in renderer.layers.iter_mut().enumerate() {
             let quad_depth = depth_calc.quad_depth(layer_index);
             //push all quads of this layer into the quads renderer
             if layer.quads.order.len() > 0 {
                 //TODO: take scaling factor and stuff like that into account
-                self.quads
-                    .push_batch(&mut self.rmg, &layer.quads, layer.bounds, quad_depth);
+                self.quads.push_batch(
+                    &mut self.rmg,
+                    &mut layer.quads,
+                    layer.bounds,
+                    quad_depth,
+                    must_gamma_correct,
+                );
             }
 
             //NOTE: for the custom renderers we don't cache / batch anything,
@@ -86,6 +101,7 @@ impl Compositor {
                     Transformation::scale(viewport.scale_factor() as f32),
                     text_depth,
                     font_system,
+                    !must_gamma_correct,
                 );
             }
         }
@@ -102,8 +118,13 @@ impl Compositor {
         _viewport: &iced_graphics::Viewport,
         background_color: iced::Color,
     ) {
-        self.quads
-            .set_clear_color(Some(background_color.into_linear()));
+        let bg_color = if Self::must_gamma_correct_color(*self.color_buffer.format()) {
+            crate::util::gamma_correct(background_color.into_linear())
+        } else {
+            background_color.into_linear()
+        };
+
+        self.quads.set_clear_color(Some(bg_color));
         //setup new push-image
         surface.push_image(self.color_buffer.clone(), self.color_buffer.extent_2d());
 

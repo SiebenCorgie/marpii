@@ -452,10 +452,25 @@ impl QuadRenderer {
         self.pass.resize(color_buffer, depth_buffer);
     }
 
-    pub fn push_batch(&mut self, rmg: &mut Rmg, batch: &Batch, bound: Rectangle, layer_depth: f32) {
+    pub fn push_batch(
+        &mut self,
+        rmg: &mut Rmg,
+        batch: &mut Batch,
+        bound: Rectangle,
+        layer_depth: f32,
+        gamma_correct: bool,
+    ) {
         //Do not push batches, that are empty
         if batch.order.len() == 0 {
             return;
+        }
+
+        if gamma_correct {
+            for item in batch.order.iter_mut() {
+                item.border_color = crate::util::gamma_correct(item.border_color);
+                item.shadow_color = crate::util::gamma_correct(item.shadow_color);
+                item.color = crate::util::gamma_correct(item.color);
+            }
         }
 
         let mut hasher = ahash::AHasher::default();
