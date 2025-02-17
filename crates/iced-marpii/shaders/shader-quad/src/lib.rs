@@ -175,6 +175,8 @@ pub fn fragment(
     //maps dist=0.0..dist=0.0-border_width to 1..0
     //so its 1.0 if fully in border, and 0.0 if not in border at all.
     if in_border_width > 0.0 {
+        //in case of border, remove the smooth step of the alpha,
+        mixed_color.w = if dist <= 0.0 { 1.0 } else { 0.0 };
         //distance of the border ist just the good-old abs(d) - r trick
         //border_dist tells us _how much within the border_ we are with all negativ values,
         //and _how much from the border_ we are with the positive ones.
@@ -184,10 +186,12 @@ pub fn fragment(
         let border_dist = dist.abs() - in_border_width - 0.25;
         //we now mix based on the inverse, clamped to 1.0
         let border_alpha = border_dist.min(0.0).abs().clamp(0.0, 1.0);
-        let border_color = in_border_color.xyz().extend(border_alpha);
+        let border_color = in_border_color.xyz();
         let border_weight = 1.0 - border_dist.clamp(-1.0, 0.0).abs();
         let mix_alpha = hardstep(border_weight);
-        mixed_color = border_color.lerp(mixed_color, border_weight);
+        mixed_color = border_color
+            .lerp(mixed_color.xyz(), border_weight)
+            .extend(mixed_color.w.max(border_alpha));
     }
 
     //finally, handle shadow, if there is such a thing.
