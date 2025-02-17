@@ -102,6 +102,7 @@ fn clean_up() {
 fn main() {
     println!("cargo:rerun-if-changed=../iced-marpii-shared/src/lib.rs");
     println!("cargo:rerun-if-changed=../shader-quad/src/lib.rs");
+    println!("cargo:rerun-if-changed=../shader-quad-gradient/src/lib.rs");
     println!("cargo:rerun-if-changed=../shader-mesh/src/lib.rs");
     println!("cargo:rerun-if-changed=../shader-text/src/lib.rs");
 
@@ -110,6 +111,7 @@ fn main() {
 
     //build shader crate. generates a module per entry point
     compile_rust_shader("shader-quad", "../shader-quad/", RESDIR).unwrap();
+    compile_rust_shader("shader-quad-gradient", "../shader-quad-gradient/", RESDIR).unwrap();
     compile_rust_shader("shader-mesh", "../shader-mesh/", RESDIR).unwrap();
     compile_rust_shader("shader-text", "../shader-text/", RESDIR).unwrap();
 }
