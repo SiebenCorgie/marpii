@@ -55,8 +55,10 @@ pub fn vertex(
     //input
     #[spirv(push_constant)] push: &QuadPush,
     #[spirv(vertex_index)] vertex_id: u32,
+    #[spirv(instance_index)] instance_id: u32,
     //outputs
     #[spirv(position)] clip_pos: &mut Vec4,
+    out_instance_index: &mut u32,
     out_color: &mut Vec4,
     out_border_color: &mut Vec4,
     out_pos: &mut Vec2,
@@ -71,10 +73,12 @@ pub fn vertex(
         TypedBuffer<QuadCmdBuffer>,
     >,
 ) {
+    let cmd_offset = instance_id as usize;
+    *out_instance_index = instance_id;
     //load the call
     let cmd = if push.cmd_buffer.is_valid() {
         let buffers = unsafe { draw_commands.index(push.cmd_buffer.index() as usize) };
-        &buffers.cmds[push.offset as usize]
+        &buffers.cmds[cmd_offset]
     } else {
         *clip_pos = Vec4::ZERO;
         return;
@@ -132,6 +136,7 @@ pub fn fragment(
     //inputs
     #[spirv(push_constant)] push: &QuadPush,
     #[spirv(frag_coord)] in_frag_coord: Vec4,
+    #[spirv(flat)] instance_id: u32,
     in_color: Vec4,
     in_border_color: Vec4,
     in_pos: Vec2,
@@ -151,7 +156,7 @@ pub fn fragment(
     //load the command
     let cmd = if push.cmd_buffer.is_valid() {
         let buffers = unsafe { draw_commands.index(push.cmd_buffer.index() as usize) };
-        &buffers.cmds[push.offset as usize]
+        &buffers.cmds[instance_id as usize]
     } else {
         *frag_color = Vec4::X;
         return;

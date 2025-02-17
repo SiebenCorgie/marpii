@@ -99,7 +99,7 @@ impl Layer {
             shadow_blur_radius: quad.shadow.blur_radius,
         };
 
-        self.quads.add(quad)
+        self.quads.push(quad)
     }
 
     pub fn draw_paragraph(

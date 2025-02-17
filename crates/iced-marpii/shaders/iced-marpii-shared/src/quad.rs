@@ -54,7 +54,7 @@ pub struct QuadPush {
     ///The command buffer we found our data in
     pub cmd_buffer: ResourceHandle,
     ///The offset into the cmd_buffer where our command is written
-    pub offset: u32,
+    pub pad1: u32,
     pub resolution: [u32; 2],
     pub transform: [f32; 16],
     pub scale: f32,
@@ -66,7 +66,7 @@ impl Default for QuadPush {
     fn default() -> Self {
         Self {
             cmd_buffer: ResourceHandle::INVALID,
-            offset: 0,
+            pad1: 0,
             resolution: [1; 2],
             transform: Mat4::IDENTITY.to_cols_array(),
             scale: 1.0,
