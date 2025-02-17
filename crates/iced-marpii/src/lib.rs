@@ -8,7 +8,7 @@ pub(crate) mod renderer;
 pub(crate) mod text;
 
 pub use compositor::Compositor;
-pub use custom::{marpii_surface, Event, MarpiiSurface, Primitive, Program};
+pub use custom::{marpii_surface, Event, MarpiiSurface, Persistent, Primitive, Program};
 pub use renderer::Renderer;
 
 //Re-export all marpii related stuff, since a user might not want to pull those manually.

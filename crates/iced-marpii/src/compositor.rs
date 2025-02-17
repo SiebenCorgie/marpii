@@ -3,7 +3,7 @@ use marpii::{ash::vk, resources::ImgDesc, OoS};
 use marpii_rmg::{ImageHandle, Rmg};
 use marpii_rmg_tasks::SwapchainPresent;
 
-use crate::{quad::QuadRenderer, renderer::Renderer, text::TextRenderer};
+use crate::{custom::Persistent, quad::QuadRenderer, renderer::Renderer, text::TextRenderer};
 
 mod rendering;
 
@@ -20,6 +20,9 @@ pub struct Compositor {
     quads: QuadRenderer,
     //text renderer
     text: TextRenderer,
+    //stores persistent data that can be accessed by
+    // custom primitives
+    persistent_data: Persistent,
 }
 
 impl Compositor {
@@ -153,6 +156,7 @@ impl iced_graphics::compositor::Compositor for Compositor {
             settings,
             quads,
             text,
+            persistent_data: Persistent::default(),
         })
     }
 

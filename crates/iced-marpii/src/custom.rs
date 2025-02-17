@@ -1,12 +1,93 @@
 pub(crate) mod event;
 pub(crate) mod primitive;
 pub(crate) mod widget;
+use std::any::{Any, TypeId};
+use std::hash::{Hash, Hasher};
+
+use ahash::{AHashMap, AHasher};
 pub use widget::MarpiiSurface;
 
 pub use event::Event;
 use iced_core::mouse;
 use iced_core::{Rectangle, Shell};
 pub use primitive::{Primitive, Renderer};
+
+///Unique key that identifies _any_ persistently stored data.
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct PersistentKey(u64);
+
+///Storage for custom data used by the renderer.
+#[derive(Default)]
+pub struct Persistent {
+    map: AHashMap<PersistentKey, Box<dyn Any>>,
+}
+
+impl Persistent {
+    fn key_for_name(name: &str) -> PersistentKey {
+        let mut hasher = AHasher::default();
+        name.hash(&mut hasher);
+        PersistentKey(hasher.finish())
+    }
+
+    ///Persistently stores `data` under `name`. Returns the generated key for that data.
+    ///
+    ///If there is already something stored under this name, it is overwritten.
+    pub fn store_named<T: 'static>(&mut self, name: &str, data: T) -> PersistentKey {
+        let key = Self::key_for_name(name);
+        let _ = self.map.insert(key.clone(), Box::new(data));
+
+        key
+    }
+
+    ///Stores any datum of type `T`. Note that it uses the hash of the type-id to do identification. So there
+    /// can only be one value of type `T` stored at a time. If that is not desired, consider assigning a name
+    /// and using [Self:store_named] and [Self::get_named].
+    ///
+    /// If anything with the same hash-value is stored, it will be overwritten.
+    pub fn store<T: 'static>(&mut self, data: T) -> PersistentKey {
+        let mut hasher = AHasher::default();
+        TypeId::of::<T>().hash(&mut hasher);
+        let key = PersistentKey(hasher.finish());
+        let _ = self.map.insert(key.clone(), Box::new(data));
+        key
+    }
+
+    pub fn get<T: 'static>(&self, key: &PersistentKey) -> Option<&T> {
+        if let Some(data) = self.map.get(key) {
+            data.downcast_ref()
+        } else {
+            None
+        }
+    }
+
+    pub fn get_mut<T: 'static>(&mut self, key: &PersistentKey) -> Option<&mut T> {
+        if let Some(data) = self.map.get_mut(key) {
+            data.downcast_mut()
+        } else {
+            None
+        }
+    }
+
+    ///Tries to retrieve an object of type `T` stored under `name`.
+    ///
+    ///Returns None if either the object is not of type T, or there is no object at all under that name.
+    pub fn get_named<T: 'static>(&self, name: &str) -> Option<&T> {
+        let key = Self::key_for_name(name);
+        if let Some(thing) = self.map.get(&key) {
+            thing.downcast_ref()
+        } else {
+            None
+        }
+    }
+    pub fn get_named_mut<T: 'static>(&mut self, name: &str) -> Option<&mut T> {
+        let key = Self::key_for_name(name);
+        if let Some(thing) = self.map.get_mut(&key) {
+            thing.downcast_mut()
+        } else {
+            None
+        }
+    }
+}
 
 ///Creates a new ['MarpiiSurface'] for a custom `program`.
 pub fn marpii_surface<Message, P>(program: P) -> MarpiiSurface<Message, P>

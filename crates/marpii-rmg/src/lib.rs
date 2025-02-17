@@ -183,6 +183,7 @@ mod rmg;
 pub use rmg::{CtxRmg, Rmg, RmgError};
 
 pub use marpii_rmg_macros::TaskUtils;
+pub use marpii_rmg_shared;
 
 #[cfg(test)]
 mod test {

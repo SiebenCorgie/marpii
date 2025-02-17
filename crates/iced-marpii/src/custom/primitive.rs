@@ -4,6 +4,8 @@ use iced_core::{self, Rectangle};
 use iced_graphics::Viewport;
 use marpii_rmg::{ImageHandle, Recorder, Rmg};
 
+use super::Persistent;
+
 /// A batch of primitives.
 pub type Batch = Vec<Instance>;
 
@@ -18,6 +20,7 @@ pub trait Primitive: Send + Sync + 'static {
         rmg: &mut Rmg,
         color_image: ImageHandle,
         depth_image: ImageHandle,
+        persistent: &mut Persistent,
         bounds: &Rectangle,
         viewport: &Viewport,
         transform: Transformation,
@@ -44,6 +47,7 @@ pub trait Primitive: Send + Sync + 'static {
         recorder: Recorder<'a>,
         color_image: ImageHandle,
         depth_image: ImageHandle,
+        persistent: &Persistent,
         clip_bounds: &Rectangle,
         transform: Transformation,
     ) -> Recorder<'a>;

@@ -70,6 +70,7 @@ impl Compositor {
                     &mut self.rmg,
                     self.color_buffer.clone(),
                     self.depth_buffer.clone(),
+                    &mut self.persistent_data,
                     &custom.bounds,
                     viewport,
                     custom.transformation,
@@ -118,6 +119,7 @@ impl Compositor {
                     recorder,
                     self.color_buffer.clone(),
                     self.depth_buffer.clone(),
+                    &self.persistent_data,
                     &layer.bounds,
                     custom.transformation,
                 );
