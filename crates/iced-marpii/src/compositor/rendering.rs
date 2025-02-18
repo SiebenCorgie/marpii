@@ -64,11 +64,21 @@ impl Compositor {
         for (layer_index, layer) in renderer.layers.iter_mut().enumerate() {
             let quad_depth = depth_calc.quad_depth(layer_index);
             //push all quads of this layer into the quads renderer
-            if layer.quads.len() > 0 {
+            if layer.solid_quads.len() > 0 {
                 //TODO: take scaling factor and stuff like that into account
-                self.quads.push_batch(
+                self.quads.push_solid_batch(
                     &mut self.rmg,
-                    &mut layer.quads,
+                    &mut layer.solid_quads,
+                    layer.bounds,
+                    quad_depth,
+                    must_gamma_correct,
+                );
+            }
+            if layer.gradient_quads.len() > 0 {
+                //TODO: take scaling factor and stuff like that into account
+                self.quads.push_gradient_batch(
+                    &mut self.rmg,
+                    &mut layer.gradient_quads,
                     layer.bounds,
                     quad_depth,
                     must_gamma_correct,

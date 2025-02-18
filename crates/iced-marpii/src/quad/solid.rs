@@ -1,7 +1,7 @@
 use std::{f32, sync::Arc};
 
 use iced_graphics::Settings;
-use iced_marpii_shared::QuadPush;
+use iced_marpii_shared::{CmdQuad, QuadPush};
 use marpii::{
     ash::vk,
     resources::{GraphicsPipeline, PushConstant, ShaderModule, ShaderStage},
@@ -22,7 +22,7 @@ pub struct QuadPass {
 
     pub clear_color: Option<[f32; 4]>,
     pipeline: Arc<GraphicsPipeline>,
-    pub batches: Vec<BatchCall>,
+    pub batches: Vec<BatchCall<CmdQuad>>,
     pub push: PushConstant<QuadPush>,
 }
 

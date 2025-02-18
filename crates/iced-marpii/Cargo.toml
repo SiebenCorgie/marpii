@@ -8,7 +8,6 @@ validation = []
 
 [dev-dependencies]
 simple_logger.workspace = true
-iced_wgpu = "0.13"
 
 [dependencies]
 iced = "0.13"

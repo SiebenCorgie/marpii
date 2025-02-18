@@ -4,6 +4,7 @@ use iced_graphics::{
     layer,
     text::{Editor, Paragraph},
 };
+use iced_marpii_shared::{CmdQuad, CmdQuadGradient};
 
 use crate::{custom, quad, text};
 
@@ -11,7 +12,8 @@ pub type Stack = layer::Stack<Layer>;
 
 pub struct Layer {
     pub bounds: Rectangle,
-    pub quads: quad::Batch,
+    pub solid_quads: quad::Batch<CmdQuad>,
+    pub gradient_quads: quad::Batch<CmdQuadGradient>,
     pub text: text::Batch,
     pub custom: custom::primitive::Batch,
     //todo: other things on the layer
@@ -37,7 +39,8 @@ impl iced_graphics::Layer for Layer {
     fn reset(&mut self) {
         self.bounds = Rectangle::INFINITE;
 
-        self.quads.clear();
+        self.solid_quads.clear();
+        self.gradient_quads.clear();
         self.text.clear();
         self.custom.clear();
         /*
@@ -55,7 +58,8 @@ impl Default for Layer {
     fn default() -> Self {
         Self {
             bounds: Rectangle::INFINITE,
-            quads: quad::Batch::default(),
+            solid_quads: quad::Batch::default(),
+            gradient_quads: quad::Batch::default(),
             text: text::Batch::default(),
             //NOTE: init without alloc since _most_ layers won't use that.
             custom: custom::primitive::Batch::with_capacity(0),
@@ -77,29 +81,46 @@ impl Layer {
         //Directly transform into object space
         let bounds = quad.bounds * transformation;
 
-        let color = match background {
-            Background::Color(c) => c.into_linear(),
-            Background::Gradient(_g) => {
-                log::error!("Gradient not implemented!");
-                [1.0, 0.0, 0.0, 1.0]
+        match background {
+            Background::Color(c) => {
+                let color = c.into_linear();
+                //transform into a GPU quad and push
+                let quad = iced_marpii_shared::CmdQuad {
+                    //transform: transformation.into(),
+                    color,
+                    position: [bounds.x, bounds.y],
+                    size: [bounds.width, bounds.height],
+                    border_color: quad.border.color.into_linear(),
+                    border_radius: quad.border.radius.into(),
+                    border_width: quad.border.width,
+                    shadow_color: quad.shadow.color.into_linear(),
+                    shadow_offset: quad.shadow.offset.into(),
+                    shadow_blur_radius: quad.shadow.blur_radius,
+                };
+                //push as solid quad
+                self.solid_quads.push(quad);
             }
-        };
+            Background::Gradient(gradient) => {
+                //prepack the gradient-quad, then update all other
+                //fields
+                let pack = quad::gradient::pack_gradient_quad(gradient, bounds);
 
-        //transform into a GPU quad and push
-        let quad = iced_marpii_shared::CmdQuad {
-            //transform: transformation.into(),
-            color,
-            position: [bounds.x, bounds.y],
-            size: [bounds.width, bounds.height],
-            border_color: quad.border.color.into_linear(),
-            border_radius: quad.border.radius.into(),
-            border_width: quad.border.width,
-            shadow_color: quad.shadow.color.into_linear(),
-            shadow_offset: quad.shadow.offset.into(),
-            shadow_blur_radius: quad.shadow.blur_radius,
-        };
-
-        self.quads.push(quad)
+                //now fill such a command
+                let quad = iced_marpii_shared::CmdQuadGradient {
+                    position: [bounds.x, bounds.y],
+                    size: [bounds.width, bounds.height],
+                    border_color: quad.border.color.into_linear(),
+                    border_radius: quad.border.radius.into(),
+                    border_width: quad.border.width,
+                    shadow_color: quad.shadow.color.into_linear(),
+                    shadow_offset: quad.shadow.offset.into(),
+                    shadow_blur_radius: quad.shadow.blur_radius,
+                    ..pack
+                };
+                //and push it into the layer
+                self.gradient_quads.push(quad);
+            }
+        }
     }
 
     pub fn draw_paragraph(

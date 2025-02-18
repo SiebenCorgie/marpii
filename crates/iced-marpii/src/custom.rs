@@ -41,7 +41,7 @@ impl Persistent {
 
     ///Stores any datum of type `T`. Note that it uses the hash of the type-id to do identification. So there
     /// can only be one value of type `T` stored at a time. If that is not desired, consider assigning a name
-    /// and using [Self:store_named] and [Self::get_named].
+    /// and using [Self::store_named] and [Self::get_named].
     ///
     /// If anything with the same hash-value is stored, it will be overwritten.
     pub fn store<T: 'static>(&mut self, data: T) -> PersistentKey {
