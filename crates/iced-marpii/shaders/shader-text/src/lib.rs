@@ -28,7 +28,7 @@ pub const UV_COORD_QUAD_CCW: [Vec2; 6] = {
     [bl, br, tr, tr, tl, bl]
 };
 
-struct InstanceBuffer {
+pub struct InstanceBuffer {
     data: [GlyphInstance; 1_0000_000],
 }
 
@@ -130,7 +130,7 @@ pub fn fragment(
     let clip_bound_start = Vec2::from(instance.clip_offset);
     let clip_size = Vec2::from(instance.clip_size);
 
-    ///If the point is outside of the clip bound, bail
+    //If the point is outside of the clip bound, bail
     if fragcoord.cmplt(clip_bound_start).any()
         || fragcoord.cmpgt(clip_bound_start + clip_size).any()
     {

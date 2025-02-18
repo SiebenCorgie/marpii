@@ -4,20 +4,13 @@
 //! shader.
 #![no_std]
 #![allow(unexpected_cfgs)]
-use glam::{UVec2, Vec2, Vec3, Vec4, Vec4Swizzles};
-use iced_marpii_shared::{smoothstep, spirv_std, QuadCmdBuffer, QuadPush};
+use glam::{UVec2, Vec2, Vec4, Vec4Swizzles};
+use iced_marpii_shared::{spirv_std, QuadCmdBuffer, QuadPush};
 use spirv_std::glam;
 use spirv_std::{spirv, RuntimeArray, TypedBuffer};
 
 #[cfg(target_arch = "spirv")]
 use iced_marpii_shared::spirv_std::num_traits::Float;
-
-//maps a value 0..1=t to a value 0..1
-fn hardstep(t: f32) -> f32 {
-    let t = t.clamp(0.0, 1.0);
-    let d = 3.0 * t * (t - 1.0) + 1.0;
-    t * t * t / d
-}
 
 pub const VERTEX_OFFSETS: [Vec2; 6] = {
     let tl = Vec2::new(0.0, 1.0);
@@ -59,11 +52,7 @@ pub fn vertex(
     //outputs
     #[spirv(position)] clip_pos: &mut Vec4,
     out_instance_index: &mut u32,
-    out_color: &mut Vec4,
     out_border_color: &mut Vec4,
-    out_pos: &mut Vec2,
-    out_scale: &mut f32,
-    out_border_radius: &mut Vec4,
     out_border_width: &mut f32,
     out_shadow_color: &mut Vec4,
     out_shadow_offset: &mut Vec2,
@@ -118,11 +107,7 @@ pub fn vertex(
     let ndc_pos = ndc_pos.extend(push.layer_depth).extend(1.0);
 
     *clip_pos = ndc_pos;
-    *out_color = Vec4::from(cmd.color);
     *out_border_color = Vec4::from(cmd.border_color);
-    *out_pos = uv_pos;
-    *out_scale = push.scale;
-    *out_border_radius = push.scale * Vec4::from(cmd.border_radius);
     *out_border_width = push.scale * cmd.border_width;
     *out_shadow_color = Vec4::from(cmd.shadow_color);
     *out_shadow_offset = Vec2::from(cmd.shadow_offset) * push.scale;
@@ -137,11 +122,7 @@ pub fn fragment(
     #[spirv(push_constant)] push: &QuadPush,
     #[spirv(frag_coord)] in_frag_coord: Vec4,
     #[spirv(flat)] instance_id: u32,
-    in_color: Vec4,
     in_border_color: Vec4,
-    in_pos: Vec2,
-    in_scale: f32,
-    in_border_radius: Vec4,
     in_border_width: f32,
     in_shadow_color: Vec4,
     in_shadow_offset: Vec2,
@@ -165,7 +146,7 @@ pub fn fragment(
     //Initial color
     let mut mixed_color = Vec4::from(cmd.color);
     //find the distance to our rect for this fragment
-    let half_extent = (Vec2::from(cmd.size) * 0.5);
+    let half_extent = Vec2::from(cmd.size) * 0.5;
     let box_center = Vec2::from(cmd.position) + half_extent;
     let dist = sd_round_box(
         in_frag_coord.xy() - box_center,
@@ -193,7 +174,6 @@ pub fn fragment(
         let border_alpha = border_dist.min(0.0).abs().clamp(0.0, 1.0);
         let border_color = in_border_color.xyz();
         let border_weight = 1.0 - border_dist.clamp(-1.0, 0.0).abs();
-        let mix_alpha = hardstep(border_weight);
         mixed_color = border_color
             .lerp(mixed_color.xyz(), border_weight)
             .extend(mixed_color.w.max(border_alpha));
