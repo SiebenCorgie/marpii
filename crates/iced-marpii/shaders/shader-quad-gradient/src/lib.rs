@@ -81,14 +81,14 @@ pub fn vertex(
     let vindex = vertex_id as usize % 6;
     let vertex_local_offset = VERTEX_OFFSETS[vindex];
     //this is the vertex's locatio in pixel space
-    let mut pixel_space_position =
-        Vec2::from(cmd.position) + vertex_local_offset * Vec2::from(cmd.size);
+    let mut pixel_space_position = (Vec2::from(cmd.position) * push.scale)
+        + (vertex_local_offset * Vec2::from(cmd.size) * push.scale);
 
     //grow, if there is a border
     if cmd.border_width > 0.0 {
         //-1 for 0, 1 for 1
         let offset_dir = (vertex_local_offset * 2.0) - Vec2::ONE;
-        pixel_space_position = pixel_space_position + offset_dir * cmd.border_width;
+        pixel_space_position = pixel_space_position + (offset_dir * cmd.border_width * push.scale);
     }
 
     //grow if there is a shadow
@@ -96,7 +96,7 @@ pub fn vertex(
         let offset_dir = (vertex_local_offset * 2.0) - Vec2::ONE;
         //NOTE: this might grow a little _too big_. But we can afford that I'd say :D.
         pixel_space_position =
-            pixel_space_position + offset_dir * Vec2::from(cmd.shadow_offset).abs();
+            pixel_space_position + (offset_dir * Vec2::from(cmd.shadow_offset).abs() * push.scale);
     }
 
     let uv_pos = pixel_space_position / UVec2::from(push.resolution).as_vec2();
@@ -166,8 +166,8 @@ pub fn fragment(
         last_index,
     );
     //find the distance to our rect for this fragment
-    let half_extent = Vec2::from(cmd.size) * 0.5;
-    let box_center = Vec2::from(cmd.position) + half_extent;
+    let half_extent = (Vec2::from(cmd.size) * 0.5) * push.scale;
+    let box_center = (Vec2::from(cmd.position) * push.scale) + half_extent;
     let dist = sd_round_box(
         in_frag_coord.xy() - box_center,
         half_extent,
@@ -209,7 +209,7 @@ pub fn fragment(
         let shadow_dist = sd_round_box(
             in_frag_coord.xy() - box_center - in_shadow_offset,
             half_extent,
-            Vec4::from(cmd.border_radius),
+            Vec4::from(cmd.border_radius) * push.scale,
         );
 
         //now calculate the color+opacity of the shadow
