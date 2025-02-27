@@ -146,6 +146,7 @@ impl Rmg {
             any_needed
         );
         check_feature!(vk10, robust_buffer_access, missing, any_needed);
+        check_feature!(vk10, fragment_stores_and_atomics, missing, any_needed);
 
         check_feature!(vk12, shader_int8, missing, any_needed);
         check_feature!(vk12, runtime_descriptor_array, missing, any_needed);
@@ -230,6 +231,7 @@ impl Rmg {
                 shader_uniform_buffer_array_dynamic_indexing: 1,
                 shader_sampled_image_array_dynamic_indexing: 1,
                 robust_buffer_access: 1,
+                fragment_stores_and_atomics: 1,
                 ..Default::default()
             },
             vk::PhysicalDeviceVulkan11Features::default(),
