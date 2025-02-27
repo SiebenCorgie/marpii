@@ -7,7 +7,7 @@ use std::hash::{Hash, Hasher};
 use ahash::{AHashMap, AHasher};
 pub use widget::MarpiiSurface;
 
-pub use event::Event;
+pub use event::{Event, Status};
 use iced_core::mouse;
 use iced_core::{Rectangle, Shell};
 pub use primitive::{Primitive, Renderer};
