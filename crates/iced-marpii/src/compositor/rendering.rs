@@ -98,6 +98,7 @@ impl Compositor {
                     viewport,
                     custom.transformation,
                     custom_layer,
+                    must_gamma_correct,
                 );
             }
 

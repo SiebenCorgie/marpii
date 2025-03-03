@@ -25,6 +25,7 @@ pub trait Primitive: Send + Sync + 'static {
         viewport: &Viewport,
         transform: Transformation,
         layer_depth: f32,
+        should_gamma_correct: bool,
     );
 
     ///If this returns true, the primitive will be considered the background
