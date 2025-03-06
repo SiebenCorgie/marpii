@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use cache::glyph_content_to_type;
 use cosmic_text::FontSystem;
-use iced::{Rectangle, Transformation};
+use iced::{Color, Rectangle, Transformation};
 use iced_graphics::Settings;
 use iced_marpii_shared::{GlyphInstance, TextPush};
 use marpii::{
@@ -527,11 +527,16 @@ impl TextRenderer {
                     let atlas_size: [u32; 2] =
                         [glyph_entry.placement.width, glyph_entry.placement.height];
 
+                    let mut base_color = text_area.color.clone();
+                    if let Some(ovc) = &glyph.color_opt {
+                        let [r, g, b, a] = ovc.as_rgba();
+                        base_color = Color::from_rgba8(r, g, b, a as f32 / 255.0);
+                    }
                     let color = if gamma_correct {
                         //crate::util::gamma_correct(text_area.color.into_linear())
-                        text_area.color.into_linear()
+                        base_color.into_linear()
                     } else {
-                        text_area.color.into_linear()
+                        base_color.into_linear()
                     };
 
                     //Now build the glyph-instance with that knowledge

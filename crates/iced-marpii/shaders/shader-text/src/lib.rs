@@ -161,11 +161,18 @@ pub fn fragment(
             *frag_color = Vec4::new(1.0, 0.0, 0.0, 1.0);
             return;
         }
+
+        let base_color = if instance.glyph_type == 1 {
+            Vec4::from(instance.color)
+        } else {
+            Vec4::ONE
+        };
+
         //sample texture
         let image = unsafe { color_atlas.index(push.glyph_atlas_color.index() as usize) };
         let sampler = unsafe { sampler.index(push.glyph_sampler.index() as usize) };
         let tex_val: Vec4 = image.sample(*sampler, in_uv);
-        tex_val
+        tex_val * base_color
     };
 
     //and write back
