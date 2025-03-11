@@ -221,10 +221,19 @@ impl iced_graphics::compositor::Compositor for Compositor {
     fn fetch_information(&self) -> compositor::Information {
         log::warn!("information getting not supported");
 
-        let information = "the ol' adapter info".to_owned();
+        let device_name = self
+            .rmg
+            .ctx
+            .device
+            .get_device_properties()
+            .properties
+            .device_name_as_c_str()
+            .map(|cstr| cstr.to_str().unwrap_or("non-utf8-name"))
+            .unwrap_or("could-not-get-adapter-name")
+            .to_owned();
 
         compositor::Information {
-            adapter: information,
+            adapter: device_name,
             backend: "MarpII".to_owned(),
         }
     }
