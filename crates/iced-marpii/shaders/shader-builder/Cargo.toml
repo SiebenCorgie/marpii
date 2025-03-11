@@ -1,0 +1,15 @@
+[package]
+name = "shader-builder"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[dependencies]
+shader-quad = { path = "../shader-quad" }
+shader-quad-gradient = { path = "../shader-quad-gradient" }
+shader-text = { path = "../shader-text" }
+iced-marpii-shared = { path = "../iced-marpii-shared" }
+
+[build-dependencies]
+spirv-builder = { git = "https://github.com/Rust-GPU/rust-gpu.git", rev = "6e2c84d4fe64e32df4c060c5a7f3e35a32e45421" }

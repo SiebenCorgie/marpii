@@ -1,0 +1,13 @@
+[package]
+name = "shader-quad-gradient"
+version = "0.1.0"
+edition = "2021"
+
+[workspace]
+
+[lib]
+crate-type = ["lib", "dylib"]
+
+# Dependencies for CPU and GPU code
+[dependencies]
+iced-marpii-shared = { path = "../iced-marpii-shared" }

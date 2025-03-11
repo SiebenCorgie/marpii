@@ -1,6 +1,5 @@
 use easy_gltf::Scene;
 use marpii::{
-    OoS,
     allocator::MemoryUsage,
     ash::vk,
     context::Device,
@@ -10,6 +9,7 @@ use marpii::{
         ShaderModule, ShaderStage,
     },
     util::Timestamps,
+    OoS,
 };
 use marpii_rmg::{
     BufferHandle, CtxRmg, ImageHandle, RecordError, ResourceRegistry, Resources, Rmg, RmgError,
@@ -19,7 +19,7 @@ use marpii_rmg_tasks::UploadBuffer;
 use shared::{ResourceHandle, SimObj, Ubo, Vertex};
 use std::sync::Arc;
 
-use crate::{OBJECT_COUNT, model_loading::load_model};
+use crate::{model_loading::load_model, OBJECT_COUNT};
 
 const SHADER_VS: &[u8] = include_bytes!("../../rmg_rendering/resources/forward_vs.spv");
 const SHADER_FS: &[u8] = include_bytes!("../../rmg_rendering/resources/forward_fs.spv");
@@ -287,7 +287,7 @@ impl ForwardPass {
             pipeline_layout,
             shader_stages,
             color_formats,
-            depth_format,
+            Some(depth_format),
         )?;
         Ok(pipeline)
     }

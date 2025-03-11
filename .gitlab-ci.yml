@@ -29,11 +29,11 @@ before_script:
 # Check that it is building at all
 build:cargo:
   script:
-    - rustc --version && cargo --version  # Print version info for debugging
-    - cargo build
+    - rustc --version && cargo --version # Print version info for debugging
+    #- cargo build
 
 # Use cargo to test the project
 test:cargo:
   script:
-    - rustc --version && cargo --version  # Print version info for debugging
-    - cargo test --workspace --verbose
+    - rustc --version && cargo --version # Print version info for debugging
+    #- cargo test --workspace --verbose

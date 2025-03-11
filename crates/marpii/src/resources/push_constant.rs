@@ -6,9 +6,11 @@
 use ash::vk;
 
 ///A push constant with some data.
-/// #Safety
+///
+/// # Safety
 /// the type `T` has to be aligned correctly, otherwise data read by the shader
 /// might be interpreted wrong.
+#[derive(Clone)]
 pub struct PushConstant<T: Sized> {
     inner_range: vk::PushConstantRange,
     stage: vk::ShaderStageFlags,
