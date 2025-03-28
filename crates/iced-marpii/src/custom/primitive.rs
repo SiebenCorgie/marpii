@@ -1,13 +1,14 @@
 //! Draw custom primitives.
 use iced::Transformation;
 use iced_core::{self, Rectangle};
-use iced_graphics::Viewport;
 use marpii_rmg::{ImageHandle, Recorder, Rmg};
 
 use super::Persistent;
 
 /// A batch of primitives.
 pub type Batch = Vec<Instance>;
+
+pub type Viewport = iced_graphics::Viewport;
 
 /// A set of methods which allows a [`Primitive`] to be rendered.
 ///

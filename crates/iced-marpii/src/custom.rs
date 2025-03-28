@@ -10,7 +10,7 @@ pub use widget::MarpiiSurface;
 pub use event::{Event, Status};
 use iced_core::mouse;
 use iced_core::{Rectangle, Shell};
-pub use primitive::{Primitive, Renderer};
+pub use primitive::{Primitive, Renderer, Viewport};
 
 ///Unique key that identifies _any_ persistently stored data.
 #[derive(Clone, Debug, Hash, PartialEq, Eq)]

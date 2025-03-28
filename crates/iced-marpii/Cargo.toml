@@ -10,7 +10,7 @@ validation = []
 simple_logger.workspace = true
 
 [dependencies]
-iced = { version = "0.13" }
+iced = { version = "0.13", default-features = false }
 iced_core = "0.13"
 iced_graphics = "0.13"
 
