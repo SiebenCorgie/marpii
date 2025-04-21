@@ -9,42 +9,49 @@ pub use spirv_std;
     not(target_arch = "spirv"),
     derive(Debug, Clone, Copy, Default, Pod, Zeroable)
 )]
+
+///Generic vertex for the mesh-draming pass
 pub struct Vertex {
+    ///2d float position
     pub pos: [f32; 2],
     pub uv: [f32; 2],
+    pub color: [f32; 4],
 }
 
 //A mesh draw call
 #[repr(C)]
 #[cfg_attr(not(target_arch = "spirv"), derive(Debug, Clone, Copy, Pod, Zeroable))]
 pub struct MeshPush {
-    pub index_buffer: ResourceHandle,
-    pub vertex_buffer: ResourceHandle,
+    pub ibuf: ResourceHandle,
+    pub vbuf: ResourceHandle,
+
     //offset into the indexbuffer, where we find the index into the vertex-buffer
     pub index_offset: u32,
-    pub layer_depth_float: u32,
+    //offset into the vertex_buffer, from where we can read relative indices.
+    pub vertex_offset: u32,
+
     //resolution of the frame-buffer, used for translating
     //pixel-space to ndc
     pub resolution: [u32; 2],
     pad1: [u32; 2],
-    //Mesh wide color
-    pub color: [f32; 4],
+
     pub pos: [f32; 2],
-    pub scale: [f32; 2],
+    pub scale: f32,
+    pub layer_depth: f32,
 }
 
 impl Default for MeshPush {
     fn default() -> Self {
         MeshPush {
-            index_buffer: ResourceHandle::INVALID,
-            vertex_buffer: ResourceHandle::INVALID,
+            ibuf: ResourceHandle::INVALID,
+            vbuf: ResourceHandle::INVALID,
             index_offset: 0,
-            layer_depth_float: 0,
+            vertex_offset: 0,
             resolution: [0; 2],
             pad1: [0; 2],
-            color: [0.0; 4],
             pos: [0.0; 2],
-            scale: [0.0; 2],
+            scale: 0.0,
+            layer_depth: 0.0,
         }
     }
 }

@@ -7,85 +7,15 @@ use ahash::AHashMap;
 use gradient::QuadGradientPass;
 use iced::Rectangle;
 use iced_graphics::Settings;
-use iced_marpii_shared::{CmdQuad, CmdQuadGradient, ResourceHandle};
+use iced_marpii_shared::{CmdQuad, CmdQuadGradient};
 use marpii::ash::vk;
-use marpii_rmg::{BufferHandle, ImageHandle, MetaTask, Rmg};
-use marpii_rmg_tasks::UploadBuffer;
+use marpii_rmg::{ImageHandle, MetaTask, Rmg};
 use solid::QuadPass;
 
-use marpii::bytemuck::Pod;
+use crate::batch_cache::{Batch, BatchCall, BatchId, BufferState, CachedBatch};
 
 pub(crate) mod gradient;
 pub(crate) mod solid;
-
-pub type Batch<CmdTy> = Vec<CmdTy>;
-
-enum BufferState<CmdTy: Pod + 'static> {
-    Uploading {
-        was_enqueued: bool,
-        upload: UploadBuffer<CmdTy>,
-    },
-    Residing(BufferHandle<CmdTy>),
-}
-
-impl<CmdTy: Pod + 'static> BufferState<CmdTy> {
-    pub fn is_residing(&self) -> bool {
-        if let Self::Residing(_) = self {
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn unwrap_handle(&self) -> BufferHandle<CmdTy> {
-        if let Self::Residing(hdl) = self {
-            hdl.clone()
-        } else {
-            panic!("Handle not yet residing")
-        }
-    }
-}
-
-///A cached quad-draw batch.
-struct CachedBatch<CmdTy: Pod + 'static> {
-    ///A flag that is incremented whenever the batch was not used in a frame.
-    ///Allows us to delete buffers that where not used for a set of frames.
-    last_use: usize,
-    buffer: BufferState<CmdTy>,
-    batch_size: usize,
-    //The bound this batch is drawn in
-    bound: Rectangle,
-}
-
-impl<CmdTy: Pod + 'static> CachedBatch<CmdTy> {
-    pub fn new(rmg: &mut Rmg, batch: &Batch<CmdTy>, bound: Rectangle) -> Self {
-        let size = batch.len();
-        let upload = UploadBuffer::new(rmg, batch.as_slice()).unwrap();
-        CachedBatch {
-            last_use: 0,
-            buffer: BufferState::Uploading {
-                was_enqueued: false,
-                upload,
-            },
-            batch_size: size,
-            bound,
-        }
-    }
-}
-
-///The quad calls that are enqueued.
-pub(crate) struct BatchCall<CmdTy: 'static> {
-    buffer: BufferHandle<CmdTy>,
-    resource_handle: Option<ResourceHandle>,
-    count: usize,
-    bound: vk::Rect2D,
-    layer_depth: f32,
-}
-
-enum BatchId {
-    Solid { id: u64, layer_depth: f32 },
-    Gradient { id: u64, layer_depth: f32 },
-}
 
 ///The vertex/index-buffer less quad renderer.
 ///

@@ -4,15 +4,21 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
+default = []
 validation = []
+#enables the canvas rendering implementation
+geometry = ["iced_graphics/geometry", "lyon"]
 
 [dev-dependencies]
 simple_logger.workspace = true
+chrono = "0.4"
+
 
 [dependencies]
 iced = { version = "0.13", default-features = false }
-iced_core = "0.13"
-iced_graphics = "0.13"
+iced_core = { version = "0.13", default-features = false }
+iced_graphics = { version = "0.13", default-features = false }
+lyon = { workspace = true, optional = true }
 
 marpii.workspace = true
 marpii-rmg.workspace = true

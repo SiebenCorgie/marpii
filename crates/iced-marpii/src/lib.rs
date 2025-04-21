@@ -1,6 +1,9 @@
+pub(crate) mod batch_cache;
 pub(crate) mod compositor;
 ///Widget that allows you to use the underlying [Rmg](marpii_rmg::Rmg) framework.
 pub mod custom;
+#[cfg(feature = "geometry")]
+pub(crate) mod geometry;
 pub(crate) mod layers;
 pub(crate) mod mesh;
 pub(crate) mod quad;
@@ -16,3 +19,11 @@ pub use renderer::Renderer;
 pub use marpii;
 pub use marpii_rmg;
 pub use marpii_rmg_tasks;
+
+///Types you'll need to use the canvas feature with the custom renderer.
+#[cfg(feature = "geometry")]
+pub mod canvas {
+    pub type Cache = iced_graphics::geometry::Cache<super::Renderer>;
+    pub type Geometry = <super::Renderer as iced_graphics::geometry::Renderer>::Geometry;
+    pub type Frame = iced_graphics::geometry::Frame<super::Renderer>;
+}

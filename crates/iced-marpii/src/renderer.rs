@@ -145,6 +145,60 @@ impl iced_core::text::Renderer for Renderer {
     }
 }
 
+impl iced_graphics::mesh::Renderer for crate::renderer::Renderer {
+    fn draw_mesh(&mut self, mesh: iced_graphics::Mesh) {
+        let (layer, transformation) = self.layers.current_mut();
+        layer.draw_mesh(mesh, transformation);
+    }
+}
+
+#[cfg(feature = "geometry")]
+impl iced_graphics::geometry::Renderer for crate::renderer::Renderer {
+    type Frame = crate::geometry::Frame;
+    type Geometry = crate::geometry::Geometry;
+
+    fn new_frame(&self, size: Size) -> Self::Frame {
+        crate::geometry::Frame::new(size)
+    }
+
+    fn draw_geometry(&mut self, geometry: Self::Geometry) {
+        let (layer, transformation) = self.layers.current_mut();
+
+        match geometry {
+            crate::geometry::Geometry::Live {
+                meshes,
+                images,
+                text,
+            } => {
+                layer.draw_mesh_group(meshes, transformation);
+
+                for image in images {
+                    layer.draw_image(image, transformation);
+                }
+
+                layer.draw_text_group(text, transformation);
+            }
+            crate::geometry::Geometry::Cached(cache) => {
+                if !cache.meshes.is_empty() {
+                    layer.draw_mesh_cache(cache.meshes, transformation);
+                }
+
+                /*TODO: Image
+                if let Some(images) = cache.images {
+                    for image in images.iter().cloned() {
+                        layer.draw_image(image, transformation);
+                    }
+                }
+                */
+
+                if !cache.text.is_empty() {
+                    layer.draw_text_cache(cache.text, transformation);
+                }
+            }
+        }
+    }
+}
+
 impl crate::custom::Renderer for Renderer {
     fn draw_primitive(&mut self, bounds: iced::Rectangle, primitive: impl super::Primitive) {
         let (layer, transformation) = self.layers.current_mut();
