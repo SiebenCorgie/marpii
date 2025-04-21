@@ -20,6 +20,7 @@ members = [
     "examples/custom-rmg-widget",
     "crates/iced-marpii",
     "crates/iced-marpii/shaders/iced-marpii-shared",
+    "crates/iced-marpii/examples/canvas",
 ]
 exclude = [
     "crates/iced-marpii/shaders/shader-quad",
@@ -59,3 +60,5 @@ graphviz-rust = "0.9.3"
 slotmap = "1"
 image = "0.25"
 wgpu = "23"
+lyon = "1.0"
+lyon_path = "1.0"

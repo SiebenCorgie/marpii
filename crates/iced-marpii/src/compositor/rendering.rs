@@ -19,7 +19,7 @@ impl LayerDepth {
     /// - Text
     /// - Others
     /// Front
-    const SUB_LAYER_COUNT: usize = 3;
+    const SUB_LAYER_COUNT: usize = 4;
     fn layer_depth(&self, layer_index: usize, in_layer_offset: usize) -> f32 {
         let t = (layer_index * Self::SUB_LAYER_COUNT + in_layer_offset) as f32
             / (self.layer_count * Self::SUB_LAYER_COUNT) as f32;
@@ -31,12 +31,16 @@ impl LayerDepth {
         self.layer_depth(layer_index, 0)
     }
 
-    fn text_depth(&self, layer_index: usize) -> f32 {
+    fn mesh_depth(&self, layer_index: usize) -> f32 {
         self.layer_depth(layer_index, 1)
     }
 
-    fn custom_depth(&self, layer_index: usize) -> f32 {
+    fn text_depth(&self, layer_index: usize) -> f32 {
         self.layer_depth(layer_index, 2)
+    }
+
+    fn custom_depth(&self, layer_index: usize) -> f32 {
+        self.layer_depth(layer_index, 3)
     }
 }
 
@@ -50,6 +54,7 @@ impl Compositor {
     pub fn prepare(&mut self, renderer: &mut Renderer, viewport: &iced_graphics::Viewport) {
         self.quads.begin_new_frame(viewport);
         self.text.new_frame();
+        self.mesh.new_frame();
 
         let mut font_system = font_system().write().unwrap();
         let font_system = font_system.raw();
@@ -85,6 +90,11 @@ impl Compositor {
                 );
             }
 
+            let mesh_layer = depth_calc.mesh_depth(layer_index);
+            if layer.mesh.len() > 0 {
+                self.mesh.push_mesh_batch(&layer.mesh, mesh_layer);
+            }
+
             //NOTE: for the custom renderers we don't cache / batch anything,
             //      so we can just call them.
             let custom_layer = depth_calc.custom_depth(layer_index);
@@ -118,6 +128,7 @@ impl Compositor {
         //after setting up all initial data, schedule all uploads
         self.quads.prepare_data(&mut self.rmg);
         self.text.prepare(&mut self.rmg);
+        self.mesh.prepare(&mut self.rmg);
     }
 
     pub fn render_to_surface(
@@ -160,6 +171,8 @@ impl Compositor {
         recorder
             .add_meta_task(&mut self.quads)
             .unwrap()
+            .add_meta_task(&mut self.mesh)
+            .unwrap()
             .add_task(&mut self.text.renderpass)
             .unwrap()
             .add_task(surface)
@@ -172,6 +185,7 @@ impl Compositor {
     pub fn end(&mut self) {
         self.quads.end_frame();
         self.text.end_frame();
+        self.mesh.end_frame();
     }
 
     pub fn notify_resize(&mut self, width: u32, height: u32) {
@@ -196,6 +210,8 @@ impl Compositor {
         self.quads
             .notify_resize(self.color_buffer.clone(), self.depth_buffer.clone());
         self.text
+            .notify_resize(self.color_buffer.clone(), self.depth_buffer.clone());
+        self.mesh
             .notify_resize(self.color_buffer.clone(), self.depth_buffer.clone());
     }
 }

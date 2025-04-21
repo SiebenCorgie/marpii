@@ -3,19 +3,21 @@ use iced_core::renderer::Quad;
 use iced_graphics::{
     layer,
     text::{Editor, Paragraph},
+    Mesh,
 };
 use iced_marpii_shared::{CmdQuad, CmdQuadGradient};
 
-use crate::{custom, quad, text};
+use crate::{batch_cache, custom, mesh, quad, text};
 
 pub type Stack = layer::Stack<Layer>;
 
 pub struct Layer {
     pub bounds: Rectangle,
-    pub solid_quads: quad::Batch<CmdQuad>,
-    pub gradient_quads: quad::Batch<CmdQuadGradient>,
+    pub solid_quads: batch_cache::Batch<CmdQuad>,
+    pub gradient_quads: batch_cache::Batch<CmdQuadGradient>,
     pub text: text::Batch,
     pub custom: custom::primitive::Batch,
+    pub mesh: mesh::Batch,
     //todo: other things on the layer
 }
 
@@ -43,6 +45,7 @@ impl iced_graphics::Layer for Layer {
         self.gradient_quads.clear();
         self.text.clear();
         self.custom.clear();
+        self.mesh.clear();
         /*
         self.triangles.clear();
         self.primitives.clear();
@@ -58,11 +61,12 @@ impl Default for Layer {
     fn default() -> Self {
         Self {
             bounds: Rectangle::INFINITE,
-            solid_quads: quad::Batch::default(),
-            gradient_quads: quad::Batch::default(),
+            solid_quads: batch_cache::Batch::default(),
+            gradient_quads: batch_cache::Batch::default(),
             text: text::Batch::default(),
             //NOTE: init without alloc since _most_ layers won't use that.
             custom: custom::primitive::Batch::with_capacity(0),
+            mesh: batch_cache::Batch::with_capacity(0),
             //triangles: triangle::Batch::default(),
             //images: image::Batch::default(),
             //pending_meshes: Vec::new(),
@@ -208,27 +212,90 @@ impl Layer {
         log::error!("implement svg")
     }
 
-    #[allow(unused)]
-    pub fn draw_mesh(&mut self, mut _mesh: iced_graphics::Mesh, _transformation: Transformation) {
-        log::error!("implement mesh")
+    pub fn draw_mesh(&mut self, mut mesh: iced_graphics::Mesh, transformation: Transformation) {
+        //Update the meshe's transform to the layers
+        match &mut mesh {
+            Mesh::Solid {
+                transformation: local_transformation,
+                clip_bounds: local_bounds,
+                ..
+            }
+            | Mesh::Gradient {
+                transformation: local_transformation,
+                clip_bounds: local_bounds,
+                ..
+            } => {
+                *local_transformation = *local_transformation * transformation;
+                local_bounds.x += local_transformation.translation().x;
+                local_bounds.y += local_transformation.translation().y;
+                local_bounds.width *= local_transformation.scale_factor();
+                local_bounds.height *= local_transformation.scale_factor();
+            }
+        }
+
+        //and push to the layer
+        self.mesh.push(mesh);
     }
 
-    #[allow(unused)]
+    #[cfg(feature = "geometry")]
+    pub fn draw_mesh_cache(&mut self, meshes: Vec<Mesh>, transformation: Transformation) {
+        self.flush_meshes();
+
+        //update transformation for all meshes and push them
+        for mesh in meshes {
+            //TODO: implement mesh caching
+            self.draw_mesh(mesh, transformation);
+        }
+    }
+
+    #[cfg(feature = "geometry")]
     pub fn draw_mesh_group(
         &mut self,
-        _meshes: Vec<iced_graphics::Mesh>,
-        _transformation: Transformation,
+        meshes: Vec<iced_graphics::Mesh>,
+        transformation: Transformation,
     ) {
         self.flush_meshes();
+        for mesh in meshes {
+            self.draw_mesh(mesh, transformation.clone());
+        }
     }
 
-    #[allow(unused)]
+    #[cfg(feature = "geometry")]
     pub fn draw_text_group(
         &mut self,
-        _text: Vec<iced_graphics::Text>,
-        _transformation: Transformation,
+        text: Vec<iced_graphics::Text>,
+        transformation: Transformation,
     ) {
+        log::warn!("Untested draw_text_group");
         self.flush_text();
+        for mut text in text {
+            match &mut text {
+                iced_graphics::Text::Cached { .. } => {}
+                iced_graphics::Text::Raw {
+                    transformation: subtrans,
+                    ..
+                }
+                | iced_graphics::Text::Editor {
+                    transformation: subtrans,
+                    ..
+                }
+                | iced_graphics::Text::Paragraph {
+                    transformation: subtrans,
+                    ..
+                } => *subtrans = *subtrans * transformation,
+            }
+            self.text.push(text);
+        }
+    }
+
+    #[cfg(feature = "geometry")]
+    pub fn draw_text_cache(
+        &mut self,
+        text: Vec<iced_graphics::Text>,
+        transformation: Transformation,
+    ) {
+        //TODO: implement this type of caching?
+        self.draw_text_group(text, transformation);
     }
 
     pub fn draw_primitive(
