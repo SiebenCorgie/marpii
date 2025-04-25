@@ -16,3 +16,6 @@ pub use glyph::{GlyphInstance, TextPush};
 
 mod mesh;
 pub use mesh::*;
+
+mod shape;
+pub use shape::*;
