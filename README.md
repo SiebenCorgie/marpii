@@ -24,7 +24,12 @@ MarpII has some design decisions that are opinionated. For instance, where ever 
 
 ## Getting started
 
+### None-Cargo Dependencies
+
+[marpii-rmg-task](crates/marpii-rmg-tasks) as well as some examples depend on `glslangValidator` to be installed.
+
 ### Library usage
+
 
 Usage of the library is as usual by including the crate in your `Cargo.toml`.
 Examples can be found in the `examples` directory, marpii is also documented. A simple `cargo doc --open` should provide you with the necessary documentation.

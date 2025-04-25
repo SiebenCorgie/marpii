@@ -243,7 +243,7 @@ impl Layer {
         }
     }
 
-    #[cfg(feature = "geometry")]
+    #[allow(dead_code)]
     pub fn draw_mesh_group(
         &mut self,
         meshes: Vec<iced_graphics::Mesh>,
@@ -255,7 +255,6 @@ impl Layer {
         }
     }
 
-    #[cfg(feature = "geometry")]
     pub fn draw_text_group(
         &mut self,
         text: Vec<iced_graphics::Text>,

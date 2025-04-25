@@ -25,7 +25,9 @@ mod dynamic_image;
 pub use dynamic_image::DynamicImage;
 mod image_blit;
 pub use image_blit::ImageBlit;
+#[cfg(feature = "additional")]
 mod alpha_blend;
+#[cfg(feature = "additional")]
 pub use alpha_blend::AlphaBlend;
 mod download_buffer;
 pub use download_buffer::{DownloadBuffer, DownloadError};

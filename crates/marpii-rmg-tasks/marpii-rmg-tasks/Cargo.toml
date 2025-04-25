@@ -9,6 +9,9 @@ default = ["logging"]
 # if enabled, uses the log crate for messages. Note that the graph prints reasoning of decissions into the tracing level
 logging = ["log"]
 
+# If enabled, compiles addional shader based tasks
+additional = []
+
 #If enabled, compiles the egui shader and integration tasks.
 egui-task = ["egui-winit", "ahash", "egui"]
 

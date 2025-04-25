@@ -16,6 +16,6 @@ marpii-descriptor.workspace = true
 winit.workspace = true
 log = "*"
 image.workspace = true
-glam = "0.24"
+glam = "0.30"
 easy-gltf = "1.0.0"
 shared = { path = "../shared" }
