@@ -16,10 +16,12 @@ impl LayerDepth {
     ///The implicit ordering is:
     /// Back
     /// - Quad
+    /// - Shape
+    /// - Mesh,
     /// - Text
     /// - Others
     /// Front
-    const SUB_LAYER_COUNT: usize = 4;
+    const SUB_LAYER_COUNT: usize = 5;
     fn layer_depth(&self, layer_index: usize, in_layer_offset: usize) -> f32 {
         let t = (layer_index * Self::SUB_LAYER_COUNT + in_layer_offset) as f32
             / (self.layer_count * Self::SUB_LAYER_COUNT) as f32;
@@ -31,16 +33,20 @@ impl LayerDepth {
         self.layer_depth(layer_index, 0)
     }
 
-    fn mesh_depth(&self, layer_index: usize) -> f32 {
+    fn shape_depth(&self, layer_index: usize) -> f32 {
         self.layer_depth(layer_index, 1)
     }
 
-    fn text_depth(&self, layer_index: usize) -> f32 {
+    fn mesh_depth(&self, layer_index: usize) -> f32 {
         self.layer_depth(layer_index, 2)
     }
 
-    fn custom_depth(&self, layer_index: usize) -> f32 {
+    fn text_depth(&self, layer_index: usize) -> f32 {
         self.layer_depth(layer_index, 3)
+    }
+
+    fn custom_depth(&self, layer_index: usize) -> f32 {
+        self.layer_depth(layer_index, 4)
     }
 }
 
@@ -53,6 +59,7 @@ impl Compositor {
     ///Data setup step before actually rendering something
     pub fn prepare(&mut self, renderer: &mut Renderer, viewport: &iced_graphics::Viewport) {
         self.quads.begin_new_frame(viewport);
+        self.shape.begin_new_frame(viewport);
         self.text.new_frame();
         self.mesh.new_frame();
 
@@ -86,6 +93,17 @@ impl Compositor {
                     &mut layer.gradient_quads,
                     layer.bounds,
                     quad_depth,
+                    must_gamma_correct,
+                );
+            }
+
+            let solid_depth = depth_calc.shape_depth(layer_index);
+            if layer.shapes.len() > 0 {
+                self.shape.push_solid_batch(
+                    &mut self.rmg,
+                    &mut layer.shapes,
+                    layer.bounds,
+                    solid_depth,
                     must_gamma_correct,
                 );
             }
@@ -126,7 +144,8 @@ impl Compositor {
         }
 
         //after setting up all initial data, schedule all uploads
-        self.quads.prepare_data(&mut self.rmg);
+        self.quads.prepare(&mut self.rmg);
+        self.shape.prepare(&mut self.rmg);
         self.text.prepare(&mut self.rmg);
         self.mesh.prepare(&mut self.rmg);
     }
@@ -171,6 +190,8 @@ impl Compositor {
         recorder
             .add_meta_task(&mut self.quads)
             .unwrap()
+            .add_meta_task(&mut self.shape)
+            .unwrap()
             .add_meta_task(&mut self.mesh)
             .unwrap()
             .add_task(&mut self.text.renderpass)
@@ -184,6 +205,7 @@ impl Compositor {
     ///Ends the frame
     pub fn end(&mut self) {
         self.quads.end_frame();
+        self.shape.end_frame();
         self.text.end_frame();
         self.mesh.end_frame();
     }
@@ -208,6 +230,8 @@ impl Compositor {
 
         //now notify all passes
         self.quads
+            .notify_resize(self.color_buffer.clone(), self.depth_buffer.clone());
+        self.shape
             .notify_resize(self.color_buffer.clone(), self.depth_buffer.clone());
         self.text
             .notify_resize(self.color_buffer.clone(), self.depth_buffer.clone());

@@ -5,7 +5,7 @@ use marpii_rmg_tasks::SwapchainPresent;
 
 use crate::{
     custom::Persistent, mesh::MeshRenderer, quad::QuadRenderer, renderer::Renderer,
-    text::TextRenderer,
+    shape::ShapeRenderer, text::TextRenderer,
 };
 
 mod rendering;
@@ -22,6 +22,7 @@ pub struct Compositor {
     //quad renderer
     quads: QuadRenderer,
     mesh: MeshRenderer,
+    shape: ShapeRenderer,
     //text renderer
     text: TextRenderer,
     //stores persistent data that can be accessed by
@@ -146,6 +147,12 @@ impl iced_graphics::compositor::Compositor for Compositor {
             color_buffer.clone(),
             depth_buffer.clone(),
         );
+        let shape = ShapeRenderer::new(
+            &mut rmg,
+            &settings,
+            color_buffer.clone(),
+            depth_buffer.clone(),
+        );
         let mesh = MeshRenderer::new(
             &mut rmg,
             &settings,
@@ -166,6 +173,7 @@ impl iced_graphics::compositor::Compositor for Compositor {
             settings,
             quads,
             mesh,
+            shape,
             text,
             persistent_data: Persistent::default(),
         })
