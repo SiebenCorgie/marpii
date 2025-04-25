@@ -1,6 +1,6 @@
 use iced::{Pixels, Rectangle, Size};
 
-use crate::layers;
+use crate::{layers, shape::Frame};
 
 ///MarpII based Iced renderer.
 //Note: Most of the gpu sided _logic_ resides in the [Compositor]. The
@@ -196,6 +196,29 @@ impl iced_graphics::geometry::Renderer for crate::renderer::Renderer {
                 }
             }
         }
+    }
+}
+
+impl crate::shape::Renderer for Renderer {
+    fn draw_frame(&mut self, frame: crate::shape::Frame) {
+        let Frame {
+            clip_bounds,
+            shape,
+            quads,
+            text,
+        } = frame;
+
+        //get current layer
+        let (layer, transformation) = self.layers.current_mut();
+
+        //submit each
+        for shape in shape {
+            layer.draw_shape(shape, clip_bounds, transformation);
+        }
+        for (quad, background) in quads {
+            layer.draw_quad(quad, background, transformation);
+        }
+        layer.draw_text_group(text, transformation);
     }
 }
 

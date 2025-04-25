@@ -8,6 +8,7 @@ edition = "2021"
 [dependencies]
 shader-quad = { path = "../shader-quad" }
 shader-quad-gradient = { path = "../shader-quad-gradient" }
+shader-shape = { path = "../shader-shape" }
 shader-text = { path = "../shader-text" }
 iced-marpii-shared = { path = "../iced-marpii-shared" }
 

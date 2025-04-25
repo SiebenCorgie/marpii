@@ -1,40 +1,32 @@
-use std::{
-    f32,
-    hash::{Hash, Hasher},
-};
+use std::hash::{Hash, Hasher};
 
 use ahash::AHashMap;
-use gradient::QuadGradientPass;
-use iced::Rectangle;
 use iced_graphics::Settings;
-use iced_marpii_shared::{CmdQuad, CmdQuadGradient};
+use iced_marpii_shared::CmdShape;
 use marpii::ash::vk;
 use marpii_rmg::{ImageHandle, MetaTask, Rmg};
-use solid::QuadPass;
 
-use crate::batch_cache::{Batch, BatchCall, BatchId, BufferState, CachedBatch};
+use crate::batch_cache::{BatchCall, BatchId, BufferState, CachedBatch};
 
-pub(crate) mod gradient;
-pub(crate) mod solid;
+use super::{solid::SolidShapePass, Batch};
 
-///The vertex/index-buffer less quad renderer.
+///The vertex/index-buffer less shape renderer.
 ///
 /// We use DynamicRendering + PushConstants to setup
 /// the quad renderer.
-pub struct QuadRenderer {
+//NOTE: everthing is setup to also render gradient shapes
+pub struct ShapeRenderer {
     ///Identifies a batch by its content's hash.
-    solid_batch_cache: AHashMap<u64, CachedBatch<CmdQuad>>,
-    ///Identifies a batch by its content's hash.
-    gradient_batch_cache: AHashMap<u64, CachedBatch<CmdQuadGradient>>,
+    solid_batch_cache: AHashMap<u64, CachedBatch<CmdShape>>,
 
     ///Order of batches to render, and their layer depth
     order: Vec<BatchId>,
 
-    solid_pass: QuadPass,
-    gradient_pass: QuadGradientPass,
+    solid_pass: super::solid::SolidShapePass,
+    //gradient_pass: QuadGradientPass,
 }
 
-impl QuadRenderer {
+impl ShapeRenderer {
     ///How many frames a buffer can be unused before being deleted.
     const MAX_NO_USE: usize = 10;
 
@@ -44,33 +36,30 @@ impl QuadRenderer {
         color_buffer: ImageHandle,
         depth_buffer: ImageHandle,
     ) -> Self {
-        let solid_pass = QuadPass::new(rmg, settings, color_buffer.clone(), depth_buffer.clone());
-        let gradient_pass = QuadGradientPass::new(rmg, settings, color_buffer, depth_buffer);
+        let solid_pass =
+            SolidShapePass::new(rmg, settings, color_buffer.clone(), depth_buffer.clone());
+        //let gradient_pass = QuadGradientPass::new(rmg, settings, color_buffer, depth_buffer);
 
         Self {
             solid_batch_cache: AHashMap::default(),
-            gradient_batch_cache: AHashMap::default(),
+            //gradient_batch_cache: AHashMap::default(),
             order: Vec::new(),
             solid_pass,
-            gradient_pass,
+            //gradient_pass,
         }
-    }
-
-    pub fn set_clear_color(&mut self, color: Option<[f32; 4]>) {
-        self.solid_pass.clear_color = color;
     }
 
     pub fn notify_resize(&mut self, color_buffer: ImageHandle, depth_buffer: ImageHandle) {
         self.solid_pass
             .resize(color_buffer.clone(), depth_buffer.clone());
-        self.gradient_pass.resize(color_buffer, depth_buffer);
+        //self.gradient_pass.resize(color_buffer, depth_buffer);
     }
 
     pub fn push_solid_batch(
         &mut self,
         rmg: &mut Rmg,
-        batch: &mut Batch<CmdQuad>,
-        bound: Rectangle,
+        batch: &mut Batch,
+        bound: iced::Rectangle,
         layer_depth: f32,
         gamma_correct: bool,
     ) {
@@ -110,6 +99,7 @@ impl QuadRenderer {
             self.order.push(id)
         }
     }
+    /*
     pub fn push_gradient_batch(
         &mut self,
         rmg: &mut Rmg,
@@ -161,21 +151,23 @@ impl QuadRenderer {
             self.order.push(id)
         }
     }
-
+    */
     pub fn begin_new_frame(&mut self, viewport: &iced_graphics::Viewport) {
         //setup _general_transform_
         self.solid_pass.push.get_content_mut().transform = viewport.projection().into();
         self.solid_pass.push.get_content_mut().scale = viewport.scale_factor() as f32;
-        self.gradient_pass.push.get_content_mut().transform = viewport.projection().into();
-        self.gradient_pass.push.get_content_mut().scale = viewport.scale_factor() as f32;
+        //self.gradient_pass.push.get_content_mut().transform = viewport.projection().into();
+        //self.gradient_pass.push.get_content_mut().scale = viewport.scale_factor() as f32;
 
         //last-use flag update
         for batch in self.solid_batch_cache.values_mut() {
             batch.last_use += 1;
         }
+        /*
         for batch in self.gradient_batch_cache.values_mut() {
             batch.last_use += 1;
         }
+        */
         //clear order
         self.order.clear();
     }
@@ -205,7 +197,7 @@ impl QuadRenderer {
                 BufferState::Residing(_) => {}
             }
         }
-
+        /*
         for batch in self.gradient_batch_cache.values_mut() {
             if batch.last_use != 0 {
                 continue;
@@ -227,7 +219,7 @@ impl QuadRenderer {
                 BufferState::Residing(_) => {}
             }
         }
-
+        */
         //now upload all batches
         upload_recorder.execute().unwrap();
 
@@ -250,6 +242,7 @@ impl QuadRenderer {
                 }
             }
         }
+        /*
         for batch in self.gradient_batch_cache.values_mut() {
             match &mut batch.buffer {
                 BufferState::Residing(_buf) => {
@@ -268,25 +261,26 @@ impl QuadRenderer {
                 }
             }
         }
+        */
     }
 
     pub fn end_frame(&mut self) {
         //Remove all cached buffer, where the last-use is too long ago
         self.solid_batch_cache
             .retain(|_k, v| v.last_use < Self::MAX_NO_USE);
-        self.gradient_batch_cache
-            .retain(|_k, v| v.last_use < Self::MAX_NO_USE);
+        //self.gradient_batch_cache
+        //    .retain(|_k, v| v.last_use < Self::MAX_NO_USE);
     }
 }
 
-impl MetaTask for QuadRenderer {
+impl MetaTask for ShapeRenderer {
     fn record<'a>(
         &'a mut self,
         recorder: marpii_rmg::Recorder<'a>,
     ) -> Result<marpii_rmg::Recorder<'a>, marpii_rmg::RecordError> {
         //Clear the old data
         self.solid_pass.batches.clear();
-        self.gradient_pass.batches.clear();
+        //self.gradient_pass.batches.clear();
 
         //transform batchen, in-order, into batch calls
         for batch_id in self.order.iter() {
@@ -313,7 +307,8 @@ impl MetaTask for QuadRenderer {
                     };
                     self.solid_pass.batches.push(batch_call);
                 }
-                BatchId::Gradient { id, layer_depth } => {
+                BatchId::Gradient { .. } => {
+                    /*
                     let batch = self.gradient_batch_cache.get(&id).unwrap();
                     assert!(batch.buffer.is_residing());
 
@@ -334,13 +329,13 @@ impl MetaTask for QuadRenderer {
                         layer_depth: *layer_depth,
                     };
                     self.gradient_pass.batches.push(batch_call);
+                    */
                 }
             }
         }
 
-        recorder
-            .add_task(&mut self.solid_pass)
-            .unwrap()
-            .add_task(&mut self.gradient_pass)
+        recorder.add_task(&mut self.solid_pass)
+        //    .unwrap()
+        //.add_task(&mut self.gradient_pass)
     }
 }

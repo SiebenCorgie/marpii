@@ -7,7 +7,11 @@ use iced_graphics::{
 };
 use iced_marpii_shared::{CmdQuad, CmdQuadGradient};
 
-use crate::{batch_cache, custom, mesh, quad, text};
+use crate::{
+    batch_cache, custom, mesh, quad,
+    shape::{self, Shape},
+    text,
+};
 
 pub type Stack = layer::Stack<Layer>;
 
@@ -18,6 +22,7 @@ pub struct Layer {
     pub text: text::Batch,
     pub custom: custom::primitive::Batch,
     pub mesh: mesh::Batch,
+    pub shapes: shape::Batch,
     //todo: other things on the layer
 }
 
@@ -43,17 +48,10 @@ impl iced_graphics::Layer for Layer {
 
         self.solid_quads.clear();
         self.gradient_quads.clear();
+        self.shapes.clear();
         self.text.clear();
         self.custom.clear();
         self.mesh.clear();
-        /*
-        self.triangles.clear();
-        self.primitives.clear();
-        self.text.clear();
-        self.images.clear();
-        self.pending_meshes.clear();
-        self.pending_text.clear();
-        */
     }
 }
 
@@ -66,11 +64,8 @@ impl Default for Layer {
             text: text::Batch::default(),
             //NOTE: init without alloc since _most_ layers won't use that.
             custom: custom::primitive::Batch::with_capacity(0),
-            mesh: batch_cache::Batch::with_capacity(0),
-            //triangles: triangle::Batch::default(),
-            //images: image::Batch::default(),
-            //pending_meshes: Vec::new(),
-            //pending_text: Vec::new(),
+            mesh: mesh::Batch::with_capacity(0),
+            shapes: shape::Batch::with_capacity(0),
         }
     }
 }
@@ -266,7 +261,6 @@ impl Layer {
         text: Vec<iced_graphics::Text>,
         transformation: Transformation,
     ) {
-        log::warn!("Untested draw_text_group");
         self.flush_text();
         for mut text in text {
             match &mut text {
@@ -309,6 +303,13 @@ impl Layer {
             transformation,
             primitive,
         ));
+    }
+
+    pub fn draw_shape(&mut self, shape: Shape, bounds: Rectangle, transformation: Transformation) {
+        let bounds = bounds * transformation;
+        //Morph bounds into scree-space via layer's transformation
+        let shape_command = shape.into_command(bounds, transformation);
+        self.shapes.push(shape_command);
     }
 
     fn flush_meshes(&mut self) {

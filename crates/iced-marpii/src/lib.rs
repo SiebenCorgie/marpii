@@ -8,6 +8,7 @@ pub(crate) mod layers;
 pub(crate) mod mesh;
 pub(crate) mod quad;
 pub(crate) mod renderer;
+pub mod shape;
 pub(crate) mod text;
 pub(crate) mod util;
 
