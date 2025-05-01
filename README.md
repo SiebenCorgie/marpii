@@ -24,10 +24,6 @@ MarpII has some design decisions that are opinionated. For instance, where ever 
 
 ## Getting started
 
-### None-Cargo Dependencies
-
-[marpii-rmg-task](crates/marpii-rmg-tasks) as well as some examples depend on `glslangValidator` to be installed.
-
 ### Library usage
 
 

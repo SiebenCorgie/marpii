@@ -1,5 +1,5 @@
-use iced::widget::{button, column, container, text};
-use iced::{Border, Center, Color, Element, Fill, Shadow, Theme};
+use iced::widget::container;
+use iced::{Border, Color, Element, Fill, Shadow, Theme};
 
 type MElement<'a, M> = Element<'a, M, Theme, iced_marpii::Renderer>;
 //type MElement<'a, M> = Element<'a, M, Theme, iced_wgpu::Renderer>;
@@ -10,7 +10,7 @@ pub fn main() -> iced::Result {
         .init()
         .unwrap();
 
-    iced::run("A cool counter", Counter::update, Counter::view)
+    iced::run("A cool counter", Shapes::update, Shapes::view)
 }
 
 #[derive(Default)]
@@ -19,13 +19,13 @@ impl iced_marpii::shape::Program<Message> for ShapeRenderer {
     type State = ();
     fn draw(
         &self,
-        state: &Self::State,
-        renderer: &iced_marpii::Renderer,
-        theme: &iced::Theme,
+        _state: &Self::State,
+        _renderer: &iced_marpii::Renderer,
+        _theme: &iced::Theme,
         bounds: iced::Rectangle,
-        cursor: iced_core::mouse::Cursor,
+        _cursor: iced_core::mouse::Cursor,
     ) -> Vec<iced_marpii::shape::Frame> {
-        let mut frame = iced_marpii::shape::Frame::with_clip(bounds)
+        let frame = iced_marpii::shape::Frame::with_clip(bounds)
             .draw_text(iced_marpii::shape::Text {
                 content: "Graphics design is my passion!".to_owned(),
                 position: bounds.center() - iced::Vector::new(350.0, -200.0),
@@ -63,6 +63,11 @@ impl iced_marpii::shape::Program<Message> for ShapeRenderer {
             .draw_quad(
                 iced_core::renderer::Quad {
                     bounds: bounds.shrink(100.0),
+                    shadow: Shadow {
+                        color: Color::from([0.2; 4]),
+                        offset: iced::Vector::new(20.0, 20.0),
+                        blur_radius: 10.0,
+                    },
                     ..Default::default()
                 },
                 Color::from_rgb(0.25, 0.85, 0.9).into(),
@@ -87,28 +92,15 @@ impl iced_marpii::shape::Program<Message> for ShapeRenderer {
 }
 
 #[derive(Default)]
-struct Counter {
-    value: i64,
+struct Shapes {
     renderer: ShapeRenderer,
 }
 
 #[derive(Debug, Clone, Copy)]
-enum Message {
-    Increment,
-    Decrement,
-}
+enum Message {}
 
-impl Counter {
-    fn update(&mut self, message: Message) {
-        match message {
-            Message::Increment => {
-                self.value += 1;
-            }
-            Message::Decrement => {
-                self.value -= 1;
-            }
-        }
-    }
+impl Shapes {
+    fn update(&mut self, _message: Message) {}
 
     fn view(&self) -> MElement<Message> {
         container(
