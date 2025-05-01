@@ -66,6 +66,20 @@ impl iced_marpii::shape::Program<Message> for ShapeRenderer {
                     ..Default::default()
                 },
                 Color::from_rgb(0.25, 0.85, 0.9).into(),
+            )
+            .draw_quad(
+                iced_core::renderer::Quad {
+                    bounds: bounds.shrink(150.0),
+                    ..Default::default()
+                },
+                Color::from_rgb(0.85, 0.25, 0.9).into(),
+            )
+            .draw_quad(
+                iced_core::renderer::Quad {
+                    bounds: bounds.shrink(200.0),
+                    ..Default::default()
+                },
+                Color::from_rgb(0.9, 0.25, 0.25).into(),
             );
 
         vec![frame]

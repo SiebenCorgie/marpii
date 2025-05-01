@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+//NOTE: This was used to build shaders. However, the shaders are so stable that we acutally checked them into the repo at some point.
 /*
 use spirv_builder::{
     Capability, MetadataPrintout, ModuleResult, SpirvBuilder, SpirvBuilderError, SpirvMetadata,

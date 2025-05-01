@@ -5,7 +5,6 @@
 Cargo.lock
 *#
 *~
-crates/marpii-rmg-tasks/marpii-rmg-tasks/resources
 examples/hello_triangle/resources
 examples/rmg_rendering/resources
 examples/resources

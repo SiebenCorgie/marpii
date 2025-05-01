@@ -34,7 +34,7 @@ use std::collections::hash_map::Values;
 use std::sync::Arc;
 use std::time::Instant;
 
-//NOTE: There is a (buggy) glsl implementation. Keeping it here, but we use rust-gpu actually
+//NOTE: Embedding spirv in order to not need the glsl-compiler on any user's system
 const EGUI_SHADER_VERT: &'static [u8] = include_bytes!("../resources/eguivert.spv");
 const EGUI_SHADER_FRAG: &'static [u8] = include_bytes!("../resources/eguifrag.spv");
 
