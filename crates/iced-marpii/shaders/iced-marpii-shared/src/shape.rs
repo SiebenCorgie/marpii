@@ -92,7 +92,10 @@ impl CmdShape {
                 let ctrl = Vec2::new(self.payload0[2], self.payload0[3]);
                 let end = Vec2::new(self.payload1[0], self.payload1[1]);
                 let thickness = self.payload1[2];
-                let additional_border = thickness + self.shadow_blur_radius + self.border_width;
+                let additional_border = thickness
+                    + self.shadow_blur_radius
+                    + self.border_width
+                    + Vec2::from(self.shadow_offset).abs().max_element();
                 (
                     start.min(end).min(ctrl) - additional_border,
                     start.max(end).max(ctrl) + additional_border,
@@ -100,6 +103,7 @@ impl CmdShape {
             }
             _ => (Vec2::ZERO, Vec2::ZERO),
         };
+
         //clip by frame bounds
         (
             min.max(Vec2::from(self.bound_position)),

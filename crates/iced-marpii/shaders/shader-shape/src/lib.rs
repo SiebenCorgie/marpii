@@ -72,22 +72,7 @@ pub fn vertex(
     let position = origin + extent * vertex_local_offset;
 
     //this is the vertex's location in pixel space, corrected for DPI
-    let mut pixel_space_position = position * push.scale;
-
-    //grow, if there is a border
-    if cmd.border_width > 0.0 {
-        //-1 for 0, 1 for 1
-        let offset_dir = (vertex_local_offset * 2.0) - Vec2::ONE;
-        pixel_space_position = pixel_space_position + (offset_dir * cmd.border_width * push.scale);
-    }
-
-    //grow if there is a shadow
-    if cmd.shadow_blur_radius > 0.0 {
-        let offset_dir = (vertex_local_offset * 2.0) - Vec2::ONE;
-        //NOTE: this might grow a little _too big_. But we can afford that I'd say :D.
-        pixel_space_position =
-            pixel_space_position + (offset_dir * Vec2::from(cmd.shadow_offset).abs() * push.scale);
-    }
+    let pixel_space_position = position * push.scale;
 
     let uv_pos = pixel_space_position / UVec2::from(push.resolution).as_vec2();
 

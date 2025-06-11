@@ -201,17 +201,33 @@ impl Frame {
         self.clip_bounds.size()
     }
 
-    pub fn draw_quad(mut self, quad: Quad, background: Background) -> Self {
-        self.quads.push((quad, background));
+    fn local_transform(&self) -> iced::Transformation {
+        iced::Transformation::translate(self.clip_bounds.x, self.clip_bounds.y)
+    }
+
+    pub fn draw_quad(mut self, mut quad: Quad, background: Background) -> Self {
+        //Translate the quad into our frame's region
+        let bound = quad.bounds * self.local_transform();
+
+        if let Some(bound) = self.clip_bounds.intersection(&bound) {
+            quad.bounds = bound;
+            self.quads.push((quad, background));
+        }
         self
     }
 
-    pub fn draw_line(mut self, line: Line) -> Self {
+    pub fn draw_line(mut self, mut line: Line) -> Self {
+        line.start = line.start * self.local_transform();
+        line.end = line.end * self.local_transform();
+
         self.shape.push(Shape::Line(line));
         self
     }
 
-    pub fn draw_bezier_spline(mut self, bezier: Bezier) -> Self {
+    pub fn draw_bezier_spline(mut self, mut bezier: Bezier) -> Self {
+        bezier.start = bezier.start * self.local_transform();
+        bezier.control_point = bezier.control_point * self.local_transform();
+        bezier.end = bezier.end * self.local_transform();
         self.shape.push(Shape::Bezier(bezier));
         self
     }
@@ -220,7 +236,8 @@ impl Frame {
         //Build the cach entry
         let text = text.into();
 
-        let (position, size, line_height) = (text.position, text.size, text.line_height);
+        let (mut position, size, line_height) = (text.position, text.size, text.line_height);
+        position = position * self.local_transform();
 
         let bounds = Rectangle {
             x: position.x,
@@ -229,19 +246,22 @@ impl Frame {
             height: f32::INFINITY,
         };
 
-        //Build the cache entry
-        self.text.push(iced_graphics::Text::Cached {
-            content: text.content,
-            bounds,
-            color: text.color,
-            size,
-            line_height: line_height.to_absolute(size),
-            font: text.font,
-            horizontal_alignment: text.horizontal_alignment,
-            vertical_alignment: text.vertical_alignment,
-            shaping: text.shaping,
-            clip_bounds: self.clip_bounds,
-        });
+        //Only push text, if it is _within_ our frame
+        if let Some(bound) = self.clip_bounds.intersection(&bounds) {
+            //Build the cache entry
+            self.text.push(iced_graphics::Text::Cached {
+                content: text.content,
+                bounds: bound,
+                color: text.color,
+                size,
+                line_height: line_height.to_absolute(size),
+                font: text.font,
+                horizontal_alignment: text.horizontal_alignment,
+                vertical_alignment: text.vertical_alignment,
+                shaping: text.shaping,
+                clip_bounds: self.clip_bounds,
+            });
+        }
 
         self
     }

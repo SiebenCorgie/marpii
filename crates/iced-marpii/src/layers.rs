@@ -263,7 +263,14 @@ impl Layer {
         self.flush_text();
         for mut text in text {
             match &mut text {
-                iced_graphics::Text::Cached { .. } => {}
+                iced_graphics::Text::Cached {
+                    bounds,
+                    clip_bounds,
+                    ..
+                } => {
+                    *bounds = *bounds * transformation;
+                    *clip_bounds = *clip_bounds * transformation;
+                }
                 iced_graphics::Text::Raw {
                     transformation: subtrans,
                     ..

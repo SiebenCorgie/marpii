@@ -209,15 +209,17 @@ impl crate::shape::Renderer for Renderer {
         } = frame;
 
         //get current layer
-        let (layer, transformation) = self.layers.current_mut();
+        let (layer, mut transformation) = self.layers.current_mut();
 
+        //add the frame's local transformation to the layer's
         //submit each
         for shape in shape {
             layer.draw_shape(shape, clip_bounds, transformation);
         }
-        for (quad, background) in quads {
+        for (mut quad, background) in quads {
             layer.draw_quad(quad, background, transformation);
         }
+
         layer.draw_text_group(text, transformation);
     }
 }

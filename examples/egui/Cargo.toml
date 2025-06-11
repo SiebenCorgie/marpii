@@ -12,4 +12,4 @@ anyhow.workspace = true
 
 marpii = { workspace = true, features = ["logging"] }
 marpii-rmg.workspace = true
-marpii-rmg-tasks = { workspace = true, features = ["egui-task"] }
+marpii-rmg-tasks = { workspace = true, features = ["egui-task", "logging"] }

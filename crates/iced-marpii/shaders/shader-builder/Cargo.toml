@@ -13,4 +13,4 @@ shader-text = { path = "../shader-text" }
 iced-marpii-shared = { path = "../iced-marpii-shared" }
 
 [build-dependencies]
-spirv-builder = { git = "https://github.com/Rust-GPU/rust-gpu.git", rev = "6e2c84d4fe64e32df4c060c5a7f3e35a32e45421" }
+spirv-builder = { git = "https://github.com/Rust-GPU/rust-gpu.git", rev = "bd1a6fc5cb05de3bf00d13c22e086a3aac0bc12e" }
