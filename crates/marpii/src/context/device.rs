@@ -312,7 +312,7 @@ impl Device {
     }
 
     ///same as [get_physical_device_features](crate::context::Device::get_physical_device_features) but for PhysicalDeviceFetures2
-    pub fn get_physical_device_features2(&self) -> ash::vk::PhysicalDeviceFeatures2 {
+    pub fn get_physical_device_features2(&self) -> ash::vk::PhysicalDeviceFeatures2<'_> {
         self.instance
             .get_physical_device_features2(&self.physical_device)
     }
@@ -328,7 +328,7 @@ impl Device {
         self.instance.get_property(&self.physical_device)
     }
 
-    pub fn get_device_properties(&self) -> ash::vk::PhysicalDeviceProperties2 {
+    pub fn get_device_properties(&self) -> ash::vk::PhysicalDeviceProperties2<'_> {
         let mut properties = ash::vk::PhysicalDeviceProperties2::default();
         unsafe {
             self.instance
@@ -410,7 +410,7 @@ impl Device {
         &self,
         desc: &ImgDesc,
         create_flags: ash::vk::ImageCreateFlags,
-    ) -> Result<ash::vk::ImageFormatProperties2, ash::vk::Result> {
+    ) -> Result<ash::vk::ImageFormatProperties2<'_>, ash::vk::Result> {
         let mut properties = ash::vk::ImageFormatProperties2::default();
         unsafe {
             self.instance

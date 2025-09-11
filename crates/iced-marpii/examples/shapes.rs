@@ -17,6 +17,7 @@ pub fn main() -> iced::Result {
 }
 
 struct ShapeRenderer {
+    #[allow(dead_code)]
     start: Instant,
 }
 
@@ -41,7 +42,6 @@ impl iced_marpii::shape::Program<Message> for ShapeRenderer {
         let mut frame = iced_marpii::shape::Frame::with_clip(bounds.shrink(100.0));
         let frame_size = frame.size();
         let center = iced::Point::new(frame_size.width / 2.0, frame_size.height / 2.0);
-        let anim = self.start.elapsed().as_secs_f32();
         frame = frame
             .draw_text(iced_marpii::shape::Text {
                 content: "Graphics design is my passion!".to_owned(),
@@ -151,7 +151,7 @@ enum Message {
 impl Shapes {
     fn update(&mut self, _message: Message) {}
 
-    fn view(&self) -> MElement<Message> {
+    fn view(&self) -> MElement<'_, Message> {
         container(
             iced_marpii::shape::ShapeCanvas::new(&self.renderer)
                 .height(Fill)

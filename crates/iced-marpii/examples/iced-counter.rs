@@ -38,7 +38,7 @@ impl Counter {
         }
     }
 
-    fn view(&self) -> MElement<Message> {
+    fn view(&self) -> MElement<'_, Message> {
         column![
             button("Increment")
                 .on_press(Message::Increment)

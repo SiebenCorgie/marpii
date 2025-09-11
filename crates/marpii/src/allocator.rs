@@ -30,7 +30,7 @@ pub enum MemoryUsage {
 ///Implemented for all managed allocations. Allows the [Image](crate::resources::Image) and [Buffer](crate::resources::Buffer) implementations to hide their allocator type.
 pub trait AnonymAllocation {
     fn mapped_ptr(&self) -> Option<NonNull<c_void>>;
-    fn as_memory_range(&self) -> Option<MappedMemoryRange>;
+    fn as_memory_range(&self) -> Option<MappedMemoryRange<'_>>;
     ///Returns the memory as host readable slice, or none if this is not possible.
     fn as_slice_ref(&self) -> Option<&[u8]>;
     ///Returns the memory as host read/write-able slice, or none if this is not possible.
@@ -47,7 +47,7 @@ impl<A: Allocator + Send + Sync + 'static> AnonymAllocation for ManagedAllocatio
             None
         }
     }
-    fn as_memory_range(&self) -> Option<MappedMemoryRange> {
+    fn as_memory_range(&self) -> Option<MappedMemoryRange<'_>> {
         self.allocation.as_ref().map(|alo| alo.as_memory_range())
     }
     fn as_slice_ref(&self) -> Option<&[u8]> {
@@ -110,7 +110,7 @@ impl<A: Allocator + Send + Sync + 'static> Drop for ManagedAllocation<A> {
 ///Abstract allocation trait that allows finding the memory handle of an allocation, as well as its offset on that memory.
 pub trait Allocation {
     fn mapped_ptr(&self) -> Option<NonNull<c_void>>;
-    fn as_memory_range(&self) -> MappedMemoryRange {
+    fn as_memory_range(&self) -> MappedMemoryRange<'_> {
         MappedMemoryRange {
             memory: self.memory(),
             offset: self.offset(),

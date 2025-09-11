@@ -39,7 +39,7 @@ impl AnonymAllocation for UnmanagedAllocation {
     fn as_slice_ref(&self) -> Option<&[u8]> {
         None
     }
-    fn as_memory_range(&self) -> Option<ash::vk::MappedMemoryRange> {
+    fn as_memory_range(&self) -> Option<ash::vk::MappedMemoryRange<'_>> {
         None
     }
     fn memory_properties(&self) -> Option<ash::vk::MemoryPropertyFlags> {

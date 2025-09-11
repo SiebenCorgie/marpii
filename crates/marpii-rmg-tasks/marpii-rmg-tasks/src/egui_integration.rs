@@ -398,7 +398,7 @@ impl EGuiTask {
     ///Default vertex buffer size (in vertices).
     pub const DEFAULT_BUF_SIZE: usize = 1024;
     pub const MAX_TEXTURE_SIDE: u32 = 2048;
-    pub fn texture_atlas(&self) -> Values<TextureId, DynamicImage> {
+    pub fn texture_atlas(&self) -> Values<'_, TextureId, DynamicImage> {
         self.data.atlas.values()
     }
 

@@ -174,7 +174,7 @@ impl Counter {
         iced::time::every(iced::time::Duration::from_millis(16)).map(|_| Message::None)
     }
 
-    fn view(&self) -> MElement<Message> {
+    fn view(&self) -> MElement<'_, Message> {
         let shader = iced_marpii::custom::marpii_surface(&self.my_rmg_surface)
             .width(Fill)
             .height(Fill);

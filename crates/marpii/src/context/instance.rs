@@ -407,7 +407,7 @@ impl Instance {
     pub fn get_physical_device_features2(
         &self,
         physical_device: &ash::vk::PhysicalDevice,
-    ) -> ash::vk::PhysicalDeviceFeatures2 {
+    ) -> ash::vk::PhysicalDeviceFeatures2<'_> {
         let mut features = ash::vk::PhysicalDeviceFeatures2::default();
         unsafe {
             self.inner

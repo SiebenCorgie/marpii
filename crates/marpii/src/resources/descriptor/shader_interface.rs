@@ -27,8 +27,10 @@ impl Reflection {
     pub fn get_bindings(
         &self,
         stage_flags: ash::vk::ShaderStageFlags,
-    ) -> Result<Vec<(u32, Vec<ash::vk::DescriptorSetLayoutBinding>)>, rspirv_reflect::ReflectError>
-    {
+    ) -> Result<
+        Vec<(u32, Vec<ash::vk::DescriptorSetLayoutBinding<'_>>)>,
+        rspirv_reflect::ReflectError,
+    > {
         #[cfg(feature = "shader_reflection_verbose")]
         log::info!("Reflection:");
 

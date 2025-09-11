@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-iced-marpii = { workspace = true, features = ["geometry", "validation"] }
+iced-marpii = { workspace = true, features = ["geometry"] }
 iced = { version = "0.13", features = ["smol", "canvas"] }
 chrono = "0.4.40"
 simple_logger.workspace = true

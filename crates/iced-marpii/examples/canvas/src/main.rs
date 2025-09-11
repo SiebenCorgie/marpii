@@ -49,7 +49,7 @@ impl Clock {
         }
     }
 
-    fn view(&self) -> MElement<Message> {
+    fn view(&self) -> MElement<'_, Message> {
         let canvas = canvas(self as &Self).width(Fill).height(Fill);
 
         container(canvas).padding(20).into()

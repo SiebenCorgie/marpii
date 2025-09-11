@@ -99,12 +99,13 @@ impl MyRenderPass {
                 vk::ImageTiling::OPTIMAL,
                 &[
                     vk::Format::D16_UNORM,
-                    vk::Format::D32_SFLOAT,
+                    vk::Format::D16_UNORM_S8_UINT,
                     vk::Format::D24_UNORM_S8_UINT,
+                    vk::Format::D32_SFLOAT,
                     vk::Format::D32_SFLOAT_S8_UINT,
                 ],
             )
-            .expect("Could not select buffer storage format");
+            .expect("Could not select depth buffer storage format");
         let color_image = rmg
             .new_image_uninitialized(
                 ImgDesc::storage_image_2d(ext.width, ext.height, color_format),

@@ -10,7 +10,7 @@ pub struct Queue {
 
 impl Queue {
     ///Locks the inner queue object for this thread. Prevents submitting on multiple queues at once.
-    pub fn inner(&self) -> MutexGuard<ash::vk::Queue> {
+    pub fn inner(&self) -> MutexGuard<'_, ash::vk::Queue> {
         self.inner.lock().unwrap()
     }
 }

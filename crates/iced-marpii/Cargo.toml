@@ -5,7 +5,6 @@ edition = "2021"
 
 [features]
 default = []
-validation = []
 #enables the canvas rendering implementation
 geometry = ["iced_graphics/geometry", "lyon"]
 

@@ -72,7 +72,7 @@ impl Styling {
         }
     }
 
-    fn view(&self) -> MElement<Message> {
+    fn view(&self) -> MElement<'_, Message> {
         let choose_theme = column![
             text("Theme:"),
             pick_list(Theme::ALL, Some(&self.theme), Message::ThemeChanged).width(Fill),

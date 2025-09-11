@@ -76,7 +76,7 @@ impl Gradient {
         }
     }
 
-    fn view(&self) -> MElement<Message> {
+    fn view(&self) -> MElement<'_, Message> {
         let Self {
             stops,
             angle,

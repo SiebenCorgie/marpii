@@ -67,8 +67,7 @@ impl iced_graphics::compositor::Compositor for Compositor {
         }
 
         //Init RMG
-        let use_validation =
-            cfg!(feature = "validation") || std::env::var("ICED_MARPII_VALIDATE").is_ok();
+        let use_validation = std::env::var("ICED_MARPII_VALIDATE").is_ok();
 
         let (ctx, surface) =
             marpii::context::Ctx::default_with_surface(&compatible_window, use_validation)
