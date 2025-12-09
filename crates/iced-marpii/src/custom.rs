@@ -122,8 +122,8 @@ pub trait Program<Message> {
         _bounds: Rectangle,
         _cursor: mouse::Cursor,
         _shell: &mut Shell<'_, Message>,
-    ) -> (event::Status, Option<Message>) {
-        (event::Status::Ignored, None)
+    ) -> Option<Message> {
+        None
     }
 
     /// Draws the [`Primitive`].

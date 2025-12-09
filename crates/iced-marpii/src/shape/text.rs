@@ -25,7 +25,7 @@ pub struct Text {
     /// The font of the text
     pub font: Font,
     /// The horizontal alignment of the text
-    pub horizontal_alignment: alignment::Horizontal,
+    pub horizontal_alignment: iced_core::text::Alignment,
     /// The vertical alignment of the text
     pub vertical_alignment: alignment::Vertical,
     /// The shaping strategy of the text.
@@ -41,7 +41,7 @@ impl Default for Text {
             size: Pixels(16.0),
             line_height: LineHeight::Relative(1.2),
             font: Font::default(),
-            horizontal_alignment: alignment::Horizontal::Left,
+            horizontal_alignment: iced_core::text::Alignment::Default,
             vertical_alignment: alignment::Vertical::Top,
             shaping: Shaping::Basic,
         }

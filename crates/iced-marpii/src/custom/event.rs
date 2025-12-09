@@ -1,4 +1,5 @@
 //! Handle events of a custom marpii widget.
+use iced_core::input_method;
 use iced_core::keyboard;
 use iced_core::mouse;
 use iced_core::time::Instant;
@@ -17,6 +18,8 @@ pub enum Event {
 
     /// A keyboard event.
     Keyboard(keyboard::Event),
+
+    InputMethod(input_method::Event),
 
     /// A window requested a redraw.
     RedrawRequested(Instant),

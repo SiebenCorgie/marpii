@@ -35,8 +35,8 @@ where
         _event: Event,
         _bounds: Rectangle,
         _cursor: iced_core::mouse::Cursor,
-    ) -> (Status, Option<Message>) {
-        (Status::Ignored, None)
+    ) -> Option<Message> {
+        None
     }
 
     /// Draws the state of the [`Program`], producing a bunch of [`Frame`].
@@ -78,7 +78,7 @@ where
         event: Event,
         bounds: Rectangle,
         cursor: iced_core::mouse::Cursor,
-    ) -> (Status, Option<Message>) {
+    ) -> Option<Message> {
         T::update(self, state, event, bounds, cursor)
     }
 

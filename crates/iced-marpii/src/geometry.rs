@@ -89,8 +89,8 @@ pub struct Frame {
 }
 
 impl Frame {
-    pub fn new(size: Size) -> Frame {
-        Self::with_clip(Rectangle::with_size(size))
+    pub fn new(bounds: Rectangle) -> Frame {
+        Self::with_clip(bounds)
     }
 
     pub fn with_clip(bounds: Rectangle) -> Frame {
@@ -285,14 +285,21 @@ impl iced_graphics::geometry::frame::Backend for Frame {
                 size,
                 line_height: line_height.to_absolute(size),
                 font: text.font,
-                horizontal_alignment: text.horizontal_alignment,
-                vertical_alignment: text.vertical_alignment,
+                align_x: text.align_x,
+                align_y: text.align_y,
                 shaping: text.shaping,
                 clip_bounds: self.clip_bounds,
             });
         } else {
             text.draw_with(|path, color| self.fill(&path, color));
         }
+    }
+
+    fn stroke_text<'a>(&mut self, text: impl Into<geometry::Text>, stroke: impl Into<Stroke<'a>>) {
+        let text = text.into();
+        let stroke = stroke.into();
+
+        text.draw_with(|glyph, _color| self.stroke(&glyph, stroke));
     }
 
     #[inline]
@@ -366,7 +373,11 @@ impl iced_graphics::geometry::frame::Backend for Frame {
 
         image.rotation += external_rotation;
 
-        self.images.push(Image::Raster(image, bounds));
+        self.images.push(Image::Raster {
+            image,
+            bounds,
+            clip_bounds: self.clip_bounds,
+        });
     }
 
     fn draw_svg(&mut self, bounds: Rectangle, svg: impl Into<Svg>) {
@@ -376,7 +387,11 @@ impl iced_graphics::geometry::frame::Backend for Frame {
 
         svg.rotation += external_rotation;
 
-        self.images.push(Image::Vector(svg, bounds));
+        self.images.push(Image::Vector {
+            svg,
+            bounds,
+            clip_bounds: self.clip_bounds,
+        });
     }
 }
 

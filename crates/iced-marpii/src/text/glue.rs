@@ -35,8 +35,8 @@ impl TextArea {
                 clip_bounds,
                 transformation,
             } => {
-                let valign = paragraph.vertical_alignment.clone();
-                let halign = paragraph.horizontal_alignment.clone();
+                let valign = paragraph.align_y.clone();
+                let halign = paragraph.align_x.clone();
                 let minbounds = paragraph.min_bounds.clone();
 
                 //after extracting everything, snack the reference and be done!
@@ -59,7 +59,7 @@ impl TextArea {
                 transformation,
             } => {
                 let valign = alignment::Vertical::Top;
-                let halign = alignment::Horizontal::Left;
+                let halign = iced_core::text::Alignment::Default;
 
                 (
                     BufferAllocation::Editor(editor.upgrade().unwrap()),
@@ -86,7 +86,7 @@ impl TextArea {
                             height.unwrap_or(layer_bounds.height),
                         ),
                     ),
-                    alignment::Horizontal::Left,
+                    iced_core::text::Alignment::Default,
                     alignment::Vertical::Top,
                     raw.color,
                     raw.clip_bounds,
@@ -100,8 +100,8 @@ impl TextArea {
                 size,
                 line_height,
                 font,
-                horizontal_alignment,
-                vertical_alignment,
+                align_x,
+                align_y,
                 shaping,
                 clip_bounds,
             } => {
@@ -118,6 +118,7 @@ impl TextArea {
                             height: bounds.height,
                         },
                         shaping: *shaping,
+                        align_x: *align_x,
                     },
                 );
 
@@ -127,8 +128,8 @@ impl TextArea {
                 (
                     BufferAllocation::Cache(key),
                     Rectangle::new(bounds.position(), entry.min_bounds),
-                    *horizontal_alignment,
-                    *vertical_alignment,
+                    *align_x,
+                    *align_y,
                     *color,
                     *clip_bounds,
                     Transformation::IDENTITY,
@@ -140,9 +141,10 @@ impl TextArea {
 
         let bounds = bounds * transformation * layer_transformation;
         let left = match halign {
-            alignment::Horizontal::Left => bounds.x,
-            alignment::Horizontal::Center => bounds.x - bounds.width / 2.0,
-            alignment::Horizontal::Right => bounds.x - bounds.width,
+            iced_core::text::Alignment::Left | iced_core::text::Alignment::Default => bounds.x,
+            iced_core::text::Alignment::Center => bounds.x - bounds.width / 2.0,
+            iced_core::text::Alignment::Right => bounds.x - bounds.width,
+            iced_core::text::Alignment::Justified => todo!(),
         };
 
         let top = match valign {

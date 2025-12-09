@@ -73,7 +73,7 @@ impl Compositor {
         let must_gamma_correct = Self::must_gamma_correct_color(*self.color_buffer.format());
 
         //setup all layers
-        for (layer_index, layer) in renderer.layers.iter_mut().enumerate() {
+        for (layer_index, layer) in renderer.layers.iter().enumerate() {
             let quad_depth = depth_calc.quad_depth(layer_index);
             //push all quads of this layer into the quads renderer
             if layer.solid_quads.len() > 0 {
@@ -156,6 +156,7 @@ impl Compositor {
         surface: &mut SwapchainPresent,
         _viewport: &iced_graphics::Viewport,
         background_color: iced::Color,
+        on_pre_present: impl FnOnce(),
     ) {
         let bg_color = if Self::must_gamma_correct_color(*self.color_buffer.format()) {
             crate::util::gamma_correct(background_color.into_linear())
@@ -169,8 +170,8 @@ impl Compositor {
 
         let mut recorder = self.rmg.record();
         //first cycle all custom recording
-        for layer in renderer.layers.iter_mut() {
-            for custom in &mut layer.custom {
+        for layer in renderer.layers.iter() {
+            for custom in &layer.custom {
                 if custom.primitive.is_background() {
                     self.quads.set_clear_color(None);
                 }
@@ -185,6 +186,8 @@ impl Compositor {
                 );
             }
         }
+
+        on_pre_present();
 
         //now schedule all _normal_ passes and flip the swapchain
         recorder
