@@ -13,7 +13,7 @@ mod rendering;
 pub struct Compositor {
     rmg: Rmg,
     settings: iced_graphics::Settings,
-    shell: iced_graphics::Shell,
+    _shell: iced_graphics::Shell,
 
     //the color buffer we use for rendering. Note that we _blit_ to the swapchain.
     color_buffer: ImageHandle,
@@ -178,7 +178,7 @@ impl iced_graphics::compositor::Compositor for Compositor {
             shape,
             text,
             persistent_data: Persistent::default(),
-            shell,
+            _shell: shell,
         })
     }
 

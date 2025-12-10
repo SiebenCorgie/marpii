@@ -1,9 +1,9 @@
 //! Copy of Iced's Gradient example, but using the
 //! MarpII renderer.
 
-use iced::application;
 use iced::gradient;
 use iced::widget::button;
+use iced::widget::space::horizontal;
 use iced::widget::Row;
 use iced::widget::{checkbox, column, container, row, slider, text};
 use iced::Length;
@@ -17,8 +17,7 @@ pub fn main() -> iced::Result {
         .init()
         .unwrap();
 
-    iced::application("Gradient - Iced", Gradient::update, Gradient::view)
-        .style(Gradient::style)
+    iced::application(Gradient::default, Gradient::update, Gradient::view)
         .transparent(true)
         .run()
 }
@@ -83,7 +82,7 @@ impl Gradient {
             transparent,
         } = *self;
 
-        let gradient_box = container(horizontal_space())
+        let gradient_box = container(horizontal())
             .style(move |_theme| {
                 let mut gradient = gradient::Linear::new(angle);
                 for stop in &stops {
@@ -160,15 +159,13 @@ impl Gradient {
         .align_y(Center);
 
         let transparency_toggle = iced::widget::Container::new(
-            checkbox("Transparent window", transparent).on_toggle(Message::TransparentToggled),
+            checkbox(transparent)
+                .label("Transparent?")
+                .on_toggle(Message::TransparentToggled),
         )
         .padding(8);
 
         column![stop_row, angle_picker, transparency_toggle, gradient_box].into()
-    }
-
-    fn style(&self, theme: &Theme) -> application::Appearance {
-        Theme::default_style(theme)
     }
 }
 

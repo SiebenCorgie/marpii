@@ -1,12 +1,10 @@
-use std::future::Future;
-
 use crate::Renderer;
 
 impl iced_core::renderer::Headless for Renderer {
     async fn new(
-        default_font: iced::Font,
-        default_text_size: iced::Pixels,
-        backend: Option<&str>,
+        _default_font: iced::Font,
+        _default_text_size: iced::Pixels,
+        _backend: Option<&str>,
     ) -> Option<Self> {
         None
     }
@@ -17,9 +15,9 @@ impl iced_core::renderer::Headless for Renderer {
 
     fn screenshot(
         &mut self,
-        size: iced::Size<u32>,
-        scale_factor: f32,
-        background_color: iced::Color,
+        _size: iced::Size<u32>,
+        _scale_factor: f32,
+        _background_color: iced::Color,
     ) -> Vec<u8> {
         vec![]
     }

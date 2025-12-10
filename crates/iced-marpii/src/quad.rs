@@ -69,13 +69,22 @@ impl QuadRenderer {
     pub fn push_solid_batch(
         &mut self,
         rmg: &mut Rmg,
-        batch: &Batch<CmdQuad>,
+        batch: &mut Batch<CmdQuad>,
         bound: Rectangle,
         layer_depth: f32,
+        must_gamma_correct: bool,
     ) {
         //Do not push batches, that are empty
         if batch.len() == 0 {
             return;
+        }
+
+        if must_gamma_correct {
+            for item in batch.iter_mut() {
+                item.border_color = crate::util::gamma_correct(item.border_color);
+                item.shadow_color = crate::util::gamma_correct(item.shadow_color);
+                item.color = crate::util::gamma_correct(item.color);
+            }
         }
 
         let mut hasher = ahash::AHasher::default();
@@ -104,13 +113,29 @@ impl QuadRenderer {
     pub fn push_gradient_batch(
         &mut self,
         rmg: &mut Rmg,
-        batch: &Batch<CmdQuadGradient>,
+        batch: &mut Batch<CmdQuadGradient>,
         bound: Rectangle,
         layer_depth: f32,
+        must_gamma_correct: bool,
     ) {
         //Do not push batches, that are empty
         if batch.len() == 0 {
             return;
+        }
+
+        if must_gamma_correct {
+            for item in batch.iter_mut() {
+                item.border_color = crate::util::gamma_correct(item.border_color);
+                item.shadow_color = crate::util::gamma_correct(item.shadow_color);
+                item.colors_0 = crate::util::gamma_correct(item.colors_0);
+                item.colors_1 = crate::util::gamma_correct(item.colors_1);
+                item.colors_2 = crate::util::gamma_correct(item.colors_2);
+                item.colors_3 = crate::util::gamma_correct(item.colors_3);
+                item.colors_4 = crate::util::gamma_correct(item.colors_4);
+                item.colors_5 = crate::util::gamma_correct(item.colors_5);
+                item.colors_6 = crate::util::gamma_correct(item.colors_6);
+                item.colors_7 = crate::util::gamma_correct(item.colors_7);
+            }
         }
 
         let mut hasher = ahash::AHasher::default();

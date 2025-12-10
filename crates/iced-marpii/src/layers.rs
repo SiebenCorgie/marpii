@@ -290,7 +290,6 @@ impl Layer {
         self.mesh.push(mesh);
     }
 
-    #[cfg(feature = "geometry")]
     pub fn draw_mesh_cache(
         &mut self,
         cache: iced_graphics::mesh::Cache,

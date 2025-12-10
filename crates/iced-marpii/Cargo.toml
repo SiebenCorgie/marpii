@@ -17,9 +17,9 @@ chrono = "0.4"
 
 
 [dependencies]
-iced = { version = "0.14", default-features = false }
-iced_core = { version = "0.14", default-features = false }
-iced_graphics = { version = "0.14", default-features = false }
+iced.workspace = true
+iced_core.workspace = true
+iced_graphics.workspace = true
 lyon = { workspace = true, optional = true }
 
 marpii.workspace = true

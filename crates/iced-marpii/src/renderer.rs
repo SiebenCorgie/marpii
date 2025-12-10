@@ -1,4 +1,4 @@
-use iced::{Pixels, Rectangle, Size};
+use iced::Rectangle;
 
 use crate::{layers, shape::Frame};
 

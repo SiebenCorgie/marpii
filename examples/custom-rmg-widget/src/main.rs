@@ -28,7 +28,7 @@ pub fn main() -> iced::Result {
         .init()
         .unwrap();
 
-    iced::application("Custom Graphics Widget", Counter::update, Counter::view)
+    iced::application(Counter::default, Counter::update, Counter::view)
         .subscription(Counter::subscription)
         .run()
 }
