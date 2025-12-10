@@ -53,7 +53,6 @@ impl iced_marpii::custom::Primitive for MyPrimitive {
         _viewport: &Viewport,
         _transform: iced::Transformation,
         layer_depth: f32,
-        _should_gamma_correct: bool,
     ) {
         //get or create our pass
         let compute_pass: &mut MyRenderPass =
