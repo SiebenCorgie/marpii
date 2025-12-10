@@ -22,46 +22,6 @@ impl Renderer {
             layers: layers::Stack::new(),
         }
     }
-
-    pub(crate) fn draw_overlay(
-        &mut self,
-        overlay: &[impl AsRef<str>],
-        viewport: &iced_graphics::Viewport,
-    ) {
-        use iced_core::alignment;
-        use iced_core::text::Renderer as _;
-        use iced_core::Renderer as _;
-
-        self.with_layer(Rectangle::with_size(viewport.logical_size()), |renderer| {
-            for (i, line) in overlay.iter().enumerate() {
-                let text = iced_core::Text {
-                    content: line.as_ref().to_owned(),
-                    bounds: viewport.logical_size(),
-                    size: Pixels(20.0),
-                    line_height: iced_core::text::LineHeight::default(),
-                    font: iced_core::Font::MONOSPACE,
-                    align_x: iced_core::text::Alignment::Left,
-                    align_y: alignment::Vertical::Top,
-                    shaping: iced_core::text::Shaping::Basic,
-                    wrapping: iced_core::text::Wrapping::Word,
-                };
-
-                renderer.fill_text(
-                    text.clone(),
-                    iced::Point::new(11.0, 11.0 + 25.0 * i as f32),
-                    iced::Color::from_linear_rgba(0.9, 0.9, 0.9, 1.0),
-                    Rectangle::with_size(Size::INFINITE),
-                );
-
-                renderer.fill_text(
-                    text,
-                    iced::Point::new(11.0, 11.0 + 25.0 * i as f32) + iced::Vector::new(-1.0, -1.0),
-                    iced::Color::BLACK,
-                    Rectangle::with_size(Size::INFINITE),
-                );
-            }
-        });
-    }
 }
 
 impl iced_core::Renderer for Renderer {

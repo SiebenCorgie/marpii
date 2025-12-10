@@ -18,7 +18,8 @@ pub fn main() -> iced::Result {
         .with_level(log::LevelFilter::Warn)
         .init()
         .unwrap();
-    iced::application("Clock - Iced", Clock::update, Clock::view)
+
+    iced::application(Clock::new, Clock::update, Clock::view)
         .subscription(Clock::subscription)
         .theme(Clock::theme)
         .antialiasing(true)
@@ -36,6 +37,13 @@ enum Message {
 }
 
 impl Clock {
+    fn new() -> Self {
+        Self {
+            now: chrono::offset::Local::now(),
+            clock: Cache::default(),
+        }
+    }
+
     fn update(&mut self, message: Message) {
         match message {
             Message::Tick(local_time) => {
@@ -62,15 +70,6 @@ impl Clock {
 
     fn theme(&self) -> Theme {
         Theme::ALL[(self.now.timestamp() as usize / 10) % Theme::ALL.len()].clone()
-    }
-}
-
-impl Default for Clock {
-    fn default() -> Self {
-        Self {
-            now: chrono::offset::Local::now(),
-            clock: Cache::default(),
-        }
     }
 }
 
@@ -146,12 +145,12 @@ impl<Message> canvas::Program<Message, Theme, iced_marpii::Renderer> for Clock {
                     size: (radius / 15.0).into(),
                     position: Point::new((0.78 * radius) * rotate_factor, -width * 2.0),
                     color: palette.secondary.strong.text,
-                    horizontal_alignment: if rotate_factor > 0.0 {
-                        alignment::Horizontal::Right
+                    align_x: if rotate_factor > 0.0 {
+                        iced::widget::text::Alignment::Right
                     } else {
-                        alignment::Horizontal::Left
+                        iced::widget::text::Alignment::Left
                     },
-                    vertical_alignment: alignment::Vertical::Bottom,
+                    align_y: alignment::Vertical::Bottom,
                     font: Font::MONOSPACE,
                     ..canvas::Text::default()
                 });

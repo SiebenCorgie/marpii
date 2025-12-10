@@ -80,20 +80,18 @@ impl Compositor {
                 //TODO: take scaling factor and stuff like that into account
                 self.quads.push_solid_batch(
                     &mut self.rmg,
-                    &mut layer.solid_quads,
+                    &layer.solid_quads,
                     layer.bounds,
                     quad_depth,
-                    must_gamma_correct,
                 );
             }
             if layer.gradient_quads.len() > 0 {
                 //TODO: take scaling factor and stuff like that into account
                 self.quads.push_gradient_batch(
                     &mut self.rmg,
-                    &mut layer.gradient_quads,
+                    &layer.gradient_quads,
                     layer.bounds,
                     quad_depth,
-                    must_gamma_correct,
                 );
             }
 
@@ -101,10 +99,9 @@ impl Compositor {
             if layer.shapes.len() > 0 {
                 self.shape.push_solid_batch(
                     &mut self.rmg,
-                    &mut layer.shapes,
+                    &layer.shapes,
                     layer.bounds,
                     solid_depth,
-                    must_gamma_correct,
                 );
             }
 
@@ -116,8 +113,8 @@ impl Compositor {
             //NOTE: for the custom renderers we don't cache / batch anything,
             //      so we can just call them.
             let custom_layer = depth_calc.custom_depth(layer_index);
-            for custom in layer.custom.iter_mut() {
-                custom.primitive.prepare(
+            for custom in layer.custom.iter() {
+                custom.prepare(
                     &mut self.rmg,
                     self.color_buffer.clone(),
                     self.depth_buffer.clone(),
@@ -126,7 +123,6 @@ impl Compositor {
                     viewport,
                     custom.transformation,
                     custom_layer,
-                    must_gamma_correct,
                 );
             }
 
@@ -138,7 +134,6 @@ impl Compositor {
                     Transformation::scale(viewport.scale_factor() as f32),
                     text_depth,
                     font_system,
-                    !must_gamma_correct,
                 );
             }
         }
@@ -172,11 +167,11 @@ impl Compositor {
         //first cycle all custom recording
         for layer in renderer.layers.iter() {
             for custom in &layer.custom {
-                if custom.primitive.is_background() {
+                if custom.is_background() {
                     self.quads.set_clear_color(None);
                 }
 
-                recorder = custom.primitive.render(
+                recorder = custom.render(
                     recorder,
                     self.color_buffer.clone(),
                     self.depth_buffer.clone(),

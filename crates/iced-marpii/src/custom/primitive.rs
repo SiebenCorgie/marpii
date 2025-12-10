@@ -1,4 +1,6 @@
 //! Draw custom primitives.
+use std::sync::{Arc, Mutex};
+
 use iced::Transformation;
 use iced_core::{self, Rectangle};
 use marpii_rmg::{ImageHandle, Recorder, Rmg};
@@ -26,7 +28,6 @@ pub trait Primitive: Send + Sync + 'static {
         viewport: &Viewport,
         transform: Transformation,
         layer_depth: f32,
-        should_gamma_correct: bool,
     );
 
     ///If this returns true, the primitive will be considered the background
@@ -44,8 +45,8 @@ pub trait Primitive: Send + Sync + 'static {
     ///The `layer_depth` represents the expected `depth_image` value this primitive
     ///would/should be compared too. If you don't draw your pixels to that depth value
     /// content might glitch. Depending on what you are doing though, this might be wanted.
-    fn render<'a>(
-        &'a mut self,
+    fn render<'a, 'p>(
+        &'p mut self,
         recorder: Recorder<'a>,
         color_image: ImageHandle,
         depth_image: ImageHandle,
@@ -61,7 +62,7 @@ pub struct Instance {
     pub bounds: Rectangle,
 
     /// The [`Primitive`] to render.
-    pub primitive: Box<dyn Primitive>,
+    pub primitive: Arc<Mutex<dyn Primitive>>,
 
     pub transformation: Transformation,
 }
@@ -75,9 +76,56 @@ impl Instance {
     ) -> Self {
         Instance {
             bounds,
-            primitive: Box::new(primitive),
+            primitive: Arc::new(Mutex::new(primitive)),
             transformation,
         }
+    }
+
+    pub fn prepare(
+        &self,
+        rmg: &mut Rmg,
+        color_image: ImageHandle,
+        depth_image: ImageHandle,
+        persistent: &mut Persistent,
+        bounds: &Rectangle,
+        viewport: &Viewport,
+        transform: Transformation,
+        layer_depth: f32,
+    ) {
+        //Simply delegates into the instance. This lets the
+        // primitive mutate itself, which might be needed, but is not
+        // allowed by iced's Stack system (anymore :( )
+        self.primitive.lock().unwrap().prepare(
+            rmg,
+            color_image,
+            depth_image,
+            persistent,
+            bounds,
+            viewport,
+            transform,
+            layer_depth,
+        )
+    }
+    pub fn is_background(&self) -> bool {
+        self.primitive.lock().unwrap().is_background()
+    }
+    pub fn render<'a, 'p>(
+        &'p self,
+        recorder: Recorder<'a>,
+        color_image: ImageHandle,
+        depth_image: ImageHandle,
+        persistent: &Persistent,
+        clip_bounds: &Rectangle,
+        transform: Transformation,
+    ) -> Recorder<'a> {
+        self.primitive.lock().unwrap().render(
+            recorder,
+            color_image,
+            depth_image,
+            persistent,
+            clip_bounds,
+            transform,
+        )
     }
 }
 

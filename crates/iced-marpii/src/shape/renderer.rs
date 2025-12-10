@@ -58,22 +58,13 @@ impl ShapeRenderer {
     pub fn push_solid_batch(
         &mut self,
         rmg: &mut Rmg,
-        batch: &mut Batch,
+        batch: &Batch,
         bound: iced::Rectangle,
         layer_depth: f32,
-        gamma_correct: bool,
     ) {
         //Do not push batches, that are empty
         if batch.len() == 0 {
             return;
-        }
-
-        if gamma_correct {
-            for item in batch.iter_mut() {
-                item.border_color = crate::util::gamma_correct(item.border_color);
-                item.shadow_color = crate::util::gamma_correct(item.shadow_color);
-                item.color = crate::util::gamma_correct(item.color);
-            }
         }
 
         let mut hasher = ahash::AHasher::default();
