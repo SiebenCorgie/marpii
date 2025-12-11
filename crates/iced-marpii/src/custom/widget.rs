@@ -1,5 +1,5 @@
 use super::{Event, Program};
-use iced::{event, window, Length, Rectangle, Size};
+use iced::{window, Length, Rectangle, Size};
 use iced_core::{
     layout::{self, Layout},
     mouse,
@@ -71,7 +71,7 @@ where
     }
 
     fn layout(
-        &self,
+        &mut self,
         _tree: &mut Tree,
         _renderer: &Renderer,
         limits: &layout::Limits,
@@ -79,25 +79,30 @@ where
         layout::atomic(limits, self.width, self.height)
     }
 
-    fn on_event(
+    fn update(
         &mut self,
         tree: &mut Tree,
-        event: iced_core::Event,
+        event: &iced_core::Event,
         layout: Layout<'_>,
         cursor: mouse::Cursor,
         _renderer: &Renderer,
         _clipboard: &mut dyn Clipboard,
         shell: &mut Shell<'_, Message>,
         _viewport: &Rectangle,
-    ) -> event::Status {
+    ) {
         let bounds = layout.bounds();
         //translates all events that apply into the widget's event type
         let custom_shader_event = match event {
-            iced_core::Event::Mouse(mouse_event) => Some(Event::Mouse(mouse_event)),
-            iced_core::Event::Keyboard(keyboard_event) => Some(Event::Keyboard(keyboard_event)),
-            iced_core::Event::Touch(touch_event) => Some(Event::Touch(touch_event)),
+            iced_core::Event::Mouse(mouse_event) => Some(Event::Mouse(*mouse_event)),
+            iced_core::Event::Keyboard(keyboard_event) => {
+                Some(Event::Keyboard(keyboard_event.clone()))
+            }
+            iced_core::Event::Touch(touch_event) => Some(Event::Touch(touch_event.clone())),
+            iced::Event::InputMethod(input_method) => {
+                Some(Event::InputMethod(input_method.clone()))
+            }
             iced_core::Event::Window(window::Event::RedrawRequested(instant)) => {
-                Some(Event::RedrawRequested(instant))
+                Some(Event::RedrawRequested(*instant))
             }
             iced_core::Event::Window(_) => None,
         };
@@ -105,18 +110,14 @@ where
         if let Some(custom_shader_event) = custom_shader_event {
             let state = tree.state.downcast_mut::<P::State>();
 
-            let (event_status, message) =
-                self.program
-                    .update(state, custom_shader_event, bounds, cursor, shell);
+            let message = self
+                .program
+                .update(state, custom_shader_event, bounds, cursor, shell);
 
             if let Some(message) = message {
                 shell.publish(message);
             }
-
-            return event_status;
         }
-
-        event::Status::Ignored
     }
 
     fn mouse_interaction(
@@ -176,7 +177,7 @@ where
         bounds: Rectangle,
         cursor: mouse::Cursor,
         shell: &mut Shell<'_, Message>,
-    ) -> (event::Status, Option<Message>) {
+    ) -> Option<Message> {
         T::update(self, state, event, bounds, cursor, shell)
     }
 

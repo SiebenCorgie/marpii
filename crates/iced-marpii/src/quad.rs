@@ -72,14 +72,14 @@ impl QuadRenderer {
         batch: &mut Batch<CmdQuad>,
         bound: Rectangle,
         layer_depth: f32,
-        gamma_correct: bool,
+        must_gamma_correct: bool,
     ) {
         //Do not push batches, that are empty
         if batch.len() == 0 {
             return;
         }
 
-        if gamma_correct {
+        if must_gamma_correct {
             for item in batch.iter_mut() {
                 item.border_color = crate::util::gamma_correct(item.border_color);
                 item.shadow_color = crate::util::gamma_correct(item.shadow_color);
@@ -116,14 +116,14 @@ impl QuadRenderer {
         batch: &mut Batch<CmdQuadGradient>,
         bound: Rectangle,
         layer_depth: f32,
-        gamma_correct: bool,
+        must_gamma_correct: bool,
     ) {
         //Do not push batches, that are empty
         if batch.len() == 0 {
             return;
         }
 
-        if gamma_correct {
+        if must_gamma_correct {
             for item in batch.iter_mut() {
                 item.border_color = crate::util::gamma_correct(item.border_color);
                 item.shadow_color = crate::util::gamma_correct(item.shadow_color);

@@ -463,7 +463,7 @@ impl TextRenderer {
         layer_transformation: Transformation,
         layer_depth: f32,
         font_system: &mut FontSystem,
-        gamma_correct: bool,
+        must_gamma_correct: bool,
     ) {
         //safe the current buffer length
         let text_layer_offset = self.glyph_instance_buffer.len();
@@ -532,7 +532,7 @@ impl TextRenderer {
                         let [r, g, b, a] = ovc.as_rgba();
                         base_color = Color::from_rgba8(r, g, b, a as f32 / 255.0);
                     }
-                    let color = if gamma_correct {
+                    let color = if must_gamma_correct {
                         //crate::util::gamma_correct(text_area.color.into_linear())
                         base_color.into_linear()
                     } else {

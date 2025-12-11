@@ -126,7 +126,6 @@ impl Compositor {
                     viewport,
                     custom.transformation,
                     custom_layer,
-                    must_gamma_correct,
                 );
             }
 
@@ -156,6 +155,7 @@ impl Compositor {
         surface: &mut SwapchainPresent,
         _viewport: &iced_graphics::Viewport,
         background_color: iced::Color,
+        on_pre_present: impl FnOnce(),
     ) {
         let bg_color = if Self::must_gamma_correct_color(*self.color_buffer.format()) {
             crate::util::gamma_correct(background_color.into_linear())
@@ -185,6 +185,8 @@ impl Compositor {
                 );
             }
         }
+
+        on_pre_present();
 
         //now schedule all _normal_ passes and flip the swapchain
         recorder

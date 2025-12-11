@@ -4,7 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [features]
-default = []
+default = ["default-executor", "goodies", "iced/x11", "iced/wayland"]
+#activates the smol-executor by default on iced.
+default-executor = ["iced/smol"]
+goodies = ["iced/sysinfo"]
 #enables the canvas rendering implementation
 geometry = ["iced_graphics/geometry", "lyon"]
 
@@ -14,9 +17,9 @@ chrono = "0.4"
 
 
 [dependencies]
-iced = { version = "0.13", default-features = false }
-iced_core = { version = "0.13", default-features = false }
-iced_graphics = { version = "0.13", default-features = false }
+iced.workspace = true
+iced_core.workspace = true
+iced_graphics.workspace = true
 lyon = { workspace = true, optional = true }
 
 marpii.workspace = true
@@ -25,6 +28,6 @@ marpii-rmg-tasks.workspace = true
 log.workspace = true
 iced-marpii-shared = { path = "shaders/iced-marpii-shared" }
 ahash.workspace = true
-cosmic-text = "0.12"
+cosmic-text = "0.15"
 etagere = "0.2.15"
-lru = "0.14"
+lru = "0.16.2"

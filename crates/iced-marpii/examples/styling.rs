@@ -1,8 +1,9 @@
 use iced::keyboard;
 use iced::widget::{
-    button, center, checkbox, column, horizontal_rule, pick_list, progress_bar, row, scrollable,
-    slider, text, text_input, toggler, vertical_rule, vertical_space,
+    button, center_x, center_y, checkbox, column, container, pick_list, progress_bar, row, rule,
+    scrollable, slider, space, text, text_input, toggler,
 };
+use iced::Length::Shrink;
 use iced::{Center, Element, Fill, Subscription, Theme};
 
 type MElement<'a, M> = Element<'a, M, Theme, iced_marpii::Renderer>;
@@ -14,7 +15,7 @@ pub fn main() -> iced::Result {
         .init()
         .unwrap();
 
-    iced::application("Styling - Iced", Styling::update, Styling::view)
+    iced::application(Styling::default, Styling::update, Styling::view)
         .subscription(Styling::subscription)
         .theme(Styling::theme)
         .run()
@@ -22,7 +23,7 @@ pub fn main() -> iced::Result {
 
 #[derive(Default)]
 struct Styling {
-    theme: Theme,
+    theme: Option<Theme>,
     input_value: String,
     slider_value: f32,
     checkbox_value: bool,
@@ -39,13 +40,14 @@ enum Message {
     TogglerToggled(bool),
     PreviousTheme,
     NextTheme,
+    ClearTheme,
 }
 
 impl Styling {
     fn update(&mut self, message: Message) {
         match message {
             Message::ThemeChanged(theme) => {
-                self.theme = theme;
+                self.theme = Some(theme);
             }
             Message::InputChanged(value) => self.input_value = value,
             Message::ButtonPressed => {}
@@ -53,21 +55,28 @@ impl Styling {
             Message::CheckboxToggled(value) => self.checkbox_value = value,
             Message::TogglerToggled(value) => self.toggler_value = value,
             Message::PreviousTheme | Message::NextTheme => {
-                if let Some(current) = Theme::ALL
+                let current = Theme::ALL
                     .iter()
-                    .position(|candidate| &self.theme == candidate)
-                {
-                    self.theme = if matches!(message, Message::NextTheme) {
-                        Theme::ALL[(current + 1) % Theme::ALL.len()].clone()
-                    } else if current == 0 {
+                    .position(|candidate| self.theme.as_ref() == Some(candidate));
+
+                self.theme = Some(if matches!(message, Message::NextTheme) {
+                    Theme::ALL[current.map(|current| current + 1).unwrap_or(0) % Theme::ALL.len()]
+                        .clone()
+                } else {
+                    let current = current.unwrap_or(0);
+
+                    if current == 0 {
                         Theme::ALL
                             .last()
                             .expect("Theme::ALL must not be empty")
                             .clone()
                     } else {
                         Theme::ALL[current - 1].clone()
-                    };
-                }
+                    }
+                });
+            }
+            Message::ClearTheme => {
+                self.theme = None;
             }
         }
     }
@@ -75,7 +84,9 @@ impl Styling {
     fn view(&self) -> MElement<'_, Message> {
         let choose_theme = column![
             text("Theme:"),
-            pick_list(Theme::ALL, Some(&self.theme), Message::ThemeChanged).width(Fill),
+            pick_list(Theme::ALL, self.theme.as_ref(), Message::ThemeChanged)
+                .width(Fill)
+                .placeholder("System"),
         ]
         .spacing(10);
 
@@ -84,75 +95,113 @@ impl Styling {
             .padding(10)
             .size(20);
 
-        let styled_button = |label| {
-            button(text(label).width(Fill).center())
-                .padding(10)
-                .on_press(Message::ButtonPressed)
+        let buttons = {
+            let styles = [
+                ("Primary", button::primary as fn(&Theme, _) -> _),
+                ("Secondary", button::secondary),
+                ("Success", button::success),
+                ("Warning", button::warning),
+                ("Danger", button::danger),
+            ];
+
+            let styled_button = |label| button(text(label).width(Fill).center()).padding(10);
+
+            column![
+                row(styles.into_iter().map(|(name, style)| styled_button(name)
+                    .on_press(Message::ButtonPressed)
+                    .style(style)
+                    .into()))
+                .spacing(10)
+                .align_y(Center),
+                row(styles
+                    .into_iter()
+                    .map(|(name, style)| styled_button(name).style(style).into()))
+                .spacing(10)
+                .align_y(Center),
+            ]
+            .spacing(10)
         };
 
-        let primary = styled_button("Primary");
-        let success = styled_button("Success").style(button::success);
-        let warning = styled_button("Warning").style(button::danger);
-        let danger = styled_button("Danger").style(button::danger);
+        let slider = || slider(0.0..=100.0, self.slider_value, Message::SliderChanged);
 
-        let slider = slider(0.0..=100.0, self.slider_value, Message::SliderChanged);
+        let progress_bar = || progress_bar(0.0..=100.0, self.slider_value);
 
-        let progress_bar = progress_bar(0.0..=100.0, self.slider_value);
+        let scroll_me = scrollable(column!["Scroll me!", space().height(800), "You did it!"])
+            .width(Fill)
+            .height(Fill)
+            .auto_scroll(true);
 
-        let scrollable = scrollable(column![
-            "Scroll me!",
-            vertical_space().height(800),
-            "You did it!"
-        ])
-        .width(Fill)
-        .height(100);
+        let check = checkbox(self.checkbox_value)
+            .label("Check me!")
+            .on_toggle(Message::CheckboxToggled);
 
-        let checkbox =
-            checkbox("Check me!", self.checkbox_value).on_toggle(Message::CheckboxToggled);
+        let check_disabled = checkbox(self.checkbox_value).label("Disabled");
 
-        let toggler = toggler(self.toggler_value)
+        let toggle = toggler(self.toggler_value)
             .label("Toggle me!")
             .on_toggle(Message::TogglerToggled)
             .spacing(10);
 
+        let disabled_toggle = toggler(self.toggler_value).label("Disabled").spacing(10);
+
+        let card = {
+            container(column![text("Card Example").size(24), slider(), progress_bar(),].spacing(20))
+                .width(Fill)
+                .padding(20)
+                .style(container::bordered_box)
+        };
+
         let content = column![
             choose_theme,
-            horizontal_rule(38),
+            rule::horizontal(1),
             text_input,
-            row![primary, success, warning, danger]
-                .spacing(10)
-                .align_y(Center),
-            slider,
-            progress_bar,
+            buttons,
+            slider(),
+            progress_bar(),
             row![
-                scrollable,
-                vertical_rule(38),
-                column![checkbox, toggler].spacing(20)
+                scroll_me,
+                rule::vertical(1),
+                column![check, check_disabled, toggle, disabled_toggle].spacing(10)
             ]
             .spacing(10)
-            .height(100)
+            .height(Shrink)
             .align_y(Center),
+            card
         ]
         .spacing(20)
         .padding(20)
         .max_width(600);
 
-        center(content).into()
+        center_y(scrollable(center_x(content)).spacing(10))
+            .padding(10)
+            .into()
     }
 
     fn subscription(&self) -> Subscription<Message> {
-        keyboard::on_key_press(|key, _modifiers| match key {
-            keyboard::Key::Named(
-                keyboard::key::Named::ArrowUp | keyboard::key::Named::ArrowLeft,
-            ) => Some(Message::PreviousTheme),
-            keyboard::Key::Named(
-                keyboard::key::Named::ArrowDown | keyboard::key::Named::ArrowRight,
-            ) => Some(Message::NextTheme),
-            _ => None,
+        keyboard::listen().filter_map(|event| {
+            let keyboard::Event::KeyPressed {
+                modified_key: keyboard::Key::Named(modified_key),
+                repeat: false,
+                ..
+            } = event
+            else {
+                return None;
+            };
+
+            match modified_key {
+                keyboard::key::Named::ArrowUp | keyboard::key::Named::ArrowLeft => {
+                    Some(Message::PreviousTheme)
+                }
+                keyboard::key::Named::ArrowDown | keyboard::key::Named::ArrowRight => {
+                    Some(Message::NextTheme)
+                }
+                keyboard::key::Named::Space => Some(Message::ClearTheme),
+                _ => None,
+            }
         })
     }
 
-    fn theme(&self) -> Theme {
+    fn theme(&self) -> Option<Theme> {
         self.theme.clone()
     }
 }

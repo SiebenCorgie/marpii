@@ -76,7 +76,7 @@ where
     }
 
     fn layout(
-        &self,
+        &mut self,
         _tree: &mut iced_core::widget::Tree,
         _renderer: &Renderer,
         limits: &iced_core::layout::Limits,
@@ -84,39 +84,40 @@ where
         iced_core::layout::atomic(limits, self.width, self.height)
     }
 
-    fn on_event(
+    fn update(
         &mut self,
         tree: &mut iced_core::widget::Tree,
-        event: iced_core::Event,
+        event: &iced_core::Event,
         layout: iced_core::Layout<'_>,
         cursor: iced_core::mouse::Cursor,
         _renderer: &Renderer,
         _clipboard: &mut dyn iced_core::Clipboard,
         shell: &mut iced_core::Shell<'_, Message>,
         _viewport: &Rectangle,
-    ) -> iced_core::event::Status {
+    ) {
         let bounds = layout.bounds();
 
         let canvas_event = match event {
-            iced_core::Event::Mouse(mouse_event) => Some(Event::Mouse(mouse_event)),
-            iced_core::Event::Touch(touch_event) => Some(Event::Touch(touch_event)),
-            iced_core::Event::Keyboard(keyboard_event) => Some(Event::Keyboard(keyboard_event)),
+            iced_core::Event::Mouse(mouse_event) => Some(Event::Mouse(*mouse_event)),
+            iced_core::Event::Touch(touch_event) => Some(Event::Touch(*touch_event)),
+            iced_core::Event::Keyboard(keyboard_event) => {
+                Some(Event::Keyboard(keyboard_event.clone()))
+            }
+            iced::Event::InputMethod(input_method) => {
+                Some(Event::InputMethod(input_method.clone()))
+            }
             iced_core::Event::Window(_) => None,
         };
 
         if let Some(canvas_event) = canvas_event {
             let state = tree.state.downcast_mut::<P::State>();
 
-            let (event_status, message) = self.program.update(state, canvas_event, bounds, cursor);
+            let message = self.program.update(state, canvas_event, bounds, cursor);
 
             if let Some(message) = message {
                 shell.publish(message);
             }
-
-            return event_status;
         }
-
-        iced_core::event::Status::Ignored
     }
 
     fn mouse_interaction(

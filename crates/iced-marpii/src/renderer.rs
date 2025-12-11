@@ -1,4 +1,4 @@
-use iced::{Pixels, Rectangle, Size};
+use iced::Rectangle;
 
 use crate::{layers, shape::Frame};
 
@@ -21,46 +21,6 @@ impl Renderer {
             default_font_size: settings.default_text_size,
             layers: layers::Stack::new(),
         }
-    }
-
-    pub(crate) fn draw_overlay(
-        &mut self,
-        overlay: &[impl AsRef<str>],
-        viewport: &iced_graphics::Viewport,
-    ) {
-        use iced_core::alignment;
-        use iced_core::text::Renderer as _;
-        use iced_core::Renderer as _;
-
-        self.with_layer(Rectangle::with_size(viewport.logical_size()), |renderer| {
-            for (i, line) in overlay.iter().enumerate() {
-                let text = iced_core::Text {
-                    content: line.as_ref().to_owned(),
-                    bounds: viewport.logical_size(),
-                    size: Pixels(20.0),
-                    line_height: iced_core::text::LineHeight::default(),
-                    font: iced_core::Font::MONOSPACE,
-                    horizontal_alignment: alignment::Horizontal::Left,
-                    vertical_alignment: alignment::Vertical::Top,
-                    shaping: iced_core::text::Shaping::Basic,
-                    wrapping: iced_core::text::Wrapping::Word,
-                };
-
-                renderer.fill_text(
-                    text.clone(),
-                    iced::Point::new(11.0, 11.0 + 25.0 * i as f32),
-                    iced::Color::new(0.9, 0.9, 0.9, 1.0),
-                    Rectangle::with_size(Size::INFINITY),
-                );
-
-                renderer.fill_text(
-                    text,
-                    iced::Point::new(11.0, 11.0 + 25.0 * i as f32) + iced::Vector::new(-1.0, -1.0),
-                    iced::Color::BLACK,
-                    Rectangle::with_size(Size::INFINITY),
-                );
-            }
-        });
     }
 }
 
@@ -89,8 +49,18 @@ impl iced_core::Renderer for Renderer {
         layer.draw_quad(quad, background.into(), transformation);
     }
 
-    fn clear(&mut self) {
-        self.layers.clear();
+    fn reset(&mut self, new_bounds: Rectangle) {
+        self.layers.reset(new_bounds);
+    }
+
+    fn allocate_image(
+        &mut self,
+        _handle: &iced_core::image::Handle,
+        _callback: impl FnOnce(Result<iced_core::image::Allocation, iced_core::image::Error>)
+            + Send
+            + 'static,
+    ) {
+        log::error!("image-allocation unimplemented!");
     }
 }
 
@@ -102,6 +72,11 @@ impl iced_core::text::Renderer for Renderer {
     const ICON_FONT: iced_core::Font = iced_core::Font::with_name("Iced-Icons");
     const CHECKMARK_ICON: char = '\u{f00c}';
     const ARROW_DOWN_ICON: char = '\u{e800}';
+    const ICED_LOGO: char = '\u{e801}';
+    const SCROLL_UP_ICON: char = '\u{e802}';
+    const SCROLL_DOWN_ICON: char = '\u{e803}';
+    const SCROLL_LEFT_ICON: char = '\u{e804}';
+    const SCROLL_RIGHT_ICON: char = '\u{e805}';
 
     fn default_font(&self) -> Self::Font {
         self.default_font
@@ -150,6 +125,11 @@ impl iced_graphics::mesh::Renderer for crate::renderer::Renderer {
         let (layer, transformation) = self.layers.current_mut();
         layer.draw_mesh(mesh, transformation);
     }
+
+    fn draw_mesh_cache(&mut self, cache: iced_graphics::mesh::Cache) {
+        let (layer, transformation) = self.layers.current_mut();
+        layer.draw_mesh_cache(cache, transformation);
+    }
 }
 
 #[cfg(feature = "geometry")]
@@ -157,8 +137,8 @@ impl iced_graphics::geometry::Renderer for crate::renderer::Renderer {
     type Frame = crate::geometry::Frame;
     type Geometry = crate::geometry::Geometry;
 
-    fn new_frame(&self, size: Size) -> Self::Frame {
-        crate::geometry::Frame::new(size)
+    fn new_frame(&self, bounds: Rectangle) -> Self::Frame {
+        crate::geometry::Frame::new(bounds)
     }
 
     fn draw_geometry(&mut self, geometry: Self::Geometry) {
@@ -180,7 +160,8 @@ impl iced_graphics::geometry::Renderer for crate::renderer::Renderer {
             }
             crate::geometry::Geometry::Cached(cache) => {
                 if !cache.meshes.is_empty() {
-                    layer.draw_mesh_cache(cache.meshes, transformation);
+                    layer.draw_mesh_group(cache.meshes, transformation);
+                    //layer.draw_mesh_cache(cache., transformation);
                 }
 
                 /*TODO: Image

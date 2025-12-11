@@ -4,6 +4,7 @@ pub(crate) mod compositor;
 pub mod custom;
 #[cfg(feature = "geometry")]
 pub(crate) mod geometry;
+pub(crate) mod headless;
 pub(crate) mod layers;
 pub(crate) mod mesh;
 pub(crate) mod quad;

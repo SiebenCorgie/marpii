@@ -42,6 +42,15 @@ marpii-rmg-task-shared = { path = "crates/marpii-rmg-tasks/marpii-rmg-task-share
 marpii-wgpu = { path = "crates/marpii-wgpu" }
 iced-marpii = { path = "crates/iced-marpii" }
 
+#iced = { version = "0.14", default-features = false }
+#iced_core = { version = "0.14", default-features = false }
+#iced_graphics = { version = "0.14", default-features = false }
+iced = {git = "https://github.com/SiebenCorgie/iced.git", branch = "re-add-iter_mut-stack"}
+iced_core = {git = "https://github.com/SiebenCorgie/iced.git", branch = "re-add-iter_mut-stack"}
+iced_graphics = {git = "https://github.com/SiebenCorgie/iced.git", branch = "re-add-iter_mut-stack"}
+
+
+
 ash = "0.38.0"
 ash-window = "0.13"
 raw-window-handle = "0.6.2"
@@ -58,7 +67,6 @@ puffin = "0.19"
 rspirv-reflect = "0.9.0"
 graphviz-rust = "0.9.3"
 slotmap = "1"
-image = "0.25"
-wgpu = "23"
+image = "0.25.9"
 lyon = "1.0"
 lyon_path = "1.0"

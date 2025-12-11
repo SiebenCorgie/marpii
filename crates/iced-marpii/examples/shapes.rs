@@ -11,7 +11,7 @@ pub fn main() -> iced::Result {
         .with_level(log::LevelFilter::Warn)
         .init()
         .unwrap();
-    iced::application("A cool counter", Shapes::update, Shapes::view)
+    iced::application(Shapes::default, Shapes::update, Shapes::view)
         .subscription(Shapes::subscription)
         .run()
 }
@@ -49,13 +49,6 @@ impl iced_marpii::shape::Program<Message> for ShapeRenderer {
                 size: 50.into(),
                 ..Default::default()
             })
-            .draw_line(
-                iced_marpii::shape::Line::new(
-                    iced::Point::ORIGIN,
-                    iced::Point::new(frame_size.width, frame_size.height),
-                )
-                .thickness(6.0),
-            )
             .draw_line(
                 iced_marpii::shape::Line::new(
                     center - iced::Vector::new(50.0, 50.0),

@@ -12,7 +12,7 @@ pub fn main() -> iced::Result {
         .init()
         .unwrap();
 
-    iced::run("A cool counter", Counter::update, Counter::view)
+    iced::application(Counter::default, Counter::update, Counter::view).run()
 }
 
 #[derive(Default)]

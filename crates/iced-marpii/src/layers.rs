@@ -1,3 +1,5 @@
+use std::usize;
+
 use iced::{Background, Color, Point, Rectangle, Transformation};
 use iced_core::renderer::Quad;
 use iced_graphics::{
@@ -32,6 +34,62 @@ impl iced_graphics::Layer for Layer {
             bounds,
             ..Self::default()
         }
+    }
+
+    fn bounds(&self) -> Rectangle {
+        self.bounds
+    }
+
+    fn start(&self) -> usize {
+        if !self.solid_quads.is_empty() || !self.gradient_quads.is_empty() {
+            return 1;
+        }
+
+        if !self.shapes.is_empty() {
+            return 2;
+        }
+
+        if !self.mesh.is_empty() {
+            return 3;
+        }
+
+        if !self.text.is_empty() {
+            return 4;
+        }
+
+        if !self.custom.is_empty() {
+            return 5;
+        }
+        usize::MAX
+    }
+
+    fn end(&self) -> usize {
+        if !self.custom.is_empty() {
+            return 5;
+        }
+        if !self.text.is_empty() {
+            return 4;
+        }
+        if !self.mesh.is_empty() {
+            return 3;
+        }
+        if !self.shapes.is_empty() {
+            return 2;
+        }
+        if !self.solid_quads.is_empty() || !self.gradient_quads.is_empty() {
+            return 1;
+        }
+
+        0
+    }
+
+    fn merge(&mut self, layer: &mut Self) {
+        self.solid_quads.append(&mut layer.solid_quads);
+        self.gradient_quads.append(&mut layer.gradient_quads);
+        self.shapes.append(&mut layer.shapes);
+        self.mesh.append(&mut layer.mesh);
+        self.text.append(&mut layer.text);
+        self.custom.append(&mut layer.custom);
     }
 
     fn flush(&mut self) {
@@ -173,8 +231,8 @@ impl Layer {
             size: text.size * transformation.scale_factor(),
             line_height: text.line_height.to_absolute(text.size) * transformation.scale_factor(),
             font: text.font,
-            horizontal_alignment: text.horizontal_alignment,
-            vertical_alignment: text.vertical_alignment,
+            align_x: text.align_x,
+            align_y: text.align_y,
             shaping: text.shaping,
             clip_bounds: clip_bounds * transformation,
         };
@@ -232,14 +290,19 @@ impl Layer {
         self.mesh.push(mesh);
     }
 
-    #[cfg(feature = "geometry")]
-    pub fn draw_mesh_cache(&mut self, meshes: Vec<Mesh>, transformation: Transformation) {
+    pub fn draw_mesh_cache(
+        &mut self,
+        cache: iced_graphics::mesh::Cache,
+        transformation: Transformation,
+    ) {
         self.flush_meshes();
 
+        log::debug!("Ignoring mesh cache");
+
         //update transformation for all meshes and push them
-        for mesh in meshes {
+        for mesh in cache.batch() {
             //TODO: implement mesh caching
-            self.draw_mesh(mesh, transformation);
+            self.draw_mesh(mesh.clone(), transformation);
         }
     }
 

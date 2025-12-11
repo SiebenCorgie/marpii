@@ -28,7 +28,7 @@ pub fn main() -> iced::Result {
         .init()
         .unwrap();
 
-    iced::application("Custom Graphics Widget", Counter::update, Counter::view)
+    iced::application(Counter::default, Counter::update, Counter::view)
         .subscription(Counter::subscription)
         .run()
 }
@@ -53,7 +53,6 @@ impl iced_marpii::custom::Primitive for MyPrimitive {
         _viewport: &Viewport,
         _transform: iced::Transformation,
         layer_depth: f32,
-        _should_gamma_correct: bool,
     ) {
         //get or create our pass
         let compute_pass: &mut MyRenderPass =

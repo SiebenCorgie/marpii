@@ -69,6 +69,13 @@ impl Debug for ImageHandle {
     }
 }
 
+impl PartialEq for ImageHandle {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key
+    }
+}
+impl Eq for ImageHandle {}
+
 #[derive(Clone)]
 pub struct BufferHandle<T: 'static> {
     //reference to the key. The arc signals the garbage collector when we
@@ -100,6 +107,13 @@ impl<T: 'static> BufferHandle<T> {
     }
 }
 
+impl<T: 'static> PartialEq for BufferHandle<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key
+    }
+}
+impl<T: 'static> Eq for BufferHandle<T> {}
+
 impl<T: 'static> Debug for BufferHandle<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "BufferHandle({:?})", self.key)
@@ -119,6 +133,13 @@ impl Debug for SamplerHandle {
         write!(f, "SamplerHandle({:?})", self.key)
     }
 }
+
+impl PartialEq for SamplerHandle {
+    fn eq(&self, other: &Self) -> bool {
+        self.key == other.key
+    }
+}
+impl Eq for SamplerHandle {}
 
 pub struct AnyHandle {
     ///Keeps the atomic reference to *something* alive. Used internally to

@@ -13,6 +13,7 @@ mod rendering;
 pub struct Compositor {
     rmg: Rmg,
     settings: iced_graphics::Settings,
+    _shell: iced_graphics::Shell,
 
     //the color buffer we use for rendering. Note that we _blit_ to the swapchain.
     color_buffer: ImageHandle,
@@ -49,9 +50,11 @@ impl iced_graphics::compositor::Compositor for Compositor {
     type Renderer = Renderer;
     type Surface = SwapchainPresent;
 
-    async fn with_backend<W: iced_graphics::compositor::Window + Clone>(
+    async fn with_backend(
         settings: iced_graphics::Settings,
-        compatible_window: W,
+        _display: impl iced_graphics::compositor::Display + Clone,
+        compatible_window: impl iced_graphics::compositor::Window + Clone,
+        shell: iced_graphics::Shell,
         backend: Option<&str>,
     ) -> Result<Self, iced_graphics::Error> {
         match backend {
@@ -175,6 +178,7 @@ impl iced_graphics::compositor::Compositor for Compositor {
             shape,
             text,
             persistent_data: Persistent::default(),
+            _shell: shell,
         })
     }
 
@@ -182,24 +186,43 @@ impl iced_graphics::compositor::Compositor for Compositor {
         Renderer::new(&self.settings)
     }
 
-    fn present<T: AsRef<str>>(
+    fn information(&self) -> compositor::Information {
+        const ERR: &'static str = "UNKNOWN-DEVICE";
+        let adapter = self
+            .rmg
+            .ctx
+            .device
+            .get_device_properties()
+            .properties
+            .device_name_as_c_str()
+            .map(|name| name.to_str().unwrap_or(ERR))
+            .unwrap_or(ERR)
+            .to_string();
+        compositor::Information {
+            adapter,
+            backend: "Vulkan".to_owned(),
+        }
+    }
+
+    fn present(
         &mut self,
         renderer: &mut Self::Renderer,
         surface: &mut Self::Surface,
         viewport: &iced_graphics::Viewport,
         background_color: iced::Color,
-        overlay: &[T],
+        on_pre_present: impl FnOnce(),
     ) -> Result<(), iced_graphics::compositor::SurfaceError> {
-        //If there is an overlay, push that into the renderer
-        if overlay.len() > 0 {
-            renderer.draw_overlay(overlay, viewport);
-        }
-
         //prepare all the renderer data. This is where
         //we upload anything that is needed to the gpu.
         self.prepare(renderer, viewport);
         //this call the actual rendering passes
-        self.render_to_surface(renderer, surface, viewport, background_color);
+        self.render_to_surface(
+            renderer,
+            surface,
+            viewport,
+            background_color,
+            on_pre_present,
+        );
         self.end();
 
         Ok(())
@@ -224,36 +247,14 @@ impl iced_graphics::compositor::Compositor for Compositor {
         self.notify_resize(width, height);
     }
 
-    fn screenshot<T: AsRef<str>>(
+    fn screenshot(
         &mut self,
         _renderer: &mut Self::Renderer,
-        _surface: &mut Self::Surface,
         _viewport: &iced_graphics::Viewport,
         _background_color: iced::Color,
-        _overlay: &[T],
     ) -> Vec<u8> {
-        log::error!("Screenshotting not implemented!");
-        Vec::with_capacity(0)
-    }
-
-    fn fetch_information(&self) -> compositor::Information {
-        log::warn!("information getting not supported");
-
-        let device_name = self
-            .rmg
-            .ctx
-            .device
-            .get_device_properties()
-            .properties
-            .device_name_as_c_str()
-            .map(|cstr| cstr.to_str().unwrap_or("non-utf8-name"))
-            .unwrap_or("could-not-get-adapter-name")
-            .to_owned();
-
-        compositor::Information {
-            adapter: device_name,
-            backend: "MarpII".to_owned(),
-        }
+        log::error!("Screenshoting not implemented!");
+        vec![]
     }
 }
 
