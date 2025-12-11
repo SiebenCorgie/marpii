@@ -1,4 +1,4 @@
-use iced::{alignment, Rectangle, Transformation};
+use iced::{alignment, Color, Point, Rectangle, Transformation};
 use std::sync::Arc;
 
 pub enum BufferAllocation {
@@ -27,7 +27,15 @@ impl TextArea {
         cache: &mut iced_graphics::text::Cache,
         font_system: &mut cosmic_text::FontSystem,
     ) -> Option<TextArea> {
-        let (buffer, bounds, halign, valign, color, clip_bounds, transformation) = match section {
+        struct DrawDetail {
+            buffer: BufferAllocation,
+            position: Point,
+            color: Color,
+            clip_bounds: Rectangle,
+            transformation: Transformation,
+        }
+
+        let detail = match section {
             iced_graphics::Text::Paragraph {
                 paragraph,
                 position,
@@ -35,21 +43,15 @@ impl TextArea {
                 clip_bounds,
                 transformation,
             } => {
-                let valign = paragraph.align_y.clone();
-                let halign = paragraph.align_x.clone();
-                let minbounds = paragraph.min_bounds.clone();
-
                 //after extracting everything, snack the reference and be done!
                 let buffer = BufferAllocation::Paragraph(paragraph.upgrade().unwrap());
-                (
+                DrawDetail {
                     buffer,
-                    Rectangle::new(*position, minbounds),
-                    halign,
-                    valign,
-                    *color,
-                    *clip_bounds,
-                    *transformation,
-                )
+                    position: *position,
+                    color: *color,
+                    clip_bounds: *clip_bounds,
+                    transformation: *transformation,
+                }
             }
             iced_graphics::Text::Editor {
                 editor,
@@ -57,42 +59,23 @@ impl TextArea {
                 color,
                 clip_bounds,
                 transformation,
-            } => {
-                let valign = alignment::Vertical::Top;
-                let halign = iced_core::text::Alignment::Default;
-
-                (
-                    BufferAllocation::Editor(editor.upgrade().unwrap()),
-                    Rectangle::new(*position, editor.bounds),
-                    halign,
-                    valign,
-                    *color,
-                    *clip_bounds,
-                    *transformation,
-                )
-            }
+            } => DrawDetail {
+                buffer: BufferAllocation::Editor(editor.upgrade().unwrap()),
+                position: *position,
+                color: *color,
+                clip_bounds: *clip_bounds,
+                transformation: *transformation,
+            },
             iced_graphics::Text::Raw {
                 raw,
                 transformation,
-            } => {
-                let (width, height) = raw.buffer.upgrade().unwrap().size();
-
-                (
-                    BufferAllocation::Raw(raw.buffer.upgrade().unwrap()),
-                    Rectangle::new(
-                        raw.position,
-                        iced_core::Size::new(
-                            width.unwrap_or(layer_bounds.width),
-                            height.unwrap_or(layer_bounds.height),
-                        ),
-                    ),
-                    iced_core::text::Alignment::Default,
-                    alignment::Vertical::Top,
-                    raw.color,
-                    raw.clip_bounds,
-                    *transformation,
-                )
-            }
+            } => DrawDetail {
+                buffer: BufferAllocation::Raw(raw.buffer.upgrade().unwrap()),
+                position: raw.position,
+                color: raw.color,
+                clip_bounds: raw.clip_bounds,
+                transformation: *transformation,
+            },
             iced_graphics::Text::Cached {
                 content,
                 bounds,
@@ -125,43 +108,52 @@ impl TextArea {
                 //directly load it, in order to read out the bounds
                 let entry = cache.get(&key).expect("Expected it to be cached!");
 
-                (
-                    BufferAllocation::Cache(key),
-                    Rectangle::new(bounds.position(), entry.min_bounds),
-                    *align_x,
-                    *align_y,
-                    *color,
-                    *clip_bounds,
-                    Transformation::IDENTITY,
-                )
+                let mut position = bounds.position();
+
+                position.x = match align_x {
+                    iced_core::text::Alignment::Default
+                    | iced_core::text::Alignment::Left
+                    | iced_core::text::Alignment::Justified => position.x,
+                    iced_core::text::Alignment::Center => position.x - entry.min_bounds.width / 2.0,
+                    iced_core::text::Alignment::Right => position.x - entry.min_bounds.width,
+                };
+
+                position.y = match align_y {
+                    alignment::Vertical::Top => position.y,
+                    alignment::Vertical::Center => position.y - entry.min_bounds.height / 2.0,
+                    alignment::Vertical::Bottom => position.y - entry.min_bounds.height,
+                };
+
+                DrawDetail {
+                    buffer: BufferAllocation::Cache(key),
+                    position,
+                    color: *color,
+                    clip_bounds: *clip_bounds,
+                    transformation: Transformation::IDENTITY,
+                }
             }
         };
 
-        //TODO: find out what glyphon is doing with the top/left thingy and alignment.
+        let DrawDetail {
+            buffer,
+            position,
+            color,
+            clip_bounds,
+            transformation,
+        } = detail;
 
-        let bounds = bounds * transformation * layer_transformation;
-        let left = match halign {
-            iced_core::text::Alignment::Left | iced_core::text::Alignment::Default => bounds.x,
-            iced_core::text::Alignment::Center => bounds.x - bounds.width / 2.0,
-            iced_core::text::Alignment::Right => bounds.x - bounds.width,
-            iced_core::text::Alignment::Justified => todo!(),
-        };
+        let position = position * transformation * layer_transformation;
 
-        let top = match valign {
-            alignment::Vertical::Top => bounds.y,
-            alignment::Vertical::Center => bounds.y - bounds.height / 2.0,
-            alignment::Vertical::Bottom => bounds.y - bounds.height,
-        };
-        //NOTE: if there is no intersection, the area will be culled
         let clip_bounds =
             layer_bounds.intersection(&(clip_bounds * transformation * layer_transformation))?;
+
         let ta = TextArea {
             buffer,
             scale: transformation.scale_factor() * layer_transformation.scale_factor(),
             bounds: clip_bounds,
             color,
-            left,
-            top,
+            left: position.x,
+            top: position.y,
         };
 
         Some(ta)
