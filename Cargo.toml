@@ -3,7 +3,6 @@ members = [
     "crates/marpii",
     "crates/marpii-commands",
     "crates/marpii-descriptor",
-    "crates/marpii-wgpu",
     "crates/marpii-rmg",
     "crates/marpii-rmg-shared",
     "crates/marpii-rmg-tasks/marpii-rmg-tasks",
@@ -45,7 +44,7 @@ iced-marpii = { path = "crates/iced-marpii" }
 #iced = { version = "0.14", default-features = false }
 #iced_core = { version = "0.14", default-features = false }
 #iced_graphics = { version = "0.14", default-features = false }
-iced = {git = "https://github.com/SiebenCorgie/iced.git", branch = "re-add-iter_mut-stack"}
+iced = {git = "https://github.com/SiebenCorgie/iced.git", branch = "re-add-iter_mut-stack", default-features = false}
 iced_core = {git = "https://github.com/SiebenCorgie/iced.git", branch = "re-add-iter_mut-stack"}
 iced_graphics = {git = "https://github.com/SiebenCorgie/iced.git", branch = "re-add-iter_mut-stack"}
 
