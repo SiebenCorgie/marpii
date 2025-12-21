@@ -1,6 +1,10 @@
-use ash::vk::{QueueFlags, TaggedStructure};
+use ash::vk::{self, QueueFlags, TaggedStructure};
 
-use crate::{error::DeviceError, resources::ImgDesc, util::image_usage_to_format_features};
+use crate::{
+    error::DeviceError,
+    resources::{Buffer, ImgDesc},
+    util::image_usage_to_format_features,
+};
 
 use super::{Debugger, Queue, QueueBuilder};
 use std::{
@@ -403,6 +407,17 @@ impl Device {
                 None
             }
         })
+    }
+
+    ///Returns the buffer device address of `buffer`, if it exists, or None.
+    pub fn get_buffer_device_address(&self, buffer: &Buffer) -> Option<vk::DeviceAddress> {
+        let info = vk::BufferDeviceAddressInfo::default().buffer(buffer.inner);
+        let addr = unsafe { self.inner.get_buffer_device_address(&info) };
+        if addr != 0 {
+            Some(addr)
+        } else {
+            None
+        }
     }
 
     ///Returns the image format properties for the given image description (`desc`), assuming the image was/is created with `create_flags`.
