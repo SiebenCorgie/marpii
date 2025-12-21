@@ -97,7 +97,7 @@ impl PhysicalDeviceFilter {
                 let mut has = false;
                 for (_idx, f) in dev.queue_properties.iter() {
                     #[cfg(feature = "logging")]
-                    log::info!("Checking {:?} for {:?}", f.queue_flags, flags);
+                    log::trace!("Checking {:?} for {:?}", f.queue_flags, flags);
                     if f.queue_flags.contains(flags) {
                         has = true;
                         break;

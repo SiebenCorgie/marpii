@@ -47,7 +47,7 @@ pub struct Config {
     pub unified_image_layout_support: bool,
 
     ///limits defined by variouse used extension
-    pub lmimits: PhysicalDeviceLimitsExtended,
+    pub limit: PhysicalDeviceLimitsExtended,
 }
 
 impl Config {
@@ -65,7 +65,7 @@ impl Config {
         instance: &Instance,
         physical_device: &vk::PhysicalDevice,
     ) {
-        self.lmimits.limits = unsafe {
+        self.limit.limits = unsafe {
             instance
                 .inner
                 .get_physical_device_properties(*physical_device)
@@ -73,24 +73,22 @@ impl Config {
         };
 
         if self.rt_support {
-            self.lmimits.acceleration_structure = instance
+            self.limit.acceleration_structure = instance
                 .get_property::<PhysicalDeviceAccelerationStructurePropertiesKHR<
                 '_,
             >>(physical_device);
 
-            self.lmimits.raytracing_pipeline = instance
-                .get_property::<PhysicalDeviceRayTracingPipelinePropertiesKHR<'_>>(
-                physical_device,
-            );
+            self.limit.raytracing_pipeline = instance
+                .get_property::<PhysicalDeviceRayTracingPipelinePropertiesKHR<'_>>(physical_device);
         }
 
-        self.lmimits.vk11 =
+        self.limit.vk11 =
             instance.get_property::<PhysicalDeviceVulkan11Properties<'_>>(physical_device);
 
-        self.lmimits.vk12 =
+        self.limit.vk12 =
             instance.get_property::<PhysicalDeviceVulkan12Properties<'_>>(physical_device);
 
-        self.lmimits.vk13 =
+        self.limit.vk13 =
             instance.get_property::<PhysicalDeviceVulkan13Properties<'_>>(physical_device);
     }
 
@@ -117,7 +115,6 @@ impl Config {
         if f_acceleration.acceleration_structure != 1
             || f_acceleration.descriptor_binding_acceleration_structure_update_after_bind != 1
         {
-            log::info!("KHR_AccelerationStructure not supported");
             self.rt_support = false;
             return;
         }
@@ -128,7 +125,6 @@ impl Config {
             );
 
         if f_ray_pipes.ray_tracing_pipeline != 1 {
-            log::info!("KHR_RayTracingPipeline not supported");
             self.rt_support = false;
             return;
         }
@@ -136,7 +132,6 @@ impl Config {
             .get_feature::<marpii::ash::vk::PhysicalDeviceRayQueryFeaturesKHR<'_>>(physical_device);
 
         if f_ray_query.ray_query != 1 {
-            log::info!("KHR_RayQuery not supported");
             self.rt_support = false;
             return;
         }
@@ -147,12 +142,9 @@ impl Config {
             );
 
         if f_pipelib.graphics_pipeline_library != 1 {
-            log::info!("KHR_PipelineLibrary not supported");
             self.rt_support = false;
             return;
         }
-
-        log::info!("All ray-tracing features supported, enablin rt-support");
     }
 
     pub(crate) fn check_enable_unified_image_layout(
@@ -169,7 +161,7 @@ impl Default for Config {
         Config {
             rt_support: false,
             unified_image_layout_support: false,
-            lmimits: PhysicalDeviceLimitsExtended::default(),
+            limit: PhysicalDeviceLimitsExtended::default(),
         }
     }
 }

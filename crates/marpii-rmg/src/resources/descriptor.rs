@@ -410,11 +410,11 @@ impl Bindless {
     /// Assumes that the supplied `max_*` values are within the device limits. Otherwise the function might fail (or panic) while creating the descriptor pool.
     pub fn new(
         device: &Arc<Device>,
-        mut max_sampled_image: u32,
-        mut max_storage_image: u32,
-        mut max_storage_buffer: u32,
-        mut max_sampler: u32,
-        mut max_acceleration_structure: u32,
+        max_sampled_image: u32,
+        max_storage_image: u32,
+        max_storage_buffer: u32,
+        max_sampler: u32,
+        max_acceleration_structure: u32,
     ) -> Result<Self, MarpiiError> {
         //TODO - check that all flags are set
         //     - setup layout
@@ -467,26 +467,6 @@ impl Bindless {
                 "Max bound descriptor setst < {}",
                 Self::NUM_SETS
             ))))?;
-        }
-
-        //Hack: Looks like intel is messing up max-count reporting on linux/mesa by one.
-        //      So if we are on the intel vendor id, reduce each
-        if device
-            .get_device_properties()
-            .properties
-            .device_name_as_c_str()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .contains("Intel")
-        {
-            #[cfg(feature = "logging")]
-            log::warn!("detected intel graphics, reducing bindless to 2^13 descriptors per image/buffer type and 1k for samples, good luck!");
-            max_storage_buffer = max_storage_buffer.min(8192);
-            max_storage_image = max_storage_image.min(8192);
-            max_sampled_image = max_sampled_image.min(8192);
-            max_sampler = max_sampler.min(1024);
-            max_acceleration_structure = max_acceleration_structure.min(8192);
         }
 
         let descriptor_sizes = [
@@ -621,22 +601,29 @@ impl Bindless {
 
     ///Creates a `BindlessDescriptor` where the maximum numbers of bound descriptors is a sane minimum of the `MAX_*` constants, and the reported upper limits of the device.
     pub fn new_default(device: &Arc<Device>, config: &Config) -> Result<Self, MarpiiError> {
+        let max_per_set = config.limit.vk11.max_per_set_descriptors;
         Self::new(
             device,
             Self::MAX_BOUND_SAMPLED_IMAGES
-                .min(config.lmimits.limits.max_descriptor_set_sampled_images),
+                .min(config.limit.limits.max_descriptor_set_sampled_images)
+                .min(max_per_set),
             Self::MAX_BOUND_STORAGE_IMAGES
-                .min(config.lmimits.limits.max_descriptor_set_storage_images),
+                .min(config.limit.limits.max_descriptor_set_storage_images)
+                .min(max_per_set),
             Self::MAX_BOUND_STORAGE_BUFFER
-                .min(config.lmimits.limits.max_descriptor_set_storage_buffers),
-            Self::MAX_BOUND_SAMPLER.min(config.lmimits.limits.max_descriptor_set_samplers),
+                .min(config.limit.limits.max_descriptor_set_storage_buffers)
+                .min(max_per_set),
+            Self::MAX_BOUND_SAMPLER
+                .min(config.limit.limits.max_descriptor_set_samplers)
+                .min(max_per_set),
             Self::MAX_BOUND_ACCELERATION_STRUCTURE
                 .min(
                     config
-                        .lmimits
+                        .limit
                         .acceleration_structure
                         .max_descriptor_set_acceleration_structures,
                 )
+                .min(max_per_set)
                 //If RT is not supported, reduce to single descriptor
                 .min(if config.rt_support { u32::MAX } else { 1 }),
         )
