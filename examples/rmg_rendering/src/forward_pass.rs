@@ -542,7 +542,7 @@ impl Task for ForwardPass {
                     let diff = dst - src;
                     let ms =
                         (diff as f32 * self.timestamps.get_timestamp_increment()) / 1_000_000.0;
-                    println!("Forward local: {}ms", ms);
+                    //println!("Forward local: {}ms", ms);
                 }
                 _ => println!("State: {}, {}", result[0].is_some(), result[1].is_some()),
             }
