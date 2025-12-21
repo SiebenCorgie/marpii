@@ -123,7 +123,7 @@ impl Resources {
                 match (image.is_sampled_image(), image.is_storage_image()) {
                     (true, true) => {
                         #[cfg(feature = "logging")]
-                        log::info!("Binding image to both, sampled, and storage descriptor set");
+                        log::trace!("Binding image to both, sampled, and storage descriptor set");
                         image.descriptor_handle = Some(
                             self.bindless
                                 .bind_sampled_storage_image(image.view.clone())
@@ -364,7 +364,7 @@ impl Resources {
         self.images.retain(|#[allow(unused_variables)] key, img| {
             if img.is_orphaned() && img.guard.map_or(true, |g| g.expired(tracks)) {
                 #[cfg(feature = "logging")]
-                log::info!("Dropping {:?}", key);
+                log::trace!("Dropping {:?}", key);
 
                 if let Some(hdl) = img.descriptor_handle {
                     match (img.is_sampled_image(), img.is_storage_image()){
@@ -395,7 +395,7 @@ impl Resources {
             .retain(|#[allow(unused_variables)] key, buffer| {
                 if buffer.is_orphaned() && buffer.guard.map_or(true, |g| g.expired(tracks)) {
                     #[cfg(feature = "logging")]
-                    log::info!("Dropping {:?}", key);
+                    log::trace!("Dropping {:?}", key);
 
                     if let Some(hdl) = buffer.descriptor_handle {
                         self.bindless.remove_storage_buffer(hdl);
@@ -410,7 +410,7 @@ impl Resources {
             .retain(|#[allow(unused_variables)] key, sampler| {
                 if sampler.is_orphaned() {
                     #[cfg(feature = "logging")]
-                    log::info!("Dropping {:?}", key);
+                    log::trace!("Dropping {:?}", key);
 
                     if let Some(hdl) = sampler.descriptor_handle {
                         self.bindless.remove_sampler(hdl);

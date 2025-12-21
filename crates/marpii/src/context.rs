@@ -150,7 +150,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
         }
 
         //NOTE: By default we setup extensions in a way that we can load rust shaders.
-        let features12 = ash::vk::PhysicalDeviceVulkan12Features::default()
+        let mut features12 = ash::vk::PhysicalDeviceVulkan12Features::default()
             .shader_int8(true)
             .runtime_descriptor_array(true)
             .timeline_semaphore(true)
@@ -164,6 +164,11 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
             .shader_storage_image_array_non_uniform_indexing(true)
             .shader_sampled_image_array_non_uniform_indexing(true)
             .vulkan_memory_model(true);
+
+        //Make sure bda is actually supported
+        if cfg!(feature = "buffer_device_address") {
+            features12 = features12.buffer_device_address(true);
+        }
 
         let features13 = ash::vk::PhysicalDeviceVulkan13Features::default()
             .maintenance4(true)
@@ -205,7 +210,13 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
         let allocator =
             gpu_allocator::vulkan::Allocator::new(&gpu_allocator::vulkan::AllocatorCreateDesc {
                 allocation_sizes: Default::default(),
-                buffer_device_address: false,
+                buffer_device_address: if cfg!(feature = "buffer_device_address") {
+                    #[cfg(feature = "log")]
+                    log::info!("Using buffer-device-address feature in allocator");
+                    true
+                } else {
+                    false
+                },
                 debug_settings: gpu_allocator::AllocatorDebugSettings {
                     log_leaks_on_shutdown: true,
                     ..Default::default()
@@ -286,9 +297,22 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
 
         #[cfg(feature = "logging")]
         {
-            log::info!("Device candidates (in order):");
+            log::info!("Device candidates (in order), selecting first:");
             for dev in device_candidates.iter() {
-                log::info!("    Device: {:#?}", dev.properties);
+                log::info!(
+                    "{}\n\tApiVersion: {}.{}.{}\n\tDriverVersion: {}.{}.{}\n\tDeviceType: {:?}",
+                    dev.properties
+                        .device_name_as_c_str()
+                        .map(|n| n.to_str().unwrap_or("device-name-parser-error"))
+                        .unwrap_or("unknown-device-name"),
+                    ash::vk::api_version_major(dev.properties.api_version),
+                    ash::vk::api_version_minor(dev.properties.api_version),
+                    ash::vk::api_version_patch(dev.properties.api_version),
+                    ash::vk::api_version_major(dev.properties.driver_version),
+                    ash::vk::api_version_minor(dev.properties.driver_version),
+                    ash::vk::api_version_patch(dev.properties.driver_version),
+                    dev.properties.device_type
+                );
             }
         }
 
@@ -309,7 +333,13 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
         let allocator =
             gpu_allocator::vulkan::Allocator::new(&gpu_allocator::vulkan::AllocatorCreateDesc {
                 allocation_sizes: Default::default(),
-                buffer_device_address: false,
+                buffer_device_address: if cfg!(feature = "buffer_device_address") {
+                    #[cfg(feature = "log")]
+                    log::info!("Using buffer-device-address feature in allocator");
+                    true
+                } else {
+                    false
+                },
                 debug_settings: gpu_allocator::AllocatorDebugSettings {
                     log_leaks_on_shutdown: true,
                     ..Default::default()

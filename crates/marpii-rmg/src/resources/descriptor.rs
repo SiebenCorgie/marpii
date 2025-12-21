@@ -22,12 +22,11 @@ use marpii::{
     },
     DescriptorError, DeviceError, MarpiiError, OoS,
 };
-use std::{collections::VecDeque, fmt::Debug, sync::Arc};
+use std::{collections::VecDeque, fmt::Debug, sync::Arc, u32};
 
 //Re-export of the handle type.
 pub use marpii_rmg_shared::ResourceHandle;
 
-#[cfg(not(feature = "ray-tracing"))]
 use crate::Config;
 
 ///Handles one descriptor set of type T.
@@ -62,7 +61,7 @@ impl<T> SetManager<T> {
             //Possibly resettig shared usage
             hdl = ResourceHandle::new(ResourceHandle::descriptor_type_to_u8(self.ty), hdl.index());
             #[cfg(feature = "logging")]
-            log::info!("Reusing handle {:?} for descty {:#?}", hdl, self.ty);
+            log::trace!("Reusing handle {:?} for descty {:#?}", hdl, self.ty);
             Some(hdl)
         } else if self.head_idx >= self.max_idx {
             #[cfg(feature = "logging")]
@@ -75,7 +74,7 @@ impl<T> SetManager<T> {
         } else {
             let new_idx = self.head_idx;
             #[cfg(feature = "logging")]
-            log::info!(
+            log::trace!(
                 "Allocating new handle {:?} for descty {:#?}",
                 new_idx,
                 self.ty
@@ -188,7 +187,7 @@ impl<T> SetManager<T> {
         };
 
         #[cfg(feature = "logging")]
-        log::trace!("Allocating @ {:?} size={}", ty, max_count);
+        log::info!("{ty:#?}: Allocating {max_count} descriptors for ",);
 
         let flags = [vk::DescriptorBindingFlags::PARTIALLY_BOUND
             | vk::DescriptorBindingFlags::VARIABLE_DESCRIPTOR_COUNT
@@ -346,7 +345,6 @@ pub(crate) struct Bindless {
     stimage: SetManager<Arc<ImageView>>,
     saimage: SetManager<Arc<ImageView>>,
     sampler: SetManager<Arc<Sampler>>,
-    #[cfg(feature = "ray-tracing")]
     accel: SetManager<Arc<Buffer>>,
 
     ///Safes the actual max push constant size, to verify bound push constants.
@@ -394,7 +392,6 @@ impl Bindless {
     ///Default maximum number of bound acceleration structures.
     /// NOTE that this is the theoretical maximum of 2^24, since the ResHandle safes the
     /// descriptor type in the lowest byte.
-    #[cfg(feature = "ray-tracing")]
     pub const MAX_BOUND_ACCELERATION_STRUCTURE: u32 = 1 << 24;
 
     ///max slot id.
@@ -402,10 +399,6 @@ impl Bindless {
     const MAX_SLOT: u32 = 2u32.pow(24);
 
     ///Number of descriptor sets to cover each type
-    #[cfg(not(feature = "ray-tracing"))]
-    const NUM_SETS: u32 = 4;
-
-    #[cfg(feature = "ray-tracing")]
     const NUM_SETS: u32 = 5;
 
     ///Creates a new instance of a bindless descriptor set. The limits of max bound descriptors per descriptor type can be set. If you don't care, consider using the shorter
@@ -421,7 +414,7 @@ impl Bindless {
         mut max_storage_image: u32,
         mut max_storage_buffer: u32,
         mut max_sampler: u32,
-        #[cfg(feature = "ray-tracing")] mut max_acceleration_structure: u32,
+        mut max_acceleration_structure: u32,
     ) -> Result<Self, MarpiiError> {
         //TODO - check that all flags are set
         //     - setup layout
@@ -489,14 +482,11 @@ impl Bindless {
         {
             #[cfg(feature = "logging")]
             log::warn!("detected intel graphics, reducing bindless to 2^13 descriptors per image/buffer type and 1k for samples, good luck!");
-            max_storage_buffer = 8192;
-            max_storage_image = 8192;
-            max_sampled_image = 8192;
-            max_sampler = 1024;
-            #[cfg(feature = "ray-tracing")]
-            {
-                max_acceleration_structure = 8192;
-            }
+            max_storage_buffer = max_storage_buffer.min(8192);
+            max_storage_image = max_storage_image.min(8192);
+            max_sampled_image = max_sampled_image.min(8192);
+            max_sampler = max_sampler.min(1024);
+            max_acceleration_structure = max_acceleration_structure.min(8192);
         }
 
         let descriptor_sizes = [
@@ -516,7 +506,6 @@ impl Bindless {
                 ty: vk::DescriptorType::SAMPLER,
                 descriptor_count: max_sampler,
             },
-            #[cfg(feature = "ray-tracing")]
             vk::DescriptorPoolSize {
                 ty: vk::DescriptorType::ACCELERATION_STRUCTURE_KHR,
                 descriptor_count: max_acceleration_structure,
@@ -568,7 +557,6 @@ impl Bindless {
             max_sampler,
         )?;
 
-        #[cfg(feature = "ray-tracing")]
         let accel = SetManager::new(
             device,
             desc_pool.share(),
@@ -581,7 +569,6 @@ impl Bindless {
             stimage,
             saimage,
             sampler,
-            #[cfg(feature = "ray-tracing")]
             accel,
 
             push_constant_size,
@@ -603,7 +590,6 @@ impl Bindless {
             self.stimage.layout.inner,
             self.saimage.layout.inner,
             self.sampler.layout.inner,
-            #[cfg(feature = "ray-tracing")]
             self.accel.layout.inner,
         ];
 
@@ -634,22 +620,6 @@ impl Bindless {
     }
 
     ///Creates a `BindlessDescriptor` where the maximum numbers of bound descriptors is a sane minimum of the `MAX_*` constants, and the reported upper limits of the device.
-    #[cfg(feature = "ray-tracing")]
-    pub fn new_default(device: &Arc<Device>) -> Result<Self, MarpiiError> {
-        let limits = device.get_device_properties().properties.limits;
-        Self::new(
-            device,
-            Self::MAX_BOUND_SAMPLED_IMAGES.min(limits.max_descriptor_set_sampled_images),
-            Self::MAX_BOUND_STORAGE_IMAGES.min(limits.max_descriptor_set_storage_images),
-            Self::MAX_BOUND_STORAGE_BUFFER.min(limits.max_descriptor_set_storage_buffers),
-            Self::MAX_BOUND_SAMPLER.min(limits.max_descriptor_set_samplers),
-            Self::MAX_BOUND_ACCELERATION_STRUCTURE
-                .min(limits.max_descriptor_set_storage_buffers_dynamic), //FIXME: not really the correct one...
-        )
-    }
-
-    ///Creates a `BindlessDescriptor` where the maximum numbers of bound descriptors is a sane minimum of the `MAX_*` constants, and the reported upper limits of the device.
-    #[cfg(not(feature = "ray-tracing"))]
     pub fn new_default(device: &Arc<Device>, config: &Config) -> Result<Self, MarpiiError> {
         Self::new(
             device,
@@ -660,6 +630,15 @@ impl Bindless {
             Self::MAX_BOUND_STORAGE_BUFFER
                 .min(config.lmimits.limits.max_descriptor_set_storage_buffers),
             Self::MAX_BOUND_SAMPLER.min(config.lmimits.limits.max_descriptor_set_samplers),
+            Self::MAX_BOUND_ACCELERATION_STRUCTURE
+                .min(
+                    config
+                        .lmimits
+                        .acceleration_structure
+                        .max_descriptor_set_acceleration_structures,
+                )
+                //If RT is not supported, reduce to single descriptor
+                .min(if config.rt_support { u32::MAX } else { 1 }),
         )
     }
 
@@ -862,7 +841,6 @@ impl Bindless {
             self.stimage.descriptor_set.clone(),
             self.saimage.descriptor_set.clone(),
             self.sampler.descriptor_set.clone(),
-            #[cfg(feature = "ray-tracing")]
             self.accel.descriptor_set.clone(),
         ]
     }
@@ -873,7 +851,6 @@ impl Bindless {
             self.stimage.descriptor_set.inner,
             self.saimage.descriptor_set.inner,
             self.sampler.descriptor_set.inner,
-            #[cfg(feature = "ray-tracing")]
             self.accel.descriptor_set.inner,
         ]
     }

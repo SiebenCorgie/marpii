@@ -15,6 +15,9 @@ default_allocator = ["gpu-allocator"]
 logging = ["log"]
 # if enabled, uses puffin to create a runtime profile
 profiling = ["puffin"]
+#if active, notifies the default allocator to activate buffer-device-address
+# features
+buffer_device_address = []
 
 #if enabled includes rspirv, which allows for runtime analysis of shaders an construction of descriptorset
 #layouts for those

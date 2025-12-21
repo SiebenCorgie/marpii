@@ -13,9 +13,6 @@ logging = ["log"]
 # Also markes command buffer regions by the Task's name.
 debug_marker = []
 
-# if enabled, enables rmg to bind and build acceleration structures.
-ray-tracing = []
-
 #if enabled, adds time stamps to all tasks and a query operation
 #that returns 64bit nano-second durations for each task.
 timestamps = []
@@ -28,7 +25,7 @@ thiserror.workspace = true
 slotmap.workspace = true
 ahash.workspace = true
 tinyvec.workspace = true
-marpii.workspace = true
+marpii = {workspace = true, features = ["buffer_device_address"]}
 marpii-commands.workspace = true
 marpii-descriptor.workspace = true
 marpii-rmg-shared = { workspace = true, features = ["std"] }
