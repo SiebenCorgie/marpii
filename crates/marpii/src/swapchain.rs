@@ -409,7 +409,6 @@ impl Swapchain {
     pub fn acquire_next_image(&mut self) -> Result<SwapchainImage, DeviceError> {
         //find right semaphores
         let acquire_semaphore = self.acquire_semaphore[self.next_semaphore].clone();
-        let present_semaphore = self.render_finished_semaphore[self.next_semaphore].clone();
         self.next_semaphore = (self.next_semaphore + 1) % self.acquire_semaphore.len();
 
         let (index, is_suboptimal) = unsafe {
@@ -420,6 +419,7 @@ impl Swapchain {
                 ash::vk::Fence::null(),
             )?
         };
+        let present_semaphore = self.render_finished_semaphore[index as usize].clone();
 
         if is_suboptimal {
             #[cfg(feature = "logging")]
