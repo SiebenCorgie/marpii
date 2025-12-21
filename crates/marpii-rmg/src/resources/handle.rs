@@ -12,7 +12,7 @@
 
 use crate::resources::res_states::{BufferKey, ImageKey, SamplerKey};
 use marpii::{
-    ash::vk,
+    ash::vk::{self, DeviceAddress},
     resources::{BufDesc, Buffer, Image, ImageType, ImgDesc, Sampler},
     util::ImageRegion,
 };
@@ -82,6 +82,7 @@ pub struct BufferHandle<T: 'static> {
     // dropped
     pub(crate) key: BufferKey,
     pub(crate) bufref: Arc<Buffer>,
+    pub(crate) gpu_address: Option<DeviceAddress>,
     pub(crate) data_type: PhantomData<T>,
 }
 
@@ -104,6 +105,11 @@ impl<T: 'static> BufferHandle<T> {
 
     pub fn buf_desc(&self) -> &BufDesc {
         &self.bufref.desc
+    }
+
+    ///Returns the buffer-device-address of the internal buffer, if there is any.
+    pub fn gpu_address(&self) -> Option<DeviceAddress> {
+        self.gpu_address.clone()
     }
 }
 

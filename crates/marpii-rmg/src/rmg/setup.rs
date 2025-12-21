@@ -21,7 +21,7 @@ impl Rmg {
     fn init<W: HasWindowHandle + HasDisplayHandle>(
         window: Option<&W>,
     ) -> Result<(Self, Option<OoS<Surface>>), RmgError> {
-        let use_validation = std::env::var("KONEX_VALIDATE").is_ok();
+        let use_validation = std::env::var("RMG_VALIDATE").is_ok();
 
         if use_validation {
             log::info!("Using validation layers");
@@ -62,10 +62,12 @@ impl Rmg {
                             .descriptor_indexing(true)
                             .shader_sampled_image_array_non_uniform_indexing(true)
                             .shader_storage_image_array_non_uniform_indexing(true)
+                            .shader_storage_buffer_array_non_uniform_indexing(true)
                             //Desriptor updating
                             .descriptor_binding_partially_bound(true)
                             .descriptor_binding_sampled_image_update_after_bind(true)
                             .descriptor_binding_storage_image_update_after_bind(true)
+                            .descriptor_binding_storage_buffer_update_after_bind(true)
                             .descriptor_binding_variable_descriptor_count(true),
                     )
                     .with_feature(

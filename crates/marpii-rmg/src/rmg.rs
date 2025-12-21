@@ -366,12 +366,15 @@ impl Rmg {
     ///Creates a buffer that holds `n`-times data of type `T`. Where `n = buffer.size / size_of::<T>()`.
     pub fn new_buffer_uninitialized<T: 'static>(
         &mut self,
-        description: BufDesc,
+        mut description: BufDesc,
         name: Option<&str>,
     ) -> Result<BufferHandle<T>, RmgError> {
         #[cfg(feature = "debug_marker")]
         let dbg_name = std::ffi::CString::new(name.unwrap_or(&format!("{}", type_name::<T>())))
             .unwrap_or(std::ffi::CString::new("Unnamed Buffer").unwrap());
+
+        //Always add BDA support
+        description = description.add_usage(vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS);
 
         let buffer = Arc::new(
             Buffer::new(
@@ -408,7 +411,8 @@ impl Rmg {
             size: size.try_into().unwrap(),
             usage: vk::BufferUsageFlags::STORAGE_BUFFER
                 | vk::BufferUsageFlags::TRANSFER_SRC
-                | vk::BufferUsageFlags::TRANSFER_DST,
+                | vk::BufferUsageFlags::TRANSFER_DST
+                | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
             sharing: SharingMode::Exclusive,
             ..Default::default()
         };

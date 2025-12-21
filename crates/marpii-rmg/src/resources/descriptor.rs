@@ -23,6 +23,7 @@ use marpii::{
     DescriptorError, DeviceError, MarpiiError, OoS,
 };
 use std::{collections::VecDeque, fmt::Debug, sync::Arc, u32};
+use tinyvec::TinyVec;
 
 //Re-export of the handle type.
 pub use marpii_rmg_shared::ResourceHandle;
@@ -345,7 +346,10 @@ pub(crate) struct Bindless {
     stimage: SetManager<Arc<ImageView>>,
     saimage: SetManager<Arc<ImageView>>,
     sampler: SetManager<Arc<Sampler>>,
-    accel: SetManager<Arc<Buffer>>,
+    //NOTE: we don't even init in this case, because
+    //      that can be invalid if ray-tracing is not
+    //      supported at all
+    accel: Option<SetManager<Arc<Buffer>>>,
 
     ///Safes the actual max push constant size, to verify bound push constants.
     push_constant_size: u32,
@@ -469,34 +473,35 @@ impl Bindless {
             ))))?;
         }
 
-        let descriptor_sizes = [
-            vk::DescriptorPoolSize {
-                ty: vk::DescriptorType::SAMPLED_IMAGE,
-                descriptor_count: max_sampled_image,
-            },
-            vk::DescriptorPoolSize {
-                ty: vk::DescriptorType::STORAGE_IMAGE,
-                descriptor_count: max_storage_image,
-            },
-            vk::DescriptorPoolSize {
-                ty: vk::DescriptorType::STORAGE_BUFFER,
-                descriptor_count: max_storage_buffer,
-            },
-            vk::DescriptorPoolSize {
-                ty: vk::DescriptorType::SAMPLER,
-                descriptor_count: max_sampler,
-            },
-            vk::DescriptorPoolSize {
+        let mut pool_sizes: TinyVec<[_; Self::NUM_SETS as usize]> = TinyVec::default();
+        pool_sizes.push(vk::DescriptorPoolSize {
+            ty: vk::DescriptorType::SAMPLED_IMAGE,
+            descriptor_count: max_sampled_image,
+        });
+        pool_sizes.push(vk::DescriptorPoolSize {
+            ty: vk::DescriptorType::STORAGE_IMAGE,
+            descriptor_count: max_storage_image,
+        });
+        pool_sizes.push(vk::DescriptorPoolSize {
+            ty: vk::DescriptorType::STORAGE_BUFFER,
+            descriptor_count: max_storage_buffer,
+        });
+        pool_sizes.push(vk::DescriptorPoolSize {
+            ty: vk::DescriptorType::SAMPLER,
+            descriptor_count: max_sampler,
+        });
+        if max_acceleration_structure > 0 {
+            pool_sizes.push(vk::DescriptorPoolSize {
                 ty: vk::DescriptorType::ACCELERATION_STRUCTURE_KHR,
                 descriptor_count: max_acceleration_structure,
-            },
-        ];
+            });
+        }
 
         let mut desc_pool = OoS::new(DescriptorPool::new(
             device,
             vk::DescriptorPoolCreateFlags::UPDATE_AFTER_BIND
                 | vk::DescriptorPoolCreateFlags::FREE_DESCRIPTOR_SET,
-            &descriptor_sizes,
+            pool_sizes.as_slice(),
             Self::NUM_SETS,
         )?);
 
@@ -537,12 +542,16 @@ impl Bindless {
             max_sampler,
         )?;
 
-        let accel = SetManager::new(
-            device,
-            desc_pool.share(),
-            vk::DescriptorType::ACCELERATION_STRUCTURE_KHR,
-            max_acceleration_structure,
-        )?;
+        let accel = if max_acceleration_structure > 0 {
+            Some(SetManager::new(
+                device,
+                desc_pool.share(),
+                vk::DescriptorType::ACCELERATION_STRUCTURE_KHR,
+                max_acceleration_structure,
+            )?)
+        } else {
+            None
+        };
 
         Ok(Bindless {
             stbuffer,
@@ -556,12 +565,8 @@ impl Bindless {
         })
     }
 
-    ///Creates a new instance of the pipeline layout used for bindless descriptors. Note that bindless takes the sets 0..4, afterwards
-    /// the supplied additional sets can be added.
-    pub fn new_pipeline_layout(
-        &self,
-        additional_descriptor_sets: &[DescriptorSetLayout],
-    ) -> PipelineLayout {
+    ///Creates a new instance of the pipeline layout used for bindless descriptors.
+    pub fn new_pipeline_layout(&self) -> PipelineLayout {
         //NOTE: This is the delicate part. We create a link between the descriptor set layouts and this pipeline layout. This is however *safe*
         //      since we keep the sets in memory together with the pipeline layout. On drop the pipeline layout is destried before the descriptorset layouts
         //      which is again *safe*
@@ -570,11 +575,10 @@ impl Bindless {
             self.stimage.layout.inner,
             self.saimage.layout.inner,
             self.sampler.layout.inner,
-            self.accel.layout.inner,
         ];
 
-        for additional in additional_descriptor_sets {
-            descset_layouts.push(additional.inner)
+        if let Some(accel_binding) = &self.accel {
+            descset_layouts.push(accel_binding.layout.inner);
         }
 
         let push_range = vk::PushConstantRange {
@@ -625,7 +629,7 @@ impl Bindless {
                 )
                 .min(max_per_set)
                 //If RT is not supported, reduce to single descriptor
-                .min(if config.rt_support { u32::MAX } else { 1 }),
+                .min(if config.rt_support { u32::MAX } else { 0 }),
         )
     }
 
@@ -821,24 +825,22 @@ impl Bindless {
         assert!(self.sampler.unbind_handle(handle).is_some());
     }
 
-    #[allow(dead_code)]
-    pub fn clone_descriptor_sets(&self) -> [Arc<DescriptorSet>; Self::NUM_SETS as usize] {
-        [
-            self.stbuffer.descriptor_set.clone(),
-            self.stimage.descriptor_set.clone(),
-            self.saimage.descriptor_set.clone(),
-            self.sampler.descriptor_set.clone(),
-            self.accel.descriptor_set.clone(),
-        ]
-    }
-
-    pub fn clone_raw_descriptor_sets(&self) -> [vk::DescriptorSet; Self::NUM_SETS as usize] {
-        [
+    pub fn clone_raw_descriptor_sets(
+        &self,
+    ) -> TinyVec<[vk::DescriptorSet; Self::NUM_SETS as usize]> {
+        let mut sets = TinyVec::default();
+        sets.extend([
             self.stbuffer.descriptor_set.inner,
             self.stimage.descriptor_set.inner,
             self.saimage.descriptor_set.inner,
             self.sampler.descriptor_set.inner,
-            self.accel.descriptor_set.inner,
-        ]
+        ]);
+
+        if let Some(accel) = &self.accel {
+            sets.push(accel.descriptor_set.inner);
+            sets
+        } else {
+            sets
+        }
     }
 }

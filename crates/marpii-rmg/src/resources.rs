@@ -83,7 +83,7 @@ pub struct Resources {
 impl Resources {
     pub fn new(device: &Arc<Device>, config: &Config) -> Result<Self, ResourceError> {
         let bindless = Bindless::new_default(device, config)?;
-        let bindless_layout = Arc::new(bindless.new_pipeline_layout(&[]));
+        let bindless_layout = Arc::new(bindless.new_pipeline_layout());
 
         Ok(Resources {
             bindless,
@@ -227,9 +227,21 @@ impl Resources {
             descriptor_handle: None,
         });
 
+        //Get the buffer address, if there is any
+        let gpu_address = if buffer
+            .desc
+            .usage
+            .contains(vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS)
+        {
+            buffer.device.get_buffer_device_address(&buffer)
+        } else {
+            None
+        };
+
         Ok(BufferHandle {
             key,
             bufref: buffer,
+            gpu_address,
             data_type: PhantomData,
         })
     }
@@ -269,9 +281,21 @@ impl Resources {
             descriptor_handle: None,
         });
 
+        //Get the buffer address, if there is any
+        let gpu_address = if buffer
+            .desc
+            .usage
+            .contains(vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS)
+        {
+            buffer.device.get_buffer_device_address(&buffer)
+        } else {
+            None
+        };
+
         Ok(BufferHandle {
             key,
             bufref: buffer,
+            gpu_address,
             data_type: PhantomData,
         })
     }
