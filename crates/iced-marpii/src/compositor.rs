@@ -69,18 +69,11 @@ impl iced_graphics::compositor::Compositor for Compositor {
             }
         }
 
-        //Init RMG
-        let use_validation = std::env::var("ICED_MARPII_VALIDATE").is_ok();
-
-        let (ctx, surface) =
-            marpii::context::Ctx::default_with_surface(&compatible_window, use_validation)
-                .map_err(|e| iced_graphics::Error::GraphicsAdapterNotFound {
-                    backend: "marpii",
-                    reason: Reason::RequestFailed(format!("{e}")),
-                })?;
-        let mut rmg = Rmg::new(ctx).map_err(|e| iced_graphics::Error::GraphicsAdapterNotFound {
-            backend: "marpii",
-            reason: Reason::RequestFailed(format!("{e}")),
+        let (mut rmg, surface) = Rmg::init_for_window(&compatible_window).map_err(|e| {
+            iced_graphics::Error::GraphicsAdapterNotFound {
+                backend: "marpii",
+                reason: Reason::RequestFailed(format!("{e}")),
+            }
         })?;
         //and build swapchain handler
         let swapchain = SwapchainPresent::new(&mut rmg, surface).map_err(|e| {
