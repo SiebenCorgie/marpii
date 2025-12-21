@@ -33,7 +33,7 @@ use anyhow::Result;
 use camera_controller::Camera;
 use copy_buffer::CopyToGraphicsBuffer;
 use forward_pass::ForwardPass;
-use marpii::{ash::vk, context::Ctx};
+use marpii::ash::vk;
 use marpii_rmg::Rmg;
 use marpii_rmg_tasks::{DynamicBuffer, SwapchainPresent};
 use shared::Ubo;
@@ -81,8 +81,7 @@ fn main() -> Result<(), anyhow::Error> {
         winit::window::Window::default_attributes().with_title("hello triangle");
     #[allow(deprecated)]
     let window = ev.create_window(window_attributes).unwrap();
-    let (context, surface) = Ctx::default_with_surface(&window, true)?;
-    let mut rmg = Rmg::new(context)?;
+    let (mut rmg, surface) = Rmg::init_for_window(&window)?;
 
     let mut camera = Camera::default();
     let mut ubo_update = DynamicBuffer::new(&mut rmg, &[camera.to_ubo(&window)])?;

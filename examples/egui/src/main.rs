@@ -2,7 +2,6 @@
 //! to render a simple user interface.
 
 use anyhow::Result;
-use marpii::context::Ctx;
 use marpii::util::FormatProperties;
 use marpii_rmg::Rmg;
 use marpii_rmg_tasks::winit::event::WindowEvent;
@@ -21,8 +20,8 @@ fn main() -> Result<(), anyhow::Error> {
     let windowattr = winit::window::Window::default_attributes().with_title("Egui Example");
     #[allow(deprecated)]
     let window = ev.create_window(windowattr).unwrap();
-    let (context, surface) = Ctx::default_with_surface(&window, true)?;
-    let mut rmg = Rmg::new(context)?;
+
+    let (mut rmg, surface) = Rmg::init_for_window(&window)?;
 
     let mut egui = EGuiWinitIntegration::new(&mut rmg, &ev)?;
     let mut swapchain_blit = SwapchainPresent::new(&mut rmg, surface)?;
