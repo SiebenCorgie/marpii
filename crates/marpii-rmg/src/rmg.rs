@@ -18,11 +18,14 @@ use crate::track::TaskTiming;
 use crate::{
     recorder::Recorder,
     track::{Track, TrackId, Tracks},
-    BufferHandle, ImageHandle, RecordError, ResourceError, Resources, SamplerHandle,
+    BufferHandle, Config, ImageHandle, RecordError, ResourceError, Resources, SamplerHandle,
 };
 
 #[cfg(feature = "debug_marker")]
 use std::any::type_name;
+
+pub(crate) mod config;
+pub(crate) mod setup;
 
 ///Top level Error structure.
 #[derive(Debug, Error)]
@@ -66,9 +69,15 @@ pub struct Rmg {
     pub(crate) tracks: Tracks,
 
     pub ctx: CtxRmg,
+
+    config: Config,
 }
 
 impl Rmg {
+    pub fn config(&self) -> &Config {
+        &self.config
+    }
+
     fn check_features(context: &Ctx<Allocator>) -> Result<(), RmgError> {
         //Right now we are hardcoding all needed features.
 
@@ -267,13 +276,16 @@ impl Rmg {
     ///Creates a new ResourceManagingGraph for this context. Note that the context must be created for
     /// Vulkan 1.3, since it depends on multiple core-1.3 features and extensions.
     ///
-    /// When in doubt, use [Ctx::new_default_from_instance].
+    /// When in doubt, use [Rmg::init_for_window] or [Rmg::init] to give the _burden_ of creating the
+    /// right MarpII context to RMG.
     pub fn new(context: Ctx<Allocator>) -> Result<Self, RmgError> {
         //Per definition we try to find at least one graphic, compute and transfer queue.
         // We then create the swapchain. It is used for image presentation and the start/end point for frame scheduling.
 
         //query context for features
         Self::check_features(&context)?;
+
+        let config = Config::new_for_device(&context.instance, &context.device.physical_device);
 
         //TODO: make the iterator return an error. Currently if track creation fails, everything fails
         let tracks = context.device.queues.iter().fold(
@@ -297,12 +309,13 @@ impl Rmg {
             },
         );
 
-        let res = Resources::new(&context.device)?;
+        let res = Resources::new(&context.device, &config)?;
 
         Ok(Rmg {
             resources: res,
             tracks: Tracks(tracks),
             ctx: context,
+            config,
         })
     }
 

@@ -27,6 +27,9 @@ use std::{collections::VecDeque, fmt::Debug, sync::Arc};
 //Re-export of the handle type.
 pub use marpii_rmg_shared::ResourceHandle;
 
+#[cfg(not(feature = "ray-tracing"))]
+use crate::Config;
+
 ///Handles one descriptor set of type T.
 struct SetManager<T> {
     ///Collects free'd indices that can be used
@@ -119,7 +122,7 @@ impl<T> SetManager<T> {
             Some(hdl)
         } else {
             #[cfg(feature = "logging")]
-            log::info!(
+            log::trace!(
                 "Did not found common index for {:#?} and {:#?}",
                 self.ty,
                 other.ty
@@ -128,8 +131,8 @@ impl<T> SetManager<T> {
             //Mark whole region till that index free for both sets
             #[cfg(feature = "logging")]
             {
-                log::info!("Marking {:#?} {}..{} free", self.ty, self.head_idx, max_idx);
-                log::info!(
+                log::trace!("Marking {:#?} {}..{} free", self.ty, self.head_idx, max_idx);
+                log::trace!(
                     "Marking {:#?} {}..{} free",
                     other.ty,
                     other.head_idx,
@@ -647,14 +650,16 @@ impl Bindless {
 
     ///Creates a `BindlessDescriptor` where the maximum numbers of bound descriptors is a sane minimum of the `MAX_*` constants, and the reported upper limits of the device.
     #[cfg(not(feature = "ray-tracing"))]
-    pub fn new_default(device: &Arc<Device>) -> Result<Self, MarpiiError> {
-        let limits = device.get_device_properties().properties.limits;
+    pub fn new_default(device: &Arc<Device>, config: &Config) -> Result<Self, MarpiiError> {
         Self::new(
             device,
-            Self::MAX_BOUND_SAMPLED_IMAGES.min(limits.max_descriptor_set_sampled_images),
-            Self::MAX_BOUND_STORAGE_IMAGES.min(limits.max_descriptor_set_storage_images),
-            Self::MAX_BOUND_STORAGE_BUFFER.min(limits.max_descriptor_set_storage_buffers),
-            Self::MAX_BOUND_SAMPLER.min(limits.max_descriptor_set_samplers),
+            Self::MAX_BOUND_SAMPLED_IMAGES
+                .min(config.lmimits.limits.max_descriptor_set_sampled_images),
+            Self::MAX_BOUND_STORAGE_IMAGES
+                .min(config.lmimits.limits.max_descriptor_set_storage_images),
+            Self::MAX_BOUND_STORAGE_BUFFER
+                .min(config.lmimits.limits.max_descriptor_set_storage_buffers),
+            Self::MAX_BOUND_SAMPLER.min(config.lmimits.limits.max_descriptor_set_samplers),
         )
     }
 

@@ -18,7 +18,7 @@ use crate::{
         },
     },
     track::Tracks,
-    BufferHandle, ImageHandle, SamplerHandle,
+    BufferHandle, Config, ImageHandle, SamplerHandle,
 };
 
 use self::{handle::AnyHandle, res_states::AnyResKey};
@@ -64,6 +64,9 @@ pub enum ResourceError {
 
     #[error("Buffer mapping error while accessing resource: {0}")]
     BufferMapError(BufferMapError),
+
+    #[error("Surface creation failed unexpectedly")]
+    SurfaceCreation,
 }
 
 ///Rmg's resource management. This bundles all state that outlifes a single frame. Meaning Images, buffers and samplers.
@@ -78,8 +81,8 @@ pub struct Resources {
 }
 
 impl Resources {
-    pub fn new(device: &Arc<Device>) -> Result<Self, ResourceError> {
-        let bindless = Bindless::new_default(device)?;
+    pub fn new(device: &Arc<Device>, config: &Config) -> Result<Self, ResourceError> {
+        let bindless = Bindless::new_default(device, config)?;
         let bindless_layout = Arc::new(bindless.new_pipeline_layout(&[]));
 
         Ok(Resources {
