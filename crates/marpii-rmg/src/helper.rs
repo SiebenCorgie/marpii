@@ -2,6 +2,9 @@
 //! functionality.
 
 use marpii::ash::vk;
+use smallvec::SmallVec;
+
+use crate::{resources::handle::TypeErased, BufferHandle, ImageHandle, SamplerHandle};
 
 pub mod computepass;
 pub mod rasterpass;
@@ -61,6 +64,29 @@ impl BufferUsage {
                 vk::AccessFlags2::SHADER_STORAGE_READ | vk::AccessFlags2::SHADER_STORAGE_WRITE
             }
         }
+    }
+}
+
+///Small helper that makes it easier for us to write
+/// generic passes.
+pub(crate) struct ResourceStorage {
+    pub images: SmallVec<[(ImageHandle, ImageUsage); 8]>,
+    pub buffers: SmallVec<[(BufferHandle<TypeErased>, BufferUsage); 8]>,
+    pub samplers: SmallVec<[SamplerHandle; 4]>,
+}
+impl ResourceStorage {
+    pub(crate) fn new() -> Self {
+        ResourceStorage {
+            images: SmallVec::default(),
+            buffers: SmallVec::default(),
+            samplers: SmallVec::default(),
+        }
+    }
+
+    pub(crate) fn reset(&mut self) {
+        self.images.clear();
+        self.buffers.clear();
+        self.samplers.clear();
     }
 }
 

@@ -1,8 +1,7 @@
 //! Generic, temporal compute pass recording.
 
 use crate::{
-    helper::{BufferUsage, ImageUsage},
-    resources::handle::TypeErased,
+    helper::{BufferUsage, ImageUsage, ResourceStorage},
     BufferHandle, ImageHandle, RecordError, Rmg, RmgError, SamplerHandle, Task,
 };
 use marpii::{
@@ -10,7 +9,6 @@ use marpii::{
     resources::{ComputePipeline, PushConstant, ShaderModule},
     OoS,
 };
-use smallvec::SmallVec;
 use std::sync::Arc;
 
 ///A generic compute pass that dispatches an amount of wavefronts for a given
@@ -24,10 +22,7 @@ pub struct GenericComputePass<P: 'static> {
     push: PushConstant<P>,
     dispatch: [u32; 3],
     name: Option<String>,
-
-    images: SmallVec<[(ImageHandle, ImageUsage); 8]>,
-    buffers: SmallVec<[(BufferHandle<TypeErased>, BufferUsage); 8]>,
-    samplers: SmallVec<[SamplerHandle; 4]>,
+    storage: ResourceStorage,
 }
 
 impl<P: 'static> GenericComputePass<P> {
@@ -38,9 +33,7 @@ impl<P: 'static> GenericComputePass<P> {
             push: PushConstant::new((), vk::ShaderStageFlags::COMPUTE),
             dispatch: [1; 3],
             name: None,
-            images: SmallVec::default(),
-            buffers: SmallVec::default(),
-            samplers: SmallVec::default(),
+            storage: ResourceStorage::new(),
         }
     }
     ///Allows the reconfiguration of the pass while reusing allocated buffers.
@@ -55,9 +48,7 @@ impl<P: 'static> GenericComputePass<P> {
         keep_resources: bool,
     ) -> ComputePassBuilder<'rmg, ()> {
         if !keep_resources {
-            self.images.clear();
-            self.buffers.clear();
-            self.samplers.clear();
+            self.storage.reset();
         }
 
         ComputePassBuilder {
@@ -66,9 +57,7 @@ impl<P: 'static> GenericComputePass<P> {
                 push: PushConstant::new((), vk::ShaderStageFlags::COMPUTE),
                 dispatch: self.dispatch,
                 name: self.name,
-                images: self.images,
-                buffers: self.buffers,
-                samplers: self.samplers,
+                storage: self.storage,
             },
             rmg,
         }
@@ -88,7 +77,7 @@ impl<P: 'static> Task for GenericComputePass<P> {
     }
 
     fn register(&self, registry: &mut crate::ResourceRegistry) {
-        for (buffer, usage) in &self.buffers {
+        for (buffer, usage) in &self.storage.buffers {
             registry
                 .request_buffer(
                     buffer,
@@ -98,7 +87,7 @@ impl<P: 'static> Task for GenericComputePass<P> {
                 .unwrap();
         }
 
-        for (image, usage) in &self.images {
+        for (image, usage) in &self.storage.images {
             registry
                 .request_image(
                     image,
@@ -109,7 +98,7 @@ impl<P: 'static> Task for GenericComputePass<P> {
                 .unwrap()
         }
 
-        for sampler in &self.samplers {
+        for sampler in &self.storage.samplers {
             registry.request_sampler(sampler).unwrap();
         }
 
@@ -171,9 +160,7 @@ impl<'ctx, P: 'static> ComputePassBuilder<'ctx, P> {
             push: _,
             dispatch,
             name,
-            images,
-            buffers,
-            samplers,
+            storage,
         } = self.task_setup;
 
         let push_constant = configure(self.rmg);
@@ -185,9 +172,7 @@ impl<'ctx, P: 'static> ComputePassBuilder<'ctx, P> {
                 dispatch,
                 name,
                 push: new_push_constant,
-                images,
-                buffers,
-                samplers,
+                storage,
             },
             rmg: self.rmg,
         }
@@ -201,7 +186,7 @@ impl<'ctx, P: 'static> ComputePassBuilder<'ctx, P> {
     /// Signals that the pass will read this image through either storage or sample operations
     /// based on the signaled flag.
     pub fn use_image(mut self, image: ImageHandle, usage: ImageUsage) -> Self {
-        self.task_setup.images.push((image, usage));
+        self.task_setup.storage.images.push((image, usage));
         self
     }
 
@@ -209,6 +194,7 @@ impl<'ctx, P: 'static> ComputePassBuilder<'ctx, P> {
     /// where you want to mark all as sampled.
     pub fn use_images(mut self, images: &[ImageHandle], usage: ImageUsage) -> Self {
         self.task_setup
+            .storage
             .images
             .extend(images.iter().map(|img| (img.clone(), usage)));
         self
@@ -216,13 +202,16 @@ impl<'ctx, P: 'static> ComputePassBuilder<'ctx, P> {
 
     /// Signals that the pass will write to this resource
     pub fn use_buffer<T: 'static>(mut self, buffer: BufferHandle<T>, usage: BufferUsage) -> Self {
-        self.task_setup.buffers.push((buffer.type_erase(), usage));
+        self.task_setup
+            .storage
+            .buffers
+            .push((buffer.type_erase(), usage));
         self
     }
 
     /// Signals that the pass will use the sampler
     pub fn use_sampler(mut self, sampler: SamplerHandle) -> Self {
-        self.task_setup.samplers.push(sampler);
+        self.task_setup.storage.samplers.push(sampler);
         self
     }
 
