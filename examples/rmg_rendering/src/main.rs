@@ -129,9 +129,9 @@ fn main() -> Result<(), anyhow::Error> {
 
                 //setup src image and blit
                 swapchain_blit.push_image(forward.color_image.clone(), framebuffer_ext);
-
+                let spass = simulation.compute_pass(&mut rmg);
                 rmg.record()
-                    .add_task(&mut simulation)
+                    .add_task(spass)
                     .unwrap()
                     .add_task(&mut buffer_copy)
                     .unwrap()

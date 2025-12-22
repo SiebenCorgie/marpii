@@ -43,6 +43,36 @@ impl<P: 'static> GenericComputePass<P> {
             samplers: SmallVec::default(),
         }
     }
+    ///Allows the reconfiguration of the pass while reusing allocated buffers.
+    ///
+    /// If `keep_resources` is true, keeps any knowledge about used resources (i.e. via `use_image` etc.).
+    /// Otherwise its reset.
+    ///
+    /// The push-constant is reset regardless, since unregistered ResourceHandles might slip through otherwise
+    pub fn reconfigure<'rmg>(
+        mut self,
+        rmg: &'rmg mut Rmg,
+        keep_resources: bool,
+    ) -> ComputePassBuilder<'rmg, ()> {
+        if !keep_resources {
+            self.images.clear();
+            self.buffers.clear();
+            self.samplers.clear();
+        }
+
+        ComputePassBuilder {
+            task_setup: GenericComputePass {
+                pipeline: self.pipeline,
+                push: PushConstant::new((), vk::ShaderStageFlags::COMPUTE),
+                dispatch: self.dispatch,
+                name: self.name,
+                images: self.images,
+                buffers: self.buffers,
+                samplers: self.samplers,
+            },
+            rmg,
+        }
+    }
 }
 
 impl<P: 'static> Task for GenericComputePass<P> {
