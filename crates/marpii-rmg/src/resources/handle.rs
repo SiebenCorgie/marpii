@@ -76,6 +76,10 @@ impl PartialEq for ImageHandle {
 }
 impl Eq for ImageHandle {}
 
+///Marker type that seals buffers where we don't care abount the type internally.
+/// Don't _ever_ use the count helper on an erased buffer handle, since it'll panic.
+pub(crate) struct TypeErased;
+
 #[derive(Clone)]
 pub struct BufferHandle<T: 'static> {
     //reference to the key. The arc signals the garbage collector when we
@@ -87,6 +91,15 @@ pub struct BufferHandle<T: 'static> {
 }
 
 impl<T: 'static> BufferHandle<T> {
+    pub(crate) fn type_erase(self) -> BufferHandle<TypeErased> {
+        BufferHandle {
+            key: self.key,
+            bufref: self.bufref,
+            gpu_address: self.gpu_address,
+            data_type: PhantomData,
+        }
+    }
+
     ///Returns the size in bytes. If you want to know how many
     /// objects of type `T` fit in the buffer, use `count`.
     pub fn size(&self) -> u64 {

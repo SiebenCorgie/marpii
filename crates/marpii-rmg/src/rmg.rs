@@ -7,16 +7,18 @@ use marpii::{
     resources::{BufDesc, Buffer, Image, ImgDesc, Sampler, SharingMode},
     MarpiiError,
 };
+use marpii_rmg_shared::ResourceHandle;
+#[cfg(feature = "timestamps")]
+use smallvec::SmallVec;
 use std::sync::Arc;
 use thiserror::Error;
-#[cfg(feature = "timestamps")]
-use tinyvec::TinyVec;
 
 #[cfg(feature = "timestamps")]
 use crate::track::TaskTiming;
 
 use crate::{
     recorder::Recorder,
+    resources::handle::AnyHandle,
     track::{Track, TrackId, Tracks},
     BufferHandle, Config, ImageHandle, RecordError, ResourceError, Resources, SamplerHandle,
 };
@@ -319,6 +321,15 @@ impl Rmg {
         })
     }
 
+    ///If existing, returns the GPU resource handle, i.e. the index into one of the
+    /// bindless heaps.
+    pub fn resource_handle(
+        &mut self,
+        handle: impl Into<AnyHandle> + Clone,
+    ) -> Result<ResourceHandle, ResourceError> {
+        self.resources.resource_handle_or_bind(handle)
+    }
+
     pub fn new_image_uninitialized(
         &mut self,
         description: ImgDesc,
@@ -489,12 +500,12 @@ impl Rmg {
     /// This call however does *not* block the CPU till all executions are ready. For that, use the `Self::get_recent_track_task_timings_blocking`
     /// alternative.
     #[cfg(feature = "timestamps")]
-    pub fn get_recent_track_timings(&mut self) -> TinyVec<[TaskTiming; 16]> {
+    pub fn get_recent_track_timings(&mut self) -> SmallVec<[TaskTiming; 16]> {
         self.tracks.get_recent_task_timings()
     }
 
     #[cfg(feature = "timestamps")]
-    pub fn get_recent_track_timings_blocking(&mut self) -> TinyVec<[TaskTiming; 16]> {
+    pub fn get_recent_track_timings_blocking(&mut self) -> SmallVec<[TaskTiming; 16]> {
         self.tracks.get_recent_task_timings_blocking()
     }
 }

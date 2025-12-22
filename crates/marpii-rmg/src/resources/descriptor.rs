@@ -22,8 +22,8 @@ use marpii::{
     },
     DescriptorError, DeviceError, MarpiiError, OoS,
 };
+use smallvec::SmallVec;
 use std::{collections::VecDeque, fmt::Debug, sync::Arc, u32};
-use tinyvec::TinyVec;
 
 //Re-export of the handle type.
 pub use marpii_rmg_shared::ResourceHandle;
@@ -473,7 +473,7 @@ impl Bindless {
             ))))?;
         }
 
-        let mut pool_sizes: TinyVec<[_; Self::NUM_SETS as usize]> = TinyVec::default();
+        let mut pool_sizes: SmallVec<[_; Self::NUM_SETS as usize]> = SmallVec::default();
         pool_sizes.push(vk::DescriptorPoolSize {
             ty: vk::DescriptorType::SAMPLED_IMAGE,
             descriptor_count: max_sampled_image,
@@ -827,8 +827,8 @@ impl Bindless {
 
     pub fn clone_raw_descriptor_sets(
         &self,
-    ) -> TinyVec<[vk::DescriptorSet; Self::NUM_SETS as usize]> {
-        let mut sets = TinyVec::default();
+    ) -> SmallVec<[vk::DescriptorSet; Self::NUM_SETS as usize]> {
+        let mut sets = SmallVec::default();
         sets.extend([
             self.stbuffer.descriptor_set.inner,
             self.stimage.descriptor_set.inner,

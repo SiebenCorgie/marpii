@@ -24,7 +24,7 @@ dot = ["graphviz-rust"]
 thiserror.workspace = true
 slotmap.workspace = true
 ahash.workspace = true
-tinyvec.workspace = true
+smallvec.workspace = true
 marpii = {workspace = true, features = ["buffer_device_address"]}
 marpii-commands.workspace = true
 marpii-descriptor.workspace = true

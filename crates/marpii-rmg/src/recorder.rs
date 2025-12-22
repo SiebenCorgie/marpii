@@ -2,18 +2,16 @@ pub mod task;
 pub(crate) mod task_executor;
 pub(crate) mod task_scheduler;
 
-use std::fmt::Debug;
-
-use crate::{resources::handle::AnyHandle, track::Guard, ResourceError, Rmg, Task};
-use marpii::{ash::vk, resources::CommandBuffer, MarpiiError};
-use std::any::Any;
-use thiserror::Error;
-
 use self::{
     task::{MetaTask, ResourceRegistry},
     task_executor::Executor,
     task_scheduler::TaskSchedule,
 };
+use crate::{resources::handle::AnyHandle, track::Guard, ResourceError, Rmg, Task};
+use marpii::{ash::vk, resources::CommandBuffer, MarpiiError};
+use std::any::Any;
+use std::fmt::Debug;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum RecordError {
@@ -89,7 +87,7 @@ impl<'rmg> Recorder<'rmg> {
         }
     }
 
-    ///Adds `task` to the execution plan. Optionally naming the task's attachments (in order of definition) with the given names.
+    ///Adds `task` to the execution plan's timeline.
     pub fn add_task(mut self, task: &'rmg mut dyn Task) -> Result<Self, RecordError> {
         task.pre_record(&mut self.rmg.resources, &self.rmg.ctx)?;
         //build registry

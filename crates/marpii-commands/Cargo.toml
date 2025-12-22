@@ -15,4 +15,4 @@ image_loading = ["image"]
 marpii.workspace = true
 log = { workspace = true, optional = true }
 image = { workspace = true, optional = true }
-tinyvec.workspace = true
+smallvec.workspace = true

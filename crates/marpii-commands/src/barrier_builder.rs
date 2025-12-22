@@ -1,17 +1,17 @@
 use marpii::ash::vk::{self, ImageLayout};
-use tinyvec::TinyVec;
+use smallvec::SmallVec;
 
 ///Barrier building helper. Lets you add barriers for images and buffers
 /// via a simple builder API.
 ///
 /// Convenient whenever building a simple array for the barriers is not possible.
 ///
-/// Uses tinyvec internally. `N` sets the amount of barriers for each type that are pre allocated into an array. The barrier
+/// Uses smallvec internally. `N` sets the amount of barriers for each type that are pre allocated into an array. The barrier
 /// however can outgrow that value.
 #[derive(Debug)]
 pub struct BarrierBuilder {
-    pub images: TinyVec<[vk::ImageMemoryBarrier2<'static>; Self::STACK_ALLOCATION]>,
-    pub buffers: TinyVec<[vk::BufferMemoryBarrier2<'static>; Self::STACK_ALLOCATION]>,
+    pub images: SmallVec<[vk::ImageMemoryBarrier2<'static>; Self::STACK_ALLOCATION]>,
+    pub buffers: SmallVec<[vk::BufferMemoryBarrier2<'static>; Self::STACK_ALLOCATION]>,
 }
 
 ///By default we pre allocate two barriers per type, since this is a pretty common pattern for simple
@@ -19,8 +19,8 @@ pub struct BarrierBuilder {
 impl Default for BarrierBuilder {
     fn default() -> Self {
         BarrierBuilder {
-            images: TinyVec::default(),
-            buffers: TinyVec::default(),
+            images: SmallVec::default(),
+            buffers: SmallVec::default(),
         }
     }
 }
@@ -32,8 +32,8 @@ impl BarrierBuilder {
     ///Creates new builder with `N` stack allocated barriers per type.
     pub fn new() -> Self {
         BarrierBuilder {
-            images: TinyVec::default(),
-            buffers: TinyVec::default(),
+            images: SmallVec::default(),
+            buffers: SmallVec::default(),
         }
     }
 
