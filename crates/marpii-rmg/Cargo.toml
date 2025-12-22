@@ -29,7 +29,6 @@ marpii = {workspace = true, features = ["buffer_device_address"]}
 marpii-commands.workspace = true
 marpii-descriptor.workspace = true
 marpii-rmg-shared = { workspace = true, features = ["std"] }
-marpii-rmg-macros.workspace = true
 winit.workspace = true
 log = { workspace = true, optional = true }
 graphviz-rust = { workspace = true, optional = true }

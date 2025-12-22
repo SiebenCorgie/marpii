@@ -6,7 +6,6 @@ members = [
     "crates/marpii-rmg",
     "crates/marpii-rmg-shared",
     "crates/marpii-rmg-tasks/marpii-rmg-tasks",
-    "crates/marpii-rmg-macros",
     "crates/marpii-rmg-tasks/marpii-rmg-task-shader",
     "crates/marpii-rmg-tasks/marpii-rmg-task-shared",
 
@@ -15,7 +14,6 @@ members = [
     "examples/rmg_rendering",
     "examples/shared",
     "examples/egui",
-    "examples/rmg-macros",
     "examples/custom-rmg-widget",
     "crates/iced-marpii",
     "crates/iced-marpii/shaders/iced-marpii-shared",
@@ -37,7 +35,6 @@ marpii = { path = "crates/marpii" }
 marpii-commands = { path = "crates/marpii-commands" }
 marpii-descriptor = { path = "crates/marpii-descriptor" }
 marpii-rmg = { path = "crates/marpii-rmg" }
-marpii-rmg-macros = { path = "crates/marpii-rmg-macros" }
 marpii-rmg-shared = { path = "crates/marpii-rmg-shared" }
 marpii-rmg-tasks = { path = "crates/marpii-rmg-tasks/marpii-rmg-tasks" }
 marpii-rmg-task-shader = { path = "crates/marpii-rmg-tasks/marpii-rmg-shader" }
