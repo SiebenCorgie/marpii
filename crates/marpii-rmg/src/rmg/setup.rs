@@ -63,6 +63,7 @@ impl Rmg {
                             .shader_sampled_image_array_non_uniform_indexing(true)
                             .shader_storage_image_array_non_uniform_indexing(true)
                             .shader_storage_buffer_array_non_uniform_indexing(true)
+                            .shader_uniform_buffer_array_non_uniform_indexing(true)
                             //Desriptor updating
                             .descriptor_binding_partially_bound(true)
                             .descriptor_binding_sampled_image_update_after_bind(true)

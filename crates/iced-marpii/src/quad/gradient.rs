@@ -65,7 +65,7 @@ pub struct QuadGradientPass {
 
 impl QuadGradientPass {
     const SHADER_SOURCE: &'static [u8] =
-        include_bytes!("../../shaders/spirv/shader-quad-gradient.spv");
+        include_bytes!("../../shaders/spirv/shader_quad_gradient.spv");
     pub fn new(
         rmg: &mut Rmg,
         _settings: &Settings,

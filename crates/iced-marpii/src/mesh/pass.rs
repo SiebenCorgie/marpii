@@ -29,7 +29,7 @@ pub struct MeshPass {
 }
 
 impl MeshPass {
-    const SHADER_SOURCE: &'static [u8] = include_bytes!("../../shaders/spirv/shader-mesh.spv");
+    const SHADER_SOURCE: &'static [u8] = include_bytes!("../../shaders/spirv/shader_mesh.spv");
     pub fn new(
         rmg: &mut Rmg,
         _settings: &Settings,

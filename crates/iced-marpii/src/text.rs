@@ -44,7 +44,7 @@ pub struct TextPass {
 }
 
 impl TextPass {
-    const SHADER_SOURCE: &'static [u8] = include_bytes!("../shaders/spirv/shader-text.spv");
+    const SHADER_SOURCE: &'static [u8] = include_bytes!("../shaders/spirv/shader_text.spv");
 
     pub fn new(
         rmg: &mut Rmg,

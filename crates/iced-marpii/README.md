@@ -20,7 +20,7 @@ Have a look at the `styling` and `iced-counter` examples. If you want to use the
 ### Development
 
 - `shaders/` contains the shader crate and checked-in SPIR-V code, that is used by the crate.
-- To rebuild the shaders, change into `shaders/shader-builder` and call `cargo build`. This might take some minutes if you do this the first time.
+- To rebuild the shaders, change into a crate like`shaders/shader-quad` and call `cargo gpu build`. You might have to install [cargo-gpu](https://github.com/Rust-GPU/cargo-gpu) first.
 - To use Vulkan validation layers, set `RMG_VALIDATE=1` before launching. Most end-user don't have layers installed, which is why this is disabled by default.
 
 ## License
