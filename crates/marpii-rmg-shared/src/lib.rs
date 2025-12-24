@@ -18,7 +18,11 @@ use bytemuck::{Pod, Zeroable};
 #[cfg_attr(target_arch = "spirv", derive(Clone, Copy))]
 #[repr(C)]
 pub struct ResourceHandle(u32);
-
+impl Default for ResourceHandle {
+    fn default() -> Self {
+        Self::INVALID
+    }
+}
 impl ResourceHandle {
     pub const TYPE_STORAGE_BUFFER: u8 = 1 << 0;
     pub const TYPE_STORAGE_IMAGE: u8 = 1 << 1;
