@@ -32,8 +32,6 @@ use std::path::PathBuf;
 use anyhow::Result;
 use camera_controller::Camera;
 use copy_buffer::CopyToGraphicsBuffer;
-use forward_pass::ForwardPass;
-use marpii::ash::vk;
 use marpii_rmg::Rmg;
 use marpii_rmg_tasks::{DynamicBuffer, SwapchainPresent};
 use shared::Ubo;
@@ -87,8 +85,14 @@ fn main() -> Result<(), anyhow::Error> {
     let mut ubo_update = DynamicBuffer::new(&mut rmg, &[camera.to_ubo(&window)])?;
     let mut simulation = Simulation::new(&mut rmg)?;
     let mut buffer_copy = CopyToGraphicsBuffer::new(&mut rmg, simulation.sim_buffer.clone())?;
-    let mut forward =
-        ForwardPass::new(&mut rmg, ubo_update.buffer_handle().clone(), &gltf).unwrap();
+    let mut forward = forward_pass::ForwardPass::new(
+        &mut rmg,
+        ubo_update.buffer_handle().clone(),
+        simulation.sim_buffer.clone(),
+        &gltf,
+        [window.inner_size().width, window.inner_size().height],
+    )
+    .unwrap();
     let mut swapchain_blit = SwapchainPresent::new(&mut rmg, surface)?;
 
     #[allow(deprecated)]
@@ -101,34 +105,26 @@ fn main() -> Result<(), anyhow::Error> {
             Event::AboutToWait => window.request_redraw(),
             Event::WindowEvent {
                 window_id: _,
+                event: WindowEvent::Resized(new_size),
+            } => {
+                forward.notify_resize(&mut rmg, new_size.width, new_size.height);
+            }
+            Event::WindowEvent {
+                window_id: _,
                 event: WindowEvent::RedrawRequested,
             } => {
                 camera.tick();
-
-                //try to get last timings
-                /*
-                for t in rmg.get_recent_track_timings() {
-                    println!("{:#?}", t);
-                }
-                */
-
-                //update framebuffer extent to current one.
-                let framebuffer_ext = swapchain_blit.extent().unwrap_or(vk::Extent2D {
-                    width: window.inner_size().width,
-                    height: window.inner_size().height,
-                });
-
-                log::info!("Start frame for {:?}", framebuffer_ext);
-                forward.target_img_ext = framebuffer_ext;
-
                 //update camera
                 ubo_update.write(&[camera.to_ubo(&window)], 0).unwrap();
 
                 //set the *oldest* valid simulation src for the forward pass
-                forward.sim_src = Some(buffer_copy.last_buffer());
+                forward.notify_simulation_buffer(&mut rmg, buffer_copy.last_buffer());
 
                 //setup src image and blit
-                swapchain_blit.push_image(forward.color_image.clone(), framebuffer_ext);
+                swapchain_blit.push_image(
+                    forward.color_image.clone(),
+                    forward.pass.as_ref().unwrap().framebuffer_extent(),
+                );
                 let spass = simulation.compute_pass(&mut rmg);
                 rmg.record()
                     .add_task(spass)
@@ -137,7 +133,7 @@ fn main() -> Result<(), anyhow::Error> {
                     .unwrap()
                     .add_task(&mut ubo_update)
                     .unwrap()
-                    .add_task(&mut forward)
+                    .add_task(forward.pass.as_mut().unwrap())
                     .unwrap()
                     .add_task(&mut swapchain_blit)
                     .unwrap()

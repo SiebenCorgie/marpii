@@ -23,11 +23,12 @@ pub struct SimObj {
 }
 
 #[cfg_attr(not(target_arch = "spirv"), derive(Debug, Clone, Copy, Pod, Zeroable))]
-#[repr(C)]
+#[repr(C, align(16))]
 pub struct Vertex {
     pub position: [f32; 3],
+    pub u: f32,
     pub normal: [f32; 3],
-    pub uv: [f32; 2],
+    pub v: f32,
 }
 
 #[repr(C)]
@@ -46,7 +47,19 @@ pub struct SimPush {
 pub struct ForwardPush {
     pub ubo: ResourceHandle,
     pub sim: ResourceHandle,
-    pub pad: [u32; 2],
+    pub vertex_buffer: ResourceHandle,
+    pub pad: u32,
+}
+
+impl Default for ForwardPush {
+    fn default() -> Self {
+        ForwardPush {
+            ubo: ResourceHandle::INVALID,
+            sim: ResourceHandle::INVALID,
+            vertex_buffer: ResourceHandle::INVALID,
+            pad: 0,
+        }
+    }
 }
 
 #[cfg_attr(not(target_arch = "spirv"), derive(Debug, Clone, Copy, Pod, Zeroable))]

@@ -46,7 +46,8 @@ pub fn load_model(gltf: &[Scene]) -> (Vec<Vertex>, Vec<u32>) {
                 vertex_buffer.push(Vertex {
                     position: v.position.into(),
                     normal: v.normal.into(),
-                    uv: v.tex_coords.into(),
+                    u: v.tex_coords.x,
+                    v: v.tex_coords.y,
                 });
             }
 
