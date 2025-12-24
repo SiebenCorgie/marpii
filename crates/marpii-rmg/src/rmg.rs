@@ -7,22 +7,27 @@ use marpii::{
     resources::{BufDesc, Buffer, Image, ImgDesc, Sampler, SharingMode},
     MarpiiError,
 };
+use marpii_rmg_shared::ResourceHandle;
+#[cfg(feature = "timestamps")]
+use smallvec::SmallVec;
 use std::sync::Arc;
 use thiserror::Error;
-#[cfg(feature = "timestamps")]
-use tinyvec::TinyVec;
 
 #[cfg(feature = "timestamps")]
 use crate::track::TaskTiming;
 
 use crate::{
     recorder::Recorder,
+    resources::handle::AnyHandle,
     track::{Track, TrackId, Tracks},
-    BufferHandle, ImageHandle, RecordError, ResourceError, Resources, SamplerHandle,
+    BufferHandle, Config, ImageHandle, RecordError, ResourceError, Resources, SamplerHandle,
 };
 
 #[cfg(feature = "debug_marker")]
 use std::any::type_name;
+
+pub(crate) mod config;
+pub(crate) mod setup;
 
 ///Top level Error structure.
 #[derive(Debug, Error)]
@@ -66,9 +71,15 @@ pub struct Rmg {
     pub(crate) tracks: Tracks,
 
     pub ctx: CtxRmg,
+
+    config: Config,
 }
 
 impl Rmg {
+    pub fn config(&self) -> &Config {
+        &self.config
+    }
+
     fn check_features(context: &Ctx<Allocator>) -> Result<(), RmgError> {
         //Right now we are hardcoding all needed features.
 
@@ -267,13 +278,16 @@ impl Rmg {
     ///Creates a new ResourceManagingGraph for this context. Note that the context must be created for
     /// Vulkan 1.3, since it depends on multiple core-1.3 features and extensions.
     ///
-    /// When in doubt, use [Ctx::new_default_from_instance].
+    /// When in doubt, use [Rmg::init_for_window] or [Rmg::init] to give the _burden_ of creating the
+    /// right MarpII context to RMG.
     pub fn new(context: Ctx<Allocator>) -> Result<Self, RmgError> {
         //Per definition we try to find at least one graphic, compute and transfer queue.
         // We then create the swapchain. It is used for image presentation and the start/end point for frame scheduling.
 
         //query context for features
         Self::check_features(&context)?;
+
+        let config = Config::new_for_device(&context.instance, &context.device.physical_device);
 
         //TODO: make the iterator return an error. Currently if track creation fails, everything fails
         let tracks = context.device.queues.iter().fold(
@@ -297,13 +311,23 @@ impl Rmg {
             },
         );
 
-        let res = Resources::new(&context.device)?;
+        let res = Resources::new(&context.device, &config)?;
 
         Ok(Rmg {
             resources: res,
             tracks: Tracks(tracks),
             ctx: context,
+            config,
         })
+    }
+
+    ///If existing, returns the GPU resource handle, i.e. the index into one of the
+    /// bindless heaps.
+    pub fn resource_handle(
+        &mut self,
+        handle: impl Into<AnyHandle> + Clone,
+    ) -> Result<ResourceHandle, ResourceError> {
+        self.resources.resource_handle_or_bind(handle)
     }
 
     pub fn new_image_uninitialized(
@@ -353,12 +377,15 @@ impl Rmg {
     ///Creates a buffer that holds `n`-times data of type `T`. Where `n = buffer.size / size_of::<T>()`.
     pub fn new_buffer_uninitialized<T: 'static>(
         &mut self,
-        description: BufDesc,
+        mut description: BufDesc,
         name: Option<&str>,
     ) -> Result<BufferHandle<T>, RmgError> {
         #[cfg(feature = "debug_marker")]
         let dbg_name = std::ffi::CString::new(name.unwrap_or(&format!("{}", type_name::<T>())))
             .unwrap_or(std::ffi::CString::new("Unnamed Buffer").unwrap());
+
+        //Always add BDA support
+        description = description.add_usage(vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS);
 
         let buffer = Arc::new(
             Buffer::new(
@@ -395,7 +422,8 @@ impl Rmg {
             size: size.try_into().unwrap(),
             usage: vk::BufferUsageFlags::STORAGE_BUFFER
                 | vk::BufferUsageFlags::TRANSFER_SRC
-                | vk::BufferUsageFlags::TRANSFER_DST,
+                | vk::BufferUsageFlags::TRANSFER_DST
+                | vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS,
             sharing: SharingMode::Exclusive,
             ..Default::default()
         };
@@ -472,12 +500,12 @@ impl Rmg {
     /// This call however does *not* block the CPU till all executions are ready. For that, use the `Self::get_recent_track_task_timings_blocking`
     /// alternative.
     #[cfg(feature = "timestamps")]
-    pub fn get_recent_track_timings(&mut self) -> TinyVec<[TaskTiming; 16]> {
+    pub fn get_recent_track_timings(&mut self) -> SmallVec<[TaskTiming; 16]> {
         self.tracks.get_recent_task_timings()
     }
 
     #[cfg(feature = "timestamps")]
-    pub fn get_recent_track_timings_blocking(&mut self) -> TinyVec<[TaskTiming; 16]> {
+    pub fn get_recent_track_timings_blocking(&mut self) -> SmallVec<[TaskTiming; 16]> {
         self.tracks.get_recent_task_timings_blocking()
     }
 }

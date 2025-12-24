@@ -15,7 +15,7 @@ use std::{fmt::Display, sync::Arc};
 use crate::{recorder::Execution, RecordError, Rmg};
 
 #[cfg(feature = "timestamps")]
-use tinyvec::{Array, TinyVec};
+use smallvec::{Array, SmallVec};
 
 #[derive(Debug, Clone, Copy)]
 pub struct Guard {
@@ -279,7 +279,7 @@ impl Track {
     /// This call however does *not* block the CPU till all executions are ready. For that, use the [blocking](Self::get_recent_task_timings_blocking)
     /// alternative.
     #[cfg(feature = "timestamps")]
-    pub fn get_recent_task_timings<const N: usize>(&mut self, dst: &mut TinyVec<[TaskTiming; N]>)
+    pub fn get_recent_task_timings<const N: usize>(&mut self, dst: &mut SmallVec<[TaskTiming; N]>)
     where
         [TaskTiming; N]: Array<Item = TaskTiming>,
     {
@@ -306,7 +306,7 @@ impl Track {
     #[cfg(feature = "timestamps")]
     pub fn get_recent_task_timings_blocking<const N: usize>(
         &mut self,
-        dst: &mut TinyVec<[TaskTiming; N]>,
+        dst: &mut SmallVec<[TaskTiming; N]>,
     ) where
         [TaskTiming; N]: Array<Item = TaskTiming>,
     {
@@ -432,8 +432,8 @@ Could not find track for usage {:#?}. Following tracks are loaded:
     /// This call however does *not* block the CPU till all executions are ready. For that, use the [blocking](Self::get_recent_task_timings_blocking)
     /// alternative.
     #[cfg(feature = "timestamps")]
-    pub fn get_recent_task_timings(&mut self) -> TinyVec<[TaskTiming; 16]> {
-        let mut vec = tinyvec::tiny_vec!([TaskTiming; 16]);
+    pub fn get_recent_task_timings(&mut self) -> SmallVec<[TaskTiming; 16]> {
+        let mut vec = smallvec::smallvec!();
         for track in self.0.values_mut() {
             track.get_recent_task_timings(&mut vec);
         }
@@ -442,8 +442,10 @@ Could not find track for usage {:#?}. Following tracks are loaded:
     }
 
     #[cfg(feature = "timestamps")]
-    pub fn get_recent_task_timings_blocking(&mut self) -> TinyVec<[TaskTiming; 16]> {
-        let mut vec = tinyvec::tiny_vec!([TaskTiming; 16]);
+    pub fn get_recent_task_timings_blocking(&mut self) -> SmallVec<[TaskTiming; 16]> {
+        use smallvec::smallvec;
+
+        let mut vec: SmallVec<[TaskTiming; 16]> = smallvec!();
         for track in self.0.values_mut() {
             track.get_recent_task_timings_blocking(&mut vec);
         }

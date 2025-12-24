@@ -6,7 +6,6 @@ members = [
     "crates/marpii-rmg",
     "crates/marpii-rmg-shared",
     "crates/marpii-rmg-tasks/marpii-rmg-tasks",
-    "crates/marpii-rmg-macros",
     "crates/marpii-rmg-tasks/marpii-rmg-task-shader",
     "crates/marpii-rmg-tasks/marpii-rmg-task-shared",
 
@@ -15,7 +14,6 @@ members = [
     "examples/rmg_rendering",
     "examples/shared",
     "examples/egui",
-    "examples/rmg-macros",
     "examples/custom-rmg-widget",
     "crates/iced-marpii",
     "crates/iced-marpii/shaders/iced-marpii-shared",
@@ -23,6 +21,10 @@ members = [
 ]
 exclude = [
     "crates/iced-marpii/shaders/shader-quad",
+    "crates/iced-marpii/shaders/shader-quad-gradient",
+    "crates/iced-marpii/shaders/shader-mesh",
+    "crates/iced-marpii/shaders/shader-shape",
+    "crates/iced-marpii/shaders/shader-text",
     "crates/iced-marpii/shaders/shader-builder",
 ]
 
@@ -33,7 +35,6 @@ marpii = { path = "crates/marpii" }
 marpii-commands = { path = "crates/marpii-commands" }
 marpii-descriptor = { path = "crates/marpii-descriptor" }
 marpii-rmg = { path = "crates/marpii-rmg" }
-marpii-rmg-macros = { path = "crates/marpii-rmg-macros" }
 marpii-rmg-shared = { path = "crates/marpii-rmg-shared" }
 marpii-rmg-tasks = { path = "crates/marpii-rmg-tasks/marpii-rmg-tasks" }
 marpii-rmg-task-shader = { path = "crates/marpii-rmg-tasks/marpii-rmg-shader" }
@@ -58,7 +59,7 @@ log = "0.4"
 ahash = "0.8"
 anyhow = "1"
 thiserror = "2"
-tinyvec = { version = "1.8.0", features = ["alloc"] }
+smallvec = "1.15.1"
 simple_logger = "5"
 oos = { git = "https://gitlab.com/tendsinmende/oos.git" }
 winit = "0.30"

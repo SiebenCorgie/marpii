@@ -1,12 +1,20 @@
 # Resource Tracking Graph (RMG)
 
-This is a resource handling implementation of a multi-queue utilising frame graph.
+## Introduction
 
-This is currently highly alpha-state software and has to proofe it self.
+Resource and scheduling framework for MarpII. Every _action_ is defined as a _Task_ on a common timeline. RMG handles the scheduling over several queues, which _might_ result in async-compute or dedicated transfer-queue usage if data-dependencies permit it.
 
+All resource binding is done in one of 5 descriptor sets via a _bindless_ philosophy.
+The set usages are:
 
-# Major TODOs
+- 0: Buffers
+- 1: StorageImages
+- 2: SampledImages
+- 3: Samplers
+- 4: AccelerationStructures
 
-- rewrite scheduling based on topological sort (currently not optimal)
-- finer synchronisation. Currently always waits for whole pipeline in between tasks. With more knowledge 
-  could synchronise on a pipeline stage level.
+Take a look at the examples, or write an issue for better documentation if you're actually interested ;).
+
+## Validation
+
+Set `RMG_VALIDATE=1` to load validation layers.

@@ -27,7 +27,7 @@ pub struct QuadPass {
 }
 
 impl QuadPass {
-    const SHADER_SOURCE: &'static [u8] = include_bytes!("../../shaders/spirv/shader-quad.spv");
+    const SHADER_SOURCE: &'static [u8] = include_bytes!("../../shaders/spirv/shader_quad.spv");
     pub fn new(
         rmg: &mut Rmg,
         _settings: &Settings,

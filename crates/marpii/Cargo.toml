@@ -15,6 +15,9 @@ default_allocator = ["gpu-allocator"]
 logging = ["log"]
 # if enabled, uses puffin to create a runtime profile
 profiling = ["puffin"]
+#if active, notifies the default allocator to activate buffer-device-address
+# features
+buffer_device_address = []
 
 #if enabled includes rspirv, which allows for runtime analysis of shaders an construction of descriptorset
 #layouts for those
@@ -29,7 +32,7 @@ raw-window-handle.workspace = true
 thiserror.workspace = true
 const-cstr = "0.3"
 ahash.workspace = true
-tinyvec.workspace = true
+smallvec.workspace = true
 oos.workspace = true
 
 gpu-allocator = { git = "https://github.com/Traverse-Research/gpu-allocator.git", rev = "3dfb9e6", optional = true }

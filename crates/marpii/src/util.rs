@@ -27,7 +27,7 @@ pub fn extent_to_offset(extent: ash::vk::Extent3D, zero_to_one: bool) -> ash::vk
 }
 
 ///Defines a region of some image. Starting at `offset` ranging till `offset + extent`.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ImageRegion {
     pub offset: vk::Offset3D,
     pub extent: vk::Extent3D,
@@ -239,6 +239,8 @@ pub struct FormatProperties {
     pub is_srgb: bool,
     ///FormatType defines the datatype per channel of that format.
     pub format_type: FormatType,
+    ///whether this is one of the dedicated depth formats
+    pub is_depth: bool,
 }
 
 impl FormatProperties {
@@ -246,10 +248,12 @@ impl FormatProperties {
         let byte_per_pixel = byte_per_pixel(format);
         let is_srgb = is_srgb(format);
         let format_type = FormatType::parse(format);
+        let is_depth = is_depth(&format);
         FormatProperties {
             byte_per_pixel,
             is_srgb,
             format_type,
+            is_depth,
         }
     }
 }
@@ -405,6 +409,20 @@ pub fn is_srgb(format: vk::Format) -> bool {
         | vk::Format::PVRTC2_4BPP_SRGB_BLOCK_IMG
         | vk::Format::ETC2_R8G8B8A1_SRGB_BLOCK
         | vk::Format::ETC2_R8G8B8A8_SRGB_BLOCK => true,
+        _ => false,
+    }
+}
+
+///Returns true if this format contains the 'D' property, i.e. is one of the dedicated
+/// depth formats
+pub fn is_depth(format: &vk::Format) -> bool {
+    match *format {
+        vk::Format::D16_UNORM
+        | vk::Format::D16_UNORM_S8_UINT
+        | vk::Format::D24_UNORM_S8_UINT
+        | vk::Format::D32_SFLOAT
+        | vk::Format::D32_SFLOAT_S8_UINT
+        | vk::Format::X8_D24_UNORM_PACK32 => true,
         _ => false,
     }
 }

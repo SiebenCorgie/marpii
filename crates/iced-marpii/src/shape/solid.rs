@@ -26,7 +26,7 @@ pub struct SolidShapePass {
 }
 
 impl SolidShapePass {
-    const SHADER_SOURCE: &'static [u8] = include_bytes!("../../shaders/spirv/shader-shape.spv");
+    const SHADER_SOURCE: &'static [u8] = include_bytes!("../../shaders/spirv/shader_shape.spv");
     pub fn new(
         rmg: &mut Rmg,
         _settings: &Settings,

@@ -385,7 +385,7 @@ pub trait Task {
     }
 
     ///Can be implemented to make debugging easier
-    fn name(&self) -> &'static str {
+    fn name<'a>(&'a self) -> &'a str {
         "Unnamed Task"
     }
 }

@@ -18,7 +18,7 @@ use crate::{
         },
     },
     track::Tracks,
-    BufferHandle, ImageHandle, SamplerHandle,
+    BufferHandle, Config, ImageHandle, SamplerHandle,
 };
 
 use self::{handle::AnyHandle, res_states::AnyResKey};
@@ -64,6 +64,27 @@ pub enum ResourceError {
 
     #[error("Buffer mapping error while accessing resource: {0}")]
     BufferMapError(BufferMapError),
+
+    #[error("Surface creation failed unexpectedly")]
+    SurfaceCreation,
+
+    #[error("Expected format {0:#?} got {1:#?}")]
+    FormatMissmatch(vk::Format, vk::Format),
+
+    #[error("Attachment at index {0} invalid")]
+    InvalidAttachmentIndex(usize),
+
+    #[error("Unexpected depth attachment")]
+    UnexpectedDepthAttachment,
+
+    #[error("Depth attachment was unset, but expected")]
+    NoDepthAttachment,
+
+    #[error("Expected an attachment extent of {0:?}, but one attachment had an extent of {1:?}")]
+    AttachmentExtentMissmatch(vk::Extent2D, vk::Extent2D),
+
+    #[error("There are no attachments at all present, color nor depht.")]
+    NoAttachments,
 }
 
 ///Rmg's resource management. This bundles all state that outlifes a single frame. Meaning Images, buffers and samplers.
@@ -78,9 +99,9 @@ pub struct Resources {
 }
 
 impl Resources {
-    pub fn new(device: &Arc<Device>) -> Result<Self, ResourceError> {
-        let bindless = Bindless::new_default(device)?;
-        let bindless_layout = Arc::new(bindless.new_pipeline_layout(&[]));
+    pub fn new(device: &Arc<Device>, config: &Config) -> Result<Self, ResourceError> {
+        let bindless = Bindless::new_default(device, config)?;
+        let bindless_layout = Arc::new(bindless.new_pipeline_layout());
 
         Ok(Resources {
             bindless,
@@ -120,7 +141,7 @@ impl Resources {
                 match (image.is_sampled_image(), image.is_storage_image()) {
                     (true, true) => {
                         #[cfg(feature = "logging")]
-                        log::info!("Binding image to both, sampled, and storage descriptor set");
+                        log::trace!("Binding image to both, sampled, and storage descriptor set");
                         image.descriptor_handle = Some(
                             self.bindless
                                 .bind_sampled_storage_image(image.view.clone())
@@ -224,9 +245,21 @@ impl Resources {
             descriptor_handle: None,
         });
 
+        //Get the buffer address, if there is any
+        let gpu_address = if buffer
+            .desc
+            .usage
+            .contains(vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS)
+        {
+            buffer.device.get_buffer_device_address(&buffer)
+        } else {
+            None
+        };
+
         Ok(BufferHandle {
             key,
             bufref: buffer,
+            gpu_address,
             data_type: PhantomData,
         })
     }
@@ -266,9 +299,21 @@ impl Resources {
             descriptor_handle: None,
         });
 
+        //Get the buffer address, if there is any
+        let gpu_address = if buffer
+            .desc
+            .usage
+            .contains(vk::BufferUsageFlags::SHADER_DEVICE_ADDRESS)
+        {
+            buffer.device.get_buffer_device_address(&buffer)
+        } else {
+            None
+        };
+
         Ok(BufferHandle {
             key,
             bufref: buffer,
+            gpu_address,
             data_type: PhantomData,
         })
     }
@@ -361,7 +406,7 @@ impl Resources {
         self.images.retain(|#[allow(unused_variables)] key, img| {
             if img.is_orphaned() && img.guard.map_or(true, |g| g.expired(tracks)) {
                 #[cfg(feature = "logging")]
-                log::info!("Dropping {:?}", key);
+                log::trace!("Dropping {:?}", key);
 
                 if let Some(hdl) = img.descriptor_handle {
                     match (img.is_sampled_image(), img.is_storage_image()){
@@ -392,7 +437,7 @@ impl Resources {
             .retain(|#[allow(unused_variables)] key, buffer| {
                 if buffer.is_orphaned() && buffer.guard.map_or(true, |g| g.expired(tracks)) {
                     #[cfg(feature = "logging")]
-                    log::info!("Dropping {:?}", key);
+                    log::trace!("Dropping {:?}", key);
 
                     if let Some(hdl) = buffer.descriptor_handle {
                         self.bindless.remove_storage_buffer(hdl);
@@ -407,7 +452,7 @@ impl Resources {
             .retain(|#[allow(unused_variables)] key, sampler| {
                 if sampler.is_orphaned() {
                     #[cfg(feature = "logging")]
-                    log::info!("Dropping {:?}", key);
+                    log::trace!("Dropping {:?}", key);
 
                     if let Some(hdl) = sampler.descriptor_handle {
                         self.bindless.remove_sampler(hdl);
