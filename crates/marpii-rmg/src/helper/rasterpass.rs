@@ -82,16 +82,54 @@ impl GenericRasterPass<()> {
         let color_attachment_count = pipeline.color_attachments.len();
         GenericRasterPass {
             pipeline,
-            push: PushConstant::new(
-                (),
-                vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT,
-            ),
+            push: PushConstant::new((), vk::ShaderStageFlags::ALL),
             name: None,
             color_attachments: smallvec::smallvec![None; color_attachment_count],
             depth_attachment: None,
             framebuffer_area: ImageRegion::ZERO,
             storage: ResourceStorage::new(),
             drawcalls: SmallVec::default(),
+        }
+    }
+}
+
+impl<P: Default + Clone + 'static> GenericRasterPass<P> {
+    pub fn framebuffer_extent(&self) -> vk::Extent2D {
+        vk::Extent2D {
+            width: self.framebuffer_area.extent.width,
+            height: self.framebuffer_area.extent.height,
+        }
+    }
+
+    ///Shares the internal raster-pipeline object. Good if you want to create another
+    /// pass based on the same pipeline for instance
+    pub fn clone_pipeline(&mut self) -> OoS<RasterPipeline> {
+        self.pipeline.share()
+    }
+
+    ///Allows the reconfiguration of the render-pass. If `keep_attachments` is true, it won't delete knowledge
+    /// about used color/depth attachments, i.e. you don't have to re-record those.
+    pub fn reconfigure<'rmg>(
+        mut self,
+        rmg: &'rmg mut Rmg,
+        keep_attachments: bool,
+    ) -> RasterPassBuilder<'rmg, P> {
+        self.storage.reset();
+        //reinsert the attachments, if we keep them
+        if !keep_attachments {
+            //remove all knowledge
+            for c in &mut self.color_attachments {
+                *c = None;
+            }
+            self.depth_attachment = None;
+        }
+
+        //remove drawcalls
+        self.drawcalls.clear();
+
+        RasterPassBuilder {
+            rmg,
+            task_setup: self,
         }
     }
 }
@@ -250,7 +288,7 @@ impl<P: Default + Clone + 'static> Task for GenericRasterPass<P> {
                 device.inner.cmd_push_constants(
                     *command_buffer,
                     self.pipeline.inner.layout.layout,
-                    vk::ShaderStageFlags::ALL_GRAPHICS,
+                    vk::ShaderStageFlags::ALL,
                     0,
                     self.push.content_as_bytes(),
                 );
@@ -324,10 +362,7 @@ impl<'rmg, P: Default + Clone + 'static> RasterPassBuilder<'rmg, P> {
             drawcalls: _,
         } = self.task_setup;
 
-        let new_push_constant = PushConstant::new(
-            PC::default(),
-            vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT,
-        );
+        let new_push_constant = PushConstant::new(PC::default(), vk::ShaderStageFlags::ALL);
 
         RasterPassBuilder {
             rmg: self.rmg,
@@ -342,6 +377,10 @@ impl<'rmg, P: Default + Clone + 'static> RasterPassBuilder<'rmg, P> {
                 drawcalls: SmallVec::default(),
             },
         }
+    }
+
+    pub fn on_rmg<T>(&mut self, func: impl Fn(&mut Rmg) -> T) -> T {
+        func(&mut self.rmg)
     }
 
     pub fn with_name(mut self, name: impl Into<String>) -> Self {
@@ -475,16 +514,85 @@ impl<'rmg, P: Default + Clone + 'static> RasterPassBuilder<'rmg, P> {
             .buf_desc()
             .usage
             .contains(vk::BufferUsageFlags::INDEX_BUFFER));
-
         self.task_setup.drawcalls.push((draw, region));
 
         self
     }
 
-    pub fn finish(self) -> GenericRasterPass<P> {
+    pub fn finish(mut self) -> Result<GenericRasterPass<P>, RmgError> {
         //Check that all color and depth attachments are used
         // then set the framebuffer area.
-        todo!("")
+
+        assert_eq!(
+            self.task_setup.color_attachments.len(),
+            self.task_setup.pipeline.color_attachments.len()
+        );
+        for idx in 0..self.task_setup.pipeline.color_attachments.len() {
+            if self.task_setup.color_attachments[idx].is_none() {
+                return Err(RmgError::ResourceError(
+                    ResourceError::InvalidAttachmentIndex(idx),
+                ));
+            }
+        }
+
+        //Make sure either both are set, or unset
+        match (
+            &self.task_setup.depth_attachment,
+            &self.task_setup.pipeline.depth_stencil_attachment,
+        ) {
+            (Some(_), Some(_)) | (None, None) => {}
+            (None, Some(_)) => {
+                return Err(RmgError::ResourceError(
+                    ResourceError::UnexpectedDepthAttachment,
+                ))
+            }
+            (Some(_), None) => {
+                return Err(RmgError::ResourceError(ResourceError::NoDepthAttachment))
+            }
+        }
+
+        //make sure all framebuffer use the same extent
+        let Some(reference_size) = self
+            .task_setup
+            .color_attachments
+            .get(0)
+            .map(|i| i.as_ref().unwrap().0.extent_2d())
+            .or(self
+                .task_setup
+                .depth_attachment
+                .as_ref()
+                .map(|i| i.0.extent_2d()))
+        else {
+            return Err(RmgError::ResourceError(ResourceError::NoAttachments));
+        };
+        for extent in self.task_setup.color_attachments[1..]
+            .iter()
+            .map(|i| i.as_ref().unwrap().0.extent_2d())
+            .chain(
+                self.task_setup
+                    .depth_attachment
+                    .iter()
+                    .map(|i| i.0.extent_2d()),
+            )
+        {
+            if extent != reference_size {
+                return Err(RmgError::ResourceError(
+                    ResourceError::AttachmentExtentMissmatch(reference_size, extent),
+                ));
+            }
+        }
+        //can set the framebuffer size
+        self.task_setup.framebuffer_area = ImageRegion {
+            extent: vk::Extent3D {
+                width: reference_size.width,
+                height: reference_size.height,
+                depth: 1,
+            },
+            ..ImageRegion::ZERO
+        };
+
+        //Passed all validation, return the finished thing
+        Ok(self.task_setup)
     }
 }
 
@@ -521,9 +629,9 @@ impl Rmg {
         fragment_shader: impl Into<OoS<ShaderModule>>,
         color_attachment_formats: impl Into<SmallVec<[vk::Format; 4]>>,
         depth_attachment_format: Option<vk::Format>,
-        configure_pipeline: Option<
-            impl Fn(vk::GraphicsPipelineCreateInfo<'_>) -> vk::GraphicsPipelineCreateInfo<'_>,
-        >,
+        configure_pipeline: impl Fn(
+            vk::GraphicsPipelineCreateInfo<'_>,
+        ) -> vk::GraphicsPipelineCreateInfo<'_>,
     ) -> Result<RasterPipeline, RmgError> {
         let color_attachments = color_attachment_formats.into();
         let depth_stencil_attachment = depth_attachment_format;
@@ -581,11 +689,14 @@ impl Rmg {
             .depth_bias_enable(false)
             .depth_clamp_enable(false)
             .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
-            .polygon_mode(vk::PolygonMode::FILL);
+            .polygon_mode(vk::PolygonMode::FILL)
+            .line_width(1.0);
 
         let viewport_state = vk::PipelineViewportStateCreateInfo::default()
             .viewport_count(1)
             .scissor_count(1);
+
+        let vertex_input_state = vk::PipelineVertexInputStateCreateInfo::default();
 
         let create_info = vk::GraphicsPipelineCreateInfo::default()
             .color_blend_state(&color_blend_state)
@@ -594,14 +705,11 @@ impl Rmg {
             .input_assembly_state(&input_assembly_state)
             .multisample_state(&multisample_state)
             .rasterization_state(&rasterization_state)
-            .viewport_state(&viewport_state);
+            .viewport_state(&viewport_state)
+            .vertex_input_state(&vertex_input_state);
 
         //Call the handler, if set
-        let create_info = if let Some(conf) = configure_pipeline {
-            conf(create_info)
-        } else {
-            create_info
-        };
+        let create_info = configure_pipeline(create_info);
 
         let pipeline = GraphicsPipeline::new_dynamic_pipeline(
             &self.ctx.device,

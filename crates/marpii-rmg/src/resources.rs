@@ -71,11 +71,20 @@ pub enum ResourceError {
     #[error("Expected format {0:#?} got {1:#?}")]
     FormatMissmatch(vk::Format, vk::Format),
 
-    #[error("Unexpected attachment at index {0} ")]
+    #[error("Attachment at index {0} invalid")]
     InvalidAttachmentIndex(usize),
 
     #[error("Unexpected depth attachment")]
     UnexpectedDepthAttachment,
+
+    #[error("Depth attachment was unset, but expected")]
+    NoDepthAttachment,
+
+    #[error("Expected an attachment extent of {0:?}, but one attachment had an extent of {1:?}")]
+    AttachmentExtentMissmatch(vk::Extent2D, vk::Extent2D),
+
+    #[error("There are no attachments at all present, color nor depht.")]
+    NoAttachments,
 }
 
 ///Rmg's resource management. This bundles all state that outlifes a single frame. Meaning Images, buffers and samplers.
