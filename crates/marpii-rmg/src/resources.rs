@@ -67,6 +67,15 @@ pub enum ResourceError {
 
     #[error("Surface creation failed unexpectedly")]
     SurfaceCreation,
+
+    #[error("Expected format {0:#?} got {1:#?}")]
+    FormatMissmatch(vk::Format, vk::Format),
+
+    #[error("Unexpected attachment at index {0} ")]
+    InvalidAttachmentIndex(usize),
+
+    #[error("Unexpected depth attachment")]
+    UnexpectedDepthAttachment,
 }
 
 ///Rmg's resource management. This bundles all state that outlifes a single frame. Meaning Images, buffers and samplers.

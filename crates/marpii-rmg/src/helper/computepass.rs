@@ -18,7 +18,6 @@ use std::sync::Arc;
 /// and the pass is not expected to be mutated.
 pub struct GenericComputePass<P: 'static> {
     pipeline: Arc<ComputePipeline>,
-    #[allow(dead_code)]
     push: PushConstant<P>,
     dispatch: [u32; 3],
     name: Option<String>,
@@ -77,31 +76,7 @@ impl<P: 'static> Task for GenericComputePass<P> {
     }
 
     fn register(&self, registry: &mut crate::ResourceRegistry) {
-        for (buffer, usage) in &self.storage.buffers {
-            registry
-                .request_buffer(
-                    buffer,
-                    vk::PipelineStageFlags2::COMPUTE_SHADER,
-                    usage.into_access_flags(),
-                )
-                .unwrap();
-        }
-
-        for (image, usage) in &self.storage.images {
-            registry
-                .request_image(
-                    image,
-                    vk::PipelineStageFlags2::COMPUTE_SHADER,
-                    usage.into_access_flags(),
-                    usage.into_layout(),
-                )
-                .unwrap()
-        }
-
-        for sampler in &self.storage.samplers {
-            registry.request_sampler(sampler).unwrap();
-        }
-
+        self.storage.register_all(registry);
         //Always keep pipeline alive as long as possible
         registry.register_asset(self.pipeline.clone());
     }
@@ -186,6 +161,7 @@ impl<'ctx, P: 'static> ComputePassBuilder<'ctx, P> {
     /// Signals that the pass will read this image through either storage or sample operations
     /// based on the signaled flag.
     pub fn use_image(mut self, image: ImageHandle, usage: ImageUsage) -> Self {
+        assert!(!usage.is_attachment(), "Cannot use attachments in Compute");
         self.task_setup.storage.images.push((image, usage));
         self
     }
@@ -193,6 +169,7 @@ impl<'ctx, P: 'static> ComputePassBuilder<'ctx, P> {
     /// Signals all images with the same usage. Nice if you have a set of textures for instance
     /// where you want to mark all as sampled.
     pub fn use_images(mut self, images: &[ImageHandle], usage: ImageUsage) -> Self {
+        assert!(!usage.is_attachment(), "Cannot use attachments in Compute");
         self.task_setup
             .storage
             .images

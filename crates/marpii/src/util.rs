@@ -27,7 +27,7 @@ pub fn extent_to_offset(extent: ash::vk::Extent3D, zero_to_one: bool) -> ash::vk
 }
 
 ///Defines a region of some image. Starting at `offset` ranging till `offset + extent`.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ImageRegion {
     pub offset: vk::Offset3D,
     pub extent: vk::Extent3D,
