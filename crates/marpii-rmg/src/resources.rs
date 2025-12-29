@@ -404,7 +404,7 @@ impl Resources {
     //      another thread for that to not stall the recording process
     pub(crate) fn tick_record(&mut self, tracks: &Tracks) {
         self.images.retain(|#[allow(unused_variables)] key, img| {
-            if img.is_orphaned() && img.guard.map_or(true, |g| g.expired(tracks)) {
+            if img.is_orphaned() && img.guard.is_none_or(|g| g.expired(tracks)) {
                 #[cfg(feature = "logging")]
                 log::trace!("Dropping {:?}", key);
 
@@ -435,7 +435,7 @@ impl Resources {
 
         self.buffer
             .retain(|#[allow(unused_variables)] key, buffer| {
-                if buffer.is_orphaned() && buffer.guard.map_or(true, |g| g.expired(tracks)) {
+                if buffer.is_orphaned() && buffer.guard.is_none_or(|g| g.expired(tracks)) {
                     #[cfg(feature = "logging")]
                     log::trace!("Dropping {:?}", key);
 

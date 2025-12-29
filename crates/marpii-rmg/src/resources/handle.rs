@@ -122,7 +122,7 @@ impl<T: 'static> BufferHandle<T> {
 
     ///Returns the buffer-device-address of the internal buffer, if there is any.
     pub fn gpu_address(&self) -> Option<DeviceAddress> {
-        self.gpu_address.clone()
+        self.gpu_address
     }
 }
 

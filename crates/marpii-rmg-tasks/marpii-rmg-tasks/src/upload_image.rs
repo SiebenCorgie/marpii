@@ -34,9 +34,9 @@ pub struct UploadImage {
 impl UploadImage {
     //TODO: add tasks constructors, for instance automatic "load from file"?
 
-    pub fn new_from_image<'dta>(
+    pub fn new_from_image(
         rmg: &mut Rmg,
-        data: &'dta [u8],
+        data: &[u8],
         image: impl Into<OoS<Image>>,
     ) -> Result<Self, RmgTaskError> {
         let image = image.into();
@@ -46,7 +46,7 @@ impl UploadImage {
             Some("StagingBuffer"),
             data,
         )
-        .map_err(|e| MarpiiError::from(e))?;
+        .map_err(MarpiiError::from)?;
 
         staging
             .flush_range()
@@ -57,7 +57,7 @@ impl UploadImage {
             })?;
         let staging = rmg
             .import_buffer(Arc::new(staging), None, None)
-            .map_err(|e| RmgError::from(e))?;
+            .map_err(RmgError::from)?;
 
         //register image in rmg
         let image = rmg
@@ -75,9 +75,9 @@ impl UploadImage {
     ///Creates the upload task. Note that data is interpreted as whatever `desc`'s format is.
     /// If this is wrong you will get artefacts. Use a format convertion before (on CPU), or a chained GPU based
     /// convertion task otherwise.
-    pub fn new<'dta>(
+    pub fn new(
         rmg: &mut Rmg,
-        data: &'dta [u8],
+        data: &[u8],
         mut desc: ImgDesc,
     ) -> Result<Self, RmgTaskError> {
         if !desc.usage.contains(vk::ImageUsageFlags::TRANSFER_DST) {

@@ -69,7 +69,7 @@ impl<T: bytemuck::Pod + 'static> DownloadBuffer<T> {
             let mut desc = BufDesc::storage_buffer::<T>(element_count);
             desc = desc.add_usage(vk::BufferUsageFlags::TRANSFER_SRC);
             rmg.new_buffer_uninitialized(desc, Some("DownloadBuffer"))
-                .map_err(|e| TaskError::RmgError(e))?
+                .map_err(TaskError::RmgError)?
         };
         Self::new(rmg, download_buffer_hdl)
     }
@@ -90,7 +90,7 @@ impl<T: bytemuck::Pod + 'static> DownloadBuffer<T> {
             let dta = self
                 .cpu_access
                 .read()
-                .map_err(|maperr| MarpiiError::from(maperr))?;
+                .map_err(MarpiiError::from)?;
             if let Some(dta) = dta.as_slice_ref() {
                 let dta_cast: &[T] = bytemuck::cast_slice(dta);
                 let size = dta_cast.len().min(dst.len());

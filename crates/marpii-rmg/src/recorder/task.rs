@@ -26,6 +26,12 @@ pub struct ResourceRegistry {
     pub(crate) resource_collection: Vec<Box<dyn Any + Send>>,
 }
 
+impl Default for ResourceRegistry {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ResourceRegistry {
     pub fn new() -> Self {
         ResourceRegistry {
@@ -188,13 +194,13 @@ impl ResourceRegistry {
     ///Registers that this foreign semaphore must be signalled after execution. Needed for swapchain stuff.
     pub fn register_binary_signal_semaphore(&mut self, semaphore: Arc<BinarySemaphore>) {
         self.binary_signal_sem.push(semaphore.clone());
-        self.resource_collection.push(Box::new(semaphore))
+        self.resource_collection.push(Box::new(semaphore));
     }
 
     ///Registers that this foreign semaphore must be waited uppon before execution. Needed for swapchain stuff.
     pub fn register_binary_wait_semaphore(&mut self, semaphore: Arc<BinarySemaphore>) {
         self.binary_wait_sem.push(semaphore.clone());
-        self.resource_collection.push(Box::new(semaphore))
+        self.resource_collection.push(Box::new(semaphore));
     }
 
     pub(crate) fn any_res_iter<'a>(&'a self) -> impl Iterator<Item = AnyResKey> + 'a {
@@ -385,7 +391,7 @@ pub trait Task {
     }
 
     ///Can be implemented to make debugging easier
-    fn name<'a>(&'a self) -> &'a str {
+    fn name(&self) -> &str {
         "Unnamed Task"
     }
 }

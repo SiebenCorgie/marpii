@@ -92,7 +92,7 @@ impl ResImage {
     }
 
     pub fn guard(&self) -> Option<Guard> {
-        self.guard.clone()
+        self.guard
     }
 }
 
@@ -134,7 +134,7 @@ impl ResBuffer {
     }
 
     pub fn guard(&self) -> Option<Guard> {
-        self.guard.clone()
+        self.guard
     }
 }
 

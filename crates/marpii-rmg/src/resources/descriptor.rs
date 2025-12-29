@@ -49,7 +49,7 @@ impl<T> Debug for SetManager<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "SetManager[{:#?}]:", self.ty)?;
         for k in self.stored.keys() {
-            writeln!(f, "    {}@{}", k.index(), k.handle_type())?
+            writeln!(f, "    {}@{}", k.index(), k.handle_type())?;
         }
 
         Ok(())
@@ -156,7 +156,7 @@ impl<T> SetManager<T> {
             Some(ResourceHandle::new(
                 ResourceHandle::descriptor_type_to_u8(self.ty)
                     | ResourceHandle::descriptor_type_to_u8(other.ty),
-                max_idx as u32,
+                max_idx,
             ))
         }
     }
@@ -210,7 +210,7 @@ impl<T> SetManager<T> {
                         .push_next(&mut ext_flags),
                     None,
                 )
-                .map_err(|e| DescriptorError::VkError(e))?
+                .map_err(DescriptorError::VkError)?
         };
 
         //wrap into the marpii wrapper
@@ -235,7 +235,7 @@ impl<T> SetManager<T> {
                 .device
                 .inner
                 .allocate_descriptor_sets(&descriptor_set_info)
-                .map_err(|e| DescriptorError::VkError(e))?
+                .map_err(DescriptorError::VkError)?
         };
         assert!(
             descriptor_set.len() == 1,
@@ -268,12 +268,10 @@ impl<T> SetManager<T> {
     ) -> Result<ResourceHandle, T> {
         let hdl = if let Some(h) = allocated_slot {
             h
+        } else if let Some(hdl) = self.allocate_handle() {
+            hdl
         } else {
-            if let Some(hdl) = self.allocate_handle() {
-                hdl
-            } else {
-                return Err(dta);
-            }
+            return Err(dta);
         };
 
         assert!(
@@ -297,9 +295,9 @@ impl<T> SetManager<T> {
         assert!(write_instruction.descriptor_count == 1);
 
         assert!(
-            write_instruction.p_buffer_info != core::ptr::null()
-                || write_instruction.p_image_info != core::ptr::null()
-                || write_instruction.p_texel_buffer_view != core::ptr::null()
+            !write_instruction.p_buffer_info.is_null()
+                || !write_instruction.p_image_info.is_null()
+                || !write_instruction.p_texel_buffer_view.is_null()
         );
 
         //Manual write
@@ -378,23 +376,23 @@ sampler:
 
 impl Bindless {
     ///Default maximum number of bound images.
-    /// NOTE that this is the theoretical maximum of 2^24, since the ResHandle safes the
+    /// NOTE that this is the theoretical maximum of 2^24, since the `ResHandle` safes the
     /// descriptor type in the lowest byte.
     pub const MAX_BOUND_SAMPLED_IMAGES: u32 = 1 << 24;
     ///Default maximum number of bound storage images.
-    /// NOTE that this is the theoretical maximum of 2^24, since the ResHandle safes the
+    /// NOTE that this is the theoretical maximum of 2^24, since the `ResHandle` safes the
     /// descriptor type in the lowest byte.
     pub const MAX_BOUND_STORAGE_IMAGES: u32 = 1 << 24;
     ///Default maximum number of bound storage buffers.
-    /// NOTE that this is the theoretical maximum of 2^24, since the ResHandle safes the
+    /// NOTE that this is the theoretical maximum of 2^24, since the `ResHandle` safes the
     /// descriptor type in the lowest byte.
     pub const MAX_BOUND_STORAGE_BUFFER: u32 = 1 << 24;
     ///Default maximum number of bound samplers.
-    /// NOTE that this is the theoretical maximum of 2^24, since the ResHandle safes the
+    /// NOTE that this is the theoretical maximum of 2^24, since the `ResHandle` safes the
     /// descriptor type in the lowest byte.
     pub const MAX_BOUND_SAMPLER: u32 = 1 << 24;
     ///Default maximum number of bound acceleration structures.
-    /// NOTE that this is the theoretical maximum of 2^24, since the ResHandle safes the
+    /// NOTE that this is the theoretical maximum of 2^24, since the `ResHandle` safes the
     /// descriptor type in the lowest byte.
     pub const MAX_BOUND_ACCELERATION_STRUCTURE: u32 = 1 << 24;
 
@@ -467,10 +465,10 @@ impl Bindless {
             .max_bound_descriptor_sets
             < Self::NUM_SETS
         {
-            Err(DeviceError::UnsupportedFeature(String::from(format!(
+            Err(DeviceError::UnsupportedFeature(format!(
                 "Max bound descriptor setst < {}",
                 Self::NUM_SETS
-            ))))?;
+            )))?;
         }
 
         let mut pool_sizes: SmallVec<[_; Self::NUM_SETS as usize]> = SmallVec::default();

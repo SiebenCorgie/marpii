@@ -18,7 +18,7 @@ pub struct UploadBuffer<T: marpii::bytemuck::Pod> {
 impl<T: marpii::bytemuck::Pod> UploadBuffer<T> {
     ///Creates a new storage buffer for the given data. If the buffer needs to be configured, for instance
     /// as vertex buffer, use [new_with_buffer](Self::new_with_buffer).
-    pub fn new<'src>(rmg: &mut Rmg, data: &'src [T]) -> Result<Self, RmgError> {
+    pub fn new(rmg: &mut Rmg, data: &[T]) -> Result<Self, RmgError> {
         Self::new_with_buffer(
             rmg,
             data,
@@ -26,9 +26,9 @@ impl<T: marpii::bytemuck::Pod> UploadBuffer<T> {
         )
     }
 
-    pub fn new_with_buffer<'src>(
+    pub fn new_with_buffer(
         rmg: &mut Rmg,
-        data: &'src [T],
+        data: &[T],
         mut desc: BufDesc,
     ) -> Result<Self, RmgError> {
         let staging = Buffer::new_staging_for_data(
@@ -37,7 +37,7 @@ impl<T: marpii::bytemuck::Pod> UploadBuffer<T> {
             Some("Staging buffer upload"),
             data,
         )
-        .map_err(|e| MarpiiError::from(e))?;
+        .map_err(MarpiiError::from)?;
 
         staging
             .flush_range()

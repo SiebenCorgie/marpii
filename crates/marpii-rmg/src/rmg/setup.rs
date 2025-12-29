@@ -34,7 +34,6 @@ impl Rmg {
                     .with(|inner| {
                         inner.features = inner
                             .features
-                            .clone()
                             //All the dynamic indexing features
                             .shader_sampled_image_array_dynamic_indexing(true)
                             .shader_storage_image_array_dynamic_indexing(true)
@@ -45,7 +44,7 @@ impl Rmg {
                             .shader_int64(true)
                             .shader_float64(true)
                             //Robust access
-                            .robust_buffer_access(true)
+                            .robust_buffer_access(true);
                     })
                     .with_feature(
                         vk::PhysicalDeviceVulkan12Features::default()

@@ -59,7 +59,7 @@ impl SwapchainPresent {
                     if marpii::util::byte_per_pixel(next_format.format).unwrap_or(8)
                         > marpii::util::byte_per_pixel(best_format.format).unwrap_or(8)
                     {
-                        best_format = next_format.clone();
+                        best_format = *next_format;
                     }
                 }
                 b.format_preference = vec![best_format];
@@ -70,7 +70,7 @@ impl SwapchainPresent {
                 b.extent_preference = Some(create_extent)
             })
             .build()
-            .map_err(|e| MarpiiError::from(e))?;
+            .map_err(MarpiiError::from)?;
 
         Ok(SwapchainPresent {
             swapchain,
@@ -116,7 +116,7 @@ impl SwapchainPresent {
     pub fn recreate(&mut self, surface_extent: vk::Extent2D) -> Result<(), RmgTaskError> {
         self.swapchain
             .recreate(surface_extent)
-            .map_err(|e| MarpiiError::from(e))?;
+            .map_err(MarpiiError::from)?;
         self.last_known_extent = vk::Extent2D {
             width: self.swapchain.images[0].desc.extent.width,
             height: self.swapchain.images[0].desc.extent.height,

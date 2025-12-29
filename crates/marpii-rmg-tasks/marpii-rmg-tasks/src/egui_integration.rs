@@ -35,8 +35,8 @@ use std::sync::Arc;
 use std::time::Instant;
 
 //NOTE: Embedding spirv in order to not need the glsl-compiler on any user's system
-const EGUI_SHADER_VERT: &'static [u8] = include_bytes!("../resources/eguivert.spv");
-const EGUI_SHADER_FRAG: &'static [u8] = include_bytes!("../resources/eguifrag.spv");
+const EGUI_SHADER_VERT: &[u8] = include_bytes!("../resources/eguivert.spv");
+const EGUI_SHADER_FRAG: &[u8] = include_bytes!("../resources/eguifrag.spv");
 
 ///Single EGui primitive draw command
 struct EGuiPrimDraw {
@@ -105,7 +105,7 @@ impl EGuiWinitIntegration {
                 event: egui_winit::winit::event::DeviceEvent::MouseMotion { delta },
                 device_id: _,
             } => {
-                let _ = self.winit_state.on_mouse_motion(*delta);
+                self.winit_state.on_mouse_motion(*delta);
             }
             _ => {}
         }
@@ -728,7 +728,7 @@ impl EGuiTask {
                         Some(t) => rmg
                             .resources
                             .resource_handle_or_bind(t.image.clone())
-                            .map_err(|e| RmgError::ResourceError(e))?,
+                            .map_err(RmgError::ResourceError)?,
                         None => {
                             #[cfg(feature = "logging")]
                             log::error!("No texture={:?} for egui mesh", mesh.texture_id);
@@ -740,7 +740,7 @@ impl EGuiTask {
                     let sampler = rmg
                         .resources
                         .resource_handle_or_bind(self.renderer.linear_sampler.clone())
-                        .map_err(|e| RmgError::ResourceError(e))?;
+                        .map_err(RmgError::ResourceError)?;
 
                     let command = EGuiPrimDraw {
                         sampler,
@@ -778,7 +778,7 @@ impl EGuiTask {
             self.data
                 .index_buffer
                 .write(&new_index_buffer, 0)
-                .map_err(|e| MarpiiError::from(e))?;
+                .map_err(MarpiiError::from)?;
         } else {
             #[cfg(feature = "logging")]
             log::info!("Have to grow index buffer {}", new_index_buffer.len());
@@ -798,7 +798,7 @@ impl EGuiTask {
             self.data
                 .vertex_buffer
                 .write(&new_vertex_buffer, 0)
-                .map_err(|e| MarpiiError::from(e))?;
+                .map_err(MarpiiError::from)?;
         } else {
             #[cfg(feature = "logging")]
             log::info!("Have to grow vertex buffer to {}", new_vertex_buffer.len());
@@ -987,7 +987,7 @@ impl EGuiTask {
             "Set image needs to have color attachment flags set"
         );
         self.renderer.is_overwritten = true;
-        let new_target_format = image.format().clone();
+        let new_target_format = *image.format();
         let format_differs = *self.renderer.target_image.format() != new_target_format;
         self.renderer.target_image = image;
 

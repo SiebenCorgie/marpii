@@ -14,6 +14,7 @@ use marpii::{
 /// Don't deref the `p_next` pointers in any of the fields, since those are guaranteed to be invalid.
 ///(I.e. only use the properties defined in that struct, don't walk the chain.)
 #[derive(Debug)]
+#[derive(Default)]
 pub struct PhysicalDeviceLimitsExtended {
     ///Limits as defined by vulkan
     pub limits: PhysicalDeviceLimits,
@@ -27,23 +28,12 @@ pub struct PhysicalDeviceLimitsExtended {
     pub vk13: PhysicalDeviceVulkan13Properties<'static>,
 }
 
-impl Default for PhysicalDeviceLimitsExtended {
-    fn default() -> Self {
-        PhysicalDeviceLimitsExtended {
-            limits: PhysicalDeviceLimits::default(),
-            raytracing_pipeline: PhysicalDeviceRayTracingPipelinePropertiesKHR::default(),
-            acceleration_structure: PhysicalDeviceAccelerationStructurePropertiesKHR::default(),
-            vk11: PhysicalDeviceVulkan11Properties::default(),
-            vk12: PhysicalDeviceVulkan12Properties::default(),
-            vk13: PhysicalDeviceVulkan13Properties::default(),
-        }
-    }
-}
 
+#[derive(Default)]
 pub struct Config {
     ///Whether ray-tracing support
     pub rt_support: bool,
-    ///Whether the unified_image_layouts extension is present.
+    ///Whether the `unified_image_layouts` extension is present.
     pub unified_image_layout_support: bool,
 
     ///limits defined by variouse used extension
@@ -94,11 +84,11 @@ impl Config {
 
     ///Checks that all of:
     ///
-    /// - khr::acceleration_structure
-    /// - khr::ray_tracing_pipeline
-    /// - khr::ray_query
-    /// - khr::pipeline_library
-    /// - khr::deferred_host_operations
+    /// - `khr::acceleration_structure`
+    /// - `khr::ray_tracing_pipeline`
+    /// - `khr::ray_query`
+    /// - `khr::pipeline_library`
+    /// - `khr::deferred_host_operations`
     ///
     /// are supported. If so, enables the features
     pub(crate) fn check_enable_rt_support(
@@ -143,7 +133,6 @@ impl Config {
 
         if f_pipelib.graphics_pipeline_library != 1 {
             self.rt_support = false;
-            return;
         }
     }
 
@@ -152,16 +141,7 @@ impl Config {
         _instance: &Instance,
         _physical_device: &vk::PhysicalDevice,
     ) {
-        log::warn!("Checking for unified-image-layout-khr not implemented")
+        log::warn!("Checking for unified-image-layout-khr not implemented");
     }
 }
 
-impl Default for Config {
-    fn default() -> Self {
-        Config {
-            rt_support: false,
-            unified_image_layout_support: false,
-            limit: PhysicalDeviceLimitsExtended::default(),
-        }
-    }
-}

@@ -67,7 +67,7 @@ pub struct Rmg {
     ///Resource management
     pub resources: Resources,
 
-    ///maps a capability pattern to a index in `Device`'s queue list. Each queue type defines a QueueTrack type.
+    ///maps a capability pattern to a index in `Device`'s queue list. Each queue type defines a `QueueTrack` type.
     pub(crate) tracks: Tracks,
 
     pub ctx: CtxRmg,
@@ -97,9 +97,7 @@ impl Rmg {
                 .timestamp_compute_and_graphics
                 == 0
             {
-                return Err(RmgError::DeviceLimit(format!(
-                    "Timestamp_Compute_And_Graphics: was 0, should be > 0"
-                )));
+                return Err(RmgError::DeviceLimit("Timestamp_Compute_And_Graphics: was 0, should be > 0".to_string()));
             }
 
             for q in context.device.queues.iter() {
@@ -226,7 +224,7 @@ impl Rmg {
 
     ///Returns pre filled vulkan device feature sets needed for rmg to run.
     ///
-    /// You might want to use those to add you application dependent additional features before creating a [marpii::context::Ctx].
+    /// You might want to use those to add you application dependent additional features before creating a [`marpii::context::Ctx`].
     pub fn get_required_features() -> (
         vk::PhysicalDeviceFeatures,
         vk::PhysicalDeviceVulkan11Features<'static>,
@@ -275,11 +273,11 @@ impl Rmg {
         )
     }
 
-    ///Creates a new ResourceManagingGraph for this context. Note that the context must be created for
+    ///Creates a new `ResourceManagingGraph` for this context. Note that the context must be created for
     /// Vulkan 1.3, since it depends on multiple core-1.3 features and extensions.
     ///
-    /// When in doubt, use [Rmg::init_for_window] or [Rmg::init] to give the _burden_ of creating the
-    /// right MarpII context to RMG.
+    /// When in doubt, use [`Rmg::init_for_window`] or [`Rmg::init`] to give the _burden_ of creating the
+    /// right `MarpII` context to RMG.
     pub fn new(context: Ctx<Allocator>) -> Result<Self, RmgError> {
         //Per definition we try to find at least one graphic, compute and transfer queue.
         // We then create the swapchain. It is used for image presentation and the start/end point for frame scheduling.
@@ -358,7 +356,7 @@ impl Rmg {
                 MemoryUsage::GpuOnly, //always cpu only, everything else is handled by passes directly
                 name,
             )
-            .map_err(|e| MarpiiError::from(e))?,
+            .map_err(MarpiiError::from)?,
         );
 
         #[cfg(feature = "debug_marker")]
@@ -381,7 +379,7 @@ impl Rmg {
         name: Option<&str>,
     ) -> Result<BufferHandle<T>, RmgError> {
         #[cfg(feature = "debug_marker")]
-        let dbg_name = std::ffi::CString::new(name.unwrap_or(&format!("{}", type_name::<T>())))
+        let dbg_name = std::ffi::CString::new(name.unwrap_or(type_name::<T>()))
             .unwrap_or(std::ffi::CString::new("Unnamed Buffer").unwrap());
 
         //Always add BDA support
@@ -395,7 +393,7 @@ impl Rmg {
                 MemoryUsage::GpuOnly,
                 name,
             )
-            .map_err(|e| MarpiiError::from(e))?,
+            .map_err(MarpiiError::from)?,
         );
 
         #[cfg(feature = "debug_marker")]
@@ -458,7 +456,7 @@ impl Rmg {
         description: &vk::SamplerCreateInfo<'_>,
     ) -> Result<SamplerHandle, RmgError> {
         let sampler =
-            Sampler::new(&self.ctx.device, description).map_err(|e| MarpiiError::from(e))?;
+            Sampler::new(&self.ctx.device, description).map_err(MarpiiError::from)?;
 
         Ok(self.resources.add_sampler(Arc::new(sampler))?)
     }
@@ -515,7 +513,7 @@ impl Drop for Rmg {
         //make sure all executions have finished, otherwise we could destroy
         // referenced images etc.
         for (_id, t) in self.tracks.0.iter_mut() {
-            t.wait_for_inflights()
+            t.wait_for_inflights();
         }
     }
 }

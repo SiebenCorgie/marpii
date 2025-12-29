@@ -67,7 +67,7 @@ impl DynamicImage {
             Some("DynamicImageSrcBuffer"),
             bytes,
         )
-        .map_err(|e| MarpiiError::from(e))?;
+        .map_err(MarpiiError::from)?;
         self.staging_copies.push(DynImgCmd {
             region,
             buffer: Arc::new(buffer),

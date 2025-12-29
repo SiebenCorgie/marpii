@@ -40,7 +40,7 @@ impl<P: 'static> GenericComputePass<P> {
     /// If `keep_resources` is true, keeps any knowledge about used resources (i.e. via `use_image` etc.).
     /// Otherwise its reset.
     ///
-    /// The push-constant is reset regardless, since unregistered ResourceHandles might slip through otherwise
+    /// The push-constant is reset regardless, since unregistered `ResourceHandles` might slip through otherwise
     pub fn reconfigure<'rmg>(
         mut self,
         rmg: &'rmg mut Rmg,
@@ -64,10 +64,8 @@ impl<P: 'static> GenericComputePass<P> {
 }
 
 impl<P: 'static> Task for GenericComputePass<P> {
-    fn name<'a>(&'a self) -> &'a str {
-        self.name
-            .as_ref()
-            .map(|p| p.as_str())
+    fn name(&self) -> &str {
+        self.name.as_deref()
             .unwrap_or("GenericComputePass")
     }
 
@@ -119,7 +117,7 @@ pub struct ComputePassBuilder<'ctx, P: 'static> {
 
 impl<'ctx, P: 'static> ComputePassBuilder<'ctx, P> {
     ///Generates the _final_ push constant for the pass. I.e. use `configure` to fetch all
-    /// ResourceHandle
+    /// `ResourceHandle`
     pub fn with_push_constant<PC: 'static>(
         self,
         configure: impl Fn(&mut Rmg) -> PC,
@@ -195,7 +193,7 @@ impl<'ctx, P: 'static> ComputePassBuilder<'ctx, P> {
     ///Schedules the pass for execution with the given number of waves per axis.
     pub fn dispatch_size(mut self, dispatch_size: [u32; 3]) -> Result<Self, RecordError> {
         #[cfg(feature = "log")]
-        if dispatch_size.iter().find(|x| **x == 0).is_some() {
+        if dispatch_size.contains(&0) {
             log::error!(
                 "Dispatch: {}: {:?} contain invalid zero-sized axis!",
                 self.task_setup.name(),

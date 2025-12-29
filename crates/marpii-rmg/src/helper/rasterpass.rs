@@ -12,7 +12,7 @@ use marpii::{
 use smallvec::SmallVec;
 use std::sync::Arc;
 
-///Specialized version of [GraphicsPipeline] that is
+///Specialized version of [`GraphicsPipeline`] that is
 /// guaranteed to work on just a vertex and fragment shader.
 pub struct RasterPipeline {
     pub inner: Arc<GraphicsPipeline>,
@@ -135,10 +135,8 @@ impl<P: Default + Clone + 'static> GenericRasterPass<P> {
 }
 
 impl<P: Default + Clone + 'static> Task for GenericRasterPass<P> {
-    fn name<'a>(&'a self) -> &'a str {
-        self.name
-            .as_ref()
-            .map(|p| p.as_str())
+    fn name(&self) -> &str {
+        self.name.as_deref()
             .unwrap_or("GenericGraphicsPass")
     }
 
@@ -380,7 +378,7 @@ impl<'rmg, P: Default + Clone + 'static> RasterPassBuilder<'rmg, P> {
     }
 
     pub fn on_rmg<T>(&mut self, func: impl Fn(&mut Rmg) -> T) -> T {
-        func(&mut self.rmg)
+        func(self.rmg)
     }
 
     pub fn with_name(mut self, name: impl Into<String>) -> Self {
@@ -494,18 +492,15 @@ impl<'rmg, P: Default + Clone + 'static> RasterPassBuilder<'rmg, P> {
     }
 
     fn draw_inner(mut self, mut draw: RasterDrawCall<P>, region: Option<ImageRegion>) -> Self {
-        match &mut draw {
-            RasterDrawCall::Instanced { instance_count, .. } => {
-                //make sure we are in the limits, otherwise reduce and throw error
-                let limit = self.rmg.config().limit.limits.max_draw_indexed_index_value;
+        if let RasterDrawCall::Instanced { instance_count, .. } = &mut draw {
+            //make sure we are in the limits, otherwise reduce and throw error
+            let limit = self.rmg.config().limit.limits.max_draw_indexed_index_value;
 
-                if limit <= *instance_count {
-                    #[cfg(feature = "log")]
-                    log::error!("Instance count {instance_count} exceeds the limit of {limit}, reducing to limits");
-                    *instance_count = limit;
-                }
+            if limit <= *instance_count {
+                #[cfg(feature = "log")]
+                log::error!("Instance count {instance_count} exceeds the limit of {limit}, reducing to limits");
+                *instance_count = limit;
             }
-            _ => {}
         }
 
         //check that the drawcall's index buffer has the usage set
@@ -554,8 +549,7 @@ impl<'rmg, P: Default + Clone + 'static> RasterPassBuilder<'rmg, P> {
         //make sure all framebuffer use the same extent
         let Some(reference_size) = self
             .task_setup
-            .color_attachments
-            .get(0)
+            .color_attachments.first()
             .map(|i| i.as_ref().unwrap().0.extent_2d())
             .or(self
                 .task_setup
@@ -607,7 +601,7 @@ impl Rmg {
         }
     }
 
-    ///Creates a new [RasterPipeline] for the given vertex and fragment shaders.
+    ///Creates a new [`RasterPipeline`] for the given vertex and fragment shaders.
     ///
     /// Use the `configure_pipeline` call to reconfigure the graphics pipeline.
     ///
@@ -618,7 +612,7 @@ impl Rmg {
     ///
     /// # Important
     ///
-    /// The [GenericRasterPass] assumes that the scissors and viewport are dynamic state, and that the pipeline uses no
+    /// The [`GenericRasterPass`] assumes that the scissors and viewport are dynamic state, and that the pipeline uses no
     /// vertex-inputs (i.e. no vertex buffer is supplied to the draw command, only a index buffer). Everything else
     /// can be configured. When in doubt, use validation-layers as always.
     pub fn new_raster_pipeline(
@@ -719,7 +713,7 @@ impl Rmg {
             &color_attachments,
             depth_attachment_format,
         )
-        .map_err(|e| MarpiiError::from(e))?;
+        .map_err(MarpiiError::from)?;
 
         Ok(RasterPipeline {
             inner: Arc::new(pipeline),

@@ -577,7 +577,7 @@ impl<'t> Executor<'t> {
                             //intit to queue
                             #[cfg(feature = "logging")]
                             log::trace!("Init {:?} to track {:?}", buf, trackid);
-                            bufstate.ownership = QueueOwnership::Owned(track_queue_family)
+                            bufstate.ownership = QueueOwnership::Owned(track_queue_family);
                         }
                         QueueOwnership::Owned(owner) => {
                             //check that we already own
@@ -631,7 +631,7 @@ impl<'t> Executor<'t> {
                             //intit to queue
                             #[cfg(feature = "logging")]
                             log::trace!("Init {:?} to track {:?}", img, trackid);
-                            imgstate.ownership = QueueOwnership::Owned(track_queue_family)
+                            imgstate.ownership = QueueOwnership::Owned(track_queue_family);
                         }
                         QueueOwnership::Owned(owner) => {
                             //check that we acutally already own
@@ -866,7 +866,7 @@ impl<'t> Executor<'t> {
                     .unwrap()
                     .timestamp_table
                     .reset(&cb.inner);
-                self.timestamp_reset.insert(trackid.clone());
+                self.timestamp_reset.insert(trackid);
             }
         }
 
@@ -1002,7 +1002,7 @@ impl<'t> Executor<'t> {
                     if let Some(dbg) = rmg.ctx.device.get_debugger() {
                         unsafe {
                             dbg.debug_report_loader
-                                .cmd_begin_debug_utils_label(cb.inner, &label)
+                                .cmd_begin_debug_utils_label(cb.inner, &label);
                         };
                     }
                 };
@@ -1015,11 +1015,10 @@ impl<'t> Executor<'t> {
                     rmg.tracks
                         .0
                         .get_mut(&trackid)
-                        .map(|t| {
+                        .and_then(|t| {
                             t.timestamp_table
                                 .start_region(&cb.inner, track.nodes[node_idx].task.task.name())
                         })
-                        .flatten()
                 } else {
                     None
                 };
@@ -1041,11 +1040,9 @@ impl<'t> Executor<'t> {
                 }
 
                 #[cfg(feature = "debug_marker")]
-                {
-                    if let Some(dbg) = rmg.ctx.device.get_debugger() {
+                if let Some(dbg) = rmg.ctx.device.get_debugger() {
                         unsafe { dbg.debug_report_loader.cmd_end_debug_utils_label(cb.inner) };
-                    }
-                };
+                    };
             }
         }
 

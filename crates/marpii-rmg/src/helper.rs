@@ -18,7 +18,7 @@ pub enum ImageUsage {
     StorageWrite,
     SampledRead,
     StorageAndSampleRead,
-    ///Uses the image as a ColorAttachment at the given index
+    ///Uses the image as a `ColorAttachment` at the given index
     ColorAttachment {
         attachment_index: usize,
         load_op: vk::AttachmentLoadOp,
@@ -134,7 +134,7 @@ impl ResourceStorage {
                     usage.into_access_flags(),
                     usage.into_layout(),
                 )
-                .unwrap()
+                .unwrap();
         }
 
         for sampler in &self.samplers {
@@ -143,7 +143,7 @@ impl ResourceStorage {
     }
 }
 
-///Trait that generates the VertexFormat of some data.
+///Trait that generates the `VertexFormat` of some data.
 pub trait VertexFormat {
     fn vertex_input_attribute_descriptions(&self) -> &[vk::VertexInputAttributeDescription];
     fn vertex_input_state<'a>(&'a self) -> vk::PipelineVertexInputStateCreateInfo<'a>;

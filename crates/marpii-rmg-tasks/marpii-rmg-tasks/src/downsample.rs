@@ -84,7 +84,7 @@ impl Downsample {
         let mut downsample_ops = Vec::with_capacity(levels - 1);
 
         let mut desc = image.image_desc().clone();
-        let mut mip_size = image.extent_3d().clone();
+        let mut mip_size = image.extent_3d();
         let mut parent = image.clone();
         for mip in 1..levels {
             mip_size.width = (mip_size.width / 2).max(1);
