@@ -95,7 +95,7 @@ impl Semaphore {
             .semaphore(self.inner)
             .value(value);
 
-        if let Err(_) = unsafe { self.device.inner.signal_semaphore(&signal_info) } {
+        if unsafe { self.device.inner.signal_semaphore(&signal_info) }.is_err() {
             Err(self.get_value())
         } else {
             Ok(())
@@ -108,7 +108,7 @@ impl Semaphore {
     ///
     /// Note that this function allocates two vectors, if you are only waiting for a single Semaphore, use the associated [wait](Semaphore::wait).
     pub fn wait_for(waits: &[(&Semaphore, u64)], timeout: u64) -> Result<(), ash::vk::Result> {
-        if waits.len() == 0 {
+        if waits.is_empty() {
             return Ok(());
         }
 
@@ -286,10 +286,7 @@ impl Event {
         let ci = ash::vk::EventCreateInfo::default();
 
         let event = unsafe {
-            match device.inner.create_event(&ci, None) {
-                Ok(ok) => ok,
-                Err(er) => return Err(er),
-            }
+            device.inner.create_event(&ci, None)?
         };
 
         Ok(Arc::new(Event { event, device }))

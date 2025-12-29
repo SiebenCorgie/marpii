@@ -63,7 +63,7 @@ impl CommandBufferAllocator for OoS<CommandPool> {
             }
             .map_err(|e| e.into())
         } else {
-            return Err(CommandBufferError::PoolNotResetable);
+            Err(CommandBufferError::PoolNotResetable)
         }
     }
     fn allocate_buffer(
@@ -82,7 +82,7 @@ impl CommandBufferAllocator for OoS<CommandPool> {
             )?
         };
 
-        if buffer.len() == 0 {
+        if buffer.is_empty() {
             return Err(CommandBufferError::FailedToAllocate {
                 allocated: 0,
                 count: 1,
@@ -155,7 +155,7 @@ pub trait CommandBufferAllocator {
             }
         }
         if let Some(err) = err {
-            return Err((err.into(), buffers));
+            Err((err, buffers))
         } else {
             Ok(buffers)
         }

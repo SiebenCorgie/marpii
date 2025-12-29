@@ -22,6 +22,11 @@ impl std::error::Error for UnamanagedAllocationError {}
 impl UnmanagedAllocation {
     ///Dummy allocation, that is not backed by any known allocator. Can be used when working with foreign
     ///allocation.
+    ///
+    /// # Safety
+    ///
+    /// Only use if you can be absolutely be certain that the allocation won't ever be
+    /// used / dereferenced!
     pub unsafe fn new() -> Self {
         UnmanagedAllocation {
             hidden: PhantomData,

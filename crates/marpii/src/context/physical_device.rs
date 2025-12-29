@@ -79,21 +79,14 @@ impl PhysicalDeviceFilter {
 
     ///removes all devices that do not contain the device type bits.
     pub fn filter_type(mut self, dev_type: ash::vk::PhysicalDeviceType) -> Self {
-        self.pdevices = self
-            .pdevices
-            .into_iter()
-            .filter(|dev| dev.properties.device_type == dev_type)
-            .collect();
+        self.pdevices.retain(|dev| dev.properties.device_type == dev_type);
 
         self
     }
 
     ///removes all queues that do not contain a queue with the given flags
     pub fn filter_queue_flags(mut self, flags: ash::vk::QueueFlags) -> Self {
-        self.pdevices = self
-            .pdevices
-            .into_iter()
-            .filter(|dev| {
+        self.pdevices.retain(|dev| {
                 let mut has = false;
                 for (_idx, f) in dev.queue_properties.iter() {
                     #[cfg(feature = "logging")]
@@ -105,8 +98,7 @@ impl PhysicalDeviceFilter {
                 }
 
                 has
-            })
-            .collect();
+            });
 
         self
     }
@@ -128,7 +120,7 @@ impl PhysicalDeviceFilter {
     ) -> Self {
         self.pdevices = self.pdevices.into_iter().filter_map(|mut pdev|{
             //check each queue if it is presentable, if not filter out queue
-            pdev.queue_properties = pdev.queue_properties.into_iter().filter(|(qidx, _queue)| {
+            pdev.queue_properties.retain(|(qidx, _queue)| {
                 if let Ok(res) = unsafe{surface_loader.get_physical_device_surface_support(pdev.phydev, *qidx as u32, *surface)}{
                     res
                 }else{
@@ -136,9 +128,9 @@ impl PhysicalDeviceFilter {
                     log::warn!("Failed to query surface capability on queue family {} of physical device: {:?}", qidx, pdev.properties.device_name);
                     false
                 }
-            }).collect();
+            });
             //Check if any family is left, otherwise remove device completely
-            if pdev.queue_properties.len() > 0{
+            if !pdev.queue_properties.is_empty(){
                 Some(pdev)
             }else{
                 None

@@ -100,15 +100,15 @@ impl DeviceBuilder {
     }
 
     ///Pushes an additional feature into the `p_next` chain.
-    pub fn with_feature<T: 'static>(mut self, feature: T) -> Self
+    pub fn with_feature<T>(mut self, feature: T) -> Self
     where
-        T: ash::vk::ExtendsDeviceCreateInfo,
+        T: ash::vk::ExtendsDeviceCreateInfo + 'static,
     {
         self.p_next.push(Box::new(feature));
         self
     }
 
-    pub fn build<'a>(mut self) -> Result<Arc<Device>, DeviceError> {
+    pub fn build(mut self) -> Result<Arc<Device>, DeviceError> {
         //before starting anything, check that the extensions are supported
         self.check_extensions()?;
 
@@ -137,7 +137,7 @@ impl DeviceBuilder {
 
         //if there is a p_next queue, build the pointer queue and add it to the builder
         let mut create_info = device_creation_info;
-        if p_next.len() > 0 {
+        if !p_next.is_empty() {
             //Chain the features together similar to the builders push
             let chain = p_next
                 .iter_mut()
@@ -202,11 +202,11 @@ impl Device {
         //finally create the queues and device
         let device = instance
             .inner
-            .create_device(physical_device, &device_create_info, None)?;
+            .create_device(physical_device, device_create_info, None)?;
         //now setup the queues for the infos we prepared before
         let queues = queue_builder
-            .into_iter()
-            .map(|queue_family| {
+            .iter()
+            .flat_map(|queue_family| {
                 (0..queue_family.priorities.len())
                     .map(|queue_index| Queue {
                         family_index: queue_family.family_index,
@@ -217,7 +217,6 @@ impl Device {
                     })
                     .collect::<Vec<Queue>>()
             })
-            .flatten()
             .collect();
 
         let physical_device_properties = instance
@@ -472,7 +471,7 @@ impl Device {
             Err(e) => {
                 #[cfg(feature = "logging")]
                 log::error!("Failed to get image format properties: {e}");
-                return Err(DeviceError::GetFormatProperties { format, error: e });
+                Err(DeviceError::GetFormatProperties { format, error: e })
             }
             Ok(o) => Ok(o),
         }

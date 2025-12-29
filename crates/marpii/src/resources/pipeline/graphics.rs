@@ -107,7 +107,7 @@ impl GraphicsPipeline {
             } else {
                 vk::Format::UNDEFINED
             })
-            .color_attachment_formats(&color_formats);
+            .color_attachment_formats(color_formats);
 
         let stages = shader_stages
             .iter()

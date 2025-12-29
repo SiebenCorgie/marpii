@@ -167,7 +167,7 @@ impl DescriptorAllocator for OoS<DescriptorPool> {
 
         let mut sets = unsafe { self.device.inner.allocate_descriptor_sets(&create_info)? };
 
-        if sets.len() == 0 {
+        if sets.is_empty() {
             return Err(DescriptorError::Allocation {
                 requested: 1,
                 count: 0,

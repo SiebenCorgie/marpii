@@ -49,7 +49,7 @@ impl<T: Sized + 'static> PushConstant<T> {
         self.stage
     }
 
-    pub fn content_as_bytes<'a>(&'a self) -> &'a [u8] {
+    pub fn content_as_bytes(&self) -> &[u8] {
         let pointer: *const T = &self.content;
         let u_pointer: *const u8 = pointer as *const u8;
         let sli: &[u8] = unsafe { std::slice::from_raw_parts(u_pointer, std::mem::size_of::<T>()) };

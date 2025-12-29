@@ -16,15 +16,12 @@ pub struct ComputePipeline {
 }
 
 impl ComputePipeline {
-    pub fn new<'a, L: 'static>(
+    pub fn new<'a, L>(
         device: &Arc<Device>,
         stage: &'a ShaderStage,
         specialization_info: Option<&'a ash::vk::SpecializationInfo>,
-        layout: L,
-    ) -> Result<Self, PipelineError>
-    where
-        L: Into<OoS<PipelineLayout>>,
-    {
+        layout: impl Into<OoS<PipelineLayout>> + 'static,
+    ) -> Result<Self, PipelineError> {
         let layout = layout.into();
         let create_info = ash::vk::ComputePipelineCreateInfo::default()
             .stage(stage.as_create_info(specialization_info))

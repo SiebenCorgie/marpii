@@ -281,7 +281,7 @@ impl InstanceBuilder {
 
     ///adds an extensions with the given name, if it was not added yet.
     pub fn with_extension(mut self, name: CString) -> Result<Self, InstanceError> {
-        if !self.is_extension_available_cstr(&name.as_c_str()) {
+        if !self.is_extension_available_cstr(&name) {
             return Err(InstanceError::MissingExtension(name));
         }
 
@@ -443,8 +443,8 @@ impl Instance {
                 .get_physical_device_features2(*physical_device, &mut features2);
         }
         //at this point we can assume q to be init.
-        let query = unsafe { q.assume_init() };
-        query
+
+        unsafe { q.assume_init() }
     }
 
     pub fn get_property<P: vk::ExtendsPhysicalDeviceProperties2 + TaggedStructure>(
@@ -468,8 +468,8 @@ impl Instance {
                 .get_physical_device_properties2(*physical_device, &mut properties2);
         }
         //at this point we can assume q to be init.
-        let query = unsafe { q.assume_init() };
-        query
+
+        unsafe { q.assume_init() }
     }
 
     ///Returns a list of all enabled layers at instance creation.

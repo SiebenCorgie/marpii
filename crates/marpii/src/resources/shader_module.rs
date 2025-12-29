@@ -2,8 +2,6 @@ use oos::OoS;
 
 #[cfg(feature = "shader_reflection")]
 use super::Reflection;
-#[cfg(feature = "shader_reflection")]
-use std::mem::size_of;
 
 use crate::{context::Device, error::ShaderError};
 use std::{ffi::CString, path::Path, sync::Arc};
@@ -32,7 +30,7 @@ impl ShaderModule {
         Self::new(device, &code)
     }
 
-    pub fn new_from_bytes<'a>(device: &Arc<Device>, bytes: &'a [u8]) -> Result<Self, ShaderError> {
+    pub fn new_from_bytes(device: &Arc<Device>, bytes: &[u8]) -> Result<Self, ShaderError> {
         #[cfg(feature = "logging")]
         log::trace!("read shader module from byte array");
         let words = ash::util::read_spv(&mut std::io::Cursor::new(bytes)).unwrap();
@@ -52,7 +50,7 @@ impl ShaderModule {
 
             //cast the code to an u8. Should be save since the create_shader_module would have paniced
             // if the shader code was not /correct/
-            let len = code.len() * size_of::<u32>();
+            let len = std::mem::size_of_val(code);
             let code = unsafe { core::slice::from_raw_parts(code.as_ptr() as *const u8, len) };
             //FIXME: currently the reflection error can't be cast to anyhow's error. Should be fixed when
             //       https://github.com/Traverse-Research/rspirv-reflect/pull/24 is merged.
@@ -89,7 +87,7 @@ impl ShaderModule {
 
         let mut layouts = Vec::with_capacity(bindings.len());
         for (setid, bindings) in &bindings {
-            let layout = DescriptorSetLayout::new(&self.device, &bindings)?;
+            let layout = DescriptorSetLayout::new(&self.device, bindings)?;
             layouts.push((*setid, layout));
         }
 
@@ -176,7 +174,7 @@ impl ShaderStage {
     pub fn duplicate(&mut self) -> Self {
         ShaderStage {
             module: self.module.share(),
-            stage: self.stage.clone(),
+            stage: self.stage,
             entry_name: self.entry_name.clone(),
         }
     }

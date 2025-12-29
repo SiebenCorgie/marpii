@@ -50,7 +50,7 @@ impl QueryPool {
         dst: &mut [u32],
         flags: vk::QueryResultFlags,
     ) -> Result<(), vk::Result> {
-        if dst.len() == 0 {
+        if dst.is_empty() {
             return Ok(());
         }
         assert!(
@@ -75,7 +75,7 @@ impl QueryPool {
         dst: &mut [u64],
         flags: vk::QueryResultFlags,
     ) -> Result<(), vk::Result> {
-        if dst.len() == 0 {
+        if dst.is_empty() {
             return Ok(());
         }
 
@@ -92,7 +92,7 @@ impl QueryPool {
         dst: &mut [T],
         flags: vk::QueryResultFlags,
     ) -> Result<(), vk::Result> {
-        if dst.len() == 0 {
+        if dst.is_empty() {
             return Ok(());
         }
         unsafe {

@@ -210,7 +210,7 @@ impl Buffer {
     ) -> Result<Self, DeviceError> {
         //TODO:  Do we need alignment padding? But usually we can start at 0 can't we?
         //FIXME: Check that out. Until now it worked... If it didn't also fix the upload helper passes.
-        let buffer_size = core::mem::size_of::<T>() * data.len();
+        let buffer_size = std::mem::size_of_val(data);
 
         //build the buffer description, as well as the staging buffer. Map data to staging buffer, then upload
         let desc = BufDesc {

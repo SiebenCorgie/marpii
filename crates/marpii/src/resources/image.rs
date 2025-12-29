@@ -221,7 +221,7 @@ impl ImgDesc {
             } => {
                 builder = builder
                     .sharing_mode(ash::vk::SharingMode::CONCURRENT)
-                    .queue_family_indices(&queue_family_indices)
+                    .queue_family_indices(queue_family_indices)
             }
         }
 

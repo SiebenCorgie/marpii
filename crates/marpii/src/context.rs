@@ -145,7 +145,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
 
         let mut device_candidates = device_candidates.release();
 
-        if device_candidates.len() == 0 {
+        if device_candidates.is_empty() {
             return Err(DeviceError::NoPhysicalDevice)?;
         }
 
@@ -277,7 +277,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
 
         let mut device_candidates = physical_device_filter.release();
 
-        if device_candidates.len() == 0 {
+        if device_candidates.is_empty() {
             return Err(DeviceError::NoPhysicalDevice)?;
         }
 
