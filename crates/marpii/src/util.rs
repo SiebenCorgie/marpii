@@ -176,8 +176,8 @@ pub enum FormatType {
 }
 
 impl FormatType {
-    pub fn parse(format: vk::Format) -> Self {
-        match format {
+    pub fn parse(format: &vk::Format) -> Self {
+        match *format {
             vk::Format::D32_SFLOAT
             | vk::Format::R32_SFLOAT
             | vk::Format::R32G32_SFLOAT
@@ -245,9 +245,9 @@ pub struct FormatProperties {
 
 impl FormatProperties {
     pub fn parse(format: vk::Format) -> Self {
-        let byte_per_pixel = byte_per_pixel(format);
-        let is_srgb = is_srgb(format);
-        let format_type = FormatType::parse(format);
+        let byte_per_pixel = byte_per_pixel(&format);
+        let is_srgb = is_srgb(&format);
+        let format_type = FormatType::parse(&format);
         let is_depth = is_depth(&format);
         FormatProperties {
             byte_per_pixel,
@@ -263,8 +263,8 @@ impl FormatProperties {
 ///
 /// # Note
 /// The function is only implemented for core formats. Otherwise None is returned and an error is printed to the logs.
-pub fn byte_per_pixel(format: vk::Format) -> Option<u8> {
-    match format {
+pub fn byte_per_pixel(format: &vk::Format) -> Option<u8> {
+    match *format {
         vk::Format::R4G4_UNORM_PACK8 => Some(1),
         vk::Format::R4G4B4A4_UNORM_PACK16
         | vk::Format::R5G6B5_UNORM_PACK16
@@ -376,53 +376,53 @@ pub fn byte_per_pixel(format: vk::Format) -> Option<u8> {
 }
 
 ///Returns true if `format` is an `_SRGB` suffixed format. This is, simillar to [byte_per_pixel] only implemented for core formats. If unsure, have a look at the implementation.
-pub fn is_srgb(format: vk::Format) -> bool {
-    match format {
+pub fn is_srgb(format: &vk::Format) -> bool {
+    matches!(
+        *format,
         vk::Format::R8_SRGB
-        | vk::Format::BC2_SRGB_BLOCK
-        | vk::Format::BC3_SRGB_BLOCK
-        | vk::Format::BC7_SRGB_BLOCK
-        | vk::Format::R8G8_SRGB
-        | vk::Format::ASTC_4X4_SRGB_BLOCK
-        | vk::Format::ASTC_5X5_SRGB_BLOCK
-        | vk::Format::ASTC_6X6_SRGB_BLOCK
-        | vk::Format::ASTC_8X5_SRGB_BLOCK
-        | vk::Format::ASTC_8X6_SRGB_BLOCK
-        | vk::Format::ASTC_8X8_SRGB_BLOCK
-        | vk::Format::ASTC_10X5_SRGB_BLOCK
-        | vk::Format::ASTC_10X6_SRGB_BLOCK
-        | vk::Format::ASTC_10X8_SRGB_BLOCK
-        | vk::Format::ASTC_10X10_SRGB_BLOCK
-        | vk::Format::ASTC_12X10_SRGB_BLOCK
-        | vk::Format::ASTC_12X12_SRGB_BLOCK
-        | vk::Format::B8G8R8_SRGB
-        | vk::Format::R8G8B8_SRGB
-        | vk::Format::BC1_RGB_SRGB_BLOCK
-        | vk::Format::A8B8G8R8_SRGB_PACK32
-        | vk::Format::B8G8R8A8_SRGB
-        | vk::Format::BC1_RGBA_SRGB_BLOCK
-        | vk::Format::R8G8B8A8_SRGB
-        | vk::Format::ETC2_R8G8B8_SRGB_BLOCK
-        | vk::Format::PVRTC1_2BPP_SRGB_BLOCK_IMG
-        | vk::Format::PVRTC1_4BPP_SRGB_BLOCK_IMG
-        | vk::Format::PVRTC2_2BPP_SRGB_BLOCK_IMG
-        | vk::Format::PVRTC2_4BPP_SRGB_BLOCK_IMG
-        | vk::Format::ETC2_R8G8B8A1_SRGB_BLOCK
-        | vk::Format::ETC2_R8G8B8A8_SRGB_BLOCK => true,
-        _ => false,
-    }
+            | vk::Format::BC2_SRGB_BLOCK
+            | vk::Format::BC3_SRGB_BLOCK
+            | vk::Format::BC7_SRGB_BLOCK
+            | vk::Format::R8G8_SRGB
+            | vk::Format::ASTC_4X4_SRGB_BLOCK
+            | vk::Format::ASTC_5X5_SRGB_BLOCK
+            | vk::Format::ASTC_6X6_SRGB_BLOCK
+            | vk::Format::ASTC_8X5_SRGB_BLOCK
+            | vk::Format::ASTC_8X6_SRGB_BLOCK
+            | vk::Format::ASTC_8X8_SRGB_BLOCK
+            | vk::Format::ASTC_10X5_SRGB_BLOCK
+            | vk::Format::ASTC_10X6_SRGB_BLOCK
+            | vk::Format::ASTC_10X8_SRGB_BLOCK
+            | vk::Format::ASTC_10X10_SRGB_BLOCK
+            | vk::Format::ASTC_12X10_SRGB_BLOCK
+            | vk::Format::ASTC_12X12_SRGB_BLOCK
+            | vk::Format::B8G8R8_SRGB
+            | vk::Format::R8G8B8_SRGB
+            | vk::Format::BC1_RGB_SRGB_BLOCK
+            | vk::Format::A8B8G8R8_SRGB_PACK32
+            | vk::Format::B8G8R8A8_SRGB
+            | vk::Format::BC1_RGBA_SRGB_BLOCK
+            | vk::Format::R8G8B8A8_SRGB
+            | vk::Format::ETC2_R8G8B8_SRGB_BLOCK
+            | vk::Format::PVRTC1_2BPP_SRGB_BLOCK_IMG
+            | vk::Format::PVRTC1_4BPP_SRGB_BLOCK_IMG
+            | vk::Format::PVRTC2_2BPP_SRGB_BLOCK_IMG
+            | vk::Format::PVRTC2_4BPP_SRGB_BLOCK_IMG
+            | vk::Format::ETC2_R8G8B8A1_SRGB_BLOCK
+            | vk::Format::ETC2_R8G8B8A8_SRGB_BLOCK
+    )
 }
 
 ///Returns true if this format contains the 'D' property, i.e. is one of the dedicated
 /// depth formats
 pub fn is_depth(format: &vk::Format) -> bool {
-    match *format {
+    matches!(
+        *format,
         vk::Format::D16_UNORM
-        | vk::Format::D16_UNORM_S8_UINT
-        | vk::Format::D24_UNORM_S8_UINT
-        | vk::Format::D32_SFLOAT
-        | vk::Format::D32_SFLOAT_S8_UINT
-        | vk::Format::X8_D24_UNORM_PACK32 => true,
-        _ => false,
-    }
+            | vk::Format::D16_UNORM_S8_UINT
+            | vk::Format::D24_UNORM_S8_UINT
+            | vk::Format::D32_SFLOAT
+            | vk::Format::D32_SFLOAT_S8_UINT
+            | vk::Format::X8_D24_UNORM_PACK32
+    )
 }

@@ -414,7 +414,7 @@ impl Swapchain {
         let (index, is_suboptimal) = unsafe {
             self.loader.acquire_next_image(
                 self.swapchain,
-                core::u64::MAX,
+                u64::MAX,
                 acquire_semaphore.inner,
                 ash::vk::Fence::null(),
             )?

@@ -38,8 +38,6 @@ use ash::{self, vk};
 use std::fmt::Debug;
 use std::sync::Arc;
 
-use std::u64;
-
 ///Single [TimelineSemaphore](https://www.khronos.org/blog/vulkan-timeline-semaphores). This is the preffered type of semaphores these days. However, for compatibility reasons (mostly with the swapchain) [BinarySemaphore]s exist as well.
 pub struct Semaphore {
     pub inner: ash::vk::Semaphore,
@@ -285,9 +283,7 @@ impl Event {
     pub fn new(device: Arc<Device>) -> Result<Arc<Self>, ash::vk::Result> {
         let ci = ash::vk::EventCreateInfo::default();
 
-        let event = unsafe {
-            device.inner.create_event(&ci, None)?
-        };
+        let event = unsafe { device.inner.create_event(&ci, None)? };
 
         Ok(Arc::new(Event { event, device }))
     }
