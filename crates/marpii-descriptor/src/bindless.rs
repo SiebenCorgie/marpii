@@ -182,7 +182,7 @@ impl<T> SetManagment<T> {
                 .device
                 .inner
                 .allocate_descriptor_sets(&descriptor_set_info)
-                .map_err(|e| DescriptorError::VkError(e))?
+                .map_err(DescriptorError::VkError)?
         };
         assert!(
             descriptor_set.len() == 1,
@@ -329,7 +329,6 @@ impl BindlessDescriptor {
 
         let features = device.get_physical_device_features();
         if features.shader_storage_image_array_dynamic_indexing == 0
-            || features.shader_storage_image_array_dynamic_indexing == 0
             || features.shader_storage_buffer_array_dynamic_indexing == 0
             || features.shader_uniform_buffer_array_dynamic_indexing == 0
             || features.shader_sampled_image_array_dynamic_indexing == 0
@@ -370,10 +369,10 @@ impl BindlessDescriptor {
             .max_bound_descriptor_sets
             < Self::NUM_SETS
         {
-            Err(DeviceError::UnsupportedFeature(String::from(format!(
+            Err(DeviceError::UnsupportedFeature(format!(
                 "Max bound descriptor setst < {}",
                 Self::NUM_SETS
-            ))))?;
+            )))?;
         }
 
         let descriptor_sizes = [

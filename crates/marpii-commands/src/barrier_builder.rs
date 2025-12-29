@@ -44,6 +44,7 @@ impl BarrierBuilder {
     /// Make sure that the `buffer` handle is alive until the barrier is used on the GPU.
     /// This is not enforced by this object since it is dropped whenever the commandbuffer is build. Therefore, there is no
     /// way for it to extent the lifetime as needed.
+    #[allow(clippy::too_many_arguments)]
     pub fn buffer_barrier(
         &mut self,
         buffer: vk::Buffer,
@@ -108,6 +109,7 @@ impl BarrierBuilder {
     /// Make sure that the `image` handle is alive until the barrier is used on the GPU.
     /// This is not enforced by this object since it is dropped whenever the commandbuffer is build. Therefore, there is no
     /// way for it to extent the lifetime as needed.
+    #[allow(clippy::too_many_arguments)]
     pub fn image_barrier(
         &mut self,
         image: vk::Image,

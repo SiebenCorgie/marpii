@@ -96,7 +96,7 @@ pub fn image_from_data<A: Allocator + Send + Sync + 'static>(
     recorder.finish_recording()?;
 
     cb.submit(device, upload_queue, &[], &[])?;
-    cb.wait().map_err(|e| CommandBufferError::from(e))?;
+    cb.wait().map_err(CommandBufferError::from)?;
 
     Ok(image)
 }

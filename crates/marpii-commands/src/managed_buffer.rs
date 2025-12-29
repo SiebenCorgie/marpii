@@ -23,10 +23,7 @@ pub enum SignalState {
 
 impl SignalState {
     pub fn is_in_use(&self) -> bool {
-        match self {
-            SignalState::InUse => true,
-            _ => false,
-        }
+        matches!(self, SignalState::InUse)
     }
 }
 
@@ -237,7 +234,7 @@ impl ManagedCommands {
             queue,
             signal_semaphores,
             wait_semaphores,
-            &[image.sem_present.clone()],
+            std::slice::from_ref(&image.sem_present),
             &[(
                 image.sem_acquire.clone(),
                 vk::PipelineStageFlags2::ALL_COMMANDS,
@@ -308,7 +305,7 @@ impl<'a> Recorder<'a> {
     ///    self.pipeline.layout,
     ///    ash::vk::ShaderStageFlags::COMPUTE,
     ///    0,
-    ///	   self.push_constant.content_as_bytes(),
+    ///    self.push_constant.content_as_bytes(),
     ///));
     ///```
     /// as to be transformed to
@@ -321,7 +318,7 @@ impl<'a> Recorder<'a> {
     ///        pipe.layout,
     ///        ash::vk::ShaderStageFlags::COMPUTE,
     ///        0,
-    ///	       push_const.content_as_bytes(),
+    ///        push_const.content_as_bytes(),
     ///    )
     ///});
     ///```
@@ -332,10 +329,7 @@ impl<'a> Recorder<'a> {
     ///
     /// In practice this can usually be done by either moving data into the closure (if they are used once), or, if you
     /// need to keep the reference, wrapping it into `Arc<T>` / `Arc<Mutex<T>>`.
-    pub fn record<F: Send + 'static>(&mut self, cmd: F)
-    where
-        F: Fn(&ash::Device, &ash::vk::CommandBuffer),
-    {
+    pub fn record(&mut self, cmd: impl Fn(&ash::Device, &ash::vk::CommandBuffer) + Send + 'static) {
         //wrap command in a box to catch the resources
         let cmd = Box::new(cmd);
 

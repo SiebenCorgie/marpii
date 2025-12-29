@@ -52,7 +52,7 @@ pub fn load_model(gltf: &[Scene]) -> (Vec<Vertex>, Vec<u32>) {
             }
 
             for i in model.indices().expect("Mesh has no index buffer") {
-                index_buffer.push(index_offset + *i as u32);
+                index_buffer.push(index_offset + *i);
             }
         }
     }

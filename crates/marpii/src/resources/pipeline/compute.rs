@@ -16,7 +16,7 @@ pub struct ComputePipeline {
 }
 
 impl ComputePipeline {
-    pub fn new<'a, L>(
+    pub fn new<'a>(
         device: &Arc<Device>,
         stage: &'a ShaderStage,
         specialization_info: Option<&'a ash::vk::SpecializationInfo>,
