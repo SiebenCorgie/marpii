@@ -53,7 +53,7 @@ impl LayerDepth {
 impl Compositor {
     //Returns true, if the colors need to be gamma corrected
     pub(crate) fn must_gamma_correct_color(format: vk::Format) -> bool {
-        !marpii::util::is_srgb(format)
+        !marpii::util::is_srgb(&format)
     }
 
     ///Data setup step before actually rendering something

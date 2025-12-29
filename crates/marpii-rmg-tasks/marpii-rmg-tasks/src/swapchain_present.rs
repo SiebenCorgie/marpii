@@ -56,8 +56,8 @@ impl SwapchainPresent {
                 //try to use the highest bit format format
                 let mut best_format = b.format_preference.remove(0);
                 for next_format in b.format_preference.iter() {
-                    if marpii::util::byte_per_pixel(next_format.format).unwrap_or(8)
-                        > marpii::util::byte_per_pixel(best_format.format).unwrap_or(8)
+                    if marpii::util::byte_per_pixel(&next_format.format).unwrap_or(8)
+                        > marpii::util::byte_per_pixel(&best_format.format).unwrap_or(8)
                     {
                         best_format = *next_format;
                     }
