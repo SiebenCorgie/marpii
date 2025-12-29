@@ -37,7 +37,7 @@ impl From<&iced_graphics::Mesh> for LayerMesh {
                 index_buffer: buffers.indices.clone(),
                 scale: transformation.scale_factor(),
                 translation: transformation.translation().into(),
-                clip: clip_to_rect2d(clip_bounds.clone()),
+                clip: clip_to_rect2d(*clip_bounds),
             },
             iced_graphics::Mesh::Gradient {
                 buffers,
@@ -60,7 +60,7 @@ impl From<&iced_graphics::Mesh> for LayerMesh {
                     index_buffer: buffers.indices.clone(),
                     scale: transformation.scale_factor(),
                     translation: transformation.translation().into(),
-                    clip: clip_to_rect2d(clip_bounds.clone()),
+                    clip: clip_to_rect2d(*clip_bounds),
                 }
             }
         }

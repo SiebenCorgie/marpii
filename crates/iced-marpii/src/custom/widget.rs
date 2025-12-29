@@ -97,7 +97,7 @@ where
             iced_core::Event::Keyboard(keyboard_event) => {
                 Some(Event::Keyboard(keyboard_event.clone()))
             }
-            iced_core::Event::Touch(touch_event) => Some(Event::Touch(touch_event.clone())),
+            iced_core::Event::Touch(touch_event) => Some(Event::Touch(*touch_event)),
             iced::Event::InputMethod(input_method) => {
                 Some(Event::InputMethod(input_method.clone()))
             }

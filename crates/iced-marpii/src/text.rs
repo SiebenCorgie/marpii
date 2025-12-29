@@ -527,7 +527,7 @@ impl TextRenderer {
                     let atlas_size: [u32; 2] =
                         [glyph_entry.placement.width, glyph_entry.placement.height];
 
-                    let mut base_color = text_area.color.clone();
+                    let mut base_color = text_area.color;
                     if let Some(ovc) = &glyph.color_opt {
                         let [r, g, b, a] = ovc.as_rgba();
                         base_color = Color::from_rgba8(r, g, b, a as f32 / 255.0);
@@ -568,14 +568,14 @@ impl TextRenderer {
         self.renderpass.layer.push(TextLayer {
             instance_count,
             instance_buffer_offset: text_layer_offset.try_into().unwrap(),
-            clip_bound: layer_bounds.clone(),
+            clip_bound: *layer_bounds,
         });
     }
 
     ///Prepares the given text
     pub fn prepare(&mut self, rmg: &mut Rmg) {
         //do nothing, if there is no text
-        if self.glyph_instance_buffer.len() == 0 {
+        if self.glyph_instance_buffer.is_empty() {
             return;
         }
 

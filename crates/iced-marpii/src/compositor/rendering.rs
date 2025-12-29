@@ -76,7 +76,7 @@ impl Compositor {
         for (layer_index, layer) in renderer.layers.iter_mut().enumerate() {
             let quad_depth = depth_calc.quad_depth(layer_index);
             //push all quads of this layer into the quads renderer
-            if layer.solid_quads.len() > 0 {
+            if !layer.solid_quads.is_empty() {
                 //TODO: take scaling factor and stuff like that into account
                 self.quads.push_solid_batch(
                     &mut self.rmg,
@@ -86,7 +86,7 @@ impl Compositor {
                     must_gamma_correct,
                 );
             }
-            if layer.gradient_quads.len() > 0 {
+            if !layer.gradient_quads.is_empty() {
                 //TODO: take scaling factor and stuff like that into account
                 self.quads.push_gradient_batch(
                     &mut self.rmg,
@@ -98,7 +98,7 @@ impl Compositor {
             }
 
             let solid_depth = depth_calc.shape_depth(layer_index);
-            if layer.shapes.len() > 0 {
+            if !layer.shapes.is_empty() {
                 self.shape.push_solid_batch(
                     &mut self.rmg,
                     &mut layer.shapes,
@@ -109,7 +109,7 @@ impl Compositor {
             }
 
             let mesh_layer = depth_calc.mesh_depth(layer_index);
-            if layer.mesh.len() > 0 {
+            if !layer.mesh.is_empty() {
                 self.mesh.push_mesh_batch(&layer.mesh, mesh_layer);
             }
 
@@ -130,11 +130,11 @@ impl Compositor {
             }
 
             let text_depth = depth_calc.text_depth(layer_index);
-            if layer.text.len() > 0 {
+            if !layer.text.is_empty() {
                 self.text.push_batch(
                     &layer.text,
                     &layer.bounds,
-                    Transformation::scale(viewport.scale_factor() as f32),
+                    Transformation::scale(viewport.scale_factor()),
                     text_depth,
                     font_system,
                     !must_gamma_correct,

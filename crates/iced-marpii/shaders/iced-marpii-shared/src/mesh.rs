@@ -3,14 +3,12 @@ use bytemuck::{Pod, Zeroable};
 pub use marpii_rmg_shared::ResourceHandle;
 pub use spirv_std;
 
-//A mesh's vertex
+///Generic vertex for the mesh-draming pass
 #[repr(C)]
 #[cfg_attr(
     not(target_arch = "spirv"),
     derive(Debug, Clone, Copy, Default, Pod, Zeroable)
 )]
-
-///Generic vertex for the mesh-draming pass
 pub struct Vertex {
     ///2d float position
     pub pos: [f32; 2],

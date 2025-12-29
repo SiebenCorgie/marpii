@@ -75,7 +75,7 @@ impl QuadRenderer {
         must_gamma_correct: bool,
     ) {
         //Do not push batches, that are empty
-        if batch.len() == 0 {
+        if batch.is_empty() {
             return;
         }
 
@@ -119,7 +119,7 @@ impl QuadRenderer {
         must_gamma_correct: bool,
     ) {
         //Do not push batches, that are empty
-        if batch.len() == 0 {
+        if batch.is_empty() {
             return;
         }
 
@@ -165,9 +165,9 @@ impl QuadRenderer {
     pub fn begin_new_frame(&mut self, viewport: &iced_graphics::Viewport) {
         //setup _general_transform_
         self.solid_pass.push.get_content_mut().transform = viewport.projection().into();
-        self.solid_pass.push.get_content_mut().scale = viewport.scale_factor() as f32;
+        self.solid_pass.push.get_content_mut().scale = viewport.scale_factor();
         self.gradient_pass.push.get_content_mut().transform = viewport.projection().into();
-        self.gradient_pass.push.get_content_mut().scale = viewport.scale_factor() as f32;
+        self.gradient_pass.push.get_content_mut().scale = viewport.scale_factor();
 
         //last-use flag update
         for batch in self.solid_batch_cache.values_mut() {
@@ -292,7 +292,7 @@ impl MetaTask for QuadRenderer {
         for batch_id in self.order.iter() {
             match batch_id {
                 BatchId::Solid { id, layer_depth } => {
-                    let batch = self.solid_batch_cache.get(&id).unwrap();
+                    let batch = self.solid_batch_cache.get(id).unwrap();
                     assert!(batch.buffer.is_residing());
 
                     let batch_call = BatchCall {
@@ -314,7 +314,7 @@ impl MetaTask for QuadRenderer {
                     self.solid_pass.batches.push(batch_call);
                 }
                 BatchId::Gradient { id, layer_depth } => {
-                    let batch = self.gradient_batch_cache.get(&id).unwrap();
+                    let batch = self.gradient_batch_cache.get(id).unwrap();
                     assert!(batch.buffer.is_residing());
 
                     let batch_call = BatchCall {

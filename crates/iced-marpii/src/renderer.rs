@@ -14,7 +14,7 @@ pub struct Renderer {
 
 impl Renderer {
     pub fn new(settings: &iced_graphics::Settings) -> Self {
-        let default_font = settings.default_font.clone();
+        let default_font = settings.default_font;
 
         Renderer {
             default_font,

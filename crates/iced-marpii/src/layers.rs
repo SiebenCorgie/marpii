@@ -314,7 +314,7 @@ impl Layer {
     ) {
         self.flush_meshes();
         for mesh in meshes {
-            self.draw_mesh(mesh, transformation.clone());
+            self.draw_mesh(mesh, transformation);
         }
     }
 

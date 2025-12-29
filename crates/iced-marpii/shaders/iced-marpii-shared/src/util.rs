@@ -20,7 +20,7 @@ pub fn saturate(x: f32) -> f32 {
 ///The _classic_ random source found all over shadertoy
 pub fn random(coords: Vec2) -> f32 {
     const SEED: Vec2 = Vec2::new(12.9898, 78.233);
-    (coords.dot(SEED).sin() * 43758.5453).fract()
+    (coords.dot(SEED).sin() * 43_758.547).fract()
 }
 
 //Calculates the max 8-stop gradient.

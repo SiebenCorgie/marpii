@@ -180,7 +180,7 @@ impl iced_graphics::compositor::Compositor for Compositor {
     }
 
     fn information(&self) -> compositor::Information {
-        const ERR: &'static str = "UNKNOWN-DEVICE";
+        const ERR: &str = "UNKNOWN-DEVICE";
         let adapter = self
             .rmg
             .ctx

@@ -309,7 +309,7 @@ impl Task for MeshPass {
         for batch in &self.batches {
             //setup the scissors for this call
             //TODO: actually do that?
-            let mut scissors = batch.bound.clone();
+            let mut scissors = batch.bound;
             //NOTE: we constrain the scissors to the render area.
             scissors.extent.width = scissors.extent.width.min(render_area.extent.width);
             scissors.extent.height = scissors.extent.height.min(render_area.extent.height);
@@ -336,7 +336,7 @@ impl Task for MeshPass {
 
                 device.inner.cmd_draw(
                     *command_buffer,
-                    batch.index_count as u32,
+                    batch.index_count,
                     1,
                     batch.vertex_offset,
                     batch.index_offset,
