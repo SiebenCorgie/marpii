@@ -128,7 +128,7 @@ impl Resources {
                 buffer.descriptor_handle = Some(
                     self.bindless
                         .bind_storage_buffer(buffer.buffer.clone())
-                        .map_err(|_| ResourceError::BindingFailed)?,
+                        .map_err(|_olderr| ResourceError::BindingFailed)?,
                 );
                 Ok(buffer.descriptor_handle.unwrap())
             }
@@ -145,21 +145,21 @@ impl Resources {
                         image.descriptor_handle = Some(
                             self.bindless
                                 .bind_sampled_storage_image(image.view.clone())
-                                .map_err(|_| ResourceError::BindingFailed)?,
+                                .map_err(|_olderr| ResourceError::BindingFailed)?,
                         );
                     }
                     (true, false) => {
                         image.descriptor_handle = Some(
                             self.bindless
                                 .bind_sampled_image(image.view.clone())
-                                .map_err(|_| ResourceError::BindingFailed)?,
+                                .map_err(|_olderr| ResourceError::BindingFailed)?,
                         );
                     }
                     (false, true) => {
                         image.descriptor_handle = Some(
                             self.bindless
                                 .bind_storage_image(image.view.clone())
-                                .map_err(|_| ResourceError::BindingFailed)?,
+                                .map_err(|_olderr| ResourceError::BindingFailed)?,
                         );
                     }
                     (false, false) => {
@@ -179,7 +179,7 @@ impl Resources {
                 sampler.descriptor_handle = Some(
                     self.bindless
                         .bind_sampler(sampler.sampler.clone())
-                        .map_err(|_| ResourceError::BindingFailed)?,
+                        .map_err(|_olderr| ResourceError::BindingFailed)?,
                 );
                 Ok(sampler.descriptor_handle.unwrap())
             }

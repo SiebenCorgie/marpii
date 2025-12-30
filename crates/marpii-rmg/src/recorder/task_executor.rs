@@ -417,7 +417,7 @@ impl<'t> Executor<'t> {
                     .filter(|op| &op.current_owner == trackid)
                     .map(|op| match op.res {
                         AnyResKey::Buffer(buf) => {
-                            let buffer = &mut rmg.resources.buffer.get_mut(buf).unwrap();
+                            let buffer = rmg.resources.buffer.get_mut(buf).unwrap();
                             assert!(
                                 buffer.guard.is_none(),
                                 "Resource had guard, therefore wait was scheduled wrong"
@@ -426,7 +426,7 @@ impl<'t> Executor<'t> {
                             Box::new(buffer.buffer.clone()) as Box<dyn Any + Send + 'static>
                         }
                         AnyResKey::Image(img) => {
-                            let image = &mut rmg.resources.images.get_mut(img).unwrap();
+                            let image = rmg.resources.images.get_mut(img).unwrap();
                             assert!(
                                 image.guard.is_none(),
                                 "Resource had guard, therefore wait was scheduled wrong"
@@ -783,7 +783,7 @@ impl<'t> Executor<'t> {
                         }
                     }
                 }
-                _ => return Err(RecordError::UnscheduledDependee),
+                DepPart::Import => return Err(RecordError::UnscheduledDependee),
             }
         }
 
@@ -1012,13 +1012,10 @@ impl<'t> Executor<'t> {
                 let timestamp_index = if trackid.0.contains(vk::QueueFlags::COMPUTE)
                     || trackid.0.contains(vk::QueueFlags::GRAPHICS)
                 {
-                    rmg.tracks
-                        .0
-                        .get_mut(&trackid)
-                        .and_then(|t| {
-                            t.timestamp_table
-                                .start_region(&cb.inner, track.nodes[node_idx].task.task.name())
-                        })
+                    rmg.tracks.0.get_mut(&trackid).and_then(|t| {
+                        t.timestamp_table
+                            .start_region(&cb.inner, track.nodes[node_idx].task.task.name())
+                    })
                 } else {
                     None
                 };
@@ -1041,8 +1038,8 @@ impl<'t> Executor<'t> {
 
                 #[cfg(feature = "debug_marker")]
                 if let Some(dbg) = rmg.ctx.device.get_debugger() {
-                        unsafe { dbg.debug_report_loader.cmd_end_debug_utils_label(cb.inner) };
-                    };
+                    unsafe { dbg.debug_report_loader.cmd_end_debug_utils_label(cb.inner) };
+                };
             }
         }
 

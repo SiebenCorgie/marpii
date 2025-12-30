@@ -39,7 +39,7 @@
     clippy::map_err_ignore,
     clippy::map_flatten,
     clippy::map_unwrap_or,
-    clippy::match_on_vec_items,
+    //clippy::indexing_slicing, NOTE: we do that a lot, but on checked slices
     clippy::match_same_arms,
     clippy::match_wild_err_arm,
     clippy::match_wildcard_for_single_variants,
@@ -63,7 +63,6 @@
     clippy::string_add_assign,
     clippy::string_add,
     clippy::string_lit_as_bytes,
-    clippy::string_to_string,
     clippy::todo,
     clippy::trait_duplication_in_bounds,
     clippy::unimplemented,

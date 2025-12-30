@@ -13,8 +13,7 @@ use marpii::{
 ///
 /// Don't deref the `p_next` pointers in any of the fields, since those are guaranteed to be invalid.
 ///(I.e. only use the properties defined in that struct, don't walk the chain.)
-#[derive(Debug)]
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub struct PhysicalDeviceLimitsExtended {
     ///Limits as defined by vulkan
     pub limits: PhysicalDeviceLimits,
@@ -27,7 +26,6 @@ pub struct PhysicalDeviceLimitsExtended {
     pub vk12: PhysicalDeviceVulkan12Properties<'static>,
     pub vk13: PhysicalDeviceVulkan13Properties<'static>,
 }
-
 
 #[derive(Default)]
 pub struct Config {
@@ -136,6 +134,7 @@ impl Config {
         }
     }
 
+    #[allow(clippy::unused_self)]
     pub(crate) fn check_enable_unified_image_layout(
         &mut self,
         _instance: &Instance,
@@ -144,4 +143,3 @@ impl Config {
         log::warn!("Checking for unified-image-layout-khr not implemented");
     }
 }
-

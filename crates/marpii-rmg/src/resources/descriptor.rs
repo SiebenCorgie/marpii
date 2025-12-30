@@ -23,7 +23,7 @@ use marpii::{
     DescriptorError, DeviceError, MarpiiError, OoS,
 };
 use smallvec::SmallVec;
-use std::{collections::VecDeque, fmt::Debug, sync::Arc, u32};
+use std::{collections::VecDeque, fmt::Debug, sync::Arc};
 
 //Re-export of the handle type.
 pub use marpii_rmg_shared::ResourceHandle;
@@ -424,7 +424,6 @@ impl Bindless {
 
         let features = device.get_physical_device_features();
         if features.shader_storage_image_array_dynamic_indexing == 0
-            || features.shader_storage_image_array_dynamic_indexing == 0
             || features.shader_storage_buffer_array_dynamic_indexing == 0
             || features.shader_uniform_buffer_array_dynamic_indexing == 0
             || features.shader_sampled_image_array_dynamic_indexing == 0

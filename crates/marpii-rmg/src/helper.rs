@@ -67,10 +67,10 @@ impl ImageUsage {
     }
 
     pub fn is_attachment(&self) -> bool {
-        match self {
-            Self::ColorAttachment { .. } | Self::DepthStencilAttachment { .. } => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Self::ColorAttachment { .. } | Self::DepthStencilAttachment { .. }
+        )
     }
 }
 

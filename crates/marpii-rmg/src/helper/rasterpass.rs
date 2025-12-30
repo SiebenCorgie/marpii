@@ -136,8 +136,7 @@ impl<P: Default + Clone + 'static> GenericRasterPass<P> {
 
 impl<P: Default + Clone + 'static> Task for GenericRasterPass<P> {
     fn name(&self) -> &str {
-        self.name.as_deref()
-            .unwrap_or("GenericGraphicsPass")
+        self.name.as_deref().unwrap_or("GenericGraphicsPass")
     }
 
     fn queue_flags(&self) -> vk::QueueFlags {
@@ -549,7 +548,8 @@ impl<'rmg, P: Default + Clone + 'static> RasterPassBuilder<'rmg, P> {
         //make sure all framebuffer use the same extent
         let Some(reference_size) = self
             .task_setup
-            .color_attachments.first()
+            .color_attachments
+            .first()
             .map(|i| i.as_ref().unwrap().0.extent_2d())
             .or(self
                 .task_setup
@@ -615,6 +615,7 @@ impl Rmg {
     /// The [`GenericRasterPass`] assumes that the scissors and viewport are dynamic state, and that the pipeline uses no
     /// vertex-inputs (i.e. no vertex buffer is supplied to the draw command, only a index buffer). Everything else
     /// can be configured. When in doubt, use validation-layers as always.
+    #[allow(clippy::too_many_arguments)]
     pub fn new_raster_pipeline(
         &self,
         vertex_entry_point: &str,
