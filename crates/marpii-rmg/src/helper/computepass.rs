@@ -35,6 +35,20 @@ impl<P: 'static> GenericComputePass<P> {
             storage: ResourceStorage::new(),
         }
     }
+
+    ///Lets you reconfigure the push constant _in-place_
+    ///
+    /// # Safety
+    ///
+    /// Make sure that you have registered any used resource, before making it availabel to use.
+    pub fn push_constant_content_mut(&mut self) -> &mut P {
+        self.push.get_content_mut()
+    }
+
+    pub fn push_constant_content(&self) -> &P {
+        self.push.get_content()
+    }
+
     ///Allows the reconfiguration of the pass while reusing allocated buffers.
     ///
     /// If `keep_resources` is true, keeps any knowledge about used resources (i.e. via `use_image` etc.).
@@ -65,8 +79,7 @@ impl<P: 'static> GenericComputePass<P> {
 
 impl<P: 'static> Task for GenericComputePass<P> {
     fn name(&self) -> &str {
-        self.name.as_deref()
-            .unwrap_or("GenericComputePass")
+        self.name.as_deref().unwrap_or("GenericComputePass")
     }
 
     fn queue_flags(&self) -> vk::QueueFlags {
