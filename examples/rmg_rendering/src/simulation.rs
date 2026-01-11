@@ -13,7 +13,7 @@ pub struct Simulation {
     pub sim_buffer: BufferHandle<SimObj>,
     pub feedback_image: ImageHandle,
     is_init: bool,
-    pass: Option<GenericComputePass<shared::SimPush>>,
+    pass: GenericComputePass<shared::SimPush>,
 }
 
 impl Simulation {
@@ -54,7 +54,7 @@ impl Simulation {
             sim_buffer,
             feedback_image,
             is_init: false,
-            pass: Some(pass),
+            pass,
         })
     }
 
@@ -67,24 +67,17 @@ impl Simulation {
             1
         };
 
-        //update the compute pass
-        self.pass = Some(
-            self.pass
-                .take()
-                .unwrap()
-                .reconfigure(rmg, true)
-                .with_push_constant(|rmg| shared::SimPush {
-                    sim_buffer: rmg.resource_handle(self.sim_buffer.clone()).unwrap(),
-                    img_handle: rmg.resource_handle(self.feedback_image.clone()).unwrap(),
-                    is_init,
-                    buf_size: OBJECT_COUNT as u32,
-                    img_height: 64,
-                    img_width: 64,
-                    pad: [0; 2],
-                })
-                .finish(),
-        );
+        //update the compute pass PC
+        *self.pass.push_constant_content_mut() = shared::SimPush {
+            sim_buffer: rmg.resource_handle(self.sim_buffer.clone()).unwrap(),
+            img_handle: rmg.resource_handle(self.feedback_image.clone()).unwrap(),
+            is_init,
+            buf_size: OBJECT_COUNT as u32,
+            img_height: 64,
+            img_width: 64,
+            pad: [0; 2],
+        };
 
-        self.pass.as_mut().unwrap()
+        &mut self.pass
     }
 }
