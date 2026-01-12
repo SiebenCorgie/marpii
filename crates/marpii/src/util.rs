@@ -162,6 +162,7 @@ macro_rules! offset_of {
 /// storage images.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FormatType {
+    F16,
     F32,
     F64,
     U8,
@@ -178,6 +179,10 @@ pub enum FormatType {
 impl FormatType {
     pub fn parse(format: &vk::Format) -> Self {
         match *format {
+            vk::Format::R16_SFLOAT
+            | vk::Format::R16G16_SFLOAT
+            | vk::Format::R16G16B16_SFLOAT
+            | vk::Format::R16G16B16A16_SFLOAT => FormatType::F16,
             vk::Format::D32_SFLOAT
             | vk::Format::R32_SFLOAT
             | vk::Format::R32G32_SFLOAT
