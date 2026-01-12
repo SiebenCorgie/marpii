@@ -49,6 +49,14 @@ impl<P: 'static> GenericComputePass<P> {
         self.push.get_content()
     }
 
+    ///Swaps out the pipeline used for dispatching the pass.
+    ///
+    /// # Safety: its your resonsibility to make sure that the pipeline object
+    /// is compatible with the resources, push constant etc.
+    pub fn swap_pipeline(&mut self, pipeline: Arc<ComputePipeline>) {
+        self.pipeline = pipeline;
+    }
+
     ///Schedules the pass for execution with the given number of waves per axis.
     pub fn dispatch_size(mut self, dispatch_size: [u32; 3]) -> Result<(), RecordError> {
         #[cfg(feature = "log")]
