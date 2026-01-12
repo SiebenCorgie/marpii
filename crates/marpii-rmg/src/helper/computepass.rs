@@ -57,6 +57,12 @@ impl<P: 'static> GenericComputePass<P> {
         self.pipeline = pipeline;
     }
 
+    ///Clones the inner, used pipeline. Nice if you want to setup yet another pass
+    /// based on this pipeline without having to recreate the actual pipeline (which is expensive).
+    pub fn pipeline(&self) -> Arc<ComputePipeline> {
+        self.pipeline.clone()
+    }
+
     ///Schedules the pass for execution with the given number of waves per axis.
     pub fn dispatch_size(mut self, dispatch_size: [u32; 3]) -> Result<(), RecordError> {
         #[cfg(feature = "log")]
