@@ -49,6 +49,22 @@ impl<P: 'static> GenericComputePass<P> {
         self.push.get_content()
     }
 
+    ///Schedules the pass for execution with the given number of waves per axis.
+    pub fn dispatch_size(mut self, dispatch_size: [u32; 3]) -> Result<(), RecordError> {
+        #[cfg(feature = "log")]
+        if dispatch_size.contains(&0) {
+            log::error!(
+                "Dispatch: {}: {:?} contain invalid zero-sized axis!",
+                self.name(),
+                dispatch_size
+            );
+        }
+
+        self.dispatch = dispatch_size;
+
+        Ok(())
+    }
+
     ///Allows the reconfiguration of the pass while reusing allocated buffers.
     ///
     /// If `keep_resources` is true, keeps any knowledge about used resources (i.e. via `use_image` etc.).
