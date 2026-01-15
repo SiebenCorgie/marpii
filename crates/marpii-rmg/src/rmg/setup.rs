@@ -68,6 +68,10 @@ impl Rmg {
                             .descriptor_binding_sampled_image_update_after_bind(true)
                             .descriptor_binding_storage_image_update_after_bind(true)
                             .descriptor_binding_storage_buffer_update_after_bind(true)
+                            //Enabel int64 atomics if supported
+                            .shader_buffer_int64_atomics(
+                                config.limit.atomics_support.any_atomic_int(),
+                            )
                             .descriptor_binding_variable_descriptor_count(true),
                     )
                     .with_feature(
@@ -102,6 +106,35 @@ impl Rmg {
                         "UnifiedImageLayout not supported, might result in degarded performance!"
                     );
 
+                    db
+                };
+
+                //if atomics supported, add them as well
+                db = if config.limit.atomics_support.any_atomic_float() {
+                    log::info!(
+                        "Enableing AtomicFloat support for features: {:?}",
+                        config.limit.atomics_support.atomic_float
+                    );
+                    db.with_extensions(marpii::ash::ext::shader_atomic_float::NAME)
+                } else {
+                    db
+                };
+                db = if config.limit.atomics_support.any_atomic_float2() {
+                    log::info!(
+                        "Enableing AtomicFloat2 support for features: {:?}",
+                        config.limit.atomics_support.atomic_float2
+                    );
+                    db.with_extensions(marpii::ash::ext::shader_atomic_float2::NAME)
+                } else {
+                    db
+                };
+                db = if config.limit.atomics_support.any_atomic_image() {
+                    log::info!(
+                        "Enableing AtomicImage support for features: {:?}",
+                        config.limit.atomics_support.atomic_image
+                    );
+                    db.with_extensions(marpii::ash::ext::shader_image_atomic_int64::NAME)
+                } else {
                     db
                 };
 
