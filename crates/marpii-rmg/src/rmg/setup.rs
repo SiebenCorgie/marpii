@@ -116,6 +116,7 @@ impl Rmg {
                         config.limit.atomics_support.atomic_float
                     );
                     db.with_extensions(marpii::ash::ext::shader_atomic_float::NAME)
+                        .with_feature(config.limit.atomics_support.atomic_float)
                 } else {
                     db
                 };
@@ -125,6 +126,7 @@ impl Rmg {
                         config.limit.atomics_support.atomic_float2
                     );
                     db.with_extensions(marpii::ash::ext::shader_atomic_float2::NAME)
+                        .with_feature(config.limit.atomics_support.atomic_float2)
                 } else {
                     db
                 };
@@ -134,6 +136,7 @@ impl Rmg {
                         config.limit.atomics_support.atomic_image
                     );
                     db.with_extensions(marpii::ash::ext::shader_image_atomic_int64::NAME)
+                        .with_feature(config.limit.atomics_support.atomic_image)
                 } else {
                     db
                 };
