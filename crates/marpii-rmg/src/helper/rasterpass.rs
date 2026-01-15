@@ -179,7 +179,11 @@ impl<P: Default + Clone + 'static> Task for GenericRasterPass<P> {
         }
 
         //now enqueue all standard resources and the pipeline
-        self.storage.register_all(registry);
+        self.storage.register_all(
+            registry,
+            //NOTE we use this in order to not hickup the scheduler's barrier generation...
+            vk::PipelineStageFlags2::ALL_GRAPHICS,
+        );
         registry.register_asset(self.pipeline.inner.clone());
     }
 

@@ -240,14 +240,14 @@ impl Task for EGuiRenderer {
                 .request_buffer(
                     &call.index_buffer,
                     vk::PipelineStageFlags2::ALL_GRAPHICS,
-                    vk::AccessFlags2::INDEX_READ,
+                    vk::AccessFlags2::SHADER_READ,
                 )
                 .unwrap();
             registry
                 .request_buffer(
                     &call.vertex_buffer,
                     vk::PipelineStageFlags2::ALL_GRAPHICS,
-                    vk::AccessFlags2::VERTEX_ATTRIBUTE_READ,
+                    vk::AccessFlags2::SHADER_READ,
                 )
                 .unwrap();
             registry

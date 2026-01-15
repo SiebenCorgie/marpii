@@ -115,25 +115,20 @@ impl ResourceStorage {
         self.samplers.clear();
     }
 
-    pub(crate) fn register_all(&self, registry: &mut ResourceRegistry) {
+    pub(crate) fn register_all(
+        &self,
+        registry: &mut ResourceRegistry,
+        stage: vk::PipelineStageFlags2,
+    ) {
         for (buffer, usage) in &self.buffers {
             registry
-                .request_buffer(
-                    buffer,
-                    vk::PipelineStageFlags2::COMPUTE_SHADER,
-                    usage.into_access_flags(),
-                )
+                .request_buffer(buffer, stage, usage.into_access_flags())
                 .unwrap();
         }
 
         for (image, usage) in &self.images {
             registry
-                .request_image(
-                    image,
-                    vk::PipelineStageFlags2::COMPUTE_SHADER,
-                    usage.into_access_flags(),
-                    usage.into_layout(),
-                )
+                .request_image(image, stage, usage.into_access_flags(), usage.into_layout())
                 .unwrap();
         }
 

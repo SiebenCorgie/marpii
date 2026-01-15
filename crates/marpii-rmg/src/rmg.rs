@@ -97,7 +97,9 @@ impl Rmg {
                 .timestamp_compute_and_graphics
                 == 0
             {
-                return Err(RmgError::DeviceLimit("Timestamp_Compute_And_Graphics: was 0, should be > 0".to_string()));
+                return Err(RmgError::DeviceLimit(
+                    "Timestamp_Compute_And_Graphics: was 0, should be > 0".to_string(),
+                ));
             }
 
             for q in context.device.queues.iter() {
@@ -455,8 +457,7 @@ impl Rmg {
         &mut self,
         description: &vk::SamplerCreateInfo<'_>,
     ) -> Result<SamplerHandle, RmgError> {
-        let sampler =
-            Sampler::new(&self.ctx.device, description).map_err(MarpiiError::from)?;
+        let sampler = Sampler::new(&self.ctx.device, description).map_err(MarpiiError::from)?;
 
         Ok(self.resources.add_sampler(Arc::new(sampler))?)
     }
@@ -485,8 +486,13 @@ impl Rmg {
         self.tracks.0.get(&id).unwrap().queue_idx
     }
 
-    ///waits till the gpu is idle
-    pub fn wait_for_idle(&self) -> Result<(), RecordError> {
+    ///waits till the gpu is idle and all already scheduled tasks have finished
+    pub fn wait_for_idle(&mut self) -> Result<(), RecordError> {
+        for (_id, track) in &mut self.tracks.0 {
+            //always wait for the execution to wait for its passing
+            track.wait_for_inflights();
+        }
+
         unsafe { self.ctx.device.inner.device_wait_idle()? }
 
         Ok(())

@@ -117,7 +117,8 @@ impl<P: 'static> Task for GenericComputePass<P> {
     }
 
     fn register(&self, registry: &mut crate::ResourceRegistry) {
-        self.storage.register_all(registry);
+        self.storage
+            .register_all(registry, vk::PipelineStageFlags2::COMPUTE_SHADER);
         //Always keep pipeline alive as long as possible
         registry.register_asset(self.pipeline.clone());
     }

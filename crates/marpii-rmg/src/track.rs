@@ -256,7 +256,12 @@ impl Track {
             .fold(0, |max, inflight| max.max(inflight.guard.target_value));
 
         #[cfg(feature = "logging")]
-        log::trace!("waiting track, waiting for {} on sem={:?}", max, self.sem);
+        log::trace!(
+            "{:#?}: waiting for {} on sem={:?}",
+            self.flags,
+            max,
+            self.sem
+        );
         self.sem
             .wait(max, u64::MAX)
             .expect("Failed to wait for inflight execution");

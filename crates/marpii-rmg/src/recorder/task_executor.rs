@@ -56,7 +56,7 @@ impl<'t> Executor<'t> {
                     Some((*trackid, 0))
                 } else {
                     #[cfg(feature = "logging")]
-                    log::info!(
+                    log::trace!(
                         "Ignoring track {} since there are no frames on that track.",
                         trackid
                     );
