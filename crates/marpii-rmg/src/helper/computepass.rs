@@ -64,7 +64,10 @@ impl<P: 'static> GenericComputePass<P> {
     }
 
     ///Schedules the pass for execution with the given number of waves per axis.
-    pub fn dispatch_size(mut self, dispatch_size: [u32; 3]) -> Result<(), RecordError> {
+    ///
+    /// # Safety: Its your responsibility to make sure that the dispatch size matches the intended usecase this pass was originally
+    /// created for.
+    pub fn set_dispatch_size(&mut self, dispatch_size: [u32; 3]) -> Result<(), RecordError> {
         #[cfg(feature = "log")]
         if dispatch_size.contains(&0) {
             log::error!(
@@ -77,6 +80,10 @@ impl<P: 'static> GenericComputePass<P> {
         self.dispatch = dispatch_size;
 
         Ok(())
+    }
+
+    pub fn dispatch_size(&self) -> [u32; 3] {
+        self.dispatch
     }
 
     ///Allows the reconfiguration of the pass while reusing allocated buffers.
