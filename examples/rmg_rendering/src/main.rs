@@ -53,7 +53,7 @@ pub const OBJECT_COUNT: usize = 128;
 
 fn main() -> Result<(), anyhow::Error> {
     simple_logger::SimpleLogger::new()
-        .with_level(log::LevelFilter::Warn)
+        .with_level(log::LevelFilter::Info)
         .init()
         .unwrap();
 
