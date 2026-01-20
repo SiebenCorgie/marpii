@@ -111,30 +111,21 @@ impl Rmg {
 
                 //if atomics supported, add them as well
                 db = if config.limit.atomics_support.any_atomic_float() {
-                    log::info!(
-                        "Enable AtomicFloat support for features: {:#?}",
-                        config.limit.atomics_support.atomic_float
-                    );
+                    log::info!("Enable AtomicFloat");
                     db.with_extensions(marpii::ash::ext::shader_atomic_float::NAME)
                         .with_feature(config.limit.atomics_support.atomic_float)
                 } else {
                     db
                 };
                 db = if config.limit.atomics_support.any_atomic_float2() {
-                    log::info!(
-                        "Enable AtomicFloat2 support for features: {:#?}",
-                        config.limit.atomics_support.atomic_float2
-                    );
+                    log::info!("Enable AtomicFloat2 support");
                     db.with_extensions(marpii::ash::ext::shader_atomic_float2::NAME)
                         .with_feature(config.limit.atomics_support.atomic_float2)
                 } else {
                     db
                 };
                 db = if config.limit.atomics_support.any_atomic_image() {
-                    log::info!(
-                        "Enable AtomicImage support for features: {:#?}",
-                        config.limit.atomics_support.atomic_image
-                    );
+                    log::info!("Enable AtomicImage support ");
                     db.with_extensions(marpii::ash::ext::shader_image_atomic_int64::NAME)
                         .with_feature(config.limit.atomics_support.atomic_image)
                 } else {

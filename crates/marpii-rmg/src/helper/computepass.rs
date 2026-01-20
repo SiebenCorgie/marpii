@@ -5,7 +5,7 @@ use crate::{
     BufferHandle, ImageHandle, RecordError, Rmg, RmgError, SamplerHandle, Task,
 };
 use marpii::{
-    ash::vk,
+    ash::vk::{self, DeviceSize},
     resources::{ComputePipeline, PushConstant, ShaderModule},
     OoS,
 };
@@ -19,9 +19,36 @@ use std::sync::Arc;
 pub struct GenericComputePass<P: 'static> {
     pipeline: Arc<ComputePipeline>,
     push: PushConstant<P>,
-    dispatch: [u32; 3],
+    dispatch: DispatchType,
     name: Option<String>,
     storage: ResourceStorage,
+}
+
+pub enum DispatchType {
+    ///Launches the compute shader directly with the given extent
+    Direct([u32; 3]),
+    ///Launches the compute shader by reading the dispatch parameter in `buffer` at `offset` (in bytes) once.
+    Indirect {
+        buffer: BufferHandle<u32>,
+        addional_usage: BufferUsage,
+        offset: DeviceSize,
+    },
+}
+
+impl DispatchType {
+    fn uses_buffer<T>(&self, buffer: &BufferHandle<T>) -> bool {
+        if let DispatchType::Indirect { buffer: inuse, .. } = self {
+            buffer.key == inuse.key
+        } else {
+            false
+        }
+    }
+}
+
+impl Default for DispatchType {
+    fn default() -> Self {
+        DispatchType::Direct([1; 3])
+    }
 }
 
 impl<P: 'static> GenericComputePass<P> {
@@ -30,7 +57,7 @@ impl<P: 'static> GenericComputePass<P> {
         GenericComputePass {
             pipeline,
             push: PushConstant::new((), vk::ShaderStageFlags::COMPUTE),
-            dispatch: [1; 3],
+            dispatch: DispatchType::default(),
             name: None,
             storage: ResourceStorage::new(),
         }
@@ -63,11 +90,13 @@ impl<P: 'static> GenericComputePass<P> {
         self.pipeline.clone()
     }
 
-    ///Schedules the pass for execution with the given number of waves per axis.
+    ///Schedules the pass for direct execution with the given number of waves per axis.
     ///
     /// # Safety: Its your responsibility to make sure that the dispatch size matches the intended usecase this pass was originally
     /// created for.
-    pub fn set_dispatch_size(&mut self, dispatch_size: [u32; 3]) -> Result<(), RecordError> {
+    ///
+    /// Returns an error if this pass was recorded for indirect dispatch.
+    pub fn set_direct_dispatch_size(&mut self, dispatch_size: [u32; 3]) -> Result<(), RecordError> {
         #[cfg(feature = "log")]
         if dispatch_size.contains(&0) {
             log::error!(
@@ -77,13 +106,23 @@ impl<P: 'static> GenericComputePass<P> {
             );
         }
 
-        self.dispatch = dispatch_size;
-
-        Ok(())
+        if let DispatchType::Direct(sizes) = &mut self.dispatch {
+            *sizes = dispatch_size;
+            Ok(())
+        } else {
+            Err(RecordError::GenericPassError(
+                "Tried to set dispatch size, but in indirectly dispatched!".to_owned(),
+            ))
+        }
     }
 
-    pub fn dispatch_size(&self) -> [u32; 3] {
-        self.dispatch
+    ///Returns the current direct-dispatch size, if there is any
+    pub fn dispatch_size(&self) -> Option<[u32; 3]> {
+        if let DispatchType::Direct(d) = self.dispatch {
+            Some(d)
+        } else {
+            None
+        }
     }
 
     ///Allows the reconfiguration of the pass while reusing allocated buffers.
@@ -124,6 +163,24 @@ impl<P: 'static> Task for GenericComputePass<P> {
     }
 
     fn register(&self, registry: &mut crate::ResourceRegistry) {
+        //if there is an indirect buffer in use, register it with its declared usage _AND_
+        // the appropriate pipeline stage
+        if let DispatchType::Indirect {
+            buffer,
+            addional_usage,
+            offset: _,
+        } = &self.dispatch
+        {
+            registry
+                .request_buffer(
+                    buffer,
+                    vk::PipelineStageFlags2::DRAW_INDIRECT
+                        | vk::PipelineStageFlags2::COMPUTE_SHADER,
+                    vk::AccessFlags2::INDIRECT_COMMAND_READ | addional_usage.into_access_flags(),
+                )
+                .expect("Could not register indirect dispatch buffer");
+        }
+
         self.storage
             .register_all(registry, vk::PipelineStageFlags2::COMPUTE_SHADER);
         //Always keep pipeline alive as long as possible
@@ -134,7 +191,7 @@ impl<P: 'static> Task for GenericComputePass<P> {
         &mut self,
         device: &Arc<marpii::context::Device>,
         command_buffer: &vk::CommandBuffer,
-        _resources: &crate::Resources,
+        resources: &crate::Resources,
     ) {
         //bind pipeline, setup push constant and execute
         unsafe {
@@ -151,12 +208,24 @@ impl<P: 'static> Task for GenericComputePass<P> {
                 self.push.content_as_bytes(),
             );
 
-            device.inner.cmd_dispatch(
-                *command_buffer,
-                self.dispatch[0],
-                self.dispatch[1],
-                self.dispatch[2],
-            );
+            //Depending on the dispatch, write down the actualy launch command
+            match &self.dispatch {
+                DispatchType::Direct([x, y, z]) => {
+                    device.inner.cmd_dispatch(*command_buffer, *x, *y, *z);
+                }
+                DispatchType::Indirect {
+                    buffer,
+                    offset,
+                    addional_usage: _,
+                } => {
+                    let buffer_access = &resources.get_buffer_state(buffer).buffer;
+                    device.inner.cmd_dispatch_indirect(
+                        *command_buffer,
+                        buffer_access.inner,
+                        *offset,
+                    );
+                }
+            }
         }
     }
 }
@@ -228,6 +297,10 @@ impl<'ctx, P: 'static> ComputePassBuilder<'ctx, P> {
 
     /// Signals that the pass will write to this resource
     pub fn use_buffer<T: 'static>(mut self, buffer: BufferHandle<T>, usage: BufferUsage) -> Self {
+        if self.task_setup.dispatch.uses_buffer(&buffer) {
+            panic!("buffer is already in use as indirect-dispatch source!");
+        }
+
         self.task_setup
             .storage
             .buffers
@@ -241,8 +314,8 @@ impl<'ctx, P: 'static> ComputePassBuilder<'ctx, P> {
         self
     }
 
-    ///Schedules the pass for execution with the given number of waves per axis.
-    pub fn dispatch_size(mut self, dispatch_size: [u32; 3]) -> Result<Self, RecordError> {
+    ///Schedules the pass for direct execution with the given number of waves per axis.
+    pub fn direct_dispatch_size(mut self, dispatch_size: [u32; 3]) -> Result<Self, RecordError> {
         #[cfg(feature = "log")]
         if dispatch_size.contains(&0) {
             log::error!(
@@ -252,8 +325,43 @@ impl<'ctx, P: 'static> ComputePassBuilder<'ctx, P> {
             );
         }
 
-        self.task_setup.dispatch = dispatch_size;
+        self.task_setup.dispatch = DispatchType::Direct(dispatch_size);
 
+        Ok(self)
+    }
+
+    ///Schedules the pass for indirect execution via the given `buffer` that holds
+    /// the dispatch parameters (3x u32) at the `offset` (in bytes).
+    ///
+    /// If the buffer is used in the dispatched shader, use `usage` to add addional usage flags.
+    pub fn indirect_dispatch(
+        mut self,
+        buffer: BufferHandle<u32>,
+        offset: DeviceSize,
+        usage: BufferUsage,
+    ) -> Result<Self, RecordError> {
+        //Set the buffer as the indirect launch buffer, and, if needed register an additional
+        // buffer usage.
+
+        //make sure the buffer isn't already in use by the registry
+        if self
+            .task_setup
+            .storage
+            .buffers
+            .iter()
+            .find(|(buffer, _usage)| buffer.key == buffer.key)
+            .is_some()
+        {
+            return Err(RecordError::GenericPassError(
+                "Indirect dispatch error was already registered with a different usage!".to_owned(),
+            ));
+        }
+
+        self.task_setup.dispatch = DispatchType::Indirect {
+            buffer,
+            offset,
+            addional_usage: usage,
+        };
         Ok(self)
     }
 

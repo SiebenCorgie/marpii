@@ -46,7 +46,7 @@ impl Simulation {
             })
             .use_buffer(sim_buffer.clone(), BufferUsage::ReadWrite)
             .use_image(feedback_image.clone(), ImageUsage::StorageWrite)
-            .dispatch_size([Self::dispatch_count(), 1, 1])
+            .direct_dispatch_size([Self::dispatch_count(), 1, 1])
             .unwrap()
             .finish();
 

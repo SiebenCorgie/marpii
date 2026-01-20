@@ -49,6 +49,9 @@ pub enum RecordError {
 
     #[error("Found scheduling deadlock, there might be a dependency cycle.")]
     DeadLock,
+
+    #[error("Invalid use of generic pass")]
+    GenericPassError(String),
 }
 
 pub struct Execution {
