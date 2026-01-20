@@ -116,7 +116,41 @@ impl<P: 'static> GenericComputePass<P> {
         }
     }
 
-    ///Returns the current direct-dispatch size, if there is any
+    ///Sets the source buffer for the indirect dispatch command (and its in-shader usage). Fails if this
+    /// pass was never setup for indirect dispatching.
+    pub fn set_indirect_dispatch(
+        &mut self,
+        buffer: BufferHandle<u32>,
+        offset: DeviceSize,
+        usage: BufferUsage,
+    ) -> Result<(), RecordError> {
+        if let DispatchType::Indirect {
+            buffer: inner_buffer,
+            addional_usage,
+            offset: inne_offset,
+        } = &mut self.dispatch
+        {
+            *inner_buffer = buffer;
+            *inne_offset = offset;
+            *addional_usage = usage;
+
+            Ok(())
+        } else {
+            Err(RecordError::GenericPassError(
+                "Was not setup for indirect dispatch".to_owned(),
+            ))
+        }
+    }
+
+    pub fn is_direct_dispatch(&self) -> bool {
+        if let DispatchType::Direct(_) = self.dispatch {
+            true
+        } else {
+            false
+        }
+    }
+
+    ///Returns the current direct-dispatch size, if this pass is configured for direct dispatch.
     pub fn dispatch_size(&self) -> Option<[u32; 3]> {
         if let DispatchType::Direct(d) = self.dispatch {
             Some(d)
