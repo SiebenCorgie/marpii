@@ -383,7 +383,7 @@ impl<'ctx, P: 'static> ComputePassBuilder<'ctx, P> {
             .storage
             .buffers
             .iter()
-            .find(|(buffer, _usage)| buffer.key == buffer.key)
+            .find(|(used_buffer, _usage)| used_buffer.key == buffer.key)
             .is_some()
         {
             return Err(RecordError::GenericPassError(
