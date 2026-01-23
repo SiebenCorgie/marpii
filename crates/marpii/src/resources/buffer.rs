@@ -113,6 +113,16 @@ impl BufDesc {
         Self::for_data::<T>(size).with(|b| b.usage = vk::BufferUsageFlags::STORAGE_BUFFER)
     }
 
+    ///Creates a buffer that fits a number of [vk::DispatchIndirectCommand]s.
+    pub fn indirect_dispatch_commands(count: usize) -> Self {
+        BufDesc {
+            size: (16 * count).try_into().unwrap(),
+            usage: vk::BufferUsageFlags::INDIRECT_BUFFER,
+            sharing: SharingMode::Exclusive,
+            create_flags: vk::BufferCreateFlags::empty(),
+        }
+    }
+
     ///Creates a new vertex buffer description for `count` times a vertex `V`.
     pub fn vertex_buffer<V: 'static>(count: usize) -> Self {
         Self::for_data::<V>(count).with(|b| b.usage = vk::BufferUsageFlags::VERTEX_BUFFER)
