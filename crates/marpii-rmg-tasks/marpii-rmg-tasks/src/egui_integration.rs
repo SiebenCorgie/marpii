@@ -250,11 +250,18 @@ impl Task for EGuiRenderer {
                     vk::AccessFlags2::SHADER_READ,
                 )
                 .unwrap();
+
+            let target_access = if self.is_overwritten {
+                vk::AccessFlags2::COLOR_ATTACHMENT_WRITE | vk::AccessFlags2::COLOR_ATTACHMENT_READ
+            } else {
+                vk::AccessFlags2::COLOR_ATTACHMENT_WRITE
+            };
+
             registry
                 .request_image(
                     &self.target_image,
                     vk::PipelineStageFlags2::ALL_GRAPHICS,
-                    vk::AccessFlags2::COLOR_ATTACHMENT_WRITE,
+                    target_access,
                     vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
                 )
                 .unwrap();
