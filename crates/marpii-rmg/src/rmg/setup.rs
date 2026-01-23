@@ -1,4 +1,9 @@
-use marpii::{ash::vk, surface::Surface, OoS};
+use marpii::{
+    ash::vk::{self},
+    context::DeviceBuilder,
+    surface::Surface,
+    OoS,
+};
 use winit::raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 
 use crate::{Config, Rmg, RmgError};
@@ -8,7 +13,7 @@ impl Rmg {
     pub fn init_for_window<W: HasWindowHandle + HasDisplayHandle>(
         window: &W,
     ) -> Result<(Self, OoS<Surface>), RmgError> {
-        let (rmg, surface) = Self::init(Some(window))?;
+        let (rmg, surface) = Self::init(Some(window), |db, _| db)?;
         Ok((
             rmg,
             surface.ok_or(RmgError::ResourceError(
@@ -18,8 +23,13 @@ impl Rmg {
     }
 
     ///The inner initialization routine which might setup the device for a window.
+    ///
+    /// use `on_builder` to setup additional extensions needed by your application. If you do so,
+    /// make sure they are actually supported first, and probably panic, if some _needed_ is not supported.
+    /// Otherwise you might want to conditionally enable and save that information in some context info.
     fn init<W: HasWindowHandle + HasDisplayHandle>(
         window: Option<&W>,
+        mut on_builder: impl FnMut(DeviceBuilder, &Config) -> DeviceBuilder,
     ) -> Result<(Self, Option<OoS<Surface>>), RmgError> {
         let use_validation = std::env::var("RMG_VALIDATE").is_ok();
 
@@ -131,6 +141,8 @@ impl Rmg {
                 } else {
                     db
                 };
+
+                db = on_builder(db, &config);
 
                 db
             })?;
