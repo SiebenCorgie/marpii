@@ -22,6 +22,33 @@ impl Rmg {
         ))
     }
 
+    ///Handles the creation and initialization of a _as-powerful-as-possible_ RMG.
+    /// Allows you to enque additional extensions via the `on_builder` callback.
+    pub fn init_for_window_with<W: HasWindowHandle + HasDisplayHandle>(
+        window: &W,
+        on_builder: impl FnMut(DeviceBuilder, &Config) -> DeviceBuilder,
+    ) -> Result<(Self, OoS<Surface>), RmgError> {
+        let (rmg, surface) = Self::init(Some(window), on_builder)?;
+        Ok((
+            rmg,
+            surface.ok_or(RmgError::ResourceError(
+                crate::ResourceError::SurfaceCreation,
+            ))?,
+        ))
+    }
+    pub fn init_headless() -> Result<Self, RmgError> {
+        let (rmg, _nowindow) = Self::init::<winit::window::Window>(None, |db, _| db)?;
+        Ok(rmg)
+    }
+
+    ///Same as [init_headless](Self::init_headless). Allows you to enque additional extensions via the `on_builder` callback.
+    pub fn init_headless_with(
+        on_builder: impl FnMut(DeviceBuilder, &Config) -> DeviceBuilder,
+    ) -> Result<Self, RmgError> {
+        let (rmg, _nowindow) = Self::init::<winit::window::Window>(None, on_builder)?;
+        Ok(rmg)
+    }
+
     ///The inner initialization routine which might setup the device for a window.
     ///
     /// use `on_builder` to setup additional extensions needed by your application. If you do so,

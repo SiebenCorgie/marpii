@@ -278,7 +278,7 @@ impl Rmg {
     ///Creates a new `ResourceManagingGraph` for this context. Note that the context must be created for
     /// Vulkan 1.3, since it depends on multiple core-1.3 features and extensions.
     ///
-    /// When in doubt, use [`Rmg::init_for_window`] or [`Rmg::init`] to give the _burden_ of creating the
+    /// When in doubt, use [`Rmg::init_for_window`] or [`Rmg::init_headless`] to give the _burden_ of creating the
     /// right `MarpII` context to RMG.
     pub fn new(context: Ctx<Allocator>) -> Result<Self, RmgError> {
         //Per definition we try to find at least one graphic, compute and transfer queue.
