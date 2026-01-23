@@ -5,7 +5,7 @@ use crate::{
     BufferHandle, ImageHandle, RecordError, Rmg, RmgError, SamplerHandle, Task,
 };
 use marpii::{
-    ash::vk::{self, DeviceSize},
+    ash::vk::{self, DeviceSize, DispatchIndirectCommand},
     resources::{ComputePipeline, PushConstant, ShaderModule},
     OoS,
 };
@@ -29,8 +29,7 @@ pub enum DispatchType {
     Direct([u32; 3]),
     ///Launches the compute shader by reading the dispatch parameter in `buffer` at `offset` (in bytes) once.
     Indirect {
-        buffer: BufferHandle<u32>,
-        addional_usage: BufferUsage,
+        buffer: BufferHandle<DispatchIndirectCommand>,
         offset: DeviceSize,
     },
 }
@@ -116,24 +115,27 @@ impl<P: 'static> GenericComputePass<P> {
         }
     }
 
-    ///Sets the source buffer for the indirect dispatch command (and its in-shader usage). Fails if this
+    ///Sets the source buffer for the indirect dispatch command. Fails if this
     /// pass was never setup for indirect dispatching.
     pub fn set_indirect_dispatch(
         &mut self,
-        buffer: BufferHandle<u32>,
+        buffer: BufferHandle<DispatchIndirectCommand>,
         offset: DeviceSize,
-        usage: BufferUsage,
     ) -> Result<(), RecordError> {
+        assert!(
+            buffer
+                .usage_flags()
+                .contains(vk::BufferUsageFlags::INDIRECT_BUFFER),
+            "indirect-dispatch buffer must contain the indirect-buffer usage flag"
+        );
+
         if let DispatchType::Indirect {
             buffer: inner_buffer,
-            addional_usage,
             offset: inne_offset,
         } = &mut self.dispatch
         {
             *inner_buffer = buffer;
             *inne_offset = offset;
-            *addional_usage = usage;
-
             Ok(())
         } else {
             Err(RecordError::GenericPassError(
@@ -193,24 +195,19 @@ impl<P: 'static> Task for GenericComputePass<P> {
     }
 
     fn queue_flags(&self) -> vk::QueueFlags {
-        vk::QueueFlags::COMPUTE
+        vk::QueueFlags::COMPUTE | vk::QueueFlags::GRAPHICS
     }
 
     fn register(&self, registry: &mut crate::ResourceRegistry) {
         //if there is an indirect buffer in use, register it with its declared usage _AND_
         // the appropriate pipeline stage
-        if let DispatchType::Indirect {
-            buffer,
-            addional_usage,
-            offset: _,
-        } = &self.dispatch
-        {
+        if let DispatchType::Indirect { buffer, offset: _ } = &self.dispatch {
             registry
                 .request_buffer(
                     buffer,
-                    vk::PipelineStageFlags2::DRAW_INDIRECT
-                        | vk::PipelineStageFlags2::COMPUTE_SHADER,
-                    vk::AccessFlags2::INDIRECT_COMMAND_READ | addional_usage.into_access_flags(),
+                    //NOTE: using the _earlier_ indirect-draw stage
+                    vk::PipelineStageFlags2::DRAW_INDIRECT,
+                    vk::AccessFlags2::INDIRECT_COMMAND_READ,
                 )
                 .expect("Could not register indirect dispatch buffer");
         }
@@ -247,11 +244,7 @@ impl<P: 'static> Task for GenericComputePass<P> {
                 DispatchType::Direct([x, y, z]) => {
                     device.inner.cmd_dispatch(*command_buffer, *x, *y, *z);
                 }
-                DispatchType::Indirect {
-                    buffer,
-                    offset,
-                    addional_usage: _,
-                } => {
+                DispatchType::Indirect { buffer, offset } => {
                     let buffer_access = &resources.get_buffer_state(buffer).buffer;
                     device.inner.cmd_dispatch_indirect(
                         *command_buffer,
@@ -366,16 +359,20 @@ impl<'ctx, P: 'static> ComputePassBuilder<'ctx, P> {
 
     ///Schedules the pass for indirect execution via the given `buffer` that holds
     /// the dispatch parameters (3x u32) at the `offset` (in bytes).
-    ///
-    /// If the buffer is used in the dispatched shader, use `usage` to add addional usage flags.
     pub fn indirect_dispatch(
         mut self,
-        buffer: BufferHandle<u32>,
+        buffer: BufferHandle<DispatchIndirectCommand>,
         offset: DeviceSize,
-        usage: BufferUsage,
     ) -> Result<Self, RecordError> {
         //Set the buffer as the indirect launch buffer, and, if needed register an additional
         // buffer usage.
+
+        assert!(
+            buffer
+                .usage_flags()
+                .contains(vk::BufferUsageFlags::INDIRECT_BUFFER),
+            "indirect-dispatch buffer must contain the indirect-buffer usage flag"
+        );
 
         //make sure the buffer isn't already in use by the registry
         if self
@@ -391,11 +388,7 @@ impl<'ctx, P: 'static> ComputePassBuilder<'ctx, P> {
             ));
         }
 
-        self.task_setup.dispatch = DispatchType::Indirect {
-            buffer,
-            offset,
-            addional_usage: usage,
-        };
+        self.task_setup.dispatch = DispatchType::Indirect { buffer, offset };
         Ok(self)
     }
 
