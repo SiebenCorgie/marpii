@@ -69,12 +69,20 @@ impl iced_graphics::compositor::Compositor for Compositor {
             }
         }
 
-        let (mut rmg, surface) = Rmg::init_for_window(&compatible_window).map_err(|e| {
+        let mut rmg = Rmg::init_for_window(&compatible_window).map_err(|e| {
             iced_graphics::Error::GraphicsAdapterNotFound {
                 backend: "marpii",
                 reason: Reason::RequestFailed(format!("{e}")),
             }
         })?;
+
+        let surface = rmg.create_surface(&compatible_window).map_err(|e| {
+            iced_graphics::Error::GraphicsAdapterNotFound {
+                backend: "marpii",
+                reason: Reason::RequestFailed(format!("{e}")),
+            }
+        })?;
+
         //and build swapchain handler
         let swapchain = SwapchainPresent::new(&mut rmg, surface).map_err(|e| {
             iced_graphics::Error::BackendError(format!(

@@ -243,7 +243,7 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
         window_handle: Option<&T>,
         use_validation: bool,
         on_device_builder: impl FnOnce(DeviceBuilder) -> DeviceBuilder,
-    ) -> Result<(Self, Option<OoS<Surface>>), MarpiiError>
+    ) -> Result<Self, MarpiiError>
     where
         T: HasWindowHandle + HasDisplayHandle,
     {
@@ -350,14 +350,11 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
             })
             .map_err(|e| DeviceError::GpuAllocatorError(Box::new(e)))?;
 
-        Ok((
-            Ctx {
-                allocator: Arc::new(Mutex::new(allocator)),
-                device,
-                instance,
-            },
-            surface,
-        ))
+        Ok(Ctx {
+            allocator: Arc::new(Mutex::new(allocator)),
+            device,
+            instance,
+        })
     }
 }
 

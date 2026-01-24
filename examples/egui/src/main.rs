@@ -21,7 +21,8 @@ fn main() -> Result<(), anyhow::Error> {
     #[allow(deprecated)]
     let window = ev.create_window(windowattr).unwrap();
 
-    let (mut rmg, surface) = Rmg::init_for_window(&window)?;
+    let mut rmg = Rmg::init_for_window(&window)?;
+    let surface = rmg.create_surface(&window).unwrap();
 
     let mut egui = EGuiWinitIntegration::new(&mut rmg, &ev)?;
     let mut swapchain_blit = SwapchainPresent::new(&mut rmg, surface)?;

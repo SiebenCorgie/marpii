@@ -79,7 +79,8 @@ fn main() -> Result<(), anyhow::Error> {
         winit::window::Window::default_attributes().with_title("hello triangle");
     #[allow(deprecated)]
     let window = ev.create_window(window_attributes).unwrap();
-    let (mut rmg, surface) = Rmg::init_for_window(&window)?;
+    let mut rmg = Rmg::init_for_window(&window)?;
+    let surface = rmg.create_surface(&window).unwrap();
 
     let mut camera = Camera::default();
     let mut ubo_update = DynamicBuffer::new(&mut rmg, &[camera.to_ubo(&window)])?;

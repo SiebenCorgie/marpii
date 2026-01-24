@@ -190,10 +190,11 @@ pub use marpii_rmg_shared;
 mod test {
     use static_assertions::assert_impl_all;
 
-    use crate::RmgError;
+    use crate::{Rmg, RmgError};
 
     #[test]
     fn assure_send_sync() {
         assert_impl_all!(RmgError: Send, Sync);
+        assert_impl_all!(Rmg: Send);
     }
 }

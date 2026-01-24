@@ -38,7 +38,8 @@ pub struct SwapchainPresent {
 }
 
 impl SwapchainPresent {
-    pub fn new(rmg: &mut Rmg, surface: OoS<Surface>) -> Result<Self, RmgTaskError> {
+    pub fn new(rmg: &mut Rmg, surface: impl Into<OoS<Surface>>) -> Result<Self, RmgTaskError> {
+        let surface = surface.into();
         //Check for the creation extent.
         let create_extent = surface
             .get_current_extent(&rmg.ctx.device.physical_device)
