@@ -28,7 +28,7 @@ exclude = [
     "crates/iced-marpii/shaders/shader-builder",
 ]
 
-resolver = "2"
+resolver = "3"
 
 [workspace.dependencies]
 marpii = { path = "crates/marpii" }

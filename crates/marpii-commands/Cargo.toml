@@ -1,7 +1,12 @@
 [package]
 name = "marpii-commands"
 version = "0.2.0"
-edition = "2021"
+edition = "2024"
+authors = ["Tendsin Mende"]
+description = "Helpers related to data initialization in buffers and images as well as memory barrier creation."
+license = "MPL-2.0"
+keywords = ["gamedev", "graphics", "vulkan", "api"]
+categories = ["game-development", "graphics", "rendering::graphics-api"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [features]

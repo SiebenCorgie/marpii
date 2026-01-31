@@ -16,11 +16,11 @@ This works for simple applications, like [algae's test application](https://gitl
 
 More sophisticated applications sometimes need to create more complex systems that need access to Vulkan's low level primitives. This is where MarpII shines. It provides helpful helpers that can, but don't have to be used.
 
-The main [marpii](crates/marpii) crate provides helper function for the most common vulkan objects like pipelines, images, buffers etc. It manages lifetimes of objects that are created through the device. This usually happens "on drop" of those resources. Additionally, some implicit lifetime tracking (for instance command-pools must outlive the command buffer created from those pools) are implemented by keeping a reference to the pool until the command buffer is dropped.
+The main [marpii](crates/marpii) crate provides helper function for the most common Vulkan objects like pipelines, images, buffers etc. It manages lifetimes of objects that are created through the device. This usually happens "on drop" of those resources. Additionally, some implicit lifetime tracking (for instance command-pools must outlive the command buffer created from those pools) are implemented by keeping a reference to the pool until the command buffer is dropped.
 
 ## Defaults and opinionated design
 
-MarpII has some design decisions that are opinionated. For instance, where ever it matters the target vulkan version will be the latest stable major release. As of writing (march 2022) this is 1.3. It also uses `Arc<T>` to keep objects alive. The added safety/convenience is payed by some overhead.
+MarpII has some design decisions that are opinionated. For instance, where ever it matters the target Vulkan version will be the latest stable major release. As of writing (march 2022) this is 1.3. It also uses `Arc<T>` to keep objects alive. The added safety/convenience is payed by some overhead.
 
 ## Getting started
 
@@ -32,10 +32,10 @@ Examples can be found in the `examples` directory, marpii is also documented. A 
 
 ### Helpers
 
-Apart from the main crate that is closely related to Vulkan multiple helper crates exist that should make working with vulkan easier. Have a look at their READMEs for a description on what they do and how experimental they are.
+Apart from the main crate that is closely related to Vulkan multiple helper crates exist that should make working with Vulkan easier. Have a look at their READMEs for a description on what they do and how experimental they are.
 
 - marpii-commands: CommandBuffer helper that captures resources that are needed for the execution of the command buffer.
-- marpii-rmg: Frame-graph helper. Allows defining multiple sub `Task`s for a frame. Takes care of resources (Buffers/Images), layout and access transitions, pipeline barriers, inter-queue synchronisation etc. You basically only have to register which resources are used for a task, and how the draw/dispatch is done.
+- marpii-rmg: Frame-graph helper. Allows defining multiple sub `Task`s for a frame. Takes care of resources (Buffers/Images), layout and access transitions, pipeline barriers, inter-queue synchronisation etc. You basically only have to register which resources are used for a task, and how the draw/dispatch is done. There are also some helpers to make common tasks (compute shaders, vertex+fragment shaders and data-transfer) as specially friction less.
 - marpii-rmg-shared: `no_std` crate that defines the resource handles used by RMG's bindless setup. Can be used in rust-gpu based shaders for convenient access. There is also a `shared.glsl` file for compatiblity with GLSL based shaders and RMG.
 - marpii-descriptor: Multiple `DescriptorSet` helpers. Similar to the command-buffer helper resources are captured to keep the descriptor sets valid. Also handles descriptor allocation and freeing for you.
 

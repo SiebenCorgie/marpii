@@ -1,7 +1,12 @@
 [package]
 name = "iced-marpii"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
+authors = ["Tendsin Mende"]
+description = "Iced renderer based on marpii-rmg, Ash, and Vulkan. Provides helpers to embed a custom Vulkan renderer into an Iced GUI."
+license = "MPL-2.0"
+keywords = ["gamedev", "graphics", "vulkan", "gui"]
+categories = ["game-development", "gui"]
 
 [features]
 default = ["default-executor", "goodies", "iced/x11", "iced/wayland"]
