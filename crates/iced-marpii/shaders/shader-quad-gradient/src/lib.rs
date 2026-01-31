@@ -5,12 +5,9 @@
 #![no_std]
 #![allow(unexpected_cfgs)]
 use glam::{UVec2, Vec2, Vec4, Vec4Swizzles};
-use iced_marpii_shared::{gradient, spirv_std, QuadGradientCmdBuffer, QuadPush};
+use iced_marpii_shared::{QuadGradientCmdBuffer, QuadPush, gradient, spirv_std};
 use spirv_std::glam;
-use spirv_std::{spirv, RuntimeArray, TypedBuffer};
-
-#[cfg(target_arch = "spirv")]
-use iced_marpii_shared::spirv_std::num_traits::Float;
+use spirv_std::{RuntimeArray, TypedBuffer, spirv};
 
 pub const VERTEX_OFFSETS: [Vec2; 6] = {
     let tl = Vec2::new(0.0, 1.0);

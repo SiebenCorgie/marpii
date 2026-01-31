@@ -3,9 +3,9 @@ use std::{f32, sync::Arc};
 use iced_graphics::Settings;
 use iced_marpii_shared::{CmdQuad, QuadPush};
 use marpii::{
+    OoS,
     ash::vk,
     resources::{GraphicsPipeline, PushConstant, ShaderModule, ShaderStage},
-    OoS,
 };
 use marpii_rmg::{ImageHandle, Rmg, Task};
 
@@ -177,11 +177,18 @@ impl Task for QuadPass {
         }
 
         registry.register_asset(self.pipeline.clone());
+        let color_attachment_access = if self.clear_color.is_some() {
+            //Looks like we are clearing, therefore only write
+            vk::AccessFlags2::COLOR_ATTACHMENT_WRITE
+        } else {
+            //possibly reading background...
+            vk::AccessFlags2::COLOR_ATTACHMENT_WRITE | vk::AccessFlags2::COLOR_ATTACHMENT_READ
+        };
         registry
             .request_image(
                 &self.color_image,
                 vk::PipelineStageFlags2::ALL_GRAPHICS,
-                vk::AccessFlags2::COLOR_ATTACHMENT_WRITE,
+                color_attachment_access,
                 vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
             )
             .unwrap();

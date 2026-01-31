@@ -5,12 +5,9 @@
 #![no_std]
 #![allow(unexpected_cfgs)]
 use glam::{UVec2, Vec2, Vec4, Vec4Swizzles};
-use iced_marpii_shared::{spirv_std, GlyphInstance, TextPush};
+use iced_marpii_shared::{GlyphInstance, TextPush, spirv_std};
 use spirv_std::glam;
-use spirv_std::{spirv, Image, RuntimeArray, Sampler, TypedBuffer};
-
-#[cfg(target_arch = "spirv")]
-use iced_marpii_shared::spirv_std::num_traits::Float;
+use spirv_std::{Image, RuntimeArray, Sampler, TypedBuffer, spirv};
 
 pub const VERTEX_OFFSETS: [Vec2; 6] = {
     let tl = Vec2::new(0.0, 1.0);
@@ -28,10 +25,6 @@ pub const UV_COORD_QUAD_CCW: [Vec2; 6] = {
     [bl, br, tr, tr, tl, bl]
 };
 
-pub struct InstanceBuffer {
-    data: [GlyphInstance; 1_0000_000],
-}
-
 /// Vertex shader that renders an implicit quad.
 #[spirv(vertex)]
 pub fn vertex(
@@ -42,14 +35,14 @@ pub fn vertex(
     #[spirv(position)] clip_pos: &mut Vec4,
     #[spirv(instance_index)] instance_id: u32,
     #[spirv(descriptor_set = 0, binding = 0, storage_buffer)] instance_data: &RuntimeArray<
-        TypedBuffer<InstanceBuffer>,
+        TypedBuffer<[GlyphInstance]>,
     >,
 ) {
     //load instance data
     let instance_data_index = instance_id + push.instance_data_offset;
     let instance = if push.instance_data.is_valid() {
         let buffers = unsafe { instance_data.index(push.instance_data.index() as usize) };
-        &buffers.data[instance_data_index as usize]
+        &buffers[instance_data_index as usize]
     } else {
         *out_uv = Vec2::ZERO;
         *clip_pos = Vec4::ZERO;
@@ -105,7 +98,7 @@ pub fn fragment(
     frag_color: &mut Vec4,
     #[spirv(push_constant)] push: &TextPush,
     #[spirv(descriptor_set = 0, binding = 0, storage_buffer)] instance_data: &RuntimeArray<
-        TypedBuffer<InstanceBuffer>,
+        TypedBuffer<[GlyphInstance]>,
     >,
     #[spirv(descriptor_set = 2, binding = 0)] mask_atlas: &RuntimeArray<
         Image!(2D, sampled, type = f32),
@@ -119,7 +112,7 @@ pub fn fragment(
     let instance_data_index = instance_id + push.instance_data_offset;
     let instance = if push.instance_data.is_valid() {
         let buffers = unsafe { instance_data.index(push.instance_data.index() as usize) };
-        &buffers.data[instance_data_index as usize]
+        &buffers[instance_data_index as usize]
     } else {
         *frag_color = Vec4::new(1.0, 0.0, 0.0, 1.0);
         return;
