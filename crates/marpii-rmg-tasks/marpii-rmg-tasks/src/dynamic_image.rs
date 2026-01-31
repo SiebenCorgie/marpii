@@ -1,10 +1,11 @@
 use marpii::{
+    DeviceError, MarpiiError,
     ash::vk,
     resources::{Buffer, ImgDesc},
     util::ImageRegion,
-    DeviceError, MarpiiError,
 };
 use marpii_rmg::{ImageHandle, Rmg, RmgError, Task};
+use smallvec::SmallVec;
 use std::sync::Arc;
 
 use crate::RmgTaskError;
@@ -107,6 +108,29 @@ impl Task for DynamicImage {
 
         let staging = core::mem::take(&mut self.staging_copies);
 
+        //Move the src buffers to the correct layout state. Those are (not yet)
+        // handled by RMG, so we have to do that by hand here.
+        let buffer_barriers: SmallVec<[_; 4]> = staging
+            .iter()
+            .map(|staging| {
+                vk::BufferMemoryBarrier2::default()
+                    .buffer(staging.buffer.inner)
+                    .offset(0)
+                    .size(vk::WHOLE_SIZE)
+                    .src_access_mask(vk::AccessFlags2::HOST_WRITE)
+                    .src_stage_mask(vk::PipelineStageFlags2::HOST)
+                    .dst_access_mask(vk::AccessFlags2::TRANSFER_READ)
+                    .dst_stage_mask(vk::PipelineStageFlags2::TRANSFER)
+            })
+            .collect();
+
+        unsafe {
+            device.inner.cmd_pipeline_barrier2(
+                *command_buffer,
+                &vk::DependencyInfo::default().buffer_memory_barriers(&buffer_barriers),
+            );
+        }
+
         for cp in staging {
             let copy_cmd = vk::BufferImageCopy2::default()
                 .buffer_image_height(0)
@@ -123,6 +147,19 @@ impl Task for DynamicImage {
                         .regions(&[copy_cmd])
                         .dst_image(image_access.image.inner)
                         .dst_image_layout(vk::ImageLayout::TRANSFER_DST_OPTIMAL),
+                );
+
+                device.inner.cmd_pipeline_barrier2(
+                    *command_buffer,
+                    &vk::DependencyInfo::default().image_memory_barriers(&[
+                        vk::ImageMemoryBarrier2::default()
+                            .image(image_access.image.inner)
+                            .subresource_range(image_access.image.subresource_all())
+                            .src_access_mask(vk::AccessFlags2::TRANSFER_WRITE)
+                            .src_stage_mask(vk::PipelineStageFlags2::TRANSFER)
+                            .dst_access_mask(vk::AccessFlags2::TRANSFER_WRITE)
+                            .dst_stage_mask(vk::PipelineStageFlags2::ALL_TRANSFER),
+                    ]),
                 );
             }
         }

@@ -121,8 +121,25 @@ impl<T: marpii::bytemuck::Pod> Task for DynamicBuffer<T> {
         }
 
         let dst_access = resources.get_buffer_state(&self.gpu_local);
-
         let copy_size = self.cpu_local.desc.size.min(dst_access.buffer.desc.size);
+
+        //Move the src buffers to the correct layout state. Those are (not yet)
+        // handled by RMG, so we have to do that by hand here.
+        unsafe {
+            device.inner.cmd_pipeline_barrier2(
+                *command_buffer,
+                &vk::DependencyInfo::default().buffer_memory_barriers(&[
+                    vk::BufferMemoryBarrier2::default()
+                        .buffer(self.cpu_local.inner)
+                        .offset(0)
+                        .size(vk::WHOLE_SIZE)
+                        .src_access_mask(vk::AccessFlags2::HOST_WRITE)
+                        .src_stage_mask(vk::PipelineStageFlags2::HOST)
+                        .dst_access_mask(vk::AccessFlags2::TRANSFER_READ)
+                        .dst_stage_mask(vk::PipelineStageFlags2::TRANSFER),
+                ]),
+            );
+        }
 
         unsafe {
             device.inner.cmd_copy_buffer2(
