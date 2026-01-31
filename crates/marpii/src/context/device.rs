@@ -7,10 +7,7 @@ use crate::{
 };
 
 use super::{Debugger, Queue, QueueBuilder};
-use std::{
-    os::raw::c_char,
-    sync::{Arc, Mutex},
-};
+use std::sync::{Arc, Mutex};
 
 ///Helper that lets you setup device properties and possibly needed extensions before creating the actual
 /// device.
@@ -200,9 +197,11 @@ impl Device {
         queue_builder: &[QueueBuilder],
     ) -> Result<Arc<Self>, DeviceError> {
         //finally create the queues and device
-        let device = instance
-            .inner
-            .create_device(physical_device, device_create_info, None)?;
+        let device = unsafe {
+            instance
+                .inner
+                .create_device(physical_device, device_create_info, None)
+        }?;
         //now setup the queues for the infos we prepared before
         let queues = queue_builder
             .iter()
@@ -211,27 +210,32 @@ impl Device {
                     .map(|queue_index| Queue {
                         family_index: queue_family.family_index,
                         properties: queue_family.properties,
-                        inner: Arc::new(Mutex::new(
-                            device.get_device_queue(queue_family.family_index, queue_index as u32),
-                        )),
+                        inner: Arc::new(Mutex::new(unsafe {
+                            device.get_device_queue(queue_family.family_index, queue_index as u32)
+                        })),
                     })
                     .collect::<Vec<Queue>>()
             })
             .collect();
 
-        let physical_device_properties = instance
-            .inner
-            .get_physical_device_properties(physical_device);
+        let physical_device_properties = unsafe {
+            instance
+                .inner
+                .get_physical_device_properties(physical_device)
+        };
 
         let enabled_extensions = {
-            let extension_properties = instance
-                .inner
-                .enumerate_device_extension_properties(physical_device)?;
+            let extension_properties = unsafe {
+                instance
+                    .inner
+                    .enumerate_device_extension_properties(physical_device)
+            }?;
 
             extension_properties
                 .iter()
                 .map(|ext| {
-                    std::ffi::CStr::from_ptr(ext.extension_name.as_ptr() as *const c_char)
+                    ext.extension_name_as_c_str()
+                        .expect("Could not get extension's name a CStr")
                         .to_string_lossy()
                         .as_ref()
                         .to_owned()
@@ -412,11 +416,7 @@ impl Device {
     pub fn get_buffer_device_address(&self, buffer: &Buffer) -> Option<vk::DeviceAddress> {
         let info = vk::BufferDeviceAddressInfo::default().buffer(buffer.inner);
         let addr = unsafe { self.inner.get_buffer_device_address(&info) };
-        if addr != 0 {
-            Some(addr)
-        } else {
-            None
-        }
+        if addr != 0 { Some(addr) } else { None }
     }
 
     ///Returns the image format properties for the given image description (`desc`), assuming the image was/is created with `create_flags`.

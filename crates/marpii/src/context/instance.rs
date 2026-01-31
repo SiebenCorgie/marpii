@@ -32,7 +32,7 @@ pub unsafe extern "system" fn vulkan_debug_callback(
 
     //use log if the layer is enabled, otherwise use println
     #[cfg(feature = "logging")]
-    {
+    unsafe {
         let (id, idname) = if !(*p_callback_data).p_message_id_name.is_null() {
             (
                 (*p_callback_data).message_id_number,
@@ -63,7 +63,7 @@ pub unsafe extern "system" fn vulkan_debug_callback(
     }
 
     #[cfg(not(feature = "logging"))]
-    {
+    unsafe {
         println!(
             "MarpDebugMsg: Level: {:?}, Type: {:?}\n",
             message_severity, message_types
