@@ -1,6 +1,6 @@
 [package]
 name = "marpii-rmg"
-version = "0.3.0"
+version = "1.0.0"
 edition = "2024"
 authors = ["Tendsin Mende"]
 description = "MarpII's ResourceManagingGraph: Provides resource management, graph-based scheduling, and helpers for everyday graphics-programming tasks."

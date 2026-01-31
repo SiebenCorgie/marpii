@@ -1,6 +1,6 @@
 [package]
 name = "marpii-rmg-task-shared"
-version = "0.2.0"
+version = "1.0.0"
 edition = "2024"
 authors = ["Tendsin Mende"]
 description = "No-Std, shader ready shared structures used by marpii-rmg-tasks."

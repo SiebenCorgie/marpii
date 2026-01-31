@@ -1,6 +1,6 @@
 [package]
 name = "marpii-commands"
-version = "0.2.0"
+version = "1.0.0"
 edition = "2024"
 authors = ["Tendsin Mende"]
 description = "Helpers related to data initialization in buffers and images as well as memory barrier creation."

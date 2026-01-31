@@ -1,6 +1,6 @@
 [package]
 name = "iced-marpii"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2024"
 authors = ["Tendsin Mende"]
 description = "Iced renderer based on marpii-rmg, Ash, and Vulkan. Provides helpers to embed a custom Vulkan renderer into an Iced GUI."

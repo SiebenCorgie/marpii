@@ -1,6 +1,6 @@
 [package]
 name = "marpii"
-version = "0.2.0"
+version = "1.0.0"
 edition = "2024"
 authors = ["Tendsin Mende"]
 description = "Helper around Ash that takes care of object lifetimes, simplifies object creation, and provides helpers for recurring tasks."
