@@ -3,9 +3,9 @@ use std::sync::Arc;
 use iced_graphics::Settings;
 use iced_marpii_shared::{MeshPush, Vertex};
 use marpii::{
+    OoS,
     ash::vk,
     resources::{GraphicsPipeline, PushConstant, ShaderModule, ShaderStage},
-    OoS,
 };
 use marpii_rmg::{BufferHandle, ImageHandle, Rmg, Task};
 
@@ -25,7 +25,7 @@ pub struct MeshPass {
 
     pipeline: Arc<GraphicsPipeline>,
     pub batches: Vec<BatchRecord>,
-    push: PushConstant<MeshPush>,
+    pub push: PushConstant<MeshPush>,
 }
 
 impl MeshPass {
