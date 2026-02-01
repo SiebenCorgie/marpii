@@ -26,9 +26,23 @@ MarpII has some design decisions that are opinionated. For instance, where ever 
 
 ### Library usage
 
+Usage of the library is as usual by including the crate in your `Cargo.toml`. We don't (yet) publish to crates-io, so you'll need a git-dependency. See [Development and versions](#Development-and-versions) for further information.
+Examples can be found in the `examples` directory; marpii is also documented. A simple `cargo doc --open` should provide you with the necessary documentation.
 
-Usage of the library is as usual by including the crate in your `Cargo.toml`.
-Examples can be found in the `examples` directory, marpii is also documented. A simple `cargo doc --open` should provide you with the necessary documentation.
+
+### Development and versions
+
+The `stable` branch tracks the `1.x` version of `marpii` and its companion crates. If you want to develop some kind of user-facing application, that's the correct way to go. Include it as a dependency via:
+
+```toml
+marpii = {git = "https://gitlab.com/tendsinmende/marpii.git", branch = "stable"}
+```
+
+`main` is the development branch. At the moment it is preparing a 2.0 release that should fix rough corners around RMG and introduce some modernization, particularly ray-tracing support and helpers, better bindless, a new frame-graph scheduler, and support for Android. To use that branch, include marpii via:
+
+```toml
+marpii = {git = "https://gitlab.com/tendsinmende/marpii.git", branch = "main"}
+```
 
 ### Helpers
 
