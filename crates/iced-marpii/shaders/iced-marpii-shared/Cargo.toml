@@ -1,9 +1,9 @@
 [package]
 name = "iced-marpii-shared"
-version = "0.1.0"
+version = "1.0.0"
 edition = "2021"
 
 [dependencies]
 marpii-rmg-shared = { path = "../../../marpii-rmg-shared" }
-spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu.git", rev = "2aa4d4f8a8ba73103501562cfca17b8163e5a887" }
+spirv-std = { git = "https://github.com/Rust-GPU/rust-gpu.git", rev = "a30bd43db45f2bfe260051f44141e5eaffcbb4b0" }
 bytemuck = { version = "1.22", features = ["derive"] }

@@ -94,6 +94,7 @@ pub struct MeshRenderer {
 
     vertex_cache: Vec<Vertex>,
     index_cache: Vec<u32>,
+    should_gamma_correct: bool,
 }
 
 impl MeshRenderer {
@@ -122,7 +123,12 @@ impl MeshRenderer {
             render_pass: pass,
             vertex_cache: Vec::new(),
             index_cache: Vec::new(),
+            should_gamma_correct: false,
         }
+    }
+
+    pub fn set_gamma_correct(&mut self, target_is_srgb: bool) {
+        self.should_gamma_correct = target_is_srgb;
     }
 
     pub fn new_frame(&mut self) {
@@ -175,6 +181,9 @@ impl MeshRenderer {
         } else {
             self.index_buffer.write(&self.index_cache, 0).unwrap();
         }
+
+        self.render_pass.push.get_content_mut().must_gamma_correct =
+            if self.should_gamma_correct { 1 } else { 0 };
 
         rmg.record()
             .add_task(&mut self.vertex_buffer)

@@ -1,7 +1,12 @@
 [package]
 name = "marpii-descriptor"
-version = "0.2.0"
-edition = "2021"
+version = "1.0.0"
+edition = "2024"
+authors = ["Tendsin Mende"]
+description = "Helper for descriptor-pools-based bindless setups."
+license = "MPL-2.0"
+keywords = ["gamedev", "graphics", "vulkan", "api"]
+categories = ["game-development", "graphics", "rendering::graphics-api"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [features]

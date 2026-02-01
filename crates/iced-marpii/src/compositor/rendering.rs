@@ -1,4 +1,4 @@
-use crate::{renderer::Renderer, Compositor};
+use crate::{Compositor, renderer::Renderer};
 use iced::Transformation;
 use iced_graphics::text::font_system;
 use marpii::ash::vk;
@@ -70,30 +70,31 @@ impl Compositor {
             layer_count: renderer.layers.iter().count(),
         };
 
-        let must_gamma_correct = Self::must_gamma_correct_color(*self.color_buffer.format());
+        let gamma_correct = Self::must_gamma_correct_color(*self.color_buffer.format());
+        self.quads.set_gamma_correct(gamma_correct);
+        self.shape.set_gamma_correct(gamma_correct);
+        self.mesh.set_gamma_correct(gamma_correct);
 
         //setup all layers
-        for (layer_index, layer) in renderer.layers.iter_mut().enumerate() {
+        for (layer_index, layer) in renderer.layers.iter().enumerate() {
             let quad_depth = depth_calc.quad_depth(layer_index);
             //push all quads of this layer into the quads renderer
             if !layer.solid_quads.is_empty() {
                 //TODO: take scaling factor and stuff like that into account
                 self.quads.push_solid_batch(
                     &mut self.rmg,
-                    &mut layer.solid_quads,
+                    &layer.solid_quads,
                     layer.bounds,
                     quad_depth,
-                    must_gamma_correct,
                 );
             }
             if !layer.gradient_quads.is_empty() {
                 //TODO: take scaling factor and stuff like that into account
                 self.quads.push_gradient_batch(
                     &mut self.rmg,
-                    &mut layer.gradient_quads,
+                    &layer.gradient_quads,
                     layer.bounds,
                     quad_depth,
-                    must_gamma_correct,
                 );
             }
 
@@ -101,10 +102,9 @@ impl Compositor {
             if !layer.shapes.is_empty() {
                 self.shape.push_solid_batch(
                     &mut self.rmg,
-                    &mut layer.shapes,
+                    &layer.shapes,
                     layer.bounds,
                     solid_depth,
-                    must_gamma_correct,
                 );
             }
 
@@ -116,17 +116,21 @@ impl Compositor {
             //NOTE: for the custom renderers we don't cache / batch anything,
             //      so we can just call them.
             let custom_layer = depth_calc.custom_depth(layer_index);
-            for custom in layer.custom.iter_mut() {
-                custom.primitive.prepare(
-                    &mut self.rmg,
-                    self.color_buffer.clone(),
-                    self.depth_buffer.clone(),
-                    &mut self.persistent_data,
-                    &custom.bounds,
-                    viewport,
-                    custom.transformation,
-                    custom_layer,
-                );
+            for custom in layer.custom.iter() {
+                custom
+                    .primitive
+                    .try_borrow_mut()
+                    .expect("Could not lock custom renderer")
+                    .prepare(
+                        &mut self.rmg,
+                        self.color_buffer.clone(),
+                        self.depth_buffer.clone(),
+                        &mut self.persistent_data,
+                        &custom.bounds,
+                        viewport,
+                        custom.transformation,
+                        custom_layer,
+                    );
             }
 
             let text_depth = depth_calc.text_depth(layer_index);
@@ -137,7 +141,6 @@ impl Compositor {
                     Transformation::scale(viewport.scale_factor()),
                     text_depth,
                     font_system,
-                    !must_gamma_correct,
                 );
             }
         }
@@ -157,6 +160,9 @@ impl Compositor {
         background_color: iced::Color,
         on_pre_present: impl FnOnce(),
     ) {
+        //NOTE: while all colors used when rendering _stuff_ are corrected on the GPU,
+        // the clear color is directed from the host-site, so we have to make that
+        // decission here.
         let bg_color = if Self::must_gamma_correct_color(*self.color_buffer.format()) {
             crate::util::gamma_correct(background_color.into_linear())
         } else {
@@ -168,22 +174,41 @@ impl Compositor {
         surface.push_image(self.color_buffer.clone(), self.color_buffer.extent_2d());
 
         let mut recorder = self.rmg.record();
-        //first cycle all custom recording
-        for layer in renderer.layers.iter_mut() {
-            for custom in &mut layer.custom {
-                if custom.primitive.is_background() {
-                    self.quads.set_clear_color(None);
-                }
 
-                recorder = custom.primitive.render(
-                    recorder,
-                    self.color_buffer.clone(),
-                    self.depth_buffer.clone(),
-                    &self.persistent_data,
-                    &layer.bounds,
-                    custom.transformation,
-                );
+        //Custom layers generally direct the rendering themselfs. In order to extend
+        let mut custom_layers = renderer
+            .layers
+            .iter()
+            .map(|layer| {
+                layer.custom.iter().map(|custom_layer| {
+                    let custom_borrow = custom_layer
+                        .primitive
+                        .try_borrow_mut()
+                        .expect("Could not borrow custom-layer's renderer");
+
+                    (
+                        layer.bounds.clone(),
+                        custom_borrow,
+                        custom_layer.transformation.clone(),
+                    )
+                })
+            })
+            .flatten()
+            .collect::<Vec<_>>();
+
+        for (bounds, custom, transformation) in custom_layers.iter_mut() {
+            if custom.is_background() {
+                self.quads.set_clear_color(None);
             }
+
+            recorder = custom.render(
+                recorder,
+                self.color_buffer.clone(),
+                self.depth_buffer.clone(),
+                &self.persistent_data,
+                &bounds,
+                *transformation,
+            );
         }
 
         on_pre_present();

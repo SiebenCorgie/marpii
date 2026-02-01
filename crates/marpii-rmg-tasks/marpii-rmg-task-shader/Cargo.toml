@@ -1,7 +1,7 @@
 [package]
 name = "marpii-rmg-task-shader"
-version = "0.2.0"
-edition = "2021"
+version = "1.0.0"
+edition = "2024"
 publish = false
 
 [lib]

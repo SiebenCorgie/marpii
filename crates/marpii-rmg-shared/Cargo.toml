@@ -1,7 +1,12 @@
 [package]
 name = "marpii-rmg-shared"
-version = "0.2.0"
-edition = "2021"
+version = "1.0.0"
+edition = "2024"
+authors = ["Tendsin Mende"]
+description = "RMG's no-std read, GPU facing API."
+license = "MPL-2.0"
+keywords = ["graphics", "vulkan", "api"]
+categories = ["graphics", "rendering::graphics-api"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

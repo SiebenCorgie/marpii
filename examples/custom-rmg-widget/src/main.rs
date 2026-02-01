@@ -8,8 +8,8 @@
 //!
 //! In a multithreaded setup that might also be where you'd synchronize / upload to the GPU :).
 
-use iced::widget::{button, column, text};
 use iced::Length::Fill;
+use iced::widget::{button, column, text};
 use iced::{Center, Element, Subscription, Theme};
 use iced_marpii::custom::{Persistent, Viewport};
 use iced_marpii::marpii;

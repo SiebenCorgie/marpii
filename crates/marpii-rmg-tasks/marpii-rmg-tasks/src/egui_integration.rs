@@ -9,14 +9,15 @@
 use crate::egui::{ClippedPrimitive, TextureId, TexturesDelta};
 use crate::{DynamicBuffer, DynamicImage, RmgTaskError};
 use ahash::AHashMap;
-use egui::{Color32, Pos2, ViewportId};
+use egui::{Pos2, ViewportId};
 use egui_winit::winit::raw_window_handle::HasDisplayHandle;
 use egui_winit::winit::window::Window;
+use marpii::MarpiiError;
 use marpii::ash::vk::{ImageUsageFlags, Rect2D};
 use marpii::resources::SharingMode;
 use marpii::util::ImageRegion;
-use marpii::MarpiiError;
 use marpii::{
+    OoS,
     ash::vk,
     context::Device,
     offset_of,
@@ -24,7 +25,6 @@ use marpii::{
         BufDesc, GraphicsPipeline, ImageType, ImgDesc, PipelineLayout, PushConstant, ShaderModule,
         ShaderStage,
     },
-    OoS,
 };
 use marpii_rmg::recorder::task::MetaTask;
 use marpii_rmg::{BufferHandle, ImageHandle, Rmg, RmgError, SamplerHandle, Task};
@@ -111,6 +111,11 @@ impl EGuiWinitIntegration {
         }
     }
 
+    ///Returns true, if the egui has changed in a way, that it needs a redraw
+    pub fn needs_redraw(&self) -> bool {
+        self.egui_context.has_requested_repaint()
+    }
+
     pub fn target_image(&self) -> &ImageHandle {
         &self.task.renderer.target_image
     }
@@ -161,6 +166,7 @@ impl EGuiWinitIntegration {
 
         self.task.set_resolution(rmg, resolution)?;
         self.task.set_primitives(rmg, primitives)?;
+
         self.task.set_texture_deltas(rmg, output.textures_delta)?;
 
         self.winit_state
@@ -833,91 +839,67 @@ impl EGuiTask {
                 "EGui image is not rgba8 encoded"
             );
 
-            //delta position
-            let pos = if let Some(pos) = delta.pos {
-                [pos[0] as u32, pos[0] as u32]
-            } else {
-                [0u32; 2]
-            };
-
-            let ext = delta.image.size();
-            let ext = [ext[0] as u32, ext[1] as u32];
+            let image_size = [delta.image.width(), delta.image.height()];
             let _is_whole = delta.is_whole();
-
-            let region = ImageRegion {
-                offset: vk::Offset3D {
-                    x: pos[0] as i32,
-                    y: pos[1] as i32,
-                    z: 0,
-                },
-                extent: vk::Extent3D {
-                    width: ext[0],
-                    height: ext[1],
-                    depth: 1,
-                },
-            };
 
             //extract texture data as srgb
             let dta = match &delta.image {
                 egui_winit::egui::epaint::ImageData::Color(img) => Cow::Borrowed(&img.pixels),
-                egui_winit::egui::epaint::ImageData::Font(img) => {
-                    Cow::Owned(img.srgba_pixels(None).collect::<Vec<Color32>>())
-                }
             };
 
             let dta: &[u8] = bytemuck::cast_slice(dta.as_slice());
 
-            if let Some(tex) = self.data.atlas.get_mut(&id) {
-                tex.write_bytes(rmg, region, dta)?;
-                if (ext[0] + pos[0]) > tex.image.extent_2d().width
-                    || (ext[1] + pos[1]) > tex.image.extent_2d().height
-                {
-                    #[cfg(feature = "logging")]
-                    log::warn!("Possibly writing egui texture {:?} out of bound", id);
-                }
-                /*FIXME: egui doesnt seem to repect the texture size. So it can happen that it writes outside
-                 *       the texture bounds. We are currently ignoring that
-                if (ext[0] + pos[0]) > tex.image.extent_2d().width
-                    || (ext[1] + pos[1]) > tex.image.extent_2d().height
-                {
-                    //need to create a new texture, since the old one can't hold the new image
-                    //assert!(is_whole, "Texture didn't fit, but was no whole texture!");
-                    *tex = DynamicImage::new(
-                        rmg,
-                        ImgDesc {
-                            //NOTE: must be *new* whole image, therefore pos == 0,0, and ext == image_extent
-                            extent: vk::Extent3D {
-                                width: ext[0],
-                                height: ext[1],
-                                depth: 1,
-                            },
-                            ..Self::default_texture_desc()
+            if let Some(pos) = delta.pos {
+                if let Some(tex) = self.data.atlas.get_mut(&id) {
+                    //Update the texture at this patch
+                    log::info!(
+                        "writing to {:?}..{:?}",
+                        pos,
+                        [pos[0] + image_size[0], pos[1] + image_size[1]]
+                    );
+                    let region = ImageRegion {
+                        offset: vk::Offset3D {
+                            x: pos[0] as i32,
+                            y: pos[1] as i32,
+                            z: 0,
                         },
-                        None,
-                    )?;
-                } else {
-                    //Fits, update region
-                    tex.write_bytes(rmg, region, dta)?;
-                }
-                 */
-            } else {
-                #[cfg(feature = "logging")]
-                log::info!("Setting up eGui texture {:?}", id);
-                let mut tex = DynamicImage::new(
-                    rmg,
-                    ImgDesc {
-                        //NOTE: must be *new* whole image, therefore pos == 0,0, and ext == image_extent
                         extent: vk::Extent3D {
-                            width: ext[0],
-                            height: ext[1],
+                            width: image_size[0] as u32,
+                            height: image_size[1] as u32,
                             depth: 1,
                         },
-                        ..Self::default_texture_desc()
-                    },
-                    None,
-                )?;
+                    };
+                    tex.write_bytes(rmg, region, dta)?;
+                    if (image_size[0] + pos[0]) as u32 > tex.image.extent_2d().width
+                        || (image_size[1] + pos[1]) as u32 > tex.image.extent_2d().height
+                    {
+                        #[cfg(feature = "logging")]
+                        log::warn!("Possibly writing egui texture {:?} out of bound", id);
+                    }
+                } else {
+                    #[cfg(feature = "logging")]
+                    log::error!("{id:?} did not exist in cache, can't be updated...");
+                }
+            } else {
+                let extent = vk::Extent3D {
+                    width: image_size[0] as u32,
+                    height: image_size[1] as u32,
+                    depth: 1,
+                };
+
+                //Write the full texture there
+                let img_desc = ImgDesc {
+                    //NOTE: must be *new* whole image, therefore pos == 0,0, and ext == image_extent
+                    extent,
+                    ..Self::default_texture_desc()
+                };
+                let region = ImageRegion {
+                    offset: vk::Offset3D { x: 0, y: 0, z: 0 },
+                    extent,
+                };
+                let mut tex = DynamicImage::new(rmg, img_desc, None)?;
                 tex.write_bytes(rmg, region, dta)?;
-                assert!(self.data.atlas.insert(id, tex).is_none());
+                let _old = self.data.atlas.insert(id, tex);
             }
         }
 

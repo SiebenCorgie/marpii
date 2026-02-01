@@ -1,0 +1,20 @@
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+## [1.0.0] - TBD
+
+We did not maintain a changelog prior to the 1.0 release. This marks the first official release of MarpII. Although the library itself dates back to 2022, it has been used continuously in several personal and semi-professional projects since then. Based on this long-term usage, it is considered stable enough for a 1.0 release.
+
+### Added
+
+- `marpii`: a light wrapper around `ash` that wraps objects with lifetime constraints into transparent, self-managed objects.
+- `marpii-rmg`: an extension to `marpii` that provides a DAG-based, multi-queue-capable scheduling system as well as resource management and bindless descriptor management.
+- `marpii-rmg-tasks`: provides smaller, versatile task implementations. Namely, dynamic data handling and a lightweight `egui` implementation.
+- `marpii-descriptor` & 'marpii-commands': lightweight helpers for `marpii` that take care of data initialization and bindless descriptor management.
+- `iced-marpii`: Iced renderer based on `marpii-rmg`. Allows a tight integration of custom Vulkan renderers with [iced](iced.rs).

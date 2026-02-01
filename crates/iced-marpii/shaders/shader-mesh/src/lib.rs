@@ -4,13 +4,10 @@
 //! shader.
 #![no_std]
 #![allow(unexpected_cfgs)]
-use glam::{UVec2, Vec2, Vec3, Vec4, Vec4Swizzles};
-use iced_marpii_shared::{spirv_std, MeshPush, Vertex};
+use glam::{UVec2, Vec2, Vec3, Vec4};
+use iced_marpii_shared::{MeshPush, Vertex, spirv_std};
 use spirv_std::glam;
-use spirv_std::{spirv, RuntimeArray, TypedBuffer};
-
-#[cfg(target_arch = "spirv")]
-use iced_marpii_shared::spirv_std::num_traits::Float;
+use spirv_std::{RuntimeArray, TypedBuffer, spirv};
 
 pub const UV_COORD_QUAD_CCW: [Vec2; 6] = {
     let tl = Vec2::new(0.0, 0.0);
@@ -20,15 +17,8 @@ pub const UV_COORD_QUAD_CCW: [Vec2; 6] = {
     [bl, br, tr, tr, tl, bl]
 };
 
-//NOTE: hack till rust-gpu supports unbound arrays like this: TypeBuffer<[u32]>
-struct IndexBuffer {
-    indices: [u32; 1_0000_000],
-}
-struct VertexBuffer {
-    vertices: [Vertex; 1_0000_000],
-}
-
-/// Vertex shader that renders an implicit quad.
+/// Vertex shader that a vertex-buffer and derives the color of the shaded pixel
+/// from the vertex-color.
 #[spirv(vertex)]
 pub fn vertex(
     #[spirv(push_constant)] push: &MeshPush,
@@ -38,10 +28,10 @@ pub fn vertex(
     //out_uv: &mut Vec2,
     #[spirv(position)] clip_pos: &mut Vec4,
     #[spirv(descriptor_set = 0, binding = 0, storage_buffer)] index_buffer: &RuntimeArray<
-        TypedBuffer<IndexBuffer>,
+        TypedBuffer<[u32]>,
     >,
     #[spirv(descriptor_set = 0, binding = 0, storage_buffer)] vertex_buffer: &RuntimeArray<
-        TypedBuffer<VertexBuffer>,
+        TypedBuffer<[Vertex]>,
     >,
 ) {
     if push.ibuf.is_invalid() || push.vbuf.is_invalid() {
@@ -55,11 +45,11 @@ pub fn vertex(
     let ibuffers = unsafe { index_buffer.index(push.ibuf.index() as usize) };
     //load the index by offsetting based on the push constant into the global buffer,
     //and then adding
-    let relative_offset = ibuffers.indices[push.index_offset as usize + vertex_id as usize];
+    let relative_offset = ibuffers[push.index_offset as usize + vertex_id as usize];
 
     //now offset into the vertex buffer based on the global offset, and the local offset
     let vbuffers = unsafe { vertex_buffer.index(push.vbuf.index() as usize) };
-    let vertex = &vbuffers.vertices[(push.vertex_offset + relative_offset) as usize];
+    let vertex = &vbuffers[(push.vertex_offset + relative_offset) as usize];
 
     let mut pos: Vec2 = vertex.pos.into();
     //let uv: Vec2 = vertex.uv.into();
@@ -80,9 +70,9 @@ pub fn vertex(
 #[spirv(fragment)]
 pub fn fragment(
     //in_uv: Vec2,
+    #[spirv(push_constant)] push: &MeshPush,
     in_color: Vec4,
     frag_color: &mut Vec4,
-    #[spirv(push_constant)] push: &MeshPush,
 ) {
-    *frag_color = Vec4::from(in_color);
+    *frag_color = push.color_to_display(in_color);
 }
