@@ -1,4 +1,6 @@
 //! Draw custom primitives.
+use std::cell::RefCell;
+
 use iced::Transformation;
 use iced_core::{self, Rectangle};
 use marpii_rmg::{ImageHandle, Recorder, Rmg};
@@ -60,7 +62,10 @@ pub struct Instance {
     pub bounds: Rectangle,
 
     /// The [`Primitive`] to render.
-    pub primitive: Box<dyn Primitive>,
+    /// NOTE: because iced doesn't allow mutable access to merged layers
+    /// we need to work around with interior mutability here.
+    /// TODO: find a better way at some point.
+    pub primitive: Box<RefCell<dyn Primitive>>,
 
     pub transformation: Transformation,
 }
@@ -74,7 +79,7 @@ impl Instance {
     ) -> Self {
         Instance {
             bounds,
-            primitive: Box::new(primitive),
+            primitive: Box::new(RefCell::new(primitive)),
             transformation,
         }
     }

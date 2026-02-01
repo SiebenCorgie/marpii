@@ -78,3 +78,9 @@ fn interpolate_color(from: Vec4, to: Vec4, factor: f32) -> Vec4 {
     //TODO: should probably use OkLab at some point
     from.lerp(to, factor)
 }
+
+///Moves `color` from linear space to sRGB, ignoring the alpha-channel
+pub fn linear_to_srgb(color: Vec4) -> Vec4 {
+    let corrected = color.xyz().powf(1.0 / 2.2);
+    corrected.extend(color.w)
+}
