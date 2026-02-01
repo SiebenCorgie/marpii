@@ -9,14 +9,15 @@
 use crate::egui::{ClippedPrimitive, TextureId, TexturesDelta};
 use crate::{DynamicBuffer, DynamicImage, RmgTaskError};
 use ahash::AHashMap;
-use egui::{Color32, Pos2, ViewportId};
+use egui::{Pos2, ViewportId};
 use egui_winit::winit::raw_window_handle::HasDisplayHandle;
 use egui_winit::winit::window::Window;
+use marpii::MarpiiError;
 use marpii::ash::vk::{ImageUsageFlags, Rect2D};
 use marpii::resources::SharingMode;
 use marpii::util::ImageRegion;
-use marpii::MarpiiError;
 use marpii::{
+    OoS,
     ash::vk,
     context::Device,
     offset_of,
@@ -24,7 +25,6 @@ use marpii::{
         BufDesc, GraphicsPipeline, ImageType, ImgDesc, PipelineLayout, PushConstant, ShaderModule,
         ShaderStage,
     },
-    OoS,
 };
 use marpii_rmg::recorder::task::MetaTask;
 use marpii_rmg::{BufferHandle, ImageHandle, Rmg, RmgError, SamplerHandle, Task};
@@ -860,9 +860,6 @@ impl EGuiTask {
             //extract texture data as srgb
             let dta = match &delta.image {
                 egui_winit::egui::epaint::ImageData::Color(img) => Cow::Borrowed(&img.pixels),
-                egui_winit::egui::epaint::ImageData::Font(img) => {
-                    Cow::Owned(img.srgba_pixels(None).collect::<Vec<Color32>>())
-                }
             };
 
             let dta: &[u8] = bytemuck::cast_slice(dta.as_slice());
