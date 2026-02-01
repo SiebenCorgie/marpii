@@ -58,49 +58,14 @@ Apart from the main crate that is closely related to Vulkan multiple helper crat
 Examples are executed via `cargo run --bin example_name`. Have a look at `examples/` for available applications.
 
 ## Dependencies
-A list of dependencies used in the crates of this project. Have a look at the `Cargo.toml` of each crate for further information about features and versions.
+A list of dependencies used in the crates of this project can be found in [dependencies](dependencies.md). Take a look at the `Cargo.toml` of each crate for further information about features and versions.
 
-### MarpII
+We generally try to have the minimum amount of dependencies possible and try to stick to _big_ names as much as possible.
 
-- ash: general vulkan API bindings
-- ash-window: convenient abstraction over window handles. Allows for a generic implementation of `Surface` without having to handle multiple window crates.
-- raw-window-handle: used to be able to expose the window handle needed for `Surface`
-- anyhow: convenient error handling. Otherwise we'd have either one really big error ENum, or multiple small ones. Either way, there are a lot of different error states that are not really recoverable. So a simple string like error is enough in most cases.
-- const-cstr: Allows defining constant CStrings. They are used for default messages in the debug callback.
-- small-vec: Whenever only small collections are needed this allows us to uses arrays in the general case and Vecs if those are not big enough.
-- ahash: in the cases where we need a hash map/set ahash is used for speed.
-- gpu-allocator: standard Vulkan memory allocator
-- log: logging if enabled
-- puffin: profiling if enabled
-- rspirv-reflect: spirv-module reflection if enabled. Allows convenient descriptor-layout creation.
-
-### MarpII-Rmg
-
-- marpii/marpii-commands/marpii-descriptor: marpii binding
-- anyhow: convenient error handling
-- thiserror: convenient error handling
-- ahash: in the cases where we need a hash map/set ahash is used for speed.
-- slotmap: Fast and safe Vec-like mapping from handles to internal resource
-- log: logging if enabled
-- winit: swapchain handling
-
-### MarpII-Commands
-- marpii: marpii binding
-- anyhow: convenient error handling.
-- log: logging if enabled
-
-### MarpII-Descriptor
-
-- marpii: marpii binding
-- anyhow: convenient error handling.
-- ahash: in the cases where we need a hash map/set ahash is used for speed.
-- log: logging if enabled
 
 ## Contributing
 
 You are welcome to contribute. All contributions are licensed under the MPL v2.0.
-
-Note that the project is currently in its early stages. Actual contribution might be difficult.
 
 ## License
 
