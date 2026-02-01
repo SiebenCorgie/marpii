@@ -17,7 +17,8 @@ pub const UV_COORD_QUAD_CCW: [Vec2; 6] = {
     [bl, br, tr, tr, tl, bl]
 };
 
-/// Vertex shader that renders an implicit quad.
+/// Vertex shader that a vertex-buffer and derives the color of the shaded pixel
+/// from the vertex-color.
 #[spirv(vertex)]
 pub fn vertex(
     #[spirv(push_constant)] push: &MeshPush,
@@ -69,8 +70,9 @@ pub fn vertex(
 #[spirv(fragment)]
 pub fn fragment(
     //in_uv: Vec2,
+    #[spirv(push_constant)] push: &MeshPush,
     in_color: Vec4,
     frag_color: &mut Vec4,
 ) {
-    *frag_color = Vec4::from(in_color);
+    *frag_color = push.color_to_display(in_color);
 }

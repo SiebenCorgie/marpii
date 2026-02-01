@@ -5,7 +5,7 @@
 #![no_std]
 #![allow(unexpected_cfgs)]
 use glam::{UVec2, Vec2, Vec4, Vec4Swizzles};
-use iced_marpii_shared::{QuadPush, ShapeCmdBuffer, spirv_std};
+use iced_marpii_shared::{CmdShape, QuadPush, spirv_std};
 use spirv_std::glam;
 use spirv_std::{RuntimeArray, TypedBuffer, spirv};
 
@@ -42,15 +42,15 @@ pub fn vertex(
     out_shadow_blur_radius: &mut f32,
     //bindless
     #[spirv(descriptor_set = 0, binding = 0, storage_buffer)] draw_commands: &RuntimeArray<
-        TypedBuffer<ShapeCmdBuffer>,
+        TypedBuffer<[CmdShape]>,
     >,
 ) {
     let cmd_offset = instance_id as usize;
     *out_instance_index = instance_id;
     //load the call
     let cmd = if push.cmd_buffer.is_valid() {
-        let buffers = unsafe { draw_commands.index(push.cmd_buffer.index() as usize) };
-        &buffers.cmds[cmd_offset]
+        let commands = unsafe { draw_commands.index(push.cmd_buffer.index() as usize) };
+        &commands[cmd_offset]
     } else {
         *clip_pos = Vec4::ZERO;
         return;
@@ -103,13 +103,13 @@ pub fn fragment(
     frag_color: &mut Vec4,
     //bindless
     #[spirv(descriptor_set = 0, binding = 0, storage_buffer)] draw_commands: &RuntimeArray<
-        TypedBuffer<ShapeCmdBuffer>,
+        TypedBuffer<[CmdShape]>,
     >,
 ) {
     //load the command
     let cmd = if push.cmd_buffer.is_valid() {
-        let buffers = unsafe { draw_commands.index(push.cmd_buffer.index() as usize) };
-        &buffers.cmds[instance_id as usize]
+        let commands = unsafe { draw_commands.index(push.cmd_buffer.index() as usize) };
+        &commands[instance_id as usize]
     } else {
         *frag_color = Vec4::X;
         return;
@@ -163,5 +163,6 @@ pub fn fragment(
         mixed_color = shadow_color.lerp(mixed_color, mixed_color.w);
     }
 
-    *frag_color = mixed_color;
+    //This _might_ apply gamma correction.
+    *frag_color = push.color_to_display(mixed_color);
 }

@@ -2,6 +2,7 @@
 use bytemuck::{Pod, Zeroable};
 pub use marpii_rmg_shared::ResourceHandle;
 pub use spirv_std;
+use spirv_std::glam::Vec4;
 
 ///Generic vertex for the mesh-draming pass
 #[repr(C)]
@@ -31,7 +32,8 @@ pub struct MeshPush {
     //resolution of the frame-buffer, used for translating
     //pixel-space to ndc
     pub resolution: [u32; 2],
-    pad1: [u32; 2],
+    pub must_gamma_correct: u32,
+    pad1: u32,
 
     pub pos: [f32; 2],
     pub scale: f32,
@@ -46,10 +48,23 @@ impl Default for MeshPush {
             index_offset: 0,
             vertex_offset: 0,
             resolution: [0; 2],
-            pad1: [0; 2],
+            must_gamma_correct: 0,
+            pad1: 0,
             pos: [0.0; 2],
             scale: 0.0,
             layer_depth: 0.0,
+        }
+    }
+}
+
+impl MeshPush {
+    ///Might apply gamma correction, if turned on
+    #[inline]
+    pub fn color_to_display(&self, color: Vec4) -> Vec4 {
+        if self.must_gamma_correct != 0 {
+            crate::util::linear_to_srgb(color)
+        } else {
+            color
         }
     }
 }

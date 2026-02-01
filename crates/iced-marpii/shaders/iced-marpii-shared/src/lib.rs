@@ -9,7 +9,7 @@ mod util;
 pub use util::{gradient, saturate, smoothstep};
 
 mod quad;
-pub use quad::{CmdQuad, CmdQuadGradient, QuadCmdBuffer, QuadGradientCmdBuffer, QuadPush};
+pub use quad::{CmdQuad, CmdQuadGradient, QuadPush};
 
 mod glyph;
 pub use glyph::{GlyphInstance, TextPush};

@@ -8,7 +8,7 @@ use marpii_rmg::{ImageHandle, MetaTask, Rmg};
 
 use crate::batch_cache::{BatchCall, BatchId, BufferState, CachedBatch};
 
-use super::{solid::SolidShapePass, Batch};
+use super::{Batch, solid::SolidShapePass};
 
 ///The vertex/index-buffer less shape renderer.
 ///
@@ -24,6 +24,7 @@ pub struct ShapeRenderer {
 
     solid_pass: super::solid::SolidShapePass,
     //gradient_pass: QuadGradientPass,
+    should_gamma_correct: bool,
 }
 
 impl ShapeRenderer {
@@ -46,6 +47,7 @@ impl ShapeRenderer {
             order: Vec::new(),
             solid_pass,
             //gradient_pass,
+            should_gamma_correct: false,
         }
     }
 
@@ -55,25 +57,20 @@ impl ShapeRenderer {
         //self.gradient_pass.resize(color_buffer, depth_buffer);
     }
 
+    pub fn set_gamma_correct(&mut self, target_is_srgb: bool) {
+        self.should_gamma_correct = target_is_srgb;
+    }
+
     pub fn push_solid_batch(
         &mut self,
         rmg: &mut Rmg,
-        batch: &mut Batch,
+        batch: &Batch,
         bound: iced::Rectangle,
         layer_depth: f32,
-        must_gamma_correct: bool,
     ) {
         //Do not push batches, that are empty
         if batch.is_empty() {
             return;
-        }
-
-        if must_gamma_correct {
-            for item in batch.iter_mut() {
-                item.border_color = crate::util::gamma_correct(item.border_color);
-                item.shadow_color = crate::util::gamma_correct(item.shadow_color);
-                item.color = crate::util::gamma_correct(item.color);
-            }
         }
 
         let mut hasher = ahash::AHasher::default();
@@ -280,6 +277,8 @@ impl MetaTask for ShapeRenderer {
     ) -> Result<marpii_rmg::Recorder<'a>, marpii_rmg::RecordError> {
         //Clear the old data
         self.solid_pass.batches.clear();
+        let gamma_correct_state = if self.should_gamma_correct { 1 } else { 0 };
+        self.solid_pass.push.get_content_mut().gamma_correct = gamma_correct_state;
         //self.gradient_pass.batches.clear();
 
         //transform batchen, in-order, into batch calls

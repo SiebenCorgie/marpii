@@ -1,6 +1,5 @@
 #[cfg(not(target_arch = "spirv"))]
 use bytemuck::{Pod, Zeroable};
-use marpii_rmg_shared::ResourceHandle;
 use spirv_std::glam::{Vec2, Vec3};
 
 #[cfg(target_arch = "spirv")]
@@ -201,35 +200,4 @@ fn solev_cubic(a: Vec3) -> Vec2 {
     let n = v.sin() * (3.0f32).sqrt();
 
     Vec2::new(m + m, -n - m) * (-p / 3.0).sqrt() - a.x / 3.0
-}
-
-///The push command currently just signals where to read our information from.
-#[repr(C)]
-pub struct ShapePush {
-    ///The command buffer we found our data in
-    pub cmd_buffer: ResourceHandle,
-    ///The offset into the cmd_buffer where our command is written
-    pub pad1: u32,
-    pub resolution: [u32; 2],
-
-    pub scale: f32,
-    pub layer_depth: f32,
-    pub pad0: [f32; 2],
-}
-
-impl Default for ShapePush {
-    fn default() -> Self {
-        Self {
-            cmd_buffer: ResourceHandle::INVALID,
-            pad1: 0,
-            resolution: [1; 2],
-            scale: 1.0,
-            layer_depth: 0.0,
-            pad0: [0.0; 2],
-        }
-    }
-}
-
-pub struct ShapeCmdBuffer {
-    pub cmds: [CmdShape; 10_000],
 }

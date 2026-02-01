@@ -4,10 +4,6 @@ pub use marpii_rmg_shared::ResourceHandle;
 pub use spirv_std;
 use spirv_std::glam::{Mat4, Vec4};
 
-pub struct QuadCmdBuffer {
-    pub cmds: [CmdQuad; 10_000],
-}
-
 ///GPU/CPU shared quad command defintion.
 #[repr(C)]
 #[cfg_attr(
@@ -46,10 +42,6 @@ impl core::hash::Hash for CmdQuad {
             state.write_u32(value.to_bits());
         }
     }
-}
-
-pub struct QuadGradientCmdBuffer {
-    pub cmds: [CmdQuadGradient; 10_000],
 }
 
 ///GPU/CPU shared quad-gradient command defintion.
@@ -152,8 +144,9 @@ impl core::hash::Hash for CmdQuadGradient {
 pub struct QuadPush {
     ///The command buffer we found our data in
     pub cmd_buffer: ResourceHandle,
-    ///The offset into the cmd_buffer where our command is written
-    pub pad1: u32,
+    ///true, if this needs gamma correction
+    /// TODO: maybe use pad0 instead to push a correction value?
+    pub gamma_correct: u32,
     pub resolution: [u32; 2],
     pub transform: [f32; 16],
     pub scale: f32,
@@ -165,12 +158,24 @@ impl Default for QuadPush {
     fn default() -> Self {
         Self {
             cmd_buffer: ResourceHandle::INVALID,
-            pad1: 0,
+            gamma_correct: 0,
             resolution: [1; 2],
             transform: Mat4::IDENTITY.to_cols_array(),
             scale: 1.0,
             layer_depth: 0.0,
             pad0: [0.0; 2],
+        }
+    }
+}
+
+impl QuadPush {
+    ///Might apply gamma correction, if turned on
+    #[inline]
+    pub fn color_to_display(&self, color: Vec4) -> Vec4 {
+        if self.gamma_correct != 0 {
+            crate::util::linear_to_srgb(color)
+        } else {
+            color
         }
     }
 }
