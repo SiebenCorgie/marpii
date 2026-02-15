@@ -76,6 +76,7 @@ impl ImageUsage {
     }
 }
 
+///Highlevel buffer usage decleration.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BufferUsage {
     Read,

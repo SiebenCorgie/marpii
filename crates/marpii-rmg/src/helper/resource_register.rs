@@ -1,19 +1,21 @@
 use ahash::{AHashMap, AHashSet};
 use marpii::ash::vk;
 
-use crate::{BufferHandle, ImageHandle, SamplerHandle, resources::handle::TypeErased};
+use crate::{
+    BufferHandle, ImageHandle, ResourceRegistry, SamplerHandle, resources::handle::TypeErased,
+};
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 struct ImageState {
     stage: vk::PipelineStageFlags2,
-    usage: vk::ImageUsageFlags,
+    access: vk::AccessFlags2,
     layout: vk::ImageLayout,
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 struct BufferState {
     stage: vk::PipelineStageFlags2,
-    usage: vk::BufferUsageFlags,
+    access: vk::AccessFlags2,
 }
 
 ///Helper whenever you are using _a-lot_ of resources at once.
@@ -41,32 +43,22 @@ impl ResourceRegister {
         &mut self,
         image: ImageHandle,
         stage: vk::PipelineStageFlags2,
-        usage: vk::ImageUsageFlags,
+        access: vk::AccessFlags2,
         layout: vk::ImageLayout,
-    ) -> Option<(
-        vk::PipelineStageFlags2,
-        vk::ImageUsageFlags,
-        vk::ImageLayout,
-    )> {
-        //On debug, make sure the usage flags are okay
-        debug_assert!(
-            image.usage_flags().contains(usage),
-            "image does not contain {usage:?} flags"
-        );
-
+    ) -> Option<(vk::PipelineStageFlags2, vk::AccessFlags2, vk::ImageLayout)> {
         if let Some(ImageState {
             stage,
-            usage,
+            access,
             layout,
         }) = self.images.insert(
             image,
             ImageState {
                 stage,
-                usage,
+                access,
                 layout,
             },
         ) {
-            Some((stage, usage, layout))
+            Some((stage, access, layout))
         } else {
             None
         }
@@ -79,18 +71,13 @@ impl ResourceRegister {
         &mut self,
         buffer: BufferHandle<T>,
         stage: vk::PipelineStageFlags2,
-        usage: vk::BufferUsageFlags,
-    ) -> Option<(vk::PipelineStageFlags2, vk::BufferUsageFlags)> {
-        debug_assert!(
-            buffer.usage_flags().contains(usage),
-            "Buffer does not have {usage:?} enabled"
-        );
-
-        if let Some(BufferState { stage, usage }) = self
+        access: vk::AccessFlags2,
+    ) -> Option<(vk::PipelineStageFlags2, vk::AccessFlags2)> {
+        if let Some(BufferState { stage, access }) = self
             .buffers
-            .insert(buffer.type_erase(), BufferState { stage, usage })
+            .insert(buffer.type_erase(), BufferState { stage, access })
         {
-            Some((stage, usage))
+            Some((stage, access))
         } else {
             None
         }
@@ -107,5 +94,30 @@ impl ResourceRegister {
         self.images.clear();
         self.buffers.clear();
         self.samplers.clear();
+    }
+
+    ///Registers all resources in `self` with `registry`
+    pub fn register_all(&self, registry: &mut ResourceRegistry) {
+        for (buffer, BufferState { stage, access }) in &self.buffers {
+            registry.request_buffer(buffer, *stage, *access).unwrap();
+        }
+
+        for (
+            image,
+            ImageState {
+                stage,
+                access,
+                layout,
+            },
+        ) in &self.images
+        {
+            registry
+                .request_image(image, *stage, *access, *layout)
+                .unwrap();
+        }
+
+        for sampler in &self.samplers {
+            registry.request_sampler(sampler).unwrap();
+        }
     }
 }
