@@ -1,9 +1,9 @@
 use marpii::{
+    MarpiiError, OoS,
     ash::vk,
     resources::ImgDesc,
     surface::Surface,
     swapchain::{Swapchain, SwapchainImage},
-    MarpiiError, OoS,
 };
 use marpii_rmg::{ImageHandle, RecordError, ResourceError, Rmg, Task};
 use std::sync::Arc;
@@ -32,6 +32,7 @@ impl PresentOp {
 pub struct SwapchainPresent {
     swapchain: Swapchain,
     last_known_extent: vk::Extent2D,
+    last_was_suboptimal: bool,
     ///the image that is going to be presented next.
     //TODO: Do we want to implement more fancy double buffering? Usually done by the driver tho.
     next: PresentOp,
@@ -79,6 +80,7 @@ impl SwapchainPresent {
                 width: 1,
                 height: 1,
             },
+            last_was_suboptimal: false,
             next: PresentOp::None,
         })
     }
@@ -122,13 +124,15 @@ impl SwapchainPresent {
             width: self.swapchain.images[0].desc.extent.width,
             height: self.swapchain.images[0].desc.extent.height,
         };
+        //Reset the flag
+        self.last_was_suboptimal = false;
 
         Ok(())
     }
 
     fn next_image(&mut self) -> Result<SwapchainImage, ResourceError> {
         let surface_extent = self.extent().unwrap_or(self.last_known_extent);
-        if self.swapchain.images[0].extent_2d() != surface_extent {
+        if self.swapchain.images[0].extent_2d() != surface_extent || self.last_was_suboptimal {
             #[cfg(feature = "logging")]
             log::info!("Recreating swapchain with extent {:?}!", surface_extent);
 
@@ -137,6 +141,8 @@ impl SwapchainPresent {
         }
 
         if let Ok(img) = self.swapchain.acquire_next_image() {
+            //set the suboptimal flag
+            self.last_was_suboptimal = img.is_suboptimal;
             Ok(img)
         } else {
             Err(ResourceError::SwapchainError)

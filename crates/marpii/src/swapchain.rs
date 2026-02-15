@@ -7,13 +7,13 @@ use ash::vk::{self, SwapchainCreateInfoKHR};
 use oos::OoS;
 
 use crate::{
+    MarpiiError,
     allocator::{ManagedAllocation, MemoryUsage, UnmanagedAllocation, UnmanagedAllocator},
     context::Device,
     error::DeviceError,
     resources::{Image, ImgDesc, SharingMode},
     surface::Surface,
     sync::BinarySemaphore,
-    MarpiiError,
 };
 
 ///All info needed to create a swapchain
@@ -205,7 +205,10 @@ impl SwapchainBuilder {
 
         if ext.width == u32::MAX || ext.height == u32::MAX {
             #[cfg(feature = "logging")]
-            log::warn!("Swapchain extent is u32::MAX on one axis. Should be reduced to the window's size. Extent: {:?}", ext);
+            log::warn!(
+                "Swapchain extent is u32::MAX on one axis. Should be reduced to the window's size. Extent: {:?}",
+                ext
+            );
         }
 
         ext
@@ -328,6 +331,7 @@ pub struct SwapchainImage {
     /// Note that this is **NOT** a TimelineSemaphore. Therefor giving it any value when submitting to a queue won't have
     /// any effect.
     pub sem_present: Arc<BinarySemaphore>,
+    pub is_suboptimal: bool,
 }
 
 pub struct Swapchain {
@@ -434,6 +438,7 @@ impl Swapchain {
             index,
             sem_acquire: acquire_semaphore,
             sem_present: present_semaphore,
+            is_suboptimal,
         })
     }
 
