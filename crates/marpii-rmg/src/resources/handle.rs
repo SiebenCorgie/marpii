@@ -19,13 +19,14 @@ use marpii::{
 use std::{
     any::Any,
     fmt::{Debug, Display},
+    hash::Hash,
     marker::PhantomData,
     sync::Arc,
 };
 
 use super::res_states::AnyResKey;
 
-#[derive(Clone)]
+#[derive(Clone, Hash)]
 pub struct ImageHandle {
     //reference to the key. The arc signals the garbage collector when we
     // dropped
@@ -78,9 +79,10 @@ impl Eq for ImageHandle {}
 
 ///Marker type that seals buffers where we don't care abount the type internally.
 /// Don't _ever_ use the count helper on an erased buffer handle, since it'll panic.
-pub(crate) struct TypeErased;
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub(crate) struct TypeErased(std::any::TypeId);
 
-#[derive(Clone)]
+#[derive(Clone, Hash)]
 pub struct BufferHandle<T: 'static> {
     //reference to the key. The arc signals the garbage collector when we
     // dropped
@@ -147,6 +149,14 @@ pub struct SamplerHandle {
     pub(crate) samref: Arc<Sampler>,
 }
 
+impl Hash for SamplerHandle {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        //NOTE: safe since the internal samref is always 1:1 assosiated
+        // with the key.
+        self.key.hash(state);
+    }
+}
+
 impl Debug for SamplerHandle {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "SamplerHandle({:?})", self.key)
@@ -160,6 +170,7 @@ impl PartialEq for SamplerHandle {
 }
 impl Eq for SamplerHandle {}
 
+///An opaque handle to _any_ kind of resource.
 pub struct AnyHandle {
     ///Keeps the atomic reference to *something* alive. Used internally to
     /// verify if there are owners *outside* of rmg.
