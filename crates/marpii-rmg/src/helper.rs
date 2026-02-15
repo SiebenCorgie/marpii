@@ -2,11 +2,6 @@
 //! functionality.
 
 use marpii::ash::vk;
-use smallvec::SmallVec;
-
-use crate::{
-    BufferHandle, ImageHandle, ResourceRegistry, SamplerHandle, resources::handle::TypeErased,
-};
 
 pub mod computepass;
 pub mod rasterpass;
@@ -92,51 +87,6 @@ impl BufferUsage {
             Self::ReadWrite => {
                 vk::AccessFlags2::SHADER_STORAGE_READ | vk::AccessFlags2::SHADER_STORAGE_WRITE
             }
-        }
-    }
-}
-
-///Small helper that makes it easier for us to write
-/// generic passes.
-pub(crate) struct ResourceStorage {
-    pub images: SmallVec<[(ImageHandle, ImageUsage); 8]>,
-    pub buffers: SmallVec<[(BufferHandle<TypeErased>, BufferUsage); 8]>,
-    pub samplers: SmallVec<[SamplerHandle; 4]>,
-}
-impl ResourceStorage {
-    pub(crate) fn new() -> Self {
-        ResourceStorage {
-            images: SmallVec::default(),
-            buffers: SmallVec::default(),
-            samplers: SmallVec::default(),
-        }
-    }
-
-    pub(crate) fn reset(&mut self) {
-        self.images.clear();
-        self.buffers.clear();
-        self.samplers.clear();
-    }
-
-    pub(crate) fn register_all(
-        &self,
-        registry: &mut ResourceRegistry,
-        stage: vk::PipelineStageFlags2,
-    ) {
-        for (buffer, usage) in &self.buffers {
-            registry
-                .request_buffer(buffer, stage, usage.into_access_flags())
-                .unwrap();
-        }
-
-        for (image, usage) in &self.images {
-            registry
-                .request_image(image, stage, usage.into_access_flags(), usage.into_layout())
-                .unwrap();
-        }
-
-        for sampler in &self.samplers {
-            registry.request_sampler(sampler).unwrap();
         }
     }
 }

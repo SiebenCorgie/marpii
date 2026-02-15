@@ -6,14 +6,14 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
-struct ImageState {
+pub(crate) struct ImageState {
     stage: vk::PipelineStageFlags2,
     access: vk::AccessFlags2,
     layout: vk::ImageLayout,
 }
 
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
-struct BufferState {
+pub(crate) struct BufferState {
     stage: vk::PipelineStageFlags2,
     access: vk::AccessFlags2,
 }
@@ -22,9 +22,9 @@ struct BufferState {
 ///
 /// uses a special internal fast-path to register the resources.
 pub struct ResourceRegister {
-    images: AHashMap<ImageHandle, ImageState>,
-    buffers: AHashMap<BufferHandle<TypeErased>, BufferState>,
-    samplers: AHashSet<SamplerHandle>,
+    pub(crate) images: AHashMap<ImageHandle, ImageState>,
+    pub(crate) buffers: AHashMap<BufferHandle<TypeErased>, BufferState>,
+    pub(crate) samplers: AHashSet<SamplerHandle>,
 }
 
 impl ResourceRegister {

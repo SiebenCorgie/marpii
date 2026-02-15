@@ -1,13 +1,13 @@
 //! Generic, temporal compute pass recording.
 
 use crate::{
-    helper::{BufferUsage, ImageUsage, ResourceStorage},
     BufferHandle, ImageHandle, RecordError, Rmg, RmgError, SamplerHandle, Task,
+    helper::{BufferUsage, ImageUsage, ResourceRegister},
 };
 use marpii::{
+    OoS,
     ash::vk::{self, DeviceSize, DispatchIndirectCommand},
     resources::{ComputePipeline, PushConstant, ShaderModule},
-    OoS,
 };
 use std::sync::Arc;
 
@@ -21,7 +21,7 @@ pub struct GenericComputePass<P: 'static> {
     push: PushConstant<P>,
     dispatch: DispatchType,
     name: Option<String>,
-    storage: ResourceStorage,
+    storage: ResourceRegister,
 }
 
 pub enum DispatchType {
@@ -58,7 +58,7 @@ impl<P: 'static> GenericComputePass<P> {
             push: PushConstant::new((), vk::ShaderStageFlags::COMPUTE),
             dispatch: DispatchType::default(),
             name: None,
-            storage: ResourceStorage::new(),
+            storage: ResourceRegister::new(),
         }
     }
 
@@ -212,8 +212,7 @@ impl<P: 'static> Task for GenericComputePass<P> {
                 .expect("Could not register indirect dispatch buffer");
         }
 
-        self.storage
-            .register_all(registry, vk::PipelineStageFlags2::COMPUTE_SHADER);
+        self.storage.register_all(registry);
         //Always keep pipeline alive as long as possible
         registry.register_asset(self.pipeline.clone());
     }
@@ -307,7 +306,12 @@ impl<'ctx, P: 'static> ComputePassBuilder<'ctx, P> {
     /// based on the signaled flag.
     pub fn use_image(mut self, image: ImageHandle, usage: ImageUsage) -> Self {
         assert!(!usage.is_attachment(), "Cannot use attachments in Compute");
-        self.task_setup.storage.images.push((image, usage));
+        self.task_setup.storage.register_image(
+            image,
+            vk::PipelineStageFlags2::COMPUTE_SHADER,
+            usage.into_access_flags(),
+            usage.into_layout(),
+        );
         self
     }
 
@@ -315,10 +319,10 @@ impl<'ctx, P: 'static> ComputePassBuilder<'ctx, P> {
     /// where you want to mark all as sampled.
     pub fn use_images(mut self, images: &[ImageHandle], usage: ImageUsage) -> Self {
         assert!(!usage.is_attachment(), "Cannot use attachments in Compute");
-        self.task_setup
-            .storage
-            .images
-            .extend(images.iter().map(|img| (img.clone(), usage)));
+        //TODO: fast-path again
+        for image in images {
+            self = self.use_image(image.clone(), usage);
+        }
         self
     }
 
@@ -328,16 +332,17 @@ impl<'ctx, P: 'static> ComputePassBuilder<'ctx, P> {
             panic!("buffer is already in use as indirect-dispatch source!");
         }
 
-        self.task_setup
-            .storage
-            .buffers
-            .push((buffer.type_erase(), usage));
+        self.task_setup.storage.register_buffer(
+            buffer,
+            vk::PipelineStageFlags2::COMPUTE_SHADER,
+            usage.into_access_flags(),
+        );
         self
     }
 
     /// Signals that the pass will use the sampler
     pub fn use_sampler(mut self, sampler: SamplerHandle) -> Self {
-        self.task_setup.storage.samplers.push(sampler);
+        self.task_setup.storage.register_sampler(sampler);
         self
     }
 

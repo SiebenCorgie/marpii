@@ -1,13 +1,13 @@
 use crate::{
-    helper::{BufferUsage, ImageUsage, ResourceStorage},
     BufferHandle, ImageHandle, ResourceError, ResourceRegistry, Resources, Rmg, RmgError,
     SamplerHandle, Task,
+    helper::{BufferUsage, ImageUsage, ResourceRegister},
 };
 use marpii::{
+    MarpiiError, OoS,
     ash::vk,
     resources::{GraphicsPipeline, PushConstant, ShaderModule, ShaderStage},
     util::ImageRegion,
-    MarpiiError, OoS,
 };
 use smallvec::SmallVec;
 use std::sync::Arc;
@@ -71,7 +71,7 @@ pub struct GenericRasterPass<P: Default + Clone + 'static> {
     color_attachments: SmallVec<[Option<AttachmentInfoAnd<[f32; 4]>>; 4]>,
     depth_attachment: Option<AttachmentInfoAnd<f32>>,
 
-    storage: ResourceStorage,
+    storage: ResourceRegister,
     framebuffer_area: ImageRegion,
     drawcalls: SmallVec<[(RasterDrawCall<P>, Option<ImageRegion>); 16]>,
 }
@@ -87,7 +87,7 @@ impl GenericRasterPass<()> {
             color_attachments: smallvec::smallvec![None; color_attachment_count],
             depth_attachment: None,
             framebuffer_area: ImageRegion::ZERO,
-            storage: ResourceStorage::new(),
+            storage: ResourceRegister::new(),
             drawcalls: SmallVec::default(),
         }
     }
@@ -179,11 +179,7 @@ impl<P: Default + Clone + 'static> Task for GenericRasterPass<P> {
         }
 
         //now enqueue all standard resources and the pipeline
-        self.storage.register_all(
-            registry,
-            //NOTE we use this in order to not hickup the scheduler's barrier generation...
-            vk::PipelineStageFlags2::ALL_GRAPHICS,
-        );
+        self.storage.register_all(registry);
         registry.register_asset(self.pipeline.inner.clone());
     }
 
@@ -442,7 +438,15 @@ impl<'rmg, P: Default + Clone + 'static> RasterPassBuilder<'rmg, P> {
                 self.task_setup.depth_attachment =
                     Some((image, usage, load_op, store_op, clear_depth));
             }
-            _ => self.task_setup.storage.images.push((image, usage)),
+            _ => {
+                self.task_setup.storage.register_image(
+                    image,
+                    //NOTE we use this in order to not hickup the scheduler's barrier generation...
+                    vk::PipelineStageFlags2::ALL_GRAPHICS,
+                    usage.into_access_flags(),
+                    usage.into_layout(),
+                );
+            }
         }
 
         Ok(self)
@@ -460,10 +464,15 @@ impl<'rmg, P: Default + Clone + 'static> RasterPassBuilder<'rmg, P> {
                 self = self.use_image(image.clone(), usage)?;
             }
         } else {
-            self.task_setup
-                .storage
-                .images
-                .extend(images.iter().map(|img| (img.clone(), usage)));
+            for image in images {
+                self.task_setup.storage.register_image(
+                    image.clone(),
+                    //NOTE we use this in order to not hickup the scheduler's barrier generation...
+                    vk::PipelineStageFlags2::ALL_GRAPHICS,
+                    usage.into_access_flags(),
+                    usage.into_layout(),
+                );
+            }
         }
 
         Ok(self)
@@ -471,16 +480,17 @@ impl<'rmg, P: Default + Clone + 'static> RasterPassBuilder<'rmg, P> {
 
     /// Signals that the pass will write to this resource
     pub fn use_buffer<T: 'static>(mut self, buffer: BufferHandle<T>, usage: BufferUsage) -> Self {
-        self.task_setup
-            .storage
-            .buffers
-            .push((buffer.type_erase(), usage));
+        let _ = self.task_setup.storage.register_buffer(
+            buffer,
+            vk::PipelineStageFlags2::ALL_GRAPHICS,
+            usage.into_access_flags(),
+        );
         self
     }
 
     /// Signals that the pass will use the sampler
     pub fn use_sampler(mut self, sampler: SamplerHandle) -> Self {
-        self.task_setup.storage.samplers.push(sampler);
+        let _ = self.task_setup.storage.register_sampler(sampler);
         self
     }
 
@@ -501,17 +511,20 @@ impl<'rmg, P: Default + Clone + 'static> RasterPassBuilder<'rmg, P> {
 
             if limit <= *instance_count {
                 #[cfg(feature = "log")]
-                log::error!("Instance count {instance_count} exceeds the limit of {limit}, reducing to limits");
+                log::error!(
+                    "Instance count {instance_count} exceeds the limit of {limit}, reducing to limits"
+                );
                 *instance_count = limit;
             }
         }
 
         //check that the drawcall's index buffer has the usage set
-        assert!(draw
-            .index_buffer()
-            .buf_desc()
-            .usage
-            .contains(vk::BufferUsageFlags::INDEX_BUFFER));
+        assert!(
+            draw.index_buffer()
+                .buf_desc()
+                .usage
+                .contains(vk::BufferUsageFlags::INDEX_BUFFER)
+        );
         self.task_setup.drawcalls.push((draw, region));
 
         self
@@ -542,10 +555,10 @@ impl<'rmg, P: Default + Clone + 'static> RasterPassBuilder<'rmg, P> {
             (None, Some(_)) => {
                 return Err(RmgError::ResourceError(
                     ResourceError::UnexpectedDepthAttachment,
-                ))
+                ));
             }
             (Some(_), None) => {
-                return Err(RmgError::ResourceError(ResourceError::NoDepthAttachment))
+                return Err(RmgError::ResourceError(ResourceError::NoDepthAttachment));
             }
         }
 
