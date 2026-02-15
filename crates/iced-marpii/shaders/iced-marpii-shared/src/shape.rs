@@ -46,7 +46,7 @@ pub struct CmdShape {
     pub payload1: [f32; 4],
 }
 
-///Somewhat flawed hashing implementation. We basically hash the content of [CmdQuad], which might not be valid, debending on what you are doing.
+///Somewhat flawed hashing implementation. We basically hash the content of [CmdShape], which might not be valid, debending on what you are doing.
 #[cfg(not(target_arch = "spirv"))]
 impl core::hash::Hash for CmdShape {
     fn hash<H: core::hash::Hasher>(&self, state: &mut H) {

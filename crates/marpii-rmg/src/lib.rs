@@ -163,14 +163,14 @@
 //!
 mod resources;
 pub use resources::{
+    ResourceError, Resources,
     handle::{BufferHandle, ImageHandle, SamplerHandle},
     res_states::{ResBuffer, ResImage, ResSampler},
-    ResourceError, Resources,
 };
 pub mod recorder;
 pub use recorder::{
-    task::{MetaTask, ResourceRegistry, Task},
     RecordError, Recorder,
+    task::{MetaTask, ResourceRegistry, Task},
 };
 
 pub(crate) mod track;
@@ -180,8 +180,8 @@ pub mod helper;
 
 mod rmg;
 pub use rmg::{
-    config::{Config, PhysicalDeviceLimitsExtended},
     CtxRmg, Rmg, RmgError,
+    config::{Config, PhysicalDeviceLimitsExtended},
 };
 
 pub use marpii_rmg_shared;

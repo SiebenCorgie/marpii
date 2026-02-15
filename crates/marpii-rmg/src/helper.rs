@@ -5,11 +5,13 @@ use marpii::ash::vk;
 use smallvec::SmallVec;
 
 use crate::{
-    resources::handle::TypeErased, BufferHandle, ImageHandle, ResourceRegistry, SamplerHandle,
+    BufferHandle, ImageHandle, ResourceRegistry, SamplerHandle, resources::handle::TypeErased,
 };
 
 pub mod computepass;
 pub mod rasterpass;
+mod resource_register;
+pub use resource_register::ResourceRegister;
 
 ///Declares at a high level how the image is used in the pass.
 #[derive(Debug, Clone, Copy, PartialEq)]
