@@ -171,7 +171,7 @@ impl<P: 'static> GenericComputePass<P> {
         mut self,
         rmg: &'rmg mut Rmg,
         keep_resources: bool,
-    ) -> ComputePassBuilder<'rmg, ()> {
+    ) -> ComputePassBuilder<'rmg, P> {
         if !keep_resources {
             self.storage.reset();
         }
@@ -179,13 +179,43 @@ impl<P: 'static> GenericComputePass<P> {
         ComputePassBuilder {
             task_setup: GenericComputePass {
                 pipeline: self.pipeline,
-                push: PushConstant::new((), vk::ShaderStageFlags::COMPUTE),
+                push: self.push,
                 dispatch: self.dispatch,
                 name: self.name,
                 storage: self.storage,
             },
             rmg,
         }
+    }
+}
+
+impl<P: Default + 'static> GenericComputePass<P> {
+    fn init_empty(pipeline: Arc<ComputePipeline>) -> Self {
+        GenericComputePass {
+            pipeline,
+            push: PushConstant::new(P::default(), vk::ShaderStageFlags::COMPUTE),
+            dispatch: DispatchType::default(),
+            name: None,
+            storage: ResourceRegister::new(),
+        }
+    }
+
+    ///Reconfigures the pass _in-place_, i.e. contrary to [reconfigure](Self::reconfigure) it does not need
+    /// to move `self`.
+    ///
+    /// Only available if the push constant `P` implements `Default`.
+    pub fn reconfigure_in_place<'rmg>(
+        &mut self,
+        rmg: &'rmg mut Rmg,
+        keep_resources: bool,
+        reconfig: impl FnOnce(ComputePassBuilder<'rmg, P>) -> ComputePassBuilder<'rmg, P>,
+    ) {
+        let mut tmp: Self = Self::init_empty(self.pipeline.clone());
+        std::mem::swap(&mut tmp, self);
+        //Call the inner
+        let mut tmp = reconfig(tmp.reconfigure(rmg, keep_resources)).finish();
+        //And swap back
+        std::mem::swap(&mut tmp, self);
     }
 }
 
@@ -400,6 +430,16 @@ impl<'ctx, P: 'static> ComputePassBuilder<'ctx, P> {
     pub fn finish(self) -> GenericComputePass<P> {
         let ComputePassBuilder { task_setup, rmg: _ } = self;
         task_setup
+    }
+
+    ///Returns the internal resource register. Lets you register resources _anyways_.
+    ///
+    /// # Safety
+    ///
+    /// Does not check valid usage (like the other helpers do), so it _should_
+    /// be used only if you know what you are doing.
+    pub fn internal_register_mut(&mut self) -> &mut ResourceRegister {
+        &mut self.task_setup.storage
     }
 }
 

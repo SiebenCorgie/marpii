@@ -132,6 +132,40 @@ impl<P: Default + Clone + 'static> GenericRasterPass<P> {
             task_setup: self,
         }
     }
+
+    //Helper to create a temporary, empty copy of Self
+    fn init_empty(pipeline: OoS<RasterPipeline>) -> Self {
+        let color_attachment_count = pipeline.color_attachments.len();
+        GenericRasterPass {
+            pipeline,
+            push: PushConstant::new(P::default(), vk::ShaderStageFlags::ALL),
+            name: None,
+            color_attachments: smallvec::smallvec![None; color_attachment_count],
+            depth_attachment: None,
+            framebuffer_area: ImageRegion::ZERO,
+            storage: ResourceRegister::new(),
+            drawcalls: SmallVec::default(),
+        }
+    }
+
+    ///Reconfigures the pass _in-place_, i.e. contrary to [reconfigure](Self::reconfigure) it does not need
+    /// to move `self`.
+    ///
+    /// Only available if the push constant `P` implements `Default`.
+    pub fn reconfigure_in_place<'rmg>(
+        &mut self,
+        rmg: &'rmg mut Rmg,
+        keep_resources: bool,
+        reconfig: impl FnOnce(RasterPassBuilder<'rmg, P>) -> RasterPassBuilder<'rmg, P>,
+    ) -> Result<(), RmgError> {
+        let mut tmp: Self = Self::init_empty(self.pipeline.share());
+        std::mem::swap(&mut tmp, self);
+        //Call the inner
+        let mut tmp = reconfig(tmp.reconfigure(rmg, keep_resources)).finish()?;
+        //And swap back
+        std::mem::swap(&mut tmp, self);
+        Ok(())
+    }
 }
 
 impl<P: Default + Clone + 'static> Task for GenericRasterPass<P> {
@@ -633,7 +667,7 @@ impl Rmg {
     /// vertex-inputs (i.e. no vertex buffer is supplied to the draw command, only a index buffer). Everything else
     /// can be configured. When in doubt, use validation-layers as always.
     #[allow(clippy::too_many_arguments)]
-    pub fn new_raster_pipeline(
+    pub fn new_raster_pipeline<'a>(
         &self,
         vertex_entry_point: &str,
         vertex_shader: impl Into<OoS<ShaderModule>>,
@@ -641,7 +675,7 @@ impl Rmg {
         fragment_shader: impl Into<OoS<ShaderModule>>,
         color_attachment_formats: impl Into<SmallVec<[vk::Format; 4]>>,
         depth_attachment_format: Option<vk::Format>,
-        configure_pipeline: impl Fn(
+        configure_pipeline: impl FnOnce(
             vk::GraphicsPipelineCreateInfo<'_>,
         ) -> vk::GraphicsPipelineCreateInfo<'_>,
     ) -> Result<RasterPipeline, RmgError> {

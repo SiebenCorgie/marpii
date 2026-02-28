@@ -30,9 +30,9 @@ pub struct ResourceRegister {
 impl ResourceRegister {
     pub fn new() -> Self {
         ResourceRegister {
-            images: AHashMap::default(),
-            buffers: AHashMap::default(),
-            samplers: AHashSet::default(),
+            images: AHashMap::with_capacity(0),
+            buffers: AHashMap::with_capacity(0),
+            samplers: AHashSet::with_capacity(0),
         }
     }
 
