@@ -220,7 +220,7 @@ impl Buffer {
     ) -> Result<Self, DeviceError> {
         //TODO:  Do we need alignment padding? But usually we can start at 0 can't we?
         //FIXME: Check that out. Until now it worked... If it didn't also fix the upload helper passes.
-        let buffer_size = std::mem::size_of_val(data);
+        let buffer_size = std::mem::size_of::<T>() * data.len();
 
         //build the buffer description, as well as the staging buffer. Map data to staging buffer, then upload
         let desc = BufDesc {
@@ -241,6 +241,29 @@ impl Buffer {
         buffer
             .flush_range()
             .map_err(|e| DeviceError::GpuAllocatorError(Box::new(e)))?;
+
+        Ok(buffer)
+    }
+
+    ///A staging buffer is a host visible, mappable buffer. Those are usually used to either copy data (from them) to the GPU, or from the GPU back to
+    /// the staging buffer to read the data.
+    ///
+    /// This buffer is created to hold the given `size` of bytes.
+    pub fn new_staging_buffer<A: Allocator + Send + Sync + 'static>(
+        device: &Arc<Device>,
+        allocator: &Arc<Mutex<A>>,
+        name: Option<&str>,
+        size: u64,
+    ) -> Result<Self, DeviceError> {
+        //build the buffer description, as well as the staging buffer. Map data to staging buffer, then upload
+        let desc = BufDesc {
+            sharing: SharingMode::Exclusive,
+            size: size as DeviceSize,
+            usage: vk::BufferUsageFlags::TRANSFER_SRC | vk::BufferUsageFlags::TRANSFER_DST, //make sure copy works
+            ..Default::default()
+        };
+
+        let buffer = Buffer::new(device, allocator, desc, MemoryUsage::CpuToGpu, name)?;
 
         Ok(buffer)
     }
@@ -279,6 +302,15 @@ impl Buffer {
                 return Err(BufferMapError::OffsetTooLarge);
             }
 
+            #[cfg(feature = "logging")]
+            log::warn!(
+                "Offset({}) + Data-Size({})={} too big for buffer({}byte)",
+                byte_offset,
+                data.len(),
+                byte_offset + data.len(),
+                self.desc.size
+            );
+
             (self.desc.size as usize) - byte_offset
         } else {
             data.len()
@@ -295,7 +327,14 @@ impl Buffer {
             .as_slice_mut()
         {
             #[cfg(feature = "logging")]
-            log::trace!("writing to mapped buffer[{:?}] of size {} with offset={}, data_size={}, write_size={}", self.inner, self.desc.size, offset, data.len(), write_size);
+            log::trace!(
+                "writing to mapped buffer[{:?}] of size {} with offset={}, data_size={}, write_size={}",
+                self.inner,
+                self.desc.size,
+                offset,
+                data.len(),
+                write_size
+            );
 
             slice[offset..(offset + write_size)].copy_from_slice(&data[0..write_size]);
         } else {

@@ -89,7 +89,7 @@ impl GraphicsPipeline {
     /// are defined through the order in `color_formats` and `depth_format`.
     pub fn new_dynamic_pipeline(
         device: &Arc<Device>,
-        create_info: ash::vk::GraphicsPipelineCreateInfo,
+        create_info: ash::vk::GraphicsPipelineCreateInfo<'_>,
         layout: impl Into<OoS<PipelineLayout>>,
         shader_stages: &[ShaderStage],
         color_formats: &[vk::Format],
