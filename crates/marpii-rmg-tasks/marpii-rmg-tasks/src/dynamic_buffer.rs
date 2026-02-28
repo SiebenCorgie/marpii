@@ -37,14 +37,34 @@ impl<T: marpii::bytemuck::Pod> DynamicBuffer<T> {
             b.usage |= vk::BufferUsageFlags::TRANSFER_DST | vk::BufferUsageFlags::STORAGE_BUFFER
         }); //atleast transfer dst for this pass
 
-        let mappable_buffer =
-            Buffer::new_staging_for_data(&rmg.ctx.device, &rmg.ctx.allocator, None, initial_data)
+        assert!(
+            description.size >= (std::mem::size_of::<T>() * initial_data.len()) as u64,
+            "The supplied description (size={}) can not hold the initial data(size={})",
+            description.size,
+            (std::mem::size_of::<T>() * initial_data.len())
+        );
+
+        #[cfg(feature = "logging")]
+        log::trace!(
+            "Creating StagingBuffer & GpuBuffer of size={}",
+            description.size
+        );
+
+        let cpu_local =
+            Buffer::new_staging_buffer(&rmg.ctx.device, &rmg.ctx.allocator, None, description.size)
                 .map_err(|e| TaskError::Marpii(e.into()))?;
 
+        //Initialize data only if there actualy is some
+        if initial_data.len() > 0 {
+            let initial_bytes = bytemuck::cast_slice(initial_data);
+            cpu_local
+                .write(0, initial_bytes)
+                .map_err(|e| TaskError::Marpii(e.into()))?;
+        }
         let gpu_local = rmg.new_buffer_uninitialized(description, name)?;
 
         Ok(DynamicBuffer {
-            cpu_local: mappable_buffer,
+            cpu_local,
             gpu_local,
             has_changed: true,
         })
@@ -70,15 +90,25 @@ impl<T: marpii::bytemuck::Pod> DynamicBuffer<T> {
             return Err(BufferMapError::OffsetTooLarge);
         }
 
+        if ((size_of_element * data.len()) + (offset_elements * size_of_element))
+            > self.cpu_local.desc.size as usize
+        {
+            return Err(BufferMapError::OffsetTooLarge);
+        }
+
         #[cfg(feature = "logging")]
         log::trace!(
-            "Write to staging buffer {:?}@{}",
+            "Write to staging buffer {:?}(size={}byte) @{} ({} elements / {}byte)",
             self.cpu_local.inner,
-            offset_elements
+            self.cpu_local.desc.size,
+            offset_elements,
+            data.len(),
+            size_of_element * data.len()
         );
 
         self.has_changed = true;
         let data = bytemuck::cast_slice(data);
+
         self.cpu_local
             .write(size_of_element * offset_elements, data)?;
 
@@ -87,6 +117,12 @@ impl<T: marpii::bytemuck::Pod> DynamicBuffer<T> {
 
     ///Returns the buffer handle to the device local, dynamically updated buffer
     pub fn buffer_handle(&self) -> &BufferHandle<T> {
+        assert!(
+            self.cpu_local.desc.size >= self.gpu_local.size(),
+            "CPU(size={}) and GPU(size={}) buffers don't match...",
+            self.cpu_local.desc.size,
+            self.gpu_local.size()
+        );
         &self.gpu_local
     }
 }
