@@ -74,6 +74,20 @@ impl ResourceHandle {
         Self::new_unchecked(ty, index)
     }
 
+    ///Returns the raw 32-bit value of this handle
+    pub const fn raw(&self) -> u32 {
+        self.0
+    }
+
+    ///Constructs the handle from its raw representation
+    ///
+    /// # Safety
+    ///
+    /// Does not check whether this handle is valid. Therefore, you'll have to check that yourself, for instance via [is_valid](Self::is_valid).
+    pub const fn from_raw_unchecked(raw: u32) -> Self {
+        Self(raw)
+    }
+
     ///Returns true if the descriptor owns an index into the descriptor set for type `ty`.
     pub fn contains_type(&self, ty: u8) -> bool {
         //NOTE: using one bit per type, so this would be 0 if `ty`'s bit isn't set in the
@@ -142,7 +156,7 @@ mod tests {
     #[cfg(feature = "marpii")]
     #[test]
     fn resource_handle_access() {
-        use super::{vk, ResourceHandle};
+        use super::{ResourceHandle, vk};
         let sa_img = ResourceHandle::new_from_desc_ty(vk::DescriptorType::SAMPLED_IMAGE, 42);
         let st_img = ResourceHandle::new_from_desc_ty(vk::DescriptorType::STORAGE_IMAGE, 43);
         let st_buf = ResourceHandle::new_from_desc_ty(vk::DescriptorType::STORAGE_BUFFER, 44);
