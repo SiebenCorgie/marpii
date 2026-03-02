@@ -5,19 +5,13 @@ members = [
     "crates/marpii-descriptor",
     "crates/marpii-rmg",
     "crates/marpii-rmg-shared",
-    "crates/marpii-rmg-tasks/marpii-rmg-tasks",
-    "crates/marpii-rmg-tasks/marpii-rmg-task-shader",
-    "crates/marpii-rmg-tasks/marpii-rmg-task-shared",
 
     "examples/hello_triangle",
     "examples/custom_context",
-    "examples/rmg_rendering",
-    "examples/shared",
-    "examples/egui",
-    "examples/custom-rmg-widget",
-    "crates/iced-marpii",
-    "crates/iced-marpii/shaders/iced-marpii-shared",
-    "crates/iced-marpii/examples/canvas",
+    #"examples/custom-rmg-widget"
+    #"crates/iced-marpii",
+    #"crates/iced-marpii/shaders/iced-marpii-shared",
+    #"crates/iced-marpii/examples/canvas",
 ]
 exclude = [
     "crates/iced-marpii/shaders/shader-quad",
@@ -36,11 +30,8 @@ marpii-commands = { path = "crates/marpii-commands" }
 marpii-descriptor = { path = "crates/marpii-descriptor" }
 marpii-rmg = { path = "crates/marpii-rmg" }
 marpii-rmg-shared = { path = "crates/marpii-rmg-shared" }
-marpii-rmg-tasks = { path = "crates/marpii-rmg-tasks/marpii-rmg-tasks" }
-marpii-rmg-task-shader = { path = "crates/marpii-rmg-tasks/marpii-rmg-shader" }
-marpii-rmg-task-shared = { path = "crates/marpii-rmg-tasks/marpii-rmg-task-shared" }
 marpii-wgpu = { path = "crates/marpii-wgpu" }
-iced-marpii = { path = "crates/iced-marpii" }
+#iced-marpii = { path = "crates/iced-marpii" }
 
 iced = { version = "0.14", default-features = false }
 iced_core = { version = "0.14", default-features = false }
