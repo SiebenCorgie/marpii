@@ -14,10 +14,10 @@ default = ["logging"]
 # if enabled, uses the log crate for messages.
 logging = ["log"]
 # if enabled, allows creating images directly from a path.
-image_loading = ["image"]
+image_loading = ["dep:image"]
 
 [dependencies]
 marpii.workspace = true
 log = { workspace = true, optional = true }
-image = { workspace = true, optional = true }
 smallvec.workspace = true
+image = {version = "0.25", optional = true}

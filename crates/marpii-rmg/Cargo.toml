@@ -36,7 +36,7 @@ marpii-descriptor.workspace = true
 marpii-rmg-shared = { workspace = true, features = ["std"] }
 winit.workspace = true
 log = { workspace = true, optional = true }
-graphviz-rust = { workspace = true, optional = true }
+graphviz-rust = { version = "0.9.6", optional = true }
 
 [dev-dependencies]
 static_assertions = { version = "1.1.0" }
