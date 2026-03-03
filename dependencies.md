@@ -37,13 +37,3 @@
 - log: logging if enabled
 
 ### Iced-Marpii
-
-- marpii
-- marpii-rmg
-- iced 0.14 (core & graphics)
-- lyon: for handling tesselation of _shapes_ in the geometry renderer extension
-- log
-- ahash
-- cosmic-text: rust-only text-shaping and rendering to glyph-atlas
-- etager: glyph-atlas-packing
-- lru: for caching

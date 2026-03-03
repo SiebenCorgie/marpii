@@ -2,9 +2,9 @@
 //! For each frame a compute shader is executed that writes to a swapchain image.
 
 use anyhow::Result;
+use marpii::OoS;
 use marpii::gpu_allocator::vulkan::Allocator;
 use marpii::resources::{CommandBufferAllocator, CommandPool, ComputePipeline, DescriptorPool};
-use marpii::OoS;
 use marpii::{
     ash::{
         self,
