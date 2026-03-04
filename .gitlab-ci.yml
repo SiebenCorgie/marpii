@@ -30,10 +30,10 @@ before_script:
 build:cargo:
   script:
     - rustc --version && cargo --version # Print version info for debugging
-    #- cargo build
+    - cargo build
 
 # Use cargo to test the project
 test:cargo:
   script:
     - rustc --version && cargo --version # Print version info for debugging
-    #- cargo test --workspace --verbose
+    - cargo test --workspace --verbose

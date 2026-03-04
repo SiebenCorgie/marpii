@@ -14,13 +14,13 @@
 
 use ahash::AHashMap;
 use marpii::{
+    DescriptorError, DeviceError, MarpiiError, OoS,
     ash::vk,
     context::Device,
     resources::{
         Buffer, DescriptorPool, DescriptorSet, DescriptorSetLayout, ImageView, PipelineLayout,
         Sampler,
     },
-    DescriptorError, DeviceError, MarpiiError, OoS,
 };
 use smallvec::SmallVec;
 use std::{collections::VecDeque, fmt::Debug, sync::Arc};
@@ -60,7 +60,10 @@ impl<T> SetManager<T> {
     fn allocate_handle(&mut self) -> Option<ResourceHandle> {
         if let Some(mut hdl) = self.free.pop_back() {
             //Possibly resettig shared usage
-            hdl = ResourceHandle::new(ResourceHandle::descriptor_type_to_u8(self.ty), hdl.index());
+            hdl = ResourceHandle::new(
+                ResourceHandle::descriptor_type_to_u8(self.ty),
+                hdl.index().try_into().unwrap(),
+            );
             #[cfg(feature = "logging")]
             log::trace!("Reusing handle {:?} for descty {:#?}", hdl, self.ty);
             Some(hdl)
@@ -105,19 +108,19 @@ impl<T> SetManager<T> {
             log::trace!(
                 "Found common free index: {} @ {} / {}",
                 reuse.1,
-                reuse.0 .0,
-                reuse.0 .1
+                reuse.0.0,
+                reuse.0.1
             );
             //remove both from free list
-            let this_hdl = self.free.remove(reuse.0 .0).unwrap();
-            let other_hdl = other.free.remove(reuse.0 .1).unwrap();
+            let this_hdl = self.free.remove(reuse.0.0).unwrap();
+            let other_hdl = other.free.remove(reuse.0.1).unwrap();
 
             assert!(this_hdl.index() == other_hdl.index());
 
             //build new common handle
             let hdl = ResourceHandle::new(
                 this_hdl.handle_type() | other_hdl.handle_type(),
-                this_hdl.index(),
+                this_hdl.index().try_into().unwrap(),
             );
             Some(hdl)
         } else {
@@ -290,7 +293,7 @@ impl<T> SetManager<T> {
         write_instruction = write_instruction
             .dst_set(self.descriptor_set.inner)
             .dst_binding(0)
-            .dst_array_element(hdl.index());
+            .dst_array_element(hdl.index().try_into().unwrap());
 
         assert!(write_instruction.descriptor_count == 1);
 
@@ -317,11 +320,15 @@ impl<T> SetManager<T> {
     fn unbind_handle(&mut self, hdl: ResourceHandle) -> Option<T> {
         if let Some(res) = self.stored.remove(&hdl) {
             self.free_handle(hdl); //free handle since we are safely removing
-                                   //TODO do we need to unsubscribe in the descriptor set?
+            //TODO do we need to unsubscribe in the descriptor set?
             Some(res)
         } else {
             #[cfg(feature = "logging")]
-            log::warn!("Tried to free handle {:?} in bindless descriptor set of type {:?}, but there was nothing stored at the given id.", hdl, self.ty);
+            log::warn!(
+                "Tried to free handle {:?} in bindless descriptor set of type {:?}, but there was nothing stored at the given id.",
+                hdl,
+                self.ty
+            );
 
             None
         }
@@ -429,7 +436,10 @@ impl Bindless {
             || features.shader_sampled_image_array_dynamic_indexing == 0
         {
             #[cfg(feature = "logging")]
-            log::error!("Some dynamic indexing features where not supported. Following was supported: {:#?}", features);
+            log::error!(
+                "Some dynamic indexing features where not supported. Following was supported: {:#?}",
+                features
+            );
             return Err(DeviceError::UnsupportedFeature(String::from(
                 "DynamicArrayDescriptorIndexing",
             )))?;

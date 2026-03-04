@@ -8,8 +8,5 @@ publish = false
 
 [dependencies]
 marpii = { workspace = true, features = ["logging"] }
-marpii-rmg.workspace = true
-marpii-rmg-tasks.workspace = true
-marpii-descriptor.workspace = true
 winit.workspace = true
 simple_logger.workspace = true

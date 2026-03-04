@@ -40,9 +40,9 @@ impl ResourceHandle {
     }
 
     ///Returns the index of this handle into its own descriptor.
-    pub const fn index(&self) -> u32 {
+    pub const fn index(&self) -> usize {
         //lowest byte is type, rest is index, therfore move 8bit, that should be it
-        self.0 >> 8
+        (self.0 >> 8) as usize
         /*
         let mut bytes = self.0.to_be_bytes();
         bytes[0] = 0;

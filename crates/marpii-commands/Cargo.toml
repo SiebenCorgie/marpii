@@ -1,6 +1,6 @@
 [package]
 name = "marpii-commands"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2024"
 authors = ["Tendsin Mende"]
 description = "Helpers related to data initialization in buffers and images as well as memory barrier creation."
@@ -14,10 +14,10 @@ default = ["logging"]
 # if enabled, uses the log crate for messages.
 logging = ["log"]
 # if enabled, allows creating images directly from a path.
-image_loading = ["image"]
+image_loading = ["dep:image"]
 
 [dependencies]
 marpii.workspace = true
 log = { workspace = true, optional = true }
-image = { workspace = true, optional = true }
 smallvec.workspace = true
+image = {version = "0.25", optional = true}
