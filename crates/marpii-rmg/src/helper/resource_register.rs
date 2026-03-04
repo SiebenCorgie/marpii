@@ -99,7 +99,13 @@ impl ResourceRegister {
     ///Registers all resources in `self` with `registry`
     pub fn register_all(&self, registry: &mut ResourceRegistry) {
         for (buffer, BufferState { stage, access }) in &self.buffers {
-            registry.request_buffer(buffer, *stage, *access).unwrap();
+            if let Err(e) = registry.request_buffer(buffer, *stage, *access) {
+                log::error!(
+                    "Could not register Buffer[{:?}]: {e}, the buffer probably does not suport its usage...",
+                    buffer.key
+                );
+                debug_assert!(false, "Register error!");
+            }
         }
 
         for (
@@ -111,9 +117,13 @@ impl ResourceRegister {
             },
         ) in &self.images
         {
-            registry
-                .request_image(image, *stage, *access, *layout)
-                .unwrap();
+            if let Err(e) = registry.request_image(image, *stage, *access, *layout) {
+                log::error!(
+                    "Could not register Image[{:?}]: {e}, the image probably does not suport its usage...",
+                    image.key
+                );
+                debug_assert!(false, "Register error!");
+            }
         }
 
         for sampler in &self.samplers {
