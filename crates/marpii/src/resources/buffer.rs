@@ -385,7 +385,7 @@ impl Buffer {
 
         #[cfg(feature = "logging")]
         log::trace!(
-            "Flushing {:?} in range {}..{}={}",
+            "Flushing Buffer[{:?}] in range {}..{}={}",
             self.inner,
             range.offset,
             (range.offset + range.size),

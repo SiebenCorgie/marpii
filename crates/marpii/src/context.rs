@@ -48,7 +48,7 @@ mod debugger;
 pub use debugger::Debugger;
 
 #[allow(unused_imports)]
-use crate::{allocator::Allocator, error::DeviceError, surface::Surface, MarpiiError};
+use crate::{MarpiiError, allocator::Allocator, error::DeviceError, surface::Surface};
 
 #[allow(unused_imports)]
 use self::instance::ValidationFeatures;
@@ -217,9 +217,10 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
                 } else {
                     false
                 },
-                debug_settings: gpu_allocator::AllocatorDebugSettings {
-                    log_leaks_on_shutdown: true,
-                    ..Default::default()
+                debug_settings: {
+                    let mut settings = gpu_allocator::AllocatorDebugSettings::default();
+                    settings.log_leaks_on_shutdown = true;
+                    settings
                 },
                 device: device.inner.clone(),
                 instance: instance.inner.clone(),
@@ -340,9 +341,10 @@ impl Ctx<gpu_allocator::vulkan::Allocator> {
                 } else {
                     false
                 },
-                debug_settings: gpu_allocator::AllocatorDebugSettings {
-                    log_leaks_on_shutdown: true,
-                    ..Default::default()
+                debug_settings: {
+                    let mut settings = gpu_allocator::AllocatorDebugSettings::default();
+                    settings.log_leaks_on_shutdown = true;
+                    settings
                 },
                 device: device.inner.clone(),
                 instance: instance.inner.clone(),

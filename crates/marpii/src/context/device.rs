@@ -493,7 +493,11 @@ impl Device {
             .limits
             .non_coherent_atom_size;
         //NOTE second mod needed to not +atom_size if offset%atom_size==0
-        offset + ((atom_size - (offset % atom_size)) % atom_size)
+        if (offset % atom_size) == 0 {
+            offset
+        } else {
+            offset + ((atom_size - (offset % atom_size)) % atom_size)
+        }
     }
 }
 
