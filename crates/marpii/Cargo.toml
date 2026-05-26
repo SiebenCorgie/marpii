@@ -20,7 +20,7 @@ default_allocator = ["gpu-allocator"]
 logging = ["log"]
 # if enabled, uses puffin to create a runtime profile
 profiling = ["puffin"]
-#if active, notifies the default allocator to activate buffer-device-address
+# if active, notifies the default allocator to activate buffer-device-address
 # features
 buffer_device_address = []
 
@@ -40,7 +40,7 @@ ahash.workspace = true
 smallvec.workspace = true
 oos.workspace = true
 
-gpu-allocator = {version = "0.28.0", optional = true}
+gpu-allocator = {version = "0.28.0", optional = true, default-featuers = false, features = ["vulkan"]}
 log = { workspace = true, optional = true }
 puffin = { workspace = true, optional = true }
 rspirv-reflect = { workspace = true, optional = true }
