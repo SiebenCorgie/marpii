@@ -4,10 +4,10 @@ use std::{
 };
 
 use marpii::{
+    CommandBufferError,
     ash::{self, vk},
     swapchain::{Swapchain, SwapchainImage},
     sync::BinarySemaphore,
-    CommandBufferError,
 };
 use marpii::{
     context::{Device, Queue},
@@ -223,10 +223,12 @@ impl ManagedCommands {
         signal_semaphores: &[(Arc<Semaphore>, u64)],
         wait_semaphores: &[(Arc<Semaphore>, ash::vk::PipelineStageFlags2, u64)],
     ) -> Result<(), CommandBufferError> {
-        assert!(queue
-            .properties
-            .queue_flags
-            .contains(vk::QueueFlags::GRAPHICS));
+        assert!(
+            queue
+                .properties
+                .queue_flags
+                .contains(vk::QueueFlags::GRAPHICS)
+        );
 
         //Submit
         self.inner_submit(
@@ -234,7 +236,7 @@ impl ManagedCommands {
             queue,
             signal_semaphores,
             wait_semaphores,
-            std::slice::from_ref(&image.sem_present),
+            std::slice::from_ref(&image.submit_semaphore),
             &[(
                 image.sem_acquire.clone(),
                 vk::PipelineStageFlags2::ALL_COMMANDS,
@@ -375,7 +377,10 @@ impl<'a> Drop for Recorder<'a> {
                     .end_command_buffer(self.buffer.inner.inner)
             } {
                 #[cfg(feature = "logging")]
-                log::error!("Failed to end recording of command buffer in Recorder's drop implementation: {}", e);
+                log::error!(
+                    "Failed to end recording of command buffer in Recorder's drop implementation: {}",
+                    e
+                );
             }
         }
     }

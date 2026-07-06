@@ -1,15 +1,15 @@
 use crate::{
-    resources::{
-        res_states::{AnyResKey, BufferKey, ImageKey, SamplerKey},
-        Resources,
-    },
     BufferHandle, CtxRmg, ImageHandle, RecordError, Recorder, ResourceError, Rmg, SamplerHandle,
+    resources::{
+        Resources,
+        res_states::{AnyResKey, BufferKey, ImageKey, SamplerKey},
+    },
 };
 use ahash::{AHashMap, AHashSet};
 use marpii::{
     ash::vk::{self, ImageLayout},
     context::Device,
-    sync::BinarySemaphore,
+    sync::{BinarySemaphore, Semaphore},
 };
 use marpii_commands::BarrierBuilder;
 use std::{any::Any, sync::Arc};
@@ -19,6 +19,7 @@ pub struct ResourceRegistry {
     buffers: AHashMap<BufferKey, (vk::PipelineStageFlags2, vk::AccessFlags2)>,
     sampler: AHashSet<SamplerKey>,
 
+    signal_sem: Vec<(u64, Arc<Semaphore>)>,
     binary_signal_sem: Vec<Arc<BinarySemaphore>>,
     binary_wait_sem: Vec<Arc<BinarySemaphore>>,
     ///Collects all resources handle used in the registry
@@ -38,8 +39,9 @@ impl ResourceRegistry {
             images: AHashMap::new(),
             buffers: AHashMap::new(),
             sampler: AHashSet::new(),
-            binary_signal_sem: Vec::new(),
-            binary_wait_sem: Vec::new(),
+            signal_sem: Vec::with_capacity(0),
+            binary_signal_sem: Vec::with_capacity(0),
+            binary_wait_sem: Vec::with_capacity(0),
             resource_collection: Vec::new(),
         }
     }
@@ -191,6 +193,12 @@ impl ResourceRegistry {
         self.resource_collection.push(Box::new(asset));
     }
 
+    ///Registers that this foreign semaphore must be signalled after execution with this value. Needed for swapchain stuff.
+    pub fn register_signal_semaphore(&mut self, value: u64, semaphore: Arc<Semaphore>) {
+        self.signal_sem.push((value, semaphore.clone()));
+        self.resource_collection.push(Box::new(semaphore));
+    }
+
     ///Registers that this foreign semaphore must be signalled after execution. Needed for swapchain stuff.
     pub fn register_binary_signal_semaphore(&mut self, semaphore: Arc<BinarySemaphore>) {
         self.binary_signal_sem.push(semaphore.clone());
@@ -209,6 +217,25 @@ impl ResourceRegistry {
             .map(|img| AnyResKey::Image(*img))
             .chain(self.buffers.keys().map(|buf| AnyResKey::Buffer(*buf)))
             .chain(self.sampler.iter().map(|sam| AnyResKey::Sampler(*sam)))
+    }
+
+    /// Appends all foreign binary semaphores. Mostly used to integrate swapchains.
+    pub(crate) fn append_signal_semaphores(&self, infos: &mut Vec<vk::SemaphoreSubmitInfo<'_>>) {
+        for (value, sem) in self.signal_sem.iter() {
+            #[cfg(feature = "logging")]
+            log::trace!(
+                "Registering foreign semaphore {:?} with {}",
+                sem.inner,
+                value
+            );
+
+            infos.push(
+                vk::SemaphoreSubmitInfo::default()
+                    .semaphore(sem.inner)
+                    .value(*value)
+                    .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS),
+            );
+        }
     }
 
     /// Appends all foreign binary semaphores. Mostly used to integrate swapchains.

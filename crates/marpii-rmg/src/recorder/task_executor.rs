@@ -7,13 +7,13 @@ use marpii_commands::BarrierBuilder;
 use std::any::Any;
 
 use crate::{
+    RecordError, Rmg,
     recorder::task_scheduler::DepPart,
     resources::res_states::{AnyResKey, QueueOwnership},
     track::{Guard, TrackId},
-    RecordError, Rmg,
 };
 
-use super::{task_scheduler::TaskSchedule, Execution};
+use super::{Execution, task_scheduler::TaskSchedule};
 
 #[cfg(feature = "debug_marker")]
 use std::ffi::CString;
@@ -705,7 +705,12 @@ impl<'t> Executor<'t> {
                                     dst_family,
                                 } => {
                                     #[cfg(feature = "logging")]
-                                    log::error!("Buffer {:?} was already released {} -> {}, can not add release",  buf, src_family, dst_family);
+                                    log::error!(
+                                        "Buffer {:?} was already released {} -> {}, can not add release",
+                                        buf,
+                                        src_family,
+                                        dst_family
+                                    );
                                     return Err(RecordError::AlreadyReleased(buf.into()));
                                 }
                                 QueueOwnership::Uninitialized => {
@@ -715,7 +720,13 @@ impl<'t> Executor<'t> {
                                     return Err(RecordError::ReleaseUninitialised(buf.into()));
                                 }
                                 QueueOwnership::Owned(owner) => {
-                                    debug_assert!(owner == src_family, "Adding release for buffer {:?} on family {}, buf was owned by {}", buf, src_family, owner);
+                                    debug_assert!(
+                                        owner == src_family,
+                                        "Adding release for buffer {:?} on family {}, buf was owned by {}",
+                                        buf,
+                                        src_family,
+                                        owner
+                                    );
                                     #[cfg(feature = "logging")]
                                     log::trace!(
                                         "Releasing Buffer {:?} {:#?} -> {:#?} !",
@@ -746,7 +757,12 @@ impl<'t> Executor<'t> {
                                     dst_family,
                                 } => {
                                     #[cfg(feature = "logging")]
-                                    log::error!("Image {:?} was already released {} -> {}, can not add release",  img, src_family, dst_family);
+                                    log::error!(
+                                        "Image {:?} was already released {} -> {}, can not add release",
+                                        img,
+                                        src_family,
+                                        dst_family
+                                    );
                                     return Err(RecordError::AlreadyReleased(img.into()));
                                 }
                                 QueueOwnership::Uninitialized => {
@@ -756,7 +772,13 @@ impl<'t> Executor<'t> {
                                     return Err(RecordError::ReleaseUninitialised(img.into()));
                                 }
                                 QueueOwnership::Owned(owner) => {
-                                    debug_assert!(owner == src_family, "Adding release for image {:?} on family {}, buf was owned by {}", img, src_family, owner);
+                                    debug_assert!(
+                                        owner == src_family,
+                                        "Adding release for image {:?} on family {}, buf was owned by {}",
+                                        img,
+                                        src_family,
+                                        owner
+                                    );
                                     #[cfg(feature = "logging")]
                                     log::trace!(
                                         "Releasing Image {:?} {:#?} -> {:#?} !",
@@ -879,10 +901,12 @@ impl<'t> Executor<'t> {
             trackid.0,
             exec_guard.wait_value()
         );
-        let mut signal_semaphore = vec![vk::SemaphoreSubmitInfo::default()
-            .semaphore(rmg.tracks.0.get(exec_guard.as_ref()).unwrap().sem.inner)
-            .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
-            .value(exec_guard.wait_value())];
+        let mut signal_semaphore = vec![
+            vk::SemaphoreSubmitInfo::default()
+                .semaphore(rmg.tracks.0.get(exec_guard.as_ref()).unwrap().sem.inner)
+                .stage_mask(vk::PipelineStageFlags2::ALL_COMMANDS)
+                .value(exec_guard.wait_value()),
+        ];
 
         //prepare the used_resource collection.
         let num_res = self.schedule.tracks.get(&trackid).unwrap().frames[frame_index]
@@ -1064,6 +1088,12 @@ impl<'t> Executor<'t> {
             let track = self.schedule.tracks.get_mut(&trackid).unwrap();
             for node_idx in track.frames[frame_index].iter_indices() {
                 //allow the task to add a foreign semaphore, if there is any.
+
+                track.nodes[node_idx]
+                    .task
+                    .registry
+                    .append_signal_semaphores(&mut signal_semaphore);
+
                 track.nodes[node_idx]
                     .task
                     .registry
