@@ -139,13 +139,11 @@ impl SwapchainBuilder {
             .map(|_| Arc::new(BinarySemaphore::new(&self.device).unwrap()))
             .collect();
 
-        let frame_semaphores = (0..self.frames_in_flight.into())
-            .map(|_| (0, Semaphore::new(&self.device, 0).unwrap()))
-            .collect();
-
         let render_finished_semaphore = (0..image_count)
             .map(|_| Arc::new(BinarySemaphore::new(&self.device).unwrap()))
             .collect();
+
+        let frame_semaphore = (0, Semaphore::new(&self.device, 0).unwrap());
 
         //Update recreate info with the stuff we currently use.
 
@@ -162,7 +160,7 @@ impl SwapchainBuilder {
             acquire_semaphore,
             render_finished_semaphore,
             frame_in_flight_count: self.frames_in_flight,
-            frame_semaphores,
+            frame_semaphore,
             next_semaphore: 0,
             loader: swapchain_loader,
             swapchain,
@@ -357,7 +355,7 @@ pub struct SwapchainImage {
     ///
     /// Note that this is **NOT** a TimelineSemaphore. Therefor giving it any value when submitting to a queue won't have
     /// any effect.
-    pub sem_present: Arc<BinarySemaphore>,
+    pub submit_semaphore: Arc<BinarySemaphore>,
     ///The semaphore that should be submitted to a queue whenever the image is used, with the given value.
     pub frame_render_sync: (u64, Arc<Semaphore>),
     pub is_suboptimal: bool,
@@ -385,7 +383,7 @@ pub struct Swapchain {
     acquire_semaphore: Vec<Arc<BinarySemaphore>>,
     //The fences used to wait for the last persent operation to finsh, before submitting the frame once again.
     // Tracks the _last_ signal value. I.e the value you can wait on, in order to safely continue.
-    frame_semaphores: Vec<(u64, Arc<Semaphore>)>,
+    frame_semaphore: (u64, Arc<Semaphore>),
     render_finished_semaphore: Vec<Arc<BinarySemaphore>>,
     ///present_finished semaphores
     next_semaphore: usize,
@@ -449,16 +447,22 @@ impl Swapchain {
     /// a semaphore to be signalled when finished presenting is included in that image.
     pub fn acquire_next_image(&mut self, timeout: Duration) -> Result<SwapchainImage, DeviceError> {
         //find right semaphores
-        let acquire_semaphore = self.acquire_semaphore[self.next_semaphore].clone();
-        let (wait_for_value, frame_render_sync) =
-            self.frame_semaphores[self.next_semaphore].clone();
+        let frame_index = self.next_semaphore;
+        let acquire_semaphore = self.acquire_semaphore[frame_index].clone();
 
-        //update the _wait-for_ value
-        self.frame_semaphores[self.next_semaphore].0 += 1;
+        let (wait_for_value, frame_render_sync) = self.frame_semaphore.clone();
+
+        //wait for the n-frames-in-flight value
+        let wait_value = wait_for_value
+            .checked_sub(self.frame_in_flight_count.get().into())
+            .unwrap_or(0);
 
         let timeout = timeout.as_nanos();
         //wait for the last frame on that sync object to finish
-        frame_render_sync.wait(wait_for_value, timeout.try_into().unwrap_or(u64::MAX))?;
+        frame_render_sync.wait(wait_value, timeout.try_into().unwrap_or(u64::MAX))?;
+
+        //update the _wait-for_ value
+        self.frame_semaphore.0 += 1;
 
         self.next_semaphore =
             (self.next_semaphore + 1) % (self.frame_in_flight_count.get() as usize);
@@ -471,7 +475,11 @@ impl Swapchain {
                 ash::vk::Fence::null(),
             )?
         };
-        let present_semaphore = self.render_finished_semaphore[index as usize].clone();
+
+        //TODO: go back to correct tracking, but somehow that ain't working
+        // I think we have to use the new framepacing stuff if possible.
+        //let submit_semaphore = self.render_finished_semaphore[index as usize].clone();
+        let submit_semaphore = Arc::new(BinarySemaphore::new(&self.device).unwrap());
 
         if is_suboptimal {
             #[cfg(feature = "logging")]
@@ -485,7 +493,7 @@ impl Swapchain {
             image,
             index,
             sem_acquire: acquire_semaphore,
-            sem_present: present_semaphore,
+            submit_semaphore,
             frame_render_sync: (wait_for_value + 1, frame_render_sync),
             is_suboptimal,
         })
@@ -553,13 +561,9 @@ impl Swapchain {
             .collect();
 
         //add semaphores if needed
-        while self.acquire_semaphore.len() < self.images.len() {
+        while self.acquire_semaphore.len() < (self.frame_in_flight_count.get() as usize) {
             self.acquire_semaphore
                 .push(Arc::new(BinarySemaphore::new(&device)?));
-        }
-
-        while self.frame_semaphores.len() < self.images.len() {
-            self.frame_semaphores.push((0, Semaphore::new(&device, 0)?));
         }
 
         while self.render_finished_semaphore.len() < self.images.len() {
@@ -584,7 +588,7 @@ impl Swapchain {
         let present_info = ash::vk::PresentInfoKHR::default()
             .swapchains(core::slice::from_ref(&self.swapchain))
             .image_indices(core::slice::from_ref(&image.index))
-            .wait_semaphores(core::slice::from_ref(&image.sem_present.inner));
+            .wait_semaphores(core::slice::from_ref(&image.submit_semaphore.inner));
 
         match unsafe { self.loader.queue_present(*queue, &present_info) } {
             Ok(b) => {
