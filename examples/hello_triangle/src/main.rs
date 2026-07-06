@@ -17,6 +17,7 @@ use marpii::{
 use marpii_commands::ManagedCommands;
 use marpii_descriptor::managed_descriptor::{Binding, ManagedDescriptorSet};
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use winit::event::{ElementState, KeyEvent};
 use winit::keyboard::{KeyCode, PhysicalKey};
 use winit::{
@@ -468,7 +469,7 @@ impl App {
         }
 
         //Get next image. Note that acquiring is handled by the swapchain itself
-        let swimage = match self.swapchain.acquire_next_image() {
+        let swimage = match self.swapchain.acquire_next_image(Duration::from_secs(1)) {
             Err(e) => {
                 println!("Failed to acquire new image: {e}!");
                 return;
@@ -488,6 +489,11 @@ impl App {
             .record(&self.ctx, &swimage)
             .unwrap();
 
+        let wait_tuple = (
+            swimage.frame_render_sync.1.clone(),
+            swimage.frame_render_sync.0,
+        );
+
         if let Err(e) = self.pass_data[swimage.index as usize]
             .command_buffer
             .submit_present(
@@ -495,7 +501,7 @@ impl App {
                 &self.ctx.device.queues[0],
                 swimage,
                 &self.swapchain,
-                &[],
+                &[wait_tuple],
                 &[],
             )
         {
